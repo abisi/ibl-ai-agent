@@ -40,7 +40,11 @@ whisker stimuli, randomly interleaved every 3 s, spout retracted — see
   within **10ms** of stimulus onset, in baseline or response window. This is
   an analysis-time choice, unrelated to the task's own 100ms acquisition-time
   artifact window (`ssl_behavioral_paradigm.md`) — the two are not meant to
-  be reconciled.
+  be reconciled. It also satisfies (and on the response side, exceeds) the
+  mandatory whisker-trial artifact dead zone in `ssl_artifact_dead_zone.md`
+  (-10ms/+5ms minimum); applying the same 10ms exclusion to auditory trials
+  here was this project's own design-symmetry choice, not a general
+  auditory-artifact requirement.
 - Response windows (compute both, in parallel): **10-50ms** and **10-30ms** post-stim-onset.
 - Baseline window: **-60 to -10ms** pre-stim-onset.
 - `response` (per unit, per modality, per pre/post-task period) = mean FR in

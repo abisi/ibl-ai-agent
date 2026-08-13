@@ -52,7 +52,11 @@ day-numbering conventions recur across projects, both scoped to stage 3:
   Filter these out explicitly when a question means whisker-learning day 0.
 
 ## Trial columns (`trials.parquet`, both ephys sources)
-- `trial_type`: `whisker_trial` / `auditory_trial` / `no_stim_trial`.
+- `trial_type`: `whisker_trial` / `auditory_trial` / `no_stim_trial`. **Before
+  computing any firing rate, PSTH, or spike-based metric around `start_time`
+  for `whisker_trial` rows, apply the mandatory dead-zone exclusion in
+  `ssl_artifact_dead_zone.md` (-10ms/+5ms around `start_time`, magnetic
+  stimulation artifact) — this is a correctness requirement, not optional.**
 - `lick_flag`: 1 if the mouse licked during the response window, else 0.
 - `context`: `active` / `passive` — use this, not `epochs.parquet` boundaries,
   when the two disagree (see `../../ssl-load/references/ssl_dataset_schema.md`).
