@@ -7,6 +7,7 @@ from ibl_ai_agent.commands.ask_commands import register as register_ask_commands
 from ibl_ai_agent.commands.maintenance_commands import register as register_maintenance_commands
 from ibl_ai_agent.commands.plan_commands import register as register_plan_commands
 from ibl_ai_agent.commands.report_commands import register as register_report_commands
+from ibl_ai_agent.commands.ssl_commands import register as register_ssl_commands
 
 app = typer.Typer(help="IBL agent CLI")
 access_app = typer.Typer(help="IBL ONE/Alyx access commands")
@@ -20,6 +21,7 @@ register_maintenance_commands(app)
 register_access_commands(access_app)
 register_plan_commands(plan_app)
 register_report_commands(app)
+register_ssl_commands(app)
 
 if __name__ == "__main__":
     app()
