@@ -18,13 +18,21 @@ scientist-facing workflow.
 - `skills/ibl-analyze/`: scientific metric semantics, caveats, and analysis
   patterns.
 - `skills/ibl-neuropixel/`: raw Neuropixels and SpikeGLX preprocessing guidance.
-- `skills/ibl-report/`: report-writing conventions.
+- `skills/ibl-report/`: report-writing conventions (dataset-agnostic; also used for SSL).
+- `skills/ssl-load/`: loading Axel Bisi's single-session-learning (SSL) whisker/auditory NWB-derived datasets — a separate, private, non-IBL dataset.
+- `skills/ssl-analyze/`: SSL task semantics and established analysis patterns (passive selectivity, reward-history modulation, TCA).
 - `skills/skill-maintenance/`: maintenance workflow for skill files.
 
 Default plain-question flow:
 
 ```text
 AGENTS.md -> exploration-confirmation -> ibl-access/ibl-load -> ibl-analyze -> ibl-report
+```
+
+SSL question flow:
+
+```text
+AGENTS.md -> exploration-confirmation -> ssl-load -> ssl-analyze -> ibl-report
 ```
 
 These skills define how Codex should interpret a question, choose data-loading

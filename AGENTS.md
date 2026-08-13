@@ -73,6 +73,14 @@ Raw Neuropixels or SpikeGLX preprocessing:
 - `skills/ibl-neuropixel/SKILL.md`
 - `skills/ibl-neuropixel/references/neuropixel_routing.md`
 
+Single-Session-Learning (SSL) question (Axel Bisi's whisker/auditory Go/NoGo cohort — a separate, private, non-IBL dataset):
+- `skills/ssl-load/SKILL.md`
+- `skills/ssl-load/references/ssl_dataset_schema.md`
+- `skills/ssl-load/references/ssl_loading_policy.md`
+- `skills/ssl-analyze/SKILL.md`
+- `skills/ssl-analyze/references/ssl_task_semantics.md`
+- `skills/ssl-analyze/references/ssl_analysis_patterns.md` when the question resembles a prior SSL project (passive selectivity, reward-history modulation, task-performance curves, TCA)
+
 Skill maintenance:
 - `skills/skill-maintenance/SKILL.md`
 
@@ -123,6 +131,14 @@ For BWM questions:
 - default to single-agent adversarial review before code and after code/results when feasible;
 - use subagents only when the user explicitly asks for subagents, delegation, parallel reviewers, or equivalent wording such as `use strategy review rounds with adversarial subagents`.
 
+## SSL Defaults
+
+For SSL (single-session-learning) questions:
+- resolve `ssl_ephys`/`ssl_ks2_ephys`/`ssl_behavior`/`ssl_ks2_behavior` roots the same way as BWM (`data_locations.local.yaml` / `IBL_AGENT_DATA_LOCATIONS` / repo default);
+- name the spike-sorting source (KS4 vs KS2) and the cohort/reward_group source (`wh_reward` field vs `joint_mouse_reference_weight.xlsx`) explicitly — see `skills/ssl-load/references/ssl_loading_policy.md`;
+- apply the cohort-corrected outcome definition, not the naive `lick_flag` reading, for any reward/hit-rate comparison across cohorts — see `skills/ssl-analyze/references/ssl_task_semantics.md`;
+- use mouse-block permutation or a mixed model with `(1|mouse)` for any unit-level test of a mouse-level factor;
+- treat SSL data as private/unpublished by default; do not offer public report publishing without explicit per-session user opt-in.
 
 ## Scope Boundaries
 

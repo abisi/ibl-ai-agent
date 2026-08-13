@@ -87,3 +87,20 @@ External sources used when drafting retained IBL skill references. Use this for 
 - https://github.com/int-brain-lab/ibl-neuropixel
 - https://github.com/int-brain-lab/ibl-neuropixel/blob/main/README.md
 - https://docs.internationalbrainlab.org/_autosummary/brainbox.io.spikeglx.html
+
+## ssl-load, ssl-analyze
+
+Not external URLs — SSL is a private, non-IBL dataset. Drafted directly from
+this repo's own dataset builder code and from completed SSL project reports,
+not from any published/external documentation:
+- `ibl_ai_agent/datasets/ssl_ephys.py`, `ssl_behavior.py`, `ssl_ks2_ephys.py`, `ssl_ks2_behavior.py` (schema, shard contracts).
+- `projects/ssl-ks2-dataset-description/report/report.qmd` (dataset-wide counts, KS4-vs-KS2 differences).
+- `projects/ssl-passive-sensory-selectivity/question.md` (passive selectivity method).
+- `projects/ssl-reward-history-modulation/question.md` (reward-history indices, PERMANOVA pseudoreplication fix).
+- `projects/ssl-ks2-single-mouse-tca/question.md` (TCA pipeline, circular-shift null).
+- `projects/ssl-task-performance/exploratory-analyses/000_active_task_performance.py` (naive outcome classification).
+- Task-design confirmation from Axel Bisi (the experimenter) directly, 2026-08-11.
+- `ssl_behavioral_paradigm.md` is transcribed directly from Axel Bisi's own
+  paper/thesis draft text (provided verbatim in-conversation, 2026-08-13) —
+  the primary/authoritative source for task design, superseding inference
+  from code/project reports where the two differ.
