@@ -29,6 +29,36 @@ when a new question deliberately deviates from one.
 Declare which scheme is in use before any area-level groupby; do not compare
 area labels produced by the two schemes as if they were the same grouping.
 
+## Output organization: day-stage x area-level (mandatory when relevant)
+**Always** organize saved results and figures into separate folders/files
+along both of these axes whenever more than one value of either is in play
+— never flatten everything into one directory once there's more than one
+day-stage and/or area-level in the same analysis:
+- **Day-stage**: `learning` (day==0) vs `expert` (day>0) results/figures go
+  in separate subfolders or clearly distinct filenames — never let a plain
+  filename implicitly mean "learning" while an expert-stage variant reuses
+  it, which invites either an accidental overwrite or, worse, silently
+  mixing the two stages' numbers together downstream.
+- **Area level**: when an analysis runs under more than one
+  area-parcellation scheme — this project's own three-level convention
+  (`whole_brain` / `area_group` / `area_acronym_custom`, from
+  `projects/ssl-whisker-hitmiss-timeresolved-decoding/`) or the Allen-custom
+  vs. Beryl schemes above — keep each scheme's outputs in its own
+  subfolder/filename component too, the same "do not mix" boundary as the
+  Area grouping section above, just applied to where results are saved, not
+  only to how they're computed.
+- **Both axes together**: nest as `figures/<area_level>/<day_stage>/...` —
+  already implemented and validated in
+  `projects/ssl-whisker-hitmiss-timeresolved-decoding/exploratory-analyses/032_plot_decode_results.py`'s
+  `fig_dir()` helper, which reads both the area-level and day-stage straight
+  off the result tag's own naming convention (e.g.
+  `hitmiss_stim_expert_whole_brain` → `whole_brain/expert/`) rather than
+  needing them passed in separately — reuse that pattern rather than
+  inventing a new one.
+- Applies **when relevant**: a single-area-level, single-day-stage analysis
+  has nothing to separate along these axes and does not need this structure
+  manufactured for it.
+
 ## Passive sensory responsiveness and modality selectivity
 From `ssl-passive-sensory-selectivity` (locked design, GLMM confirmatory —
 not an exploration/confirmation split; see that project's
@@ -42,7 +72,7 @@ whisker stimuli, randomly interleaved every 3 s, spout retracted — see
   artifact window (`ssl_behavioral_paradigm.md`) — the two are not meant to
   be reconciled. It also satisfies (and on the response side, exceeds) the
   mandatory whisker-trial artifact dead zone in `ssl_artifact_dead_zone.md`
-  (-10ms/+5ms minimum); applying the same 10ms exclusion to auditory trials
+  (-1ms/+4ms minimum); applying the same 10ms exclusion to auditory trials
   here was this project's own design-symmetry choice, not a general
   auditory-artifact requirement.
 - Response windows (compute both, in parallel): **10-50ms** and **10-30ms** post-stim-onset.
@@ -95,6 +125,36 @@ From `ssl-reward-history-modulation`.
   original result was pseudoreplication, not signal. Apply mouse-block (or
   equivalent subject-block) permutation to **any** unit-level test of a
   mouse-level factor, not just PERMANOVA.
+
+## Statistical unit of analysis by training stage
+See `ssl_task_semantics.md`'s Day / training-stage semantics section for full
+detail. Summary: for **learning** (`day==0`), `session_id` and `mouse_id` are
+the same grouping (one session per subject) — use either. For **expert**
+(`day>0`), use **`session_id`**, not `mouse_id` — a mouse contributing
+several expert sessions yields that many independent observations, not one.
+This is distinct from the PERMANOVA pseudoreplication trap below: if
+`reward_group`/cohort itself is the tested factor, it is still a mouse-level
+property and still needs mouse-block permutation (or a `(1|mouse)` term)
+regardless of whether the row grain is units or sessions.
+
+## R+ vs R- cohort comparison — required test pair
+When comparing `reward_group` R+ vs R- on any metric (behavioral or neural),
+run **both** of the following unpaired two-sample tests, not just one, and
+report both results together:
+- A **non-parametric unpaired test** (e.g. Mann-Whitney U / Wilcoxon
+  rank-sum).
+- A **parametric unpaired test** (e.g. Welch's or Student's t-test).
+(Axel Bisi, 2026-08-17.) Do not pick one test and drop the other, and do not
+report only the test that happens to be significant. If the two disagree,
+say so explicitly and note plausible reasons (distribution shape, outliers,
+small n) rather than silently reporting the more favorable result. This test
+pair operates at the R+/R- statistical unit chosen per the Statistical unit
+of analysis section above (`session_id` for expert, `session_id`/`mouse_id`
+for learning) — for units-as-row-grain comparisons, this test pair does not
+replace the mouse-block permutation requirement below; it is the
+row-level/aggregate test run at whichever unit is appropriate, alongside (not
+instead of) block-permutation when the row grain is finer than the cohort's
+own level.
 
 ## Task-performance curves
 From `ssl-task-performance`. Trial-by-trial hit-rate/false-alarm curves

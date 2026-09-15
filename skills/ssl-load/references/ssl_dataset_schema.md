@@ -9,9 +9,11 @@ the `ssl-ks2-dataset-description` project report (2026-08-06).
   `<subject>_<YYYYMMDD>_<HHMMSS>.nwb` (e.g. `AB116_20240724_102941.nwb`).
 - **Two distinct spike-sorting sources**, both built from largely-overlapping
   session sets but genuinely different unit tables for the same physical
-  session:
-  - `ssl_ephys` / `ssl_behavior`: source `M:\analysis\Axel_Bisi\NWB_ks4` (Kilosort4).
-  - `ssl_ks2_ephys` / `ssl_ks2_behavior`: source `M:\analysis\Axel_Bisi\NWB_combined` (Kilosort2/"combined").
+  session. **KS4 is the default SSL source (Axel Bisi, 2026-08-17); use KS2
+  only when a question explicitly requires it (e.g. reproducing a prior
+  KS2-based project or comparing sorters).**
+  - `ssl_ephys` / `ssl_behavior`: source `M:\analysis\Axel_Bisi\NWB_ks4` (Kilosort4) — **default**.
+  - `ssl_ks2_ephys` / `ssl_ks2_behavior`: source `M:\analysis\Axel_Bisi\NWB_combined` (Kilosort2/"combined") — non-default.
   - Verified example: session `AB080_20230622_152205` has 892 units in KS2 vs
     939 in KS4. KS2's units table is missing `Lratio`/`isolationDistance`/
     `maxDriftEstimate`/`cumDriftEstimate` (present in KS4) and adds
