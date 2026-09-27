@@ -79,6 +79,7 @@ Single-Session-Learning (SSL) question (Axel Bisi's whisker/auditory Go/NoGo coh
 - `skills/ssl-load/references/ssl_loading_policy.md`
 - `skills/ssl-analyze/SKILL.md`
 - `skills/ssl-analyze/references/ssl_task_semantics.md`
+- `skills/ssl-lick-alignment/SKILL.md` for any lick-aligned window or reaction time (stored `lick_time` is late by the artifact window)
 - `skills/ssl-analyze/references/ssl_analysis_patterns.md` when the question resembles a prior SSL project (passive selectivity, reward-history modulation, task-performance curves, TCA)
 
 Skill maintenance:
@@ -138,6 +139,7 @@ For SSL (single-session-learning) questions:
 - name the spike-sorting source (KS4 vs KS2) and the cohort/reward_group source (`wh_reward` field vs `joint_mouse_reference_weight.xlsx`) explicitly — see `skills/ssl-load/references/ssl_loading_policy.md`;
 - apply the cohort-corrected outcome definition, not the naive `lick_flag` reading, for any reward/hit-rate comparison across cohorts — see `skills/ssl-analyze/references/ssl_task_semantics.md`;
 - use mouse-block permutation or a mixed model with `(1|mouse)` for any unit-level test of a mouse-level factor;
+- apply the mandatory mouse-inclusion filters (`exclude==0`; plus `exclude_ephys==0` for neural analyses; drop `reward_group=='R+proba'` from R+/R- comparisons by default) from `joint_mouse_reference_weight.xlsx` before any analysis, and run every analysis under both population scopes (entire dataset and learners-only, `learning_category in {'good','moderate'}`), each split R+/R- separately — see `skills/ssl-analyze/references/ssl_task_semantics.md`'s Mandatory mouse-inclusion filters / Two population scopes sections;
 - treat SSL data as private/unpublished by default; do not offer public report publishing without explicit per-session user opt-in.
 
 ## Scope Boundaries
