@@ -33,7 +33,7 @@ AH, mean raw pre-lick rate per class, half duration.
 lambda clipped to [-1, 2] as in 057. Statistic: per session the change late - early (Δ). Learning day: R+ vs R- (MWU / Welch; mouse-level cohort permutation);
 expert: Δ vs 0 per cohort (Wilcoxon signed-rank and one-sample t); cohort x stage x half = learning x cohort interaction
 on Δ ([ΔE - ΔL](R+) - [ΔE - ΔL](R-), mouse-level cohort permutation). Populations: all mice and learners.
-Output: <OUTROOT>/within_session/
+Output: combined_results_ks4/_within_day<TAG>/halves/ (project ssl-within-day-remapping; was 072 in ssl-prelick-convergence)
 """
 import argparse
 import importlib
@@ -50,10 +50,11 @@ from scipy import stats
 
 warnings.filterwarnings("ignore")
 HERE = pathlib.Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
+CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"   # data loaders and pre-lick events (051, 057)
+sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m57 = importlib.import_module("057_roc_prelick_lambda")
-OUT = m51.OUTROOT / "within_session"
+OUT = m51.RES / f"_within_day{m51.TAG}" / "halves"
 UNIT_SET = ("good", "mua")
 MIN_UNITS, MIN_EVENTS, N_SUB, K_SHIFT, MIN_SHIFT, C_REG = 5, 4, 20, 40, 5, 0.05
 SPLITS = ["time", "oddeven"]
@@ -414,7 +415,7 @@ def main(a):
         out = OUT / pop; out.mkdir(exist_ok=True)
         T = tests(Dp); T.to_csv(out / "within_session_tests.csv", index=False)
         figures(Dp, T, out, pop)
-    json.dump(dict(script="072_within_session_halves.py", ref=m51.REF, n_sub=N_SUB, k_shift=K_SHIFT, min_events=MIN_EVENTS,
+    json.dump(dict(script="001_within_session_halves.py", ref=m51.REF, n_sub=N_SUB, k_shift=K_SHIFT, min_events=MIN_EVENTS,
                    splits=SPLITS, unit_set=UNIT_SET, min_fr=m51.MIN_FR, C=C_REG, n_sessions=int(D.session_id.nunique()),
                    runtime_min=round((time.time() - t0) / 60, 1)), open(OUT / "provenance.json", "w"), indent=1)
     print("ALL DONE", OUT, flush=True)

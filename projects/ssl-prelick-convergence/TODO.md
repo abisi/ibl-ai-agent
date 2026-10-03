@@ -15,7 +15,7 @@ Steps performed in `ssl-rastermap-psth-variants` (2026-09-29 → 2026-10-03) bef
 - [X] Split into this project; LOCKED.md (locked set, results, caveats, TODOs).
 
 Planned
-- [X] Within-session remapping (072, 2026-10-03; SL reference): halves split at the median auditory hit (equal AH per
+- [X] Within-session remapping (072, 2026-10-03; SL reference; moved to project ssl-within-day-remapping as 001): halves split at the median auditory hit (equal AH per
       half; session end trimmed by A1), count-matched subsamples (20), Δd / λ / components per half, whole-session CV
       decoder evaluated per half and cross-half decoder (train one half, read out the other), linear-shift chance,
       odd/even null split, controls (d(AH,SL), event rates, RT, raw rates). Output `_roc_prelick_sl/within_session/`
