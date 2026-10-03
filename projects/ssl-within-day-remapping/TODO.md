@@ -13,6 +13,10 @@
       Only 5 R− expert sessions (3 mice) pass 6 events per class per half.
 - [X] 003 with 4 events per class, both cohorts (`--n-fix 4`, output `_within_day_sl/epochs_n4/`): R− experts 7 sessions /
       5 mice (vs 5 / 3 with 6 events).
+- [X] 004 per-half first-lick PSTHs (spikes re-binned per session half, 051 events): `_within_day_sl/psth_halves/`.
+- [X] 005 COSYNE 5-panel summary "R− whisker-hit activity changes more within the learning day than within expert
+      sessions" (PSTHs per half, whisker-hit rate, trial-level WH − SL trajectory, per-half normalised distance,
+      |within-session change| day 0 vs expert): `_within_day_sl/cosyne/COSYNE_within_day.{png,pdf,svg}` + stats csv.
 - [ ] Robustness splits for 001: session midpoint (trial index) and median whisker hit.
 - [ ] Drift control: all classes drift up the SL → AH axis within sessions (all groups); model the drift explicitly
       (e.g. regress WH on time with SL-trial scores as a time-varying reference).
