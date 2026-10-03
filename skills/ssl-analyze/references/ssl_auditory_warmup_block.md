@@ -20,13 +20,25 @@ after this warm-up does the session introduce `whisker_trial`s and become
 the mixed-modality/whisker-learning epoch an analysis is normally asking
 about.
 
-**Concretely**: for any analysis of a whisker-training session's `active`
-trials (hit/miss decoding, modality decoding, performance-state analysis,
-trial-order/behavioral analyses, or any other per-trial statistic), find
-that session's **first active `whisker_trial`** in chronological order and
-drop every active trial before it. Apply this **in addition to**, not
-instead of, the existing `context=='active'` filter — it is a further trim
-on top of that, not a replacement for it.
+**Concretely** (rule updated 2026-09-28, Axel Bisi): for any analysis of a
+whisker-training session's `active` trials (hit/miss decoding, modality
+decoding, performance-state analysis, trial-order/behavioral analyses, or any
+other per-trial statistic), find that session's **first active
+`whisker_trial`** in chronological order and drop every active trial before
+it **except the one immediately preceding it**:
+
+- **Never remove the first whisker trial.**
+- **Always keep exactly 1 trial before the first whisker trial** (the last
+  warm-up trial). If the session's first active trial is already a whisker
+  trial, there is nothing before it and nothing is removed.
+- Compute any t-1 / trial-history column (`t1_rewarded`, run index, ...) on
+  the full active sequence **before** the cut, so both kept boundary trials
+  have a real t-1. Do not add any other "drop the first trial" step; an
+  analysis that needs a t-1 value drops its own NaN-t1 rows (only possible
+  for a session's very first active trial).
+
+Apply this **in addition to**, not instead of, the existing
+`context=='active'` filter.
 
 ## Why this matters (discovered 2026-09-14)
 A whisker/auditory **modality** decoder trained on the raw (untrimmed)
@@ -68,26 +80,32 @@ and before any `rewarded`/`t1_rewarded`/`run_index` derived column is
 computed (so those reflect the true post-warm-up sequence too, not reaching
 back into the warm-up block for "trial -1" context at the boundary).
 
-Note this fix only changes behavior for analyses that keep **both**
-`whisker_trial` and `auditory_trial` rows together (modality decoding,
-lick-aligned modality decoding) — `prep_hitmiss_trials` and
-`prep_perfstate_trials_generic` immediately filter to `whisker_trial` rows
-only, and recompute their own chronological `half`/`block_id` **after**
-that filter, so a preceding all-auditory block (which by definition
-contains zero whisker trials) was never counted into their own
-whisker-only sequence or its median/block split in the first place — those
-two targets' existing results are unaffected by this fix and do not need
-to be rerun on this basis alone.
+**Correction (2026-09-28)**: the 2026-09-14 implementation cut the sequence
+AT the first whisker trial and then applied a blanket "drop the first trial
+(no t-1)", which removed the first whisker trial itself (76/88 learning
+sessions). Whisker-only analyses (`prep_hitmiss_trials`, hit/miss decoding)
+WERE therefore affected, contrary to what this file previously stated; and
+before 2026-09-14 the same blanket drop removed the first whisker trial in
+every session without a warm-up block. Results computed with either version
+lack a whisker trial in those sessions and must be rerun (see the project
+change logs for which were).
+
+Exception: `_active_trials_from_whisker_onset_for_curve` (learning-curve
+based performance states) starts at the first whisker trial to stay
+positionally aligned with the stored learning-curve files; it keeps the
+first whisker trial but not the preceding trial.
 
 ## Quality gates
+- Reject any analysis whose trial set lacks the session's first active
+  `whisker_trial`, or that keeps more (or, when one exists, fewer) than 1
+  trial before it.
 - Reject any modality-decoding (or other mixed-trial-type) analysis of a
-  whisker-training session's active trials that does not first drop trials
-  preceding that session's first active `whisker_trial`.
+  whisker-training session's active trials that keeps the warm-up block
+  (more than the 1 trial immediately preceding the first whisker trial).
 - Reject treating a pre-stimulus/baseline-period above-chance modality
   decoding result as a real anticipatory signal without first checking
   whether the warm-up-block trim was applied — see "Why this matters" above
   for the exact confound mechanism.
-- Do not apply this trim's rationale to `prep_hitmiss_trials`/
-  `prep_perfstate_trials_generic` results as if they needed rerunning too —
-  they filter to whisker-only trials before any chronological split, so a
-  preceding all-auditory block cannot have entered their computation.
+- Do not trust whisker-only results computed with `prep_session` between
+  2026-09-14 and 2026-09-28 (or before 2026-09-14 for sessions without a
+  warm-up block) without checking the first whisker trial is present.

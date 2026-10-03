@@ -80,6 +80,8 @@ Single-Session-Learning (SSL) question (Axel Bisi's whisker/auditory Go/NoGo coh
 - `skills/ssl-analyze/SKILL.md`
 - `skills/ssl-analyze/references/ssl_task_semantics.md`
 - `skills/ssl-lick-alignment/SKILL.md` for any lick-aligned window or reaction time (stored `lick_time` is late by the artifact window)
+- `skills/ssl-trial-exclusion/SKILL.md` whenever selecting trials (perf == 6 always excluded except passive, warm-up block, A1 disengagement)
+- `skills/ssl-valid-data/references/ssl_dataset_inclusion.md` before any mouse / session inclusion decision (mouse-level cohort from the reference sheet, `recording` gates day 0 only, known metadata errors, current unit-table version); record every new dataset decision there
 - `skills/ssl-analyze/references/ssl_analysis_patterns.md` when the question resembles a prior SSL project (passive selectivity, reward-history modulation, task-performance curves, TCA)
 
 Skill maintenance:

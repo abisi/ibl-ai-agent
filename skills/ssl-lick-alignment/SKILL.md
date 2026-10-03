@@ -45,7 +45,8 @@ trials["first_lick_time"] = trials["start_time"] + trials["reaction_time"]      
 - Rastermap feature building (`unit_spikes_analysis/rastermap_psth/rastermap_utils.precompute_event_map`):
   - config flag `correct_lick_time` (default `True` since 2026-09-27; `False` reproduces old runs);
   - every `rastermap_variants/*` run built before that except `*__lickfix` has its "Whisker/Auditory hit (lick)" conditions shifted by +1 artifact window.
-- Uses the stored `lick_time` and needs updating before reuse: `scripts/ssl_timeresolved_decoding.py`, plus lick-aligned scripts in `projects/ssl-whisker-hitmiss-timeresolved-decoding`, `ssl-cross-area-communication`, `ssl-burstiness-cohort-comparison` and `ssl-task-performance` (`rg lick_time projects scripts`).
+- Time-resolved decoding (`scripts/ssl_timeresolved_decoding.py`, `projects/ssl-whisker-hitmiss-timeresolved-decoding` 024-042): updated 2026-09-27 (`add_first_lick_time`, `SSL_CORRECT_LICK_TIME=0` reproduces old runs; results before that are `*.bak-prelickfix-20260927`; pilot scripts 007-014 not updated).
+- Uses the stored `lick_time` and needs updating before reuse: lick-aligned scripts in `ssl-cross-area-communication`, `ssl-burstiness-cohort-comparison` and `ssl-task-performance` (`rg lick_time projects scripts`).
 
 ## Quality gate
 - Every lick-aligned result or RT states the lick definition used (`first_lick_time` corrected vs stored `lick_time`). Any mixing of trial and piezo clocks must be stated.
