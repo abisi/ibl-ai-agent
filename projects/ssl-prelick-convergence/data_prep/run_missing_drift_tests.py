@@ -11,6 +11,7 @@ usage: python run_missing_drift_tests.py [--mice MH020 ...] [--dry-run] [--n-wor
 import argparse
 import os
 import pathlib
+import time
 import sys
 
 import pandas as pd
@@ -36,6 +37,19 @@ def main(a):
     trial_table, unit_table, _ = data_utils.combine_ephys_nwb(nwbs, day_to_analyze="all", max_workers=a.n_workers)
     unit_table["session_day"] = unit_table["behaviour"].astype(str) + "_" + unit_table["day"].astype(int).astype(str)
     keys = unit_table[["mouse_id", "session_id", "session_day"]].drop_duplicates()
+    # result files written with a wrong day label (bug in run_motion_shift_test_analysis before 2026-10-03: one
+    # session_day for the whole table) are moved aside: a file is valid only if it holds exactly its folder's session
+    expected = {(r.mouse_id, r.session_day): r.session_id for r in keys.itertuples()}
+    stamp = time.strftime("%Y%m%d")
+    for m in keys.mouse_id.unique():
+        for f in sorted((RES / m).glob("*/single_neuron_motion_shift_test/*_motion_shift_test_results.csv")):
+            sd = f.parent.parent.name
+            held = set(pd.read_csv(f, usecols=["session_id"]).session_id)
+            if held != {expected.get((m, sd))}:
+                new = f.with_name(f.name + f".mislabeled_{stamp}")
+                print(f"moving mislabeled drift file {f} (holds {sorted(held)}, folder session "
+                      f"{expected.get((m, sd))}) -> {new.name}", flush=True)
+                f.rename(new)
     keys["done"] = [result_path(r.mouse_id, r.session_day).exists() for r in keys.itertuples()]
     todo = keys[~keys.done]
     print(f"{len(keys)} ephys sessions, {len(todo)} without drift-test results:\n{todo.to_string(index=False)}", flush=True)
