@@ -2,6 +2,7 @@
 usage: python build_article.py <publication_dir> <ref: fa|sl> <pop: all|learners>
 reads  <publication_dir>/stats_<pop>.csv and captions_<pop>.md; writes <publication_dir>/prelick_convergence_<ref>_<pop>.qmd
 (figures referenced by file name; render with quarto next to the PNGs)."""
+import os
 import re
 import sys
 from pathlib import Path
@@ -10,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 PUB, REF, POP = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+HTML = os.environ.get("ARTICLE_FMT", "typst") == "html"     # html: shareable report (no author line, markdown captions)
 S = pd.read_csv(PUB / f"stats_{POP}.csv")
 CAP = (PUB / f"captions_{POP}.md").read_text(encoding="utf-8")
 G = {"RpL": "R+ learning", "RpE": "R+ expert", "RmL": "R− learning", "RmE": "R− expert"}
@@ -127,9 +129,12 @@ def typst_escape(t):
 def fig(file, header, width=None):
     """image (no float, sized to fit one page) followed by the full caption as a small-font paragraph (can break)"""
     w = width or FIGW.get(file, 100)
+    if HTML:
+        return (f"![]({file}){{width={w}%}}" + chr(10) + chr(10) + "::: {style=\"font-size: 0.82em; color: #333\"}" + chr(10) +
+                f"**{NUM[header]}.** {caption(header)}" + chr(10) + ":::" + chr(10))
     cap = typst_escape(caption(header))
-    return (f"![]({file}){{width={w}%}}\n\n```{{=typst}}\n#block(inset: (x: 0.3em))[#text(size: 8pt)"
-            f"[*{NUM[header]}.* {cap}]]\n```\n")
+    return (f"![]({file}){{width={w}%}}" + chr(10) + chr(10) + "```{=typst}" + chr(10) +
+            f"#block(inset: (x: 0.3em))[#text(size: 8pt)[*{NUM[header]}.* {cap}]]" + chr(10) + "```" + chr(10))
 
 
 r2f = {c: row(f"2f {c}") for c in ["R+", "R-"]}
@@ -140,10 +145,14 @@ def f2f(c, k, f=2):
     return "n/a" if r is None else f"{r[k]:.{f}f}".replace("-", "−")
 
 
-txt = f"""---
-title: "Reward contingency moves whisker-triggered licks toward auditory-triggered licks across the mouse brain"
-subtitle: "Pre-lick single-neuron, population and decoding analyses — reference: {RNP}; population: {POPTXT.split(' (')[0]} (working draft)"
-author: "Axel Bisi"
+HEADER = ("""date: 2026-10-03
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    embed-resources: false
+    page-layout: article""" if HTML else """author: "Axel Bisi"
 date: 2026-10-03
 format:
   typst:
@@ -152,7 +161,11 @@ format:
       x: 1.8cm
       y: 1.8cm
     fontsize: 10pt
-    section-numbering: "1."
+    section-numbering: "1." """)
+txt = f"""---
+title: "Reward contingency moves whisker-triggered licks toward auditory-triggered licks across the mouse brain"
+subtitle: "Pre-lick single-neuron, population and decoding analyses — reference: {RNP}; population: {POPTXT.split(' (')[0]} (working draft)"
+{HEADER}
 ---
 
 # Summary
@@ -378,6 +391,17 @@ geometry and in linear readouts, and it is absent when whisker licks are not rew
 decodable before as after learning, so the effect is a re-mapping of whisker-hit activity onto an existing reward-lick
 representation rather than a sharpening of that representation.
 """
-out = PUB / f"prelick_convergence_{REF}_{POP}.qmd"
+if HTML:
+    txt += """
+# Suggested instruction-file updates
+
+- Workflow: when a figure-building script fans out to many variants (reference × population), keep one driver script
+  per stage (analysis rerun, figure rebuild, report build) and record the variant order in the project README.
+- Compute: set `OMP_NUM_THREADS=1` (and OpenBLAS / MKL equivalents) for multiprocessing pools of scikit-learn jobs;
+  otherwise every worker spawns one BLAS thread per core and the machine thrashes.
+- Reporting: generate report text from the saved statistics tables rather than typing numbers, so that reruns update
+  every sentence consistently.
+"""
+out = PUB / (f"prelick_convergence_{REF}_{POP}" + ("_html" if HTML else "") + ".qmd")
 out.write_text(txt, encoding="utf-8")
 print("wrote", out)
