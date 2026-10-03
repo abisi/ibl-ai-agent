@@ -91,7 +91,7 @@ def main():
                           alpha=alpha, mfc="white" if stg == "learning" else COH[c],
                           label=f"{c.replace('-', '−')} {'day 0' if stg == 'learning' else 'expert'}")
         ax_b.set_xlabel("Time in session (normalised)"); ax_b.set_ylabel("Whisker hits / min")
-        ax_b.set_title("R− stop licking to whisker\nwithin day 0", fontsize=5.4)
+        ax_b.set_title("Whisker-hit rate falls across R− sessions\n(day 0 and expert; R+ day 0 rises)", fontsize=5.2)
         ax_b.legend(frameon=False, loc="upper right")
         # c: trial-level WH - SL score across the session
         ax_c = fig.add_subplot(bot[0])
