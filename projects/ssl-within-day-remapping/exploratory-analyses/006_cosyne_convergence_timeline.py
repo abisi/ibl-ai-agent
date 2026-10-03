@@ -97,8 +97,8 @@ def main():
         ax_b.text(1.13, 1.0, "expert", transform=ax_b.get_xaxis_transform(), ha="center", va="bottom", fontsize=4.4)
         ax_b.axhline(0, color="0.5", lw=0.4, ls=(0, (2, 2)))
         ax_b.set_xlim(0, 1.2); ax_b.set_xticks([0, 0.5, 1])
-        ax_b.set_xlabel("Time in day-0 session"); ax_b.set_ylabel("WH − SL score (1 = AH − SL)")
-        ax_b.set_title("Single trials, day 0")
+        ax_b.set_xlabel("Time in day-0 session"); ax_b.set_ylabel("CD projection, WH − SL\n(SL = 0, AH = 1)")
+        ax_b.set_title("Reward-lick coding direction, day 0")
         ax_b.legend(frameon=False, loc="lower left", borderaxespad=0.1)
         # c: day-0 slopes
         ax_c = fig.add_subplot(gs[2])
@@ -121,7 +121,7 @@ def main():
         ax_c.set_xticks([0, 1], ["R+", "R−"]); ax_c.set_xlim(-0.45, 1.55)
         for t, c in zip(ax_c.get_xticklabels(), ["R+", "R-"]):
             t.set_color(COH[c])
-        ax_c.set_ylabel("Day-0 slope of WH − SL"); ax_c.set_title("Divergence")
+        ax_c.set_ylabel("WH drift along CD, β"); ax_c.set_title("Day-0 drift")
         # d: decoder readout per session half (common footing)
         E = pd.read_csv(BASE / EPOCH_DIR / "all" / "epoch_contrasts.csv")
         meas = "dec"
@@ -181,11 +181,27 @@ def caption(R):
 
 **R+ whisker hits converge toward auditory hits within the learning day and across days; R− diverge on day 0.**
 Pre-lick window: 100 ms before the corrected first lick. Event classes: whisker hit (WH), auditory hit (AH) and the
-unrewarded-lick reference, spontaneous licks (SL; licks outside trials). Trials: active, perf ≠ 6, auditory warm-up
+unrewarded-lick reference, spontaneous licks (SL; licks outside trials). Equations below. Trials: active, perf ≠ 6, auditory warm-up
 removed, end-of-session disengagement trimmed (rule A1). Units: Kilosort 4, quality good or mua, mean pre-lick rate
 ≥ 0.1 Hz. Cohort: per mouse from the reference sheet. Learning = day 0 (D0), expert = later days. Session halves are
 split at the midpoint between the two middle auditory hits. Unit of analysis: session; cohort comparisons by permuting
 cohort labels across mice.
+
+**Definitions and equations.** For a session with units z-scored on training folds, let x_i be the pre-lick population
+vector of event i (100 ms before the first lick).
+- Reward-lick coding direction (CD): CD = (mean_{{AH, train}} x − mean_{{SL, train}} x) / ‖·‖ (5-fold cross-validation over
+  the session's AH and SL; WH never used to build it).
+- CD projection of event i, normalised so that the session's SL = 0 and AH = 1:
+  c_i = (x_i·CD − mean_{{SL}} x·CD) / (mean_{{AH}} x·CD − mean_{{SL}} x·CD)  (held-out AH / SL; fold-averaged WH; d′ ≥ 0.3).
+- Within-session drift of WH along CD (relative to SL): fit c_i = a_k + b_k τ_i separately for k ∈ {{WH, SL}} (τ_i = normalised
+  time of event i in the session, 0 → 1); drift β = b_WH − b_SL (one value per session). β > 0: during the session WH
+  move toward AH along CD faster than the shared drift of all events; β_AH = b_WH − b_AH uses AH as the reference.
+- Decoder readout of an epoch e: D_e = mean_{{i ∈ WH_e}} p_i − mean_{{i ∈ SL_e}} p_i − median_null(D_e), where p_i = P(AH | x_i)
+  from an L2 logistic regression trained on the session's AH vs SL (cross-validated), and the null re-fits the decoder
+  after linearly shifting the activity against the time-ordered labels (40 shifts).
+- Distance difference: Δd = d(WH, SL) − d(WH, AH), with the cross-validated squared distance per unit
+  d(X, Y) = (X̄_a − Ȳ_a)·(X̄_b − Ȳ_b) / n_units over random trial halves a, b (unbiased; 0 for identical means).
+- Contrasts: within day 0 = D(D0 late) − D(D0 early); across days = D(E early) − D(D0 early); carry-over = D(E early) − D(D0 late).
 
 **a**, First-lick-aligned population PSTHs of R+ (top) and R− (bottom) mice: day-0 early half, day-0 late half and
 expert sessions (both halves). Per unit, rate minus the event's baseline (1 s before trial start for hits,

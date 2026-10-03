@@ -71,8 +71,8 @@ def slope_panel(ax, lab, tau, s, c, sid, nu, R):
     ax.axhline(0, color=CL["FA"], lw=0.4, ls=(0, (2, 2))); ax.axhline(1, color=CL["AH"], lw=0.4, ls=(0, (2, 2)))
     lo, hi = np.nanpercentile(s[np.isin(lab, ["WH", "AH", "FA"])], [1, 99.5])
     ax.set_ylim(lo - 0.1 * (hi - lo), hi + 0.35 * (hi - lo))
-    ax.set_xlabel("Time in session (normalised)"); ax.set_ylabel("Trial score (SL = 0, AH = 1)")
-    ax.text(0.02, 0.98, f"slope WH {out['WH']:+.2f}, SL {out['FA']:+.2f}\nWH − SL = {out['WH'] - out['FA']:+.2f}".replace("-", "−"),
+    ax.set_xlabel("Time in session τ (normalised)"); ax.set_ylabel("CD projection c (SL = 0, AH = 1)")
+    ax.text(0.02, 0.98, f"b_WH {out['WH']:+.2f}, b_SL {out['FA']:+.2f}\nβ = b_WH − b_SL = {out['WH'] - out['FA']:+.2f}".replace("-", "−"),
             transform=ax.transAxes, va="top", fontsize=4.6, bbox=dict(fc="white", ec="none", alpha=0.8, pad=0.5))
     ax.set_title(f"{c.replace('-', '−')} day-0 example ({nu} units)", color=COH[c], fontsize=5.2)
     R[f"ex_{c}"] = dict(session=sid, units=nu, slope_WH=out["WH"], slope_SL=out["FA"])
@@ -123,9 +123,9 @@ def main():
         ax_b.text(0, -0.75, "SL = 0", ha="center", color=CL["FA"], fontsize=4.8)
         ax_b.text(1, -0.75, "AH = 1", ha="center", color=CL["AH"], fontsize=4.8)
         ax_b.text(wx, wy + 0.18, "WH trial", ha="center", color="#b07e00", fontsize=4.8)
-        ax_b.text(0.5, 1.45, "Session axis = mean AH − mean SL\n(cross-validated, units z-scored)", ha="center", va="top", fontsize=4.5)
-        ax_b.text(0.5, -1.05, "trial score = projection,\nSL mean → 0, AH mean → 1", ha="center", va="top", fontsize=4.5)
-        ax_b.set_title("Score on the session axis", fontsize=5.2)
+        ax_b.text(0.5, 1.45, "CD = mean AH − mean SL\n(cross-validated, units z-scored)", ha="center", va="top", fontsize=4.5)
+        ax_b.text(0.5, -1.05, "CD projection c of each event,\nSL mean → 0, AH mean → 1", ha="center", va="top", fontsize=4.5)
+        ax_b.set_title("Reward-lick coding direction (CD)", fontsize=5.2)
         # c, d: slope examples
         ax_c = fig.add_subplot(g1[2]); slope_panel(ax_c, lab, tau, s, "R+", sid_p, nu, R)
         lab2, _, tau2, s2, nu2 = session_scores(sid_m)
@@ -181,7 +181,7 @@ def main():
             ax_f.errorbar(1.13, e_.mean(), e_.sem(), fmt="o", ms=3.4, color=COH[c], capsize=0, lw=0.9, clip_on=False)
         ax_f.text(1.13, 1.0, "expert", transform=ax_f.get_xaxis_transform(), ha="center", va="bottom", fontsize=4.4)
         ax_f.axhline(0, color="0.5", lw=0.4, ls=(0, (2, 2))); ax_f.set_xlim(0, 1.2); ax_f.set_xticks([0, 0.5, 1])
-        ax_f.set_xlabel("Time in day-0 session"); ax_f.set_ylabel("WH − SL score"); ax_f.set_title("All day-0 sessions", loc="left")
+        ax_f.set_xlabel("Time in day-0 session"); ax_f.set_ylabel("CD projection, WH − SL"); ax_f.set_title("All day-0 sessions", loc="left")
         ax_f.legend(frameon=False, loc="lower left", borderaxespad=0.1)
         ax_g = fig.add_subplot(g2[2])
         col = "md_WH-FA_slope"
@@ -198,8 +198,8 @@ def main():
         ax_g.plot([0, 0, 1, 1], [yb, yb + 0.04 * (hi - lo), yb + 0.04 * (hi - lo), yb], color="0.2", lw=0.5)
         ax_g.text(0.5, yb + 0.06 * (hi - lo), P_(pp), ha="center", fontsize=4.5)
         ax_g.axhline(0, color="0.5", lw=0.4, ls=(0, (2, 2)))
-        ax_g.set_xticks([0, 1], ["R+", "R−"]); ax_g.set_xlim(-0.45, 1.55); ax_g.set_ylabel("Day-0 WH − SL slope")
-        ax_g.set_title("Slopes (one per session)")
+        ax_g.set_xticks([0, 1], ["R+", "R−"]); ax_g.set_xlim(-0.45, 1.55); ax_g.set_ylabel("Day-0 drift β (WH − SL)")
+        ax_g.set_title("Drift β, one per session")
         ax_h = fig.add_subplot(g2[3])
         xe = {"L-early": 0, "L-late": 1, "E-early": 2.3, "E-late": 3.3}
         for k_, c in enumerate(["R+", "R-"]):
@@ -265,7 +265,7 @@ def main():
         ax_k.axhline(0, color="0.5", lw=0.4, ls=(0, (2, 2)))
         ax_k.set_xticks([0, 1], ["R+", "R−"]); ax_k.set_xlim(-0.45, 1.55)
         lo, hi = np.nanpercentile(d0b[col2], [1, 99]); ax_k.set_ylim(lo - 0.15 * (hi - lo), hi + 0.15 * (hi - lo))
-        ax_k.set_ylabel("Day-0 WH − AH slope"); ax_k.set_title(f"Control: WH relative to AH\nR+ vs R− {P_(pp2)}")
+        ax_k.set_ylabel("Day-0 drift β_AH (WH − AH)"); ax_k.set_title(f"Control: WH relative to AH\nR+ vs R− {P_(pp2)}")
         ax_l = fig.add_subplot(g3[2])
         for k_, split in enumerate(["time", "oddeven"]):
             for kk, c in enumerate(["R+", "R-"]):
@@ -304,6 +304,22 @@ spontaneous licks (SL, unrewarded licks outside trials; reference); active trial
 end-of-session disengagement trimmed; Kilosort 4 good + mua units (pre-lick rate ≥ 0.1 Hz); cohort per mouse from the
 reference sheet; day 0 (D0) = learning day, expert (E) = later days; session = unit of analysis; cohort comparisons by
 permuting cohort labels across mice.
+
+**Definitions and equations.** For a session with units z-scored on training folds, let x_i be the pre-lick population
+vector of event i (100 ms before the first lick).
+- Reward-lick coding direction (CD): CD = (mean_{{AH, train}} x − mean_{{SL, train}} x) / ‖·‖ (5-fold cross-validation over
+  the session's AH and SL; WH never used to build it).
+- CD projection of event i, normalised so that the session's SL = 0 and AH = 1:
+  c_i = (x_i·CD − mean_{{SL}} x·CD) / (mean_{{AH}} x·CD − mean_{{SL}} x·CD)  (held-out AH / SL; fold-averaged WH; d′ ≥ 0.3).
+- Within-session drift of WH along CD (relative to SL): fit c_i = a_k + b_k τ_i separately for k ∈ {{WH, SL}} (τ_i = normalised
+  time of event i in the session, 0 → 1); drift β = b_WH − b_SL (one value per session). β > 0: during the session WH
+  move toward AH along CD faster than the shared drift of all events; β_AH = b_WH − b_AH uses AH as the reference.
+- Decoder readout of an epoch e: D_e = mean_{{i ∈ WH_e}} p_i − mean_{{i ∈ SL_e}} p_i − median_null(D_e), where p_i = P(AH | x_i)
+  from an L2 logistic regression trained on the session's AH vs SL (cross-validated), and the null re-fits the decoder
+  after linearly shifting the activity against the time-ordered labels (40 shifts).
+- Distance difference: Δd = d(WH, SL) − d(WH, AH), with the cross-validated squared distance per unit
+  d(X, Y) = (X̄_a − Ȳ_a)·(X̄_b − Ȳ_b) / n_units over random trial halves a, b (unbiased; 0 for identical means).
+- Contrasts: within day 0 = D(D0 late) − D(D0 early); across days = D(E early) − D(D0 early); carry-over = D(E early) − D(D0 late).
 
 **Methods (examples).**
 **a**, Analysed events of one R+ learning-day session ({R['ex_events']['session']}; {R['ex_events']['n']['WH']} WH,

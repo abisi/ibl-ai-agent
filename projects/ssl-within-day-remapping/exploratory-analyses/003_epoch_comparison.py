@@ -49,7 +49,7 @@ m001 = importlib.import_module("001_within_session_halves")
 m002 = importlib.import_module("002_trial_slopes")
 OUT = m51.RES / f"_within_day{m51.TAG}" / "epochs"
 UNIT_SET = ("good", "mua")
-N_FIX, N_SUB, N_UNITS, MIN_UNITS, K_SHIFT = 6, 20, 150, 30, 40
+N_FIX, N_SUB, N_UNITS, MIN_UNITS, K_SHIFT, N_DRAWS = 6, 20, 150, 30, 40, 1
 MEAS = [("pos", "WH − SL position on the session's\nSL → AH axis (0 = SL, 1 = AH)"),
         ("dec", "P(AH | WH) − P(AH | SL) − chance\n(whole-session decoder)"),
         ("ddn", "Δd / d(AH, SL) of the session")]
@@ -94,39 +94,46 @@ def session(args):
     ok = np.where(K.quality_label.isin(UNIT_SET).to_numpy() & (raw.mean(1) >= m51.MIN_FR))[0]
     if len(ok) < MIN_UNITS:
         return None
-    u = np.sort(rng.choice(ok, min(N_UNITS, len(ok)), replace=False))      # fixed unit budget per session
-    Xu = X[u].T
-    mu, sd = Xu.mean(0), Xu.std(0); good = sd > 0
-    Xz = (Xu[:, good] - mu[good]) / sd[good]                               # z-scored over the session (for distances)
     sp = m001.split_halves(lab, t, "time")
     if sp is None:
         return None
     e, l = sp
     stage = "L" if meta["stage"] == "learning" else "E"
     ep_idx = {f"{stage}-early": np.where(e)[0], f"{stage}-late": np.where(l)[0]}
-    S = m002.trial_scores(Xu, lab, seed)
-    dprime = S.pop("dprime")
-    # whole-session shift null for the decoder readout (activity shifted against the time-ordered labels)
-    P0 = []
-    for k in m001.shifts(len(lab))[:K_SHIFT]:
-        Xs, ls, i = m001.shifted(Xu, lab, int(k))
-        if min((ls == c).sum() for c in m51.CLASSES) < N_FIX:
-            continue
-        try:
-            Ss = m002.trial_scores(Xs, ls, seed + int(k) + 1000)
-        except ValueError:
-            continue
-        p = np.full(len(lab), np.nan); p[i] = Ss["dec"]; P0.append(p)
-    V = epoch_values(Xz, lab, ep_idx, S, P0, rng)
-    if V is None:
-        return None
-    r_all = m57.lam(Xz.T, lab, rng)
-    dAF = r_all["d_AH_FA"] if r_all else np.nan
+    draws = []
+    for dr in range(N_DRAWS):                                   # repeated random unit samples (or all units once)
+        u = ok if N_UNITS <= 0 else np.sort(rng.choice(ok, min(N_UNITS, len(ok)), replace=False))
+        Xu = X[u].T
+        mu, sd = Xu.mean(0), Xu.std(0); good = sd > 0
+        Xz = (Xu[:, good] - mu[good]) / sd[good]                           # z-scored over the session (for distances)
+        S = m002.trial_scores(Xu, lab, seed + dr)
+        dprime = S.pop("dprime")
+        P0 = []                                                            # whole-session shift null for the decoder
+        for k in m001.shifts(len(lab))[:K_SHIFT]:
+            Xs, ls, i_ = m001.shifted(Xu, lab, int(k))
+            if min((ls == c).sum() for c in m51.CLASSES) < N_FIX:
+                continue
+            try:
+                Ss = m002.trial_scores(Xs, ls, seed + dr + int(k) + 1000)
+            except ValueError:
+                continue
+            p = np.full(len(lab), np.nan); p[i_] = Ss["dec"]; P0.append(p)
+        V = epoch_values(Xz, lab, ep_idx, S, P0, rng)
+        if V is None:
+            return None
+        r_all = m57.lam(Xz.T, lab, rng)
+        dAF = r_all["d_AH_FA"] if r_all else np.nan
+        draws.append((V, dprime, dAF, len(u)))
+        if N_UNITS <= 0:
+            break
     rows = []
-    for ep, v in V.items():
-        rows.append(dict(meta, epoch=ep, n_units=len(u), dprime=dprime, d_AH_SL_session=dAF, pos=v["pos"],
-                         dec_raw=v["dec"], dec=v["dec"] - v["dec0"] if np.isfinite(v["dec0"]) else np.nan,
-                         dd=v["dd"], ddn=v["dd"] / dAF if dAF and dAF >= 0.01 else np.nan))
+    for ep in draws[0][0]:
+        vals = {k: np.nanmean([d[0][ep][k] for d in draws]) for k in ("pos", "dec", "dec0", "dd")}
+        dAF = np.nanmean([d[2] for d in draws])
+        ddn = np.nanmean([d[0][ep]["dd"] / d[2] if d[2] and d[2] >= 0.01 else np.nan for d in draws])
+        rows.append(dict(meta, epoch=ep, n_units=draws[0][3], n_draws=len(draws), dprime=np.nanmean([d[1] for d in draws]),
+                         d_AH_SL_session=dAF, pos=vals["pos"], dec_raw=vals["dec"],
+                         dec=vals["dec"] - vals["dec0"] if np.isfinite(vals["dec0"]) else np.nan, dd=vals["dd"], ddn=ddn))
     return rows
 
 
@@ -288,10 +295,11 @@ def figure(T, out, pop):
 
 
 def main(a):
-    global N_FIX, OUT
-    N_FIX = a.n_fix
-    if N_FIX != 6:
-        OUT = OUT.parent / f"epochs_n{N_FIX}"
+    global N_FIX, OUT, N_UNITS, N_DRAWS
+    N_FIX, N_UNITS, N_DRAWS = a.n_fix, a.n_units, a.unit_draws
+    tag = ("" if N_FIX == 6 else f"_n{N_FIX}") + ("" if (N_UNITS, N_DRAWS) == (150, 1) else
+                                                  ("_uall" if N_UNITS <= 0 else f"_u{N_UNITS}x{N_DRAWS}"))
+    OUT = OUT.parent / f"epochs{tag}"
     t0 = time.time()
     m61 = importlib.import_module("061_roc_prelick_learners")
     st26 = importlib.import_module("026_roc_rates_all_sessions")
@@ -336,4 +344,6 @@ if __name__ == "__main__":
     ap.add_argument("--B", type=int, default=2000)
     ap.add_argument("--n-perm", type=int, default=5000)
     ap.add_argument("--n-fix", type=int, default=6, help="events per class per epoch (output in epochs_n<k> if != 6)")
+    ap.add_argument("--n-units", type=int, default=150, help="units per draw; 0 = all units of the session (one draw)")
+    ap.add_argument("--unit-draws", type=int, default=1, help="repeated random unit samples, averaged")
     main(ap.parse_args())
