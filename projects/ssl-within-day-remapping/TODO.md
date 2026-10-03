@@ -11,7 +11,8 @@
       across-day (early, late), carry-over; hierarchical bootstrap (mice → sessions), mouse-level cohort permutation,
       MixedLM. Output `_within_day_sl/epochs/` (epoch_sessions.csv, <pop>/epoch_contrasts.csv, <pop>/epoch_comparison.png).
       Only 5 R− expert sessions (3 mice) pass 6 events per class per half.
-- [ ] 003 with 4 events per class (more R− expert sessions) as a sensitivity check.
+- [X] 003 with 4 events per class, both cohorts (`--n-fix 4`, output `_within_day_sl/epochs_n4/`): R− experts 7 sessions /
+      5 mice (vs 5 / 3 with 6 events).
 - [ ] Robustness splits for 001: session midpoint (trial index) and median whisker hit.
 - [ ] Drift control: all classes drift up the SL → AH axis within sessions (all groups); model the drift explicitly
       (e.g. regress WH on time with SL-trial scores as a time-varying reference).

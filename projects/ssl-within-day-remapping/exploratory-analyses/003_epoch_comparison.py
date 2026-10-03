@@ -288,6 +288,10 @@ def figure(T, out, pop):
 
 
 def main(a):
+    global N_FIX, OUT
+    N_FIX = a.n_fix
+    if N_FIX != 6:
+        OUT = OUT.parent / f"epochs_n{N_FIX}"
     t0 = time.time()
     m61 = importlib.import_module("061_roc_prelick_learners")
     st26 = importlib.import_module("026_roc_rates_all_sessions")
@@ -331,4 +335,5 @@ if __name__ == "__main__":
     ap.add_argument("--replot", action="store_true")
     ap.add_argument("--B", type=int, default=2000)
     ap.add_argument("--n-perm", type=int, default=5000)
+    ap.add_argument("--n-fix", type=int, default=6, help="events per class per epoch (output in epochs_n<k> if != 6)")
     main(ap.parse_args())
