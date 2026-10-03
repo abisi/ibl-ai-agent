@@ -36,7 +36,7 @@ def events(sid):
         nwb = io.read()
         units, _ = m51.ru.process_nwb_tables(nwb)
         trials_raw = nwb.trials.to_dataframe()
-        t, log = m51.select_trials(trials_raw)
+        t, log = m51.select_trials(trials_raw, sid)
         if m51.REF == "sl":
             sl = m51.spontaneous_licks(nwb, trials_raw, log["epoch"])
             t = t[t.cls != "FA"]

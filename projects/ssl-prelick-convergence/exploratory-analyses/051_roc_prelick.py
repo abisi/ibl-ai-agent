@@ -76,8 +76,14 @@ PSTH_WIN, PSTH_BIN = (-0.6, 0.4), 0.010
 
 
 # ------------------------------------------------------------------ trials
-def select_trials(trials):
-    """active, perf != 6, warm-up cut, rule A1; returns (classified trials, exclusion log)"""
+# Exception to the warm-up cut (user 2026-10-03): for these sessions the last k auditory hits of the warm-up block (before
+# the first whisker trial) are kept, so that the session has >= 4 auditory hits in each half for the within-session
+# analyses (ssl-within-day-remapping). MH065 R- expert day +1: 3 early-half auditory hits without the exception.
+WARMUP_KEEP_AH = {"MH065_20260115_163926": 1}
+
+
+def select_trials(trials, sid=None):
+    """active, perf != 6, warm-up cut (with the WARMUP_KEEP_AH exception), rule A1; returns (classified trials, log)"""
     t = trials.sort_values("start_time").reset_index(drop=True)
     log = dict(n_all=len(t))
     ctx = t["context"].astype(str)
@@ -89,7 +95,13 @@ def select_trials(trials):
     log["n_perf_ok"] = len(t)
     wi = np.where(t["trial_type"].to_numpy() == "whisker_trial")[0]
     if len(wi):
+        warm = t.iloc[:max(0, wi[0] - 1)]
         t = t.iloc[max(0, wi[0] - 1):].reset_index(drop=True)
+        k = WARMUP_KEEP_AH.get(sid, 0)
+        if k:
+            keep = warm[(warm.trial_type == "auditory_trial") & (warm.lick_flag == 1)].tail(k)
+            t = pd.concat([keep, t]).sort_values("start_time").reset_index(drop=True)
+            log["warmup_auditory_hits_kept"] = int(len(keep))
     log["n_after_warmup_cut"] = len(t)
     licked = np.where(t["lick_flag"].to_numpy() == 1)[0]
     log["a1_trimmed"] = 0
@@ -264,7 +276,7 @@ def run_session(sid, out_dir, mouse, save_trials=True, seed=0):
         nwb = io.read()
         units, _ = ru.process_nwb_tables(nwb)                       # artefact-corrected spike trains (main ROC)
         trials_raw = nwb.trials.to_dataframe()
-        t, log = select_trials(trials_raw)
+        t, log = select_trials(trials_raw, sid)
         if REF == "sl":                                             # spontaneous licks replace false alarms
             sl = spontaneous_licks(nwb, trials_raw, log["epoch"])
             t = t[t.cls != "FA"]
