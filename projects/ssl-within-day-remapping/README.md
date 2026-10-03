@@ -14,6 +14,10 @@ imported from `../ssl-prelick-convergence/exploratory-analyses`).
 | 003_epoch_comparison.py | within-day vs across-day on a common footing: phase-matched halves in every session, fixed events per class and units, session-anchored position / decoder / normalised Δd; within-day, across-day and carry-over contrasts; hierarchical bootstrap, mouse permutation, MixedLM | `combined_results_ks4/_within_day_sl/epochs/` |
 | 004_halves_psth.py | first-lick-aligned PSTHs per session half (WH, AH, SL; baseline-subtracted, unit-averaged per session) | `_within_day_sl/psth_halves/` |
 | 005_cosyne_within_day.py | 5-panel COSYNE summary of the within-day vs expert comparison | `_within_day_sl/cosyne/` |
+| 006 / 008 | COSYNE convergence timeline (compact / expanded with methods examples and controls) + captions | `_within_day_sl/cosyne/` |
+| 007 | compiles the captions of all COSYNE figures | `_within_day_sl/cosyne/COSYNE_captions.md` |
+| 009_mixed_model.py | single-trial mixed model of the CD projection (whisker hit × time × cohort) | `_within_day_sl/mixed_model/` |
+| 010_decoder_schemes.py | decoder results by number of neurons per single-session decoder | `_within_day_sl/cosyne/decoder_schemes.*` |
 
 Statistics: session as unit; Wilcoxon / one-sample t vs 0 per group; day 0 R+ vs R− (MWU, Welch, mouse-level cohort
 permutation); cohort × stage by mouse-level permutation; populations all mice and learners.

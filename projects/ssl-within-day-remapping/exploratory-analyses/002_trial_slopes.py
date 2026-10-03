@@ -25,7 +25,8 @@ Comparison with experts: day-0 fitted start (tau = 0) and end (tau = 1) WH score
 (MWU, Welch), per cohort.
 Statistics (unit = session): slope vs 0 per group (Wilcoxon, one-sample t); day 0 R+ vs R- (MWU, Welch, mouse-level
 cohort permutation); cohort x stage on the slopes (mouse-level permutation). Populations: all mice and learners.
-Output: combined_results_ks4/_within_day<TAG>/slopes/
+Output: combined_results_ks4/_within_day<TAG>/slopes/ (incl. trial_scores.parquet: one row per event, CD projection
+`cd` and decoder P(AH) `p_ah`, used by the mixed model 009)
 """
 import argparse
 import importlib
@@ -123,7 +124,10 @@ def session(args):
     for c in CLS:
         for i in range(N_BINS):
             traj.append(dict(meta, axis="rate", cls=c, bin=i, score=((lab == c) & (b == i)).sum() / dur if dur > 0 else np.nan, n=0))
-    return row, traj
+    trials = pd.DataFrame(dict(session_id=meta["session_id"], mouse_id=meta["mouse_id"], cohort=meta["cohort"],
+                               stage=meta["stage"], cls=lab, tau=tau, t=t, cd=S["md"], p_ah=S["dec"]))
+    trials = trials[trials.cls.isin(CLS)]
+    return row, traj, trials
 
 
 def tests(D):
@@ -257,13 +261,14 @@ def main(a):
     if a.replot:
         D, TR = pd.read_csv(OUT / "trial_slopes_sessions.csv"), pd.read_csv(OUT / "trial_slopes_trajectories.csv")
     else:
-        rows, traj = [], []
+        rows, traj, trials = [], [], []
         with mp.get_context("fork").Pool(a.n_proc) as pool:
             for res in pool.imap_unordered(session, jobs):
                 if res:
-                    rows.append(res[0]); traj += res[1]
+                    rows.append(res[0]); traj += res[1]; trials.append(res[2])
         D, TR = pd.DataFrame(rows), pd.DataFrame(traj)
         D.to_csv(OUT / "trial_slopes_sessions.csv", index=False); TR.to_csv(OUT / "trial_slopes_trajectories.csv", index=False)
+        pd.concat(trials, ignore_index=True).to_parquet(OUT / "trial_scores.parquet", index=False)   # single-trial CD projections
     for pop in ["all", "learners"]:
         Dp = m61.learner_filter(D) if pop == "learners" else D
         TRp = TR[TR.session_id.isin(Dp.session_id)]

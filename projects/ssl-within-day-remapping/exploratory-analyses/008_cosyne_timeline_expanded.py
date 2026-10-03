@@ -78,13 +78,44 @@ def slope_panel(ax, lab, tau, s, c, sid, nu, R):
     R[f"ex_{c}"] = dict(session=sid, units=nu, slope_WH=out["WH"], slope_SL=out["FA"])
 
 
+
+def mixed_text():
+    """plain-language sentence on the single-trial mixed model (009), day 0 and expert, reference = spontaneous licks"""
+    f = BASE / "mixed_model" / "mixed_model_terms.csv"
+    if not f.exists():
+        return ""
+    r = pd.read_csv(f).set_index(["stage", "reference"])
+    out = []
+    for st, lab in [("learning", "On the learning day"), ("expert", "within expert sessions")]:
+        if (st, "spontaneous licks") not in r.index:
+            continue
+        x = r.loc[(st, "spontaneous licks")]
+        out.append(f"{lab}, whisker hits moved toward auditory hits by {x.drift_Rplus:+.2f} (R+) and {x.drift_Rminus:+.2f} (R−) "
+                   f"of the spontaneous-lick-to-auditory-hit distance over one session (R+ vs R−: shuffling cohort labels across "
+                   f"mice, {P_(x.p_perm_diff)})")
+    return ("**Single-trial mixed model** (every lick event of every session; model: CD projection ~ whisker hit × time in "
+            "session × cohort, with a separate baseline, time trend and whisker-hit offset per session). " + "; ".join(out) + ".")
+
+
+def mixed():
+    """R+ vs R- difference of the day-0 whisker-hit drift (reference: spontaneous licks) from the mixed model (009)"""
+    f = BASE / "mixed_model" / "mixed_model_terms.csv"
+    if not f.exists():
+        return ""
+    r = pd.read_csv(f)
+    r = r[(r.stage == "learning") & (r.reference == "spontaneous licks")]
+    return "" if r.empty else f"R+ vs R−: {P_(r.p_perm_diff.iloc[0])}"
+
+
 def main():
     plt = m62.setup()
     OUT.mkdir(parents=True, exist_ok=True)
     R = {}
     D2 = pd.read_csv(BASE / "slopes" / "trial_slopes_sessions.csv")
     H = pd.read_csv(BASE / "halves" / "within_session_sessions.csv")
-    E = pd.read_csv(BASE / "epochs_n4" / "all" / "epoch_contrasts.csv")
+    ED = "epochs_n4_u150x10" if (BASE / "epochs_n4_u150x10" / "all" / "epoch_contrasts.csv").exists() else "epochs_n4"
+    E = pd.read_csv(BASE / ED / "all" / "epoch_contrasts.csv")
+    MM = mixed()
     TR = pd.read_csv(BASE / "slopes" / "trial_slopes_trajectories.csv")
     with plt.rc_context({"font.size": 5.2, "axes.titlesize": 5.3, "axes.labelsize": 5.1, "xtick.labelsize": 4.7,
                          "ytick.labelsize": 4.7, "legend.fontsize": 4.5, "axes.titlepad": 2.5}):
@@ -199,7 +230,7 @@ def main():
         ax_g.text(0.5, yb + 0.06 * (hi - lo), P_(pp), ha="center", fontsize=4.5)
         ax_g.axhline(0, color="0.5", lw=0.4, ls=(0, (2, 2)))
         ax_g.set_xticks([0, 1], ["R+", "R−"]); ax_g.set_xlim(-0.45, 1.55); ax_g.set_ylabel("Day-0 drift β (WH − SL)")
-        ax_g.set_title("Drift β, one per session")
+        ax_g.set_title("Drift β, one per session" + (f"\nmixed model {MM}" if MM else ""), fontsize=5.0)
         ax_h = fig.add_subplot(g2[3])
         xe = {"L-early": 0, "L-late": 1, "E-early": 2.3, "E-late": 3.3}
         for k_, c in enumerate(["R+", "R-"]):
@@ -217,7 +248,7 @@ def main():
         for x_, s_ in ((0.5, "Day 0"), (2.8, "Expert")):
             ax_h.annotate(s_, xy=(x_, 0), xycoords=ax_h.get_xaxis_transform(), xytext=(0, -12), textcoords="offset points",
                           ha="center", va="top", fontsize=4.8)
-        ax_h.set_ylabel("P(AH|WH) − P(AH|SL) − chance"); ax_h.set_title("Decoder per half (4 events / class)")
+        ax_h.set_ylabel("P(AH|WH) − P(AH|SL) − chance"); ax_h.set_title("Decoder per half" + (" (150 units × 10)" if ED.endswith("x10") else " (150 units)"))
         ax_h.legend(frameon=False, loc="upper left", borderaxespad=0.1)
         ax_i = fig.add_subplot(g2[4])
         names = ["within-day", "across-day (early)", "carry-over"]
@@ -299,6 +330,10 @@ def caption(R):
     txt = f"""# COSYNE_convergence_timeline_expanded
 
 **R+ whisker hits converge toward auditory hits within the learning day and across days; R− diverge on day 0.**
+**In short.** For every session we find the population direction that separates rewarded licks after the auditory tone from unrewarded spontaneous licks (the reward-lick coding direction, CD), and ask where whisker-triggered licks fall on it. In R+ mice, whose whisker licks are rewarded, whisker licks move toward the rewarded-lick end of the CD during the learning session and further across days; in R− mice they move back toward the unrewarded end.
+
+{mixed_text()}
+
 Conventions: pre-lick window = 100 ms before the corrected first lick; whisker hits (WH), auditory hits (AH) and
 spontaneous licks (SL, unrewarded licks outside trials; reference); active trials, perf ≠ 6, auditory warm-up removed,
 end-of-session disengagement trimmed; Kilosort 4 good + mua units (pre-lick rate ≥ 0.1 Hz); cohort per mouse from the

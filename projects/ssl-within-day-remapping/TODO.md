@@ -17,6 +17,12 @@
 - [X] 005 COSYNE 5-panel summary "R− whisker-hit activity changes more within the learning day than within expert
       sessions" (PSTHs per half, whisker-hit rate, trial-level WH − SL trajectory, per-half normalised distance,
       |within-session change| day 0 vs expert): `_within_day_sl/cosyne/COSYNE_within_day.{png,pdf,svg}` + stats csv.
+- [X] 006 compact COSYNE timeline, 007 caption compiler, 008 expanded COSYNE figure (methods with examples, results,
+      controls), coding-direction (CD) wording and equations in captions (2026-10-04).
+- [X] 009 single-trial mixed model (CD projection ~ whisker hit × time × cohort; per-session random intercept, time slope
+      and whisker-hit offset; cohort shuffles across mice): `_within_day_sl/mixed_model/`.
+- [X] 003 decoder schemes (`--n-units`, `--unit-draws`): 150 × 10, all units, 50 / 100 × 10, 400 × 5; 010 comparison figure.
+- [ ] Learning-aligned version (trials since each mouse's learning trial).
 - [ ] Robustness splits for 001: session midpoint (trial index) and median whisker hit.
 - [ ] Drift control: all classes drift up the SL → AH axis within sessions (all groups); model the drift explicitly
       (e.g. regress WH on time with SL-trial scores as a time-varying reference).
