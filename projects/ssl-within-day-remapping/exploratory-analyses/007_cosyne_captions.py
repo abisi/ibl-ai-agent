@@ -53,6 +53,14 @@ normalised distance: R− {f3(row('ddn', 'R-').abs_change_day0)} vs {f3(row('ddn
 ({P(row('ddn', 'R+').p_boot)}). R− expert sessions: {int(row('pos', 'R-').n_expert)} ({int(row('pos', 'R-').n_mice_expert)} mice)."""
 
 
+def opt(f):
+    """body of a generated caption / summary file (drops its first heading line), or a placeholder"""
+    f = pathlib.Path(f)
+    if not f.exists():
+        return "(not built yet)\n"
+    return f.read_text(encoding="utf-8").split("\n", 2)[2].strip() + "\n"
+
+
 def main():
     cap = (PUB / "all" / "captions_all.md").read_text(encoding="utf-8")
     general = re.search(r"\*\*General\.\*\*(.*?)\n", cap)
@@ -60,6 +68,15 @@ def main():
              "General conventions (all figures): " + (general.group(1).strip() if general else "") + "\n",
              "## COSYNE_convergence_timeline (`_within_day_sl/cosyne/`; recommended)\n",
              (OUT / "COSYNE_convergence_timeline_caption.md").read_text(encoding="utf-8").split("\n", 2)[2].strip() + "\n",
+             "## COSYNE_convergence_timeline_expanded (`_within_day_sl/cosyne/`; methods with examples, results, controls)\n",
+             opt(OUT / "COSYNE_convergence_timeline_expanded_caption.md"),
+             "## Single-trial mixed model (`_within_day_sl/mixed_model/`)\n", opt(BASE / "mixed_model" / "mixed_model_summary.md"),
+             "## decoder_schemes (`_within_day_sl/cosyne/`)\n",
+             "Within-day, across-day and carry-over changes of the single-session decoder readout (as in the timeline "
+             "figure, panels d and e) for different numbers of neurons per decoder: one draw of 150 units, 10 random draws "
+             "of 50, 100 or 150 units (averaged), 5 draws of 400 units, or all units of each session (unit counts then differ "
+             "between sessions). Points: R+ and R− with 95% hierarchical-bootstrap CI; top: R+ vs R− (cohort labels shuffled "
+             "across mice).\n",
              "## COSYNE_figure_v3 (`_roc_prelick_sl/publication/all/`)\n", section(cap, "COSYNE abstract figure (COSYNE_figure_v3)") + "\n",
              "## COSYNE_figure_v2 (`_roc_prelick_sl/publication/all/`)\n", section(cap, "COSYNE abstract figure (COSYNE_figure_v2)") + "\n",
              "## COSYNE_within_day (`_within_day_sl/cosyne/`; superseded)\n", within_day_caption() + "\n"]
