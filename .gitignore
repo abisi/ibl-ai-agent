@@ -25,6 +25,9 @@ ibl-agent.local.yaml
 questions/projects/**/data_locations.local.yaml
 questions/projects/**/_tmp/
 projects/*
+!projects/ssl-prelick-convergence/
+projects/ssl-prelick-convergence/**/__pycache__/
+projects/ssl-prelick-convergence/**/_render/
 data/*
 pytest.ini
 
