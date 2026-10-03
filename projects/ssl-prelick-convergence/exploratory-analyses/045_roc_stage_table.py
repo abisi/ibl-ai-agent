@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-CACHE = RES / "rastermap_variants" / "_cache" / "tables_all_days.pkl"
+CACHE = RES / "rastermap_variants" / "_cache" / "tables_all_days_v2.pkl"   # v2 (2026-10-03): data_prep/build_unit_table_all_days.py
 MOUSE_INFO = "/mnt/share_internal/Axel_Bisi_Share/dataset_info/joint_mouse_reference_weight.xlsx"
 OUT = RES / "_roc_stage_analysis"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
@@ -56,7 +56,7 @@ def main():
     OUT.mkdir(exist_ok=True)
     sys.path.insert(0, str(pathlib.Path.home() / "code/unit_spikes_analysis"))
     import ephys_utilities.allen_utils.allen_utils as au
-    uinfo = OUT / "unit_info_all_days.parquet"
+    uinfo = OUT / "unit_info_all_days_v2.parquet"
     if uinfo.exists():
         ut = pd.read_parquet(uinfo)
     else:
