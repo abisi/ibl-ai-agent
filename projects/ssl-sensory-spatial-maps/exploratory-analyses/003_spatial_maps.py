@@ -252,7 +252,7 @@ def draw_zones(ax, A, kind, c, extent):
             continue
         yy = (np.arange(z.shape[0]) + 0.5) * A.zres / 1000
         xx = extent[0] + (np.arange(z.shape[1]) + 0.5) * A.zres / 1000
-        ax.contour(xx, yy, ndimage.gaussian_filter(z.astype(float), 1.5), levels=[0.5], colors=[col], linewidths=0.7,
+        ax.contour(xx, yy, ndimage.gaussian_filter(z.astype(float), 0.8), levels=[0.5], colors=[col], linewidths=0.7,
                    linestyles=[ls], zorder=6)
 
 
