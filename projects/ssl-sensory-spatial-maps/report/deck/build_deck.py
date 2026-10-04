@@ -32,6 +32,9 @@ S = [  # (title, images, bullets, footnote, notes); images = list of (file, widt
         "Whisker stimulus artefact (−10 to +5 ms) corrected on all spike trains"],
      "Top: recorded isocortex neurons on the Allen butterfly flatmap (anterior up). Bottom: 70 % projection zones of whisker (yellow) and auditory (blue) cortex.",
      "Active trials: perf ≠ 6, disengaged tail trimmed. Passive: fixed ~3 s ITI blocks."),
+    ("Whisker and auditory cortex project to partly overlapping targets", [("projection_zones_coronal.png", 1)], [],
+     "Allen anterograde tracing (SSp-bfd 8, SSs 3, AUDp 6, AUDd/v 3 injections), 70 % projection zones. "
+     "Overlap 3.9 mm³: caudal / tail striatum, VISa / VISrl / VISal, SCm, MRN, TEa.", ""),
     ("About 15 % of neurons respond to each stimulus, in different places", [("flat_whisker_auditory.png", 1)], [],
      "Whisker: 15.3 % significant (12.1 % excited); auditory: 15.2 % (13.6 % excited). ROC 5–35 ms vs pre-trial baseline, 1000 permutations, p < 0.05. "
      "Bottom: selectivity density normalised by recorded-neuron density (3D Gaussian, σ = 150 µm).",
@@ -43,6 +46,13 @@ S = [  # (title, images, bullets, footnote, notes); images = list of (file, widt
      "9 of 13 target slabs: centroids 70–350 µm apart (within-session label permutation, Holm p < 0.05). Auditory-preferring neurons "
      "deeper in SSp-bfd, SCm and striatum tail; more superficial in auditory cortex and anterior DMS.",
      "80 % highest-density contours (Gaussian KDE). Permuting within sessions removes offsets caused by which sessions recorded which preference."),
+    ("Bimodal neurons are enriched where the projections converge", [("colocation_figure.png", 0.58)], [
+        "Bimodal = responsive to both stimuli (active or passive tests, Bonferroni per session)",
+        "24 % of responsive neurons are bimodal",
+        "Inside the overlap: 29.5 % vs 23.8 % overall",
+        "+5.7 points (95 % CI +1.1 to +10.3), p = 0.008",
+        "90 % zones: +6.3 points, p < 0.001"],
+     "Hierarchical bootstrap (sessions, then neurons) of P(bimodal | inside overlap) − P(bimodal | all responsive). Co-location, not causation.", ""),
     ("Each modality reaches its own sensory system first", [("flat_latency.png", 0.55)], "TABLE",
      "Median half-time to peak of responsive neurons (light = fast). Whisker latency searched after +5 ms (artefact window).",
      "Latency = last upward crossing of half the peak before the peak; 1 ms PSTH, σ = 2 ms."),
@@ -52,6 +62,9 @@ S = [  # (title, images, bullets, footnote, notes); images = list of (file, widt
      "Onsets: midbrain 8, SS-whisker 10, thalamus 10, auditory 12, striatum 12, motor 16 ms. 100 iterations × 10 shuffles (pilot)."),
     ("Fine areas: SCm first, then whisker cortex, striatum and motor-frontal cortex", [("arr_areas_heatmap_ranking.png", 1)], [],
      "SCm 8 ms; SSp-bfd and SSs 10 ms; DMS and DLS 12 ms; wM1 14, wM2 16, ALM 18 ms. Preliminary: 8 areas (the 40 best-sampled are running).", ""),
+    ("Single-neuron latency and population onset agree", [("link_latency_onset.png", 1)], [],
+     "Population decoding onset (N = 200) vs median single-neuron latency per area group; OLS line with 95 % CI. "
+     "Preliminary: n = 6 groups, faster modality ρ = 0.77, p = 0.08.", ""),
     ("Faster areas carry more early information", [("arr_groups_controls.png", 1)], [],
      "Early accuracy (5–50 ms) grows with neuron count; onset vs early accuracy: Spearman ρ = −0.9. "
      "Matching whisker cortex at 100 neurons needs ~40 midbrain, ~160 striatum, > 1,000 motor neurons.",
@@ -60,19 +73,10 @@ S = [  # (title, images, bullets, footnote, notes); images = list of (file, widt
         "Passive whisker vs auditory decoding runs overnight (110 sessions with ≥ 3 passive trials per stimulus)",
         "Tests whether the onset order is sensory rather than task- or lick-related"],
      "Shown here once the passive sweep finishes.", ""),
-    ("Single-neuron latency and population onset agree", [("link_latency_onset.png", 1)], [],
-     "Population decoding onset (N = 200) vs median single-neuron latency per area group; OLS line with 95 % CI. "
-     "Preliminary: n = 6 groups, faster modality ρ = 0.77, p = 0.08.", ""),
-    ("Whisker and auditory cortex project to partly overlapping targets", [("projection_zones_coronal.png", 1)], [],
-     "Allen anterograde tracing (SSp-bfd 8, SSs 3, AUDp 6, AUDd/v 3 injections), 70 % projection zones. "
-     "Overlap 3.9 mm³: caudal / tail striatum, VISa / VISrl / VISal, SCm, MRN, TEa.", ""),
-    ("Bimodal neurons are enriched where the projections converge", [("colocation_figure.png", 0.58)], [
-        "Bimodal = responsive to both stimuli (active or passive tests, Bonferroni per session)",
-        "24 % of responsive neurons are bimodal",
-        "Inside the overlap: 29.5 % vs 23.8 % overall",
-        "+5.7 points (95 % CI +1.1 to +10.3), p = 0.008",
-        "90 % zones: +6.3 points, p < 0.001"],
-     "Hierarchical bootstrap (sessions, then neurons) of P(bimodal | inside overlap) − P(bimodal | all responsive). Co-location, not causation.", ""),
+    ("Summary: separate entry routes, shared targets", [("summary_schematic.png", 1)], [],
+     "Draft. a) Whisker route via thalamus to barrel cortex, sound via midbrain and thalamus to auditory cortex; both cortices project to tail striatum, "
+     "posterior parietal cortex, SCm / MRN and TEa, where bimodal neurons are enriched. Times: population decoding onset (N = 200). b) Onsets with 95 % bootstrap CI.",
+     "Routes are textbook anatomy plus the Allen projection zones; times update automatically from onset_bootstrap_N200.csv."),
     ("Caveats and next steps", [], [
         "Co-location ≠ causation: tracing from other mice, axons of passage, ~100–200 µm CCF uncertainty",
         "Cohorts and stages pooled → split R+ / R− and learning / expert",
@@ -91,6 +95,14 @@ S = [  # (title, images, bullets, footnote, notes); images = list of (file, widt
     ("Backup: all flatmaps", [("flat_all.png", 1)], [], "", ""),
     ("Backup: whisker responsiveness in target slabs", [("whisker_targets.png", 1)], [], "", ""),
 ]
+
+SECTION = [("179,064", "I · Anatomy"), ("Whisker and auditory cortex project", "I · Anatomy"),
+           ("About 15 %", "II · Where neurons respond"), ("Modality preference", "II · Where neurons respond"),
+           ("Within areas", "II · Where neurons respond"), ("Bimodal", "II · Where neurons respond"),
+           ("Each modality", "III · When neurons respond"), ("Stimulus modality", "IV · Population coding"),
+           ("Fine areas", "IV · Population coding"), ("Single-neuron", "IV · Population coding"),
+           ("Faster areas", "IV · Population coding"), ("Passive", "IV · Population coding"), ("Summary", "Summary")]
+
 
 TABLE = [("Area group", "Whisker (ms)", "Auditory (ms)"), ("SS-whisker", "11.6", "18.0"), ("Posterior parietal", "12.6", "16.7"),
          ("Auditory", "15.1", "15.4"), ("Midbrain", "16.9", "8.5"), ("Thalamus", "17.8", "15.8"), ("Motor", "20.8", "15.8"),
@@ -149,6 +161,9 @@ def main():
     for title, imgs, bl, foot, notes in S:
         s = prs.slides.add_slide(blank)
         text(s, M, 0.3, W - 2 * M, 0.8, title, 28, bold=True)
+        kick = next((k for t, k in SECTION if title.startswith(t)), "")
+        if kick:
+            text(s, M, 0.02, 4, 0.3, kick.upper(), 10, bold=True, color=GREY)
         y0, y1 = TOP, H - (FOOT if foot else 0.3)
         imgs = [(f, fr) for f, fr in imgs if (IMG / f).exists() or missing.append(f)]
         fig_frac = sum(fr for _, fr in imgs)

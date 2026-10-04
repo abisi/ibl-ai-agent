@@ -132,6 +132,76 @@ def link_figure():
     LOG.append(f"link: {len(D)} area groups")
 
 
+def schematic():
+    """summary schematic (draft): a) whisker and auditory pathways to shared targets, each node annotated with its
+    population decoding onset (N = 200); b) onset timeline of all decoded areas with bootstrap CI"""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+    S = importlib.import_module("_style")
+    AR = importlib.import_module("_areas")
+    plt = S.setup()
+    col = AR.colors()
+    OB = pd.read_csv(AA / "onset_bootstrap_N200.csv")
+    on = dict(zip(OB.area, OB.onset_ms))
+    WH, AU, OV = "#f7b519", "#2c2cdb", "#8e44ad"
+
+    def ms(*areas):
+        v = [on[a] for a in areas if a in on and np.isfinite(on[a])]
+        return f"{min(v):.0f} ms" if v else "pending"
+
+    fig = plt.figure(figsize=(10, 4.6))
+    ax = fig.add_axes([0.0, 0.0, 0.62, 0.92]); ax.set_xlim(0, 10); ax.set_ylim(0, 7.2); ax.axis("off")
+    nodes = {   # key: (x, y, label, onset, edge colour)
+        "wpad": (0.9, 6.1, "Whisker\nstimulus", "", WH), "snd": (0.9, 1.1, "Sound", "", AU),
+        "th": (2.9, 3.6, "Thalamus\nVPM / POm · MGB", ms("Thalamus"), "0.35"),
+        "mb": (2.9, 1.1, "Midbrain\nIC · SCm", ms("SCm", "Midbrain"), AU),
+        "ss": (5.0, 6.1, "Whisker cortex\nSSp-bfd · SSs", ms("SSp-bfd", "SSs", "Somatosensory-whisker"), WH),
+        "aud": (5.0, 1.1, "Auditory cortex\nAUDp · AUDd/v", ms("Auditory areas"), AU),
+        "ov": (7.4, 3.6, "Shared targets\ntail striatum · VISa/rl/al\nSCm / MRN · TEa", ms("Striatum", "DMS", "DLS"), OV),
+        "mo": (8.6, 6.1, "Motor-frontal\nwM1 · wM2 · ALM", ms("MO-wM1", "Motor areas"), "0.35"),
+    }
+    for k, (x, y, lab, t, ec) in nodes.items():
+        w, h = (1.25, 0.8) if k in ("wpad", "snd") else (1.9, 1.05 if k != "ov" else 1.5)
+        ax.add_patch(FancyBboxPatch((x - w / 2, y - h / 2), w, h, boxstyle="round,pad=0.05,rounding_size=0.15",
+                                    fc="white" if k != "ov" else "#f3e9f8", ec=ec, lw=1.6))
+        ax.text(x, y + (0.1 if t else 0), lab, ha="center", va="center", fontsize=7.5, weight="bold" if k in ("ov",) else None)
+        if t:
+            ax.text(x, y - h / 2 + 0.14, t, ha="center", va="center", fontsize=7, color="0.25", style="italic")
+
+    def arrow(a, b, c, rad=0.0, ls="-", lw=1.6):
+        (x0, y0), (x1, y1) = nodes[a][:2], nodes[b][:2]
+        ax.add_patch(FancyArrowPatch((x0, y0), (x1, y1), connectionstyle=f"arc3,rad={rad}", arrowstyle="-|>", mutation_scale=11,
+                                     color=c, lw=lw, ls=ls, shrinkA=30, shrinkB=34))
+    arrow("wpad", "th", WH, -0.25); arrow("th", "ss", WH, -0.2)
+    arrow("snd", "mb", AU); arrow("mb", "th", AU, 0.0); arrow("th", "aud", AU, 0.25)
+    arrow("ss", "ov", WH, 0.15, lw=2.4); arrow("aud", "ov", AU, -0.15, lw=2.4); arrow("ss", "mo", WH, 0.0)
+    arrow("mb", "ov", AU, -0.35, ls="--", lw=1.0)
+    ax.text(7.4, 2.45, "bimodal neurons +5.7 points\n(29.5 % vs 23.8 %, p = 0.008)", ha="center", va="top", fontsize=6.5, color=OV)
+    ax.text(0.2, 7.05, "a   Pathways and decoding onset (N = 200 neurons)", fontsize=9, weight="bold", va="top")
+    ax.text(0.2, 0.15, "Arrows: textbook routes and Allen anterograde projection zones (70 %). Times: first above-chance "
+            "whisker-vs-auditory decoding. Draft.", fontsize=5.5, color="0.4")
+
+    bx = fig.add_axes([0.70, 0.14, 0.28, 0.72])
+    D = OB[np.isfinite(OB.onset_ms)].copy()
+    D["lvl"] = np.where(D.level == "area_group", 0, 1)
+    D = D.sort_values(["onset_ms", "lvl"]).reset_index(drop=True)
+    for i, r in D.iterrows():
+        c = col.get(r.area, "0.5")
+        bx.plot([r.lo, r.hi], [i, i], color=c, lw=1.5, solid_capstyle="round")
+        bx.plot(r.onset_ms, i, "o" if r.lvl == 0 else "s", color=c, ms=5 if r.lvl == 0 else 4, mec="k", mew=0.3)
+    bx.set_yticks(range(len(D)))
+    bx.set_yticklabels([a.replace(" areas", "").replace("Somatosensory-", "SS-") for a in D.area], fontsize=6.5)
+    for t, a in zip(bx.get_yticklabels(), D.area):
+        t.set_color(col.get(a, "0.3"))
+    bx.invert_yaxis(); bx.set_xlim(0, max(22, D.hi.max() + 2))
+    bx.axvspan(0, 5, color="0.92", lw=0); bx.text(2.5, len(D) - 1.2, "artefact\nwindow", ha="center", va="center", fontsize=5, color="0.5")
+    bx.set_xlabel("Decoding onset (ms, 95 % bootstrap CI)")
+    bx.spines[["top", "right"]].set_visible(False)
+    fig.text(0.70, 0.95, "b   Arrival order", fontsize=9, weight="bold", va="top")
+    fig.text(0.70, 0.90, "circles: area groups; squares: fine areas", fontsize=5.5, color="0.4", va="top")
+    fig.savefig(OUT / "summary_schematic.png", dpi=300)
+    LOG.append(f"schematic: {len(D)} areas")
+
+
 def copies():
     for src, name in [(SM / "figures" / "projection_zones_coronal.png", "projection_zones_coronal.png"),
                       (SM / "figures" / "colocation_figure.png", "colocation_figure.png"),
@@ -152,6 +222,7 @@ def main():
     summary_parts(AP / "figures" / "arrival_summary_area_acronym_custom.png", "pas_areas")
     copies()
     link_figure()
+    schematic()
     (OUT.parent / "manifest.txt").write_text("\n".join(LOG) + "\n")
     print("\n".join(LOG))
 
