@@ -257,13 +257,12 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     ncol = len(slabs)
     pw = (W - 0.45) / ncol
     ph = pw * 7.2 / 5.8
-    H = 0.45 + 3 * ph + 0.35 + 2.3
+    H = 0.45 + 3 * ph + 0.35 + 2.0
     fig = plt.figure(figsize=(W, H))
     top_frac = (3 * ph) / H
     gs = fig.add_gridspec(3, ncol, left=0.4 / W, right=1 - 0.05 / W, top=1 - 0.42 / H, bottom=1 - 0.42 / H - top_frac,
                           wspace=0.03, hspace=0.05)
-    gb = fig.add_gridspec(1, 4, left=0.5 / W, right=1 - 0.42 / W, top=1.85 / H, bottom=0.42 / H,
-                          width_ratios=[0.7, 0.9, 1.9, 1.05], wspace=1.3)
+    gb = fig.add_gridspec(1, 1, left=0.55 / W, right=1.9 / W, top=1.85 / H, bottom=0.42 / H)
     cmap_b = LinearSegmentedColormap.from_list("white_bimodal", ["#ffffff", "#c2a5cf", "#7b3294", "#40004b"])
     ijk_all = None
     tested = T[(T.kind == "sub-region") & T.p_boot.notna()]
@@ -338,7 +337,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     cb.set_label("Bimodal fraction of responsive neurons (3-D Gaussian, sigma 150 um)", fontsize=4.8, labelpad=1)
     cb.ax.tick_params(labelsize=4.4, length=1.2, width=0.4); cb.outline.set_linewidth(0.4)
     # bottom row
-    axd, axe, axf, axg = [fig.add_subplot(gb[0, k]) for k in range(4)]
+    axd = fig.add_subplot(gb[0, 0])
     g = T[T.kind == "global"].iloc[0]
     axd.bar([0, 1], [100 * g.P_in, 100 * g.P_ref], 0.62, color=[PURPLE, "0.6"], lw=0,
             yerr=[[100 * (g.P_in - g.ci_lo), 100 * (g.P_ref - g.ref_ci_lo)], [100 * (g.ci_hi - g.P_in), 100 * (g.ref_ci_hi - g.P_ref)]],
@@ -352,49 +351,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     for xx_, nn in ((0, g.n_resp_in), (1, g.n_resp_ref)):
         axd.text(xx_, 1.0, f"{nn}", ha="center", va="bottom", fontsize=4.3, color="white")
     axd.set_title("Whole overlap", fontsize=5.4, loc="left")
-    # e: bootstrap distribution of the difference
-    nl = nulls.get("whole overlap zone")
-    if nl is not None and len(nl):
-        axe.hist(100 * nl, bins=40, color=PURPLE, alpha=0.55, lw=0, edgecolor="none")
-        axe.axvline(0, color="k", lw=0.6)
-        axe.axvline(100 * g["diff"], color=PURPLE, lw=1.0)
-        axe.text(100 * g["diff"], axe.get_ylim()[1] * 0.97, " observed", color=PURPLE, fontsize=4.6, va="top")
-        axe.set_xlabel("Inside minus all responsive\n(% points)")
-        axe.set_ylabel("Bootstrap resamples")
-        axe.set_title(f"Hierarchical bootstrap ({len(nl)})", fontsize=5.4, loc="left")
-    # f: tested sub-regions
-    Q = T[(T.kind == "sub-region") & T.p_boot.notna()].sort_values("id").reset_index(drop=True)
-    axf.axvspan(100 * g.ref_ci_lo, 100 * g.ref_ci_hi, color="0.88", lw=0, edgecolor="none", zorder=0)
-    axf.axvline(100 * g.P_ref, color="0.45", lw=0.6, ls="--", zorder=1)
-    for i, q in Q.iterrows():
-        axf.errorbar(100 * q.P_in, i, xerr=[[100 * (q.P_in - q.ci_lo)], [100 * (q.ci_hi - q.P_in)]], fmt="o", ms=2.6,
-                     color=PURPLE, lw=0.7, capsize=0, zorder=3)
-        if np.isfinite(q.get("P_rest_structure", np.nan)):
-            axf.plot(100 * q.P_rest_structure, i, marker="|", ms=5.5, color="0.2", mew=0.9, zorder=2)
-        axf.text(1.02, i, short_p(q.p_boot_holm), va="center", fontsize=4.3, transform=axf.get_yaxis_transform())
-    axf.text(1.02, -0.9, "bootstrap p\n(Holm)", fontsize=4.3, va="bottom", transform=axf.get_yaxis_transform())
-    axf.set_yticks(range(len(Q)), [f"{int(q.id)}  {q.region}  ({int(q.n_resp_in)} / {int(q.n_sessions_in)})"
-                                   for q in Q.itertuples()], fontsize=4.6)
-    axf.set_ylim(len(Q) - 0.4, -0.6)
-    axf.set_xlim(0, max(70, 100 * Q.ci_hi.max() + 5))
-    axf.set_xlabel("Bimodal neurons (% of responsive)")
-    axf.set_title("Sub-regions (n neurons / sessions)\ndot: inside, 95 % CI; |: rest of structure", fontsize=5.0, loc="left")
-    # g: within-structure difference (same rows as f)
-    for j, q in Q.iterrows():
-        if not np.isfinite(q.get("P_rest_structure", np.nan)):
-            continue
-        d = 100 * (q.P_in - q.P_rest_structure)
-        axg.barh(j, d, color=PURPLE if d > 0 else "0.6", height=0.62, lw=0)
-        axg.text(1.02, j, short_p(q.p_vs_rest_holm), va="center", fontsize=4.3, transform=axg.get_yaxis_transform())
-    axg.text(1.02, -0.9, "bootstrap p\n(Holm)", fontsize=4.3, va="bottom", transform=axg.get_yaxis_transform())
-    axg.axvline(0, color="k", lw=0.5)
-    axg.set_yticks(range(len(Q)), [str(int(q.id)) for q in Q.itertuples()], fontsize=4.8)
-    axg.set_ylim(len(Q) - 0.4, -0.6)
-    lim = max(5, np.nanmax(np.abs(100 * (Q.P_in - Q.P_rest_structure)))) * 1.1
-    axg.set_xlim(-lim, lim)
-    axg.set_xlabel("Inside minus rest of the\nstructure (% points)")
-    axg.set_title("Same structure", fontsize=5.4, loc="left")
-    S.letter_row(fig, [axd, axe, axf, axg], "defg", dx_in=0.42, dy_in=0.25)
+    S.letter_row(fig, [axd], "d", dx_in=0.42, dy_in=0.25)
     for k, ltr in enumerate("abc"):
         fig.text(0.04 / W, 1 - 0.42 / H - k * ph / H - 0.005, ltr, fontsize=9, weight="bold", va="top")
     fig.suptitle("Bimodal neurons and the convergence of whisker- and auditory-cortex projections",
@@ -422,8 +379,7 @@ def caption(SR, T, D):
         "and Emx1-IRES-Cre injections, 8 and 3 experiments, each normalised to its total); auditory zone (blue): same for AUDp "
         "and AUDd/AUDv (6 and 3); purple: overlap of the two zones. Numbers: overlap sub-regions (the overlap volume cut by "
         f"Allen structure into connected 3-D pieces >= {MIN_VOL} mm^3, named by their position within the structure); only "
-        f"sub-regions holding >= {MIN_REC} recorded neurons are shown and listed (structures without recorded neurons omitted); "
-        f"white numbers: sub-regions with >= {MIN_UNITS} sensory-responsive neurons, tested.",
+        f"sub-regions holding >= {MIN_REC} recorded neurons are shown and listed (structures without recorded neurons omitted).",
         "**b**, Sensory-responsive neurons in the same slabs (grey: one modality; purple: bimodal); line: overlap zone; grey "
         "number: responsive neurons in the slab.",
         "**c**, Bimodal fraction: bimodal neurons and responsive neurons counted on the 50-um CCF grid, each smoothed with a "
@@ -433,15 +389,6 @@ def caption(SR, T, D):
         f"{g.n_mice_in} mice) and among all responsive neurons ({g.n_resp_ref}): {100 * g.P_in:.1f} % vs {100 * g.P_ref:.1f} %; "
         f"error bars: 95 % hierarchical-bootstrap CI (sessions, then neurons). p: hierarchical bootstrap of the difference "
         f"({S.fmt_p(g.p_boot)}) and Fisher's exact test ({S.fmt_p(g.p_fisher)}, one-sided; neurons treated as independent).",
-        f"**e**, Hierarchical bootstrap of the difference (inside minus all responsive neurons; {int(g.n_boot)} resamples): "
-        "sessions resampled with replacement, then neurons within each session; p = fraction of resampled differences <= 0. "
-        "It keeps the clustering of neurons within sessions and does not require the same sessions inside and outside.",
-        "**f**, Bimodal fraction per overlap sub-region (dots, 95 % bootstrap CI), the rest of the same structure outside the "
-        "overlap (vertical tick) and all responsive neurons (dashed line, grey band: 95 % CI). p: hierarchical bootstrap of the "
-        f"difference to all responsive neurons outside the overlap, Holm-corrected across the {Q.p_boot.notna().sum()} tested "
-        "sub-regions; n: responsive neurons / sessions inside.",
-        "**g**, Sub-region minus the rest of its structure (percentage points); p: hierarchical bootstrap, Holm-corrected "
-        "(Fisher's exact test in colocation_tests.csv).",
         "",
         "Interpretation: co-location. The projection zones come from other mice (population-averaged tracing of excitatory "
         "cortical axons, including axons of passage), so overlap marks where whisker and auditory cortical inputs can converge; "
@@ -453,13 +400,7 @@ def caption(SR, T, D):
     vr = Q[Q.get("p_vs_rest_holm", pd.Series(np.nan, index=Q.index)) < 0.05] if "p_vs_rest_holm" in Q else Q.iloc[:0]
     res = (f"**Results.** Inside the overlap, {100 * g.P_in:.1f} % of responsive neurons were bimodal vs {100 * g.P_ref:.1f} % "
            f"overall (difference {100 * g['diff']:+.1f} % points, 95 % CI {100 * g.diff_ci_lo:+.1f} to {100 * g.diff_ci_hi:+.1f}; "
-           f"bootstrap {S.fmt_p(g.p_boot)}, Fisher {S.fmt_p(g.p_fisher)}). {len(sig)} of {Q.p_boot.notna().sum()} tested "
-           "sub-regions had more bimodal neurons than all responsive neurons outside the overlap after Holm correction"
-           + (f" ({', '.join(sig.region)})" if len(sig) else "") + ". Compared with the rest of their own structure, "
-           + (", ".join(f"{q.region} ({100 * q.P_in:.0f} % vs {100 * q.P_rest_structure:.0f} %, Holm {S.fmt_p(q.p_vs_rest_holm)})"
-                        for q in vr.itertuples()) if len(vr) else "no sub-region")
-           + " had more bimodal neurons. Sub-regions with < "
-           f"{MIN_UNITS} responsive neurons were not tested.")
+           f"bootstrap {S.fmt_p(g.p_boot)}, Fisher {S.fmt_p(g.p_fisher)}). Sub-regions are described, not tested.")
     lines.insert(lines.index("Interpretation: co-location. The projection zones come from other mice (population-averaged tracing of excitatory "
                              "cortical axons, including axons of passage), so overlap marks where whisker and auditory cortical inputs can converge; "
                              "it does not show that the bimodal responses are driven by these inputs. CCF positions of the recorded neurons carry an "
@@ -469,8 +410,7 @@ def caption(SR, T, D):
         extra = ""
         if len(q) and np.isfinite(q.iloc[0].get("p_boot", np.nan)):
             qq = q.iloc[0]
-            extra = (f"; bimodal {100 * qq.P_in:.1f} % (n = {qq.n_resp_in}, {qq.n_sessions_in} sessions), bootstrap p (Holm) "
-                     f"{qq.p_boot_holm:.3g}")
+            extra = f"; bimodal {100 * qq.P_in:.1f} % of {qq.n_resp_in} responsive neurons ({qq.n_sessions_in} sessions)"
         lines.append(f"- {sr.id}: {sr.name}, {sr.volume_mm3:.2f} mm^3, AP {sr.ap_bregma_mm:+.2f} mm{extra}")
     (OUT / f"colocation_figure_caption{ZTAG}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines[:4]))
