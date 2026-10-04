@@ -22,21 +22,19 @@ Question and scope: `question.md`. Results (not in git): `combined_results_ks4/_
 `build_deck_assets.py` (panel crops + summary schematic), `deck/build_deck.py` + `deck/render_deck.sh` (PowerPoint).
 Run order after new ROC tables or zones: 002 (both `ZONE_PCT`) -> 003 -> 004 -> 006 -> 007 -> 008 -> report / deck.
 
-## TODO (2026-10-04)
+## Decisions (user, 2026-10-04)
+
+- 90 % projection zones are the main result; 70 % is reported as the stricter version (report, deck, schematic).
+- Target-slab figures are dropped from report and deck; the within-target offset test (004) is kept.
+- No cohort / stage splits: pooled is the scope of this project.
+- Deck and report numbers come from the result tables (`build_report.py` -> `report_numbers.json` -> `deck/build_deck.py`).
+- Pre-lick converging neurons x projection overlap (008): null; added to the pre-lick convergence article as a
+  supplementary figure after the overnight rerun.
+
+## TODO
 
 - [ ] Overnight: ROC rerun of the 3 context-fixed sessions (MH062, MH064, AB128) -> maps chain (045, 001, 003, 004, 006,
-      007 at 70 % and 90 %) -> 008 at 70 % and 90 %. Then compare with the frozen statistics
-      (`combined_results_ks4/_snapshots/2026-10-04_2200/`).
-- [ ] Decide the main contour level for the co-location result: with the line-balanced zones the bimodal enrichment
-      depends on it (70 % vs 90 %); report both, choose one as main.
-- [ ] Re-check the overlap composition and sub-region names with the new zones (SCm share dropped) and the target-slab list
-      (`003.TARGETS`, chosen from the old zones).
-- [ ] Deck: numbers in `deck/build_deck.py` are hard-coded (injection counts, overlap volume, co-location, latency table)
-      -> read them from the result tables, then re-render the deck; re-render the PDF report (`render.sh`) when wanted.
-- [ ] Modality-preference slide: check the regional statement against the final maps.
+      007 at 70 % and 90 %) -> 008 at 70 % and 90 %. Compare with `combined_results_ks4/_snapshots/2026-10-04_2200/`.
+- [ ] 2026-10-05, after all runs (incl. passive): render deck (`deck/render_deck.sh`) and PDF (`render.sh`).
 - [ ] 007 cosmetics: crowded tick labels on the recorded-neuron density colour bar; legend fragment in the whisker /
       auditory flatmap crop.
-- [ ] 008 (pre-lick converging neurons): null so far; possible controls before closing: area-matched comparison
-      (inside vs outside within the same structures), lick-responsive baseline, learners population.
-- [ ] Splits: cohort (R+ / R-) and stage (learning / expert) for the maps and the co-location test (all pooled now).
-- [ ] Decide git home of the results figures / report (data are unpublished; this fork is public).

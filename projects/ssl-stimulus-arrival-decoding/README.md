@@ -24,13 +24,16 @@ corrected accuracy = real - mean of 10 within-session label shuffles; 100 iterat
 | 003_matched_accuracy.py | `--plan` / `--plot`: neurons needed to match a reference area's early accuracy |
 | 004_main_figures.py | main (N = 200) and summary figures per level, onset bootstrap |
 
-## TODO (2026-10-04)
+## Decisions (user, 2026-10-04)
 
-- [ ] Overnight: active sweep for all 18 groups + 40 fine areas -> 002 -> 003 (plan, matched runs, plot) -> 004
-      ("ACTIVE ALL DONE"), then the passive sweep at low priority ("PASSIVE DONE", tomorrow).
-- [ ] Compare onsets with the frozen statistics (`combined_results_ks4/_snapshots/2026-10-04_2200/stimulus_arrival/`).
-- [ ] Final runs: increase iterations (100) and shuffles (10) -- pilot values.
-- [ ] Controls: licked-only trials (lick confound after ~100 ms), cohort / stage split, artefact-window variant.
+- Final onsets: N = 200 only, 1000 iterations x 20 shuffles, all 18 groups + 40 areas, after the passive sweep
+  (`~/cArrFinal.sh` on haas -> `combined_results_ks4/_stimulus_arrival_final_n200/`, `005_final_n200.py`). Other N stay at
+  pilot sampling (100 x 10).
+- No further controls for now (licked-only, cohort / stage, artefact variant): passive trials only.
+
+## TODO
+
+- [ ] Overnight: active sweep -> 002 -> 003 -> 004 ("ACTIVE ALL DONE"), passive sweep ("PASSIVE DONE"), then the final
+      N = 200 run ("FINAL N200 DONE"). Compare with `combined_results_ks4/_snapshots/2026-10-04_2200/stimulus_arrival/`.
+- [ ] Use the final N = 200 onsets in report and deck once available.
 - [ ] Link single-neuron latency and population onset with all 18 groups (`build_deck_assets.py` link panel).
-- [ ] Delete the stale pre-split figures `figures/arrival_main_N200.png` and `figures/arrival_summary.png` (12:57).
-- [ ] Refresh deck and report after the passive run.

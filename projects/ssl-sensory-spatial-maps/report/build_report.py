@@ -89,6 +89,51 @@ def decoding_section(base, title, epoch_word):
     return txt, OB
 
 
+def numbers(U, ses, fr, n_r, n_b, lat, LG, PZ, OVS, OVS70, OV, T70, T90, MC, nrec, OBa, OBp):
+    """every number quoted in the deck -> report/report_numbers.json (deck/build_deck.py reads it; nothing hard-coded)"""
+    from scipy import stats
+
+    def coloc(T):
+        return dict(P_in=100 * T.P_in, P_ref=100 * T.P_ref, diff=100 * T["diff"], ci_lo=100 * T.diff_ci_lo,
+                    ci_hi=100 * T.diff_ci_hi, p=float(T.p_boot), n_in=int(T.n_resp_in))
+
+    def onsets(OB, level):
+        q = OB[OB.level == level].sort_values("onset_ms")
+        return [[short(r.area), None if not np.isfinite(r.onset_ms) else float(r.onset_ms)] for r in q.itertuples()]
+    st = pd.read_csv(AR_ACT / "onset_vs_window_stats.csv")
+    rho = st[st.resolution == "zoom"].set_index("level").rho
+    M = pd.read_csv(AR_ACT / "matched_n.csv") if (AR_ACT / "matched_n.csv").exists() else pd.DataFrame()
+    if len(M):
+        M = M[(M.reference == "Somatosensory-whisker") & (M.level == "area_group")]
+    link = {}
+    lf = SM / "deck" / "link_latency_onset.csv"
+    if lf.exists():
+        K = pd.read_csv(lf)
+        r, p = stats.spearmanr(K["first"], K.onset_ms)
+        link = dict(rho=float(r), p=float(p), n=len(K))
+    sig = MC[MC.p_distance_holm < 0.05]
+    N = dict(
+        n_neurons=len(U), n_sessions=int(ses.session_id.nunique()), n_mice=int(U.mouse_id.nunique()), n_structures=nrec,
+        resp=dict(whisker=fr["whisker_active"][:2], auditory=fr["auditory_active"][:2],
+                  modality=[fr["wh_vs_aud_active"][0], fr["wh_vs_aud_active"][1], fr["wh_vs_aud_active"][2]]),
+        bimodal_pct=100 * n_b / n_r, latency_median=dict(whisker=float(lat["whisker"].median()), auditory=float(lat["auditory"].median())),
+        latency_groups=[[short(a), float(r.latency_whisker_ms), float(r.latency_auditory_ms)] for a, r in LG.sort_values("latency_whisker_ms").iterrows()],
+        zones=dict(sources=[[r.source, int(r.n_experiments), int(r.n_lines)] for r in PZ.itertuples()],
+                   overlap90=OVS["overlap_mm3"], overlap70=OVS70["overlap_mm3"], whisker90=OVS["whisker_union_mm3"],
+                   auditory90=OVS["auditory_union_mm3"],
+                   pieces=list(OV[~OV.structure.isin(["root", "grey", "MB", "TH", "HY", "CTX"])].head(6).structure)),
+        coloc90=coloc(T90), coloc70=coloc(T70),
+        modality_offset=dict(n_sig=len(sig), n=len(MC), dmin=float(sig.centroid_distance_um.min()) if len(sig) else None,
+                             dmax=float(sig.centroid_distance_um.max()) if len(sig) else None),
+        arrival=dict(groups=onsets(OBa, "area_group"), areas=onsets(OBa, "area_acronym_custom"),
+                     rho_groups=float(rho.get("area_group", np.nan)), rho_areas=float(rho.get("area_acronym_custom", np.nan)),
+                     matched=[[short(r.area), None if not np.isfinite(r.matched_N) else float(r.matched_N)] for r in M.itertuples()],
+                     passive_groups=onsets(OBp, "area_group") if OBp is not None else None),
+        link=link, generated=f"{pd.Timestamp.now():%Y-%m-%d %H:%M}")
+    OUTD.mkdir(parents=True, exist_ok=True)
+    (OUTD / "report_numbers.json").write_text(json.dumps(N, indent=1, default=float))
+
+
 def main():
     m3 = importlib.import_module("003_spatial_maps")
     U = m3.load_units()
@@ -104,22 +149,26 @@ def main():
     L = pd.read_parquet(SM / "unit_latency.parquet")
     lat = {m: L[f"latency_{m}_ms"].dropna() for m in ("whisker", "auditory")}
     LG = U.groupby("area_group")[["latency_whisker_ms", "latency_auditory_ms"]].median().dropna(how="all")
-    PZ = pd.read_csv(SM / "projection_zones_summary.csv")
-    OVS = json.load(open(SM / "projection_overlap_summary.json"))
-    OV = pd.read_csv(SM / "projection_overlap.csv")
+    # 90 % projection zones are the main result, 70 % the stricter supplementary version (user 2026-10-04)
+    PZ = pd.read_csv(SM / "projection_zones_summary_zone90.csv")
+    OVS = json.load(open(SM / "projection_overlap_summary_zone90.json"))
+    OVS70 = json.load(open(SM / "projection_overlap_summary.json"))
+    OV = pd.read_csv(SM / "projection_overlap_zone90.csv")
     OV = OV[OV.recorded] if "recorded" in OV else OV
     OV = OV[~OV.structure.isin(["MB", "TH", "HY", "CTX", "grey"])]           # generic remainder labels
     T70 = pd.read_csv(SM / "colocation_tests.csv").query("kind == 'global'").iloc[0]
     T90 = pd.read_csv(SM / "colocation_tests_zone90.csv").query("kind == 'global'").iloc[0]
-    MC = pd.read_csv(SM / "modality_contours.csv")
+    MC = pd.read_csv(SM / "modality_contours_zone90.csv")
     nrec = int(pd.read_csv(SM / "recorded_structures.csv").recorded.sum())
-    nflat = len(pd.read_parquet(SM / "flatmap_units.parquet", columns=["session_id"]))
+    nflat = len(pd.read_parquet(SM / "flatmap_units_zone90.parquet", columns=["session_id"]))
+    FZ = SM / "figures_zone90"                                                     # figures drawn with the 90 % zones
     act, OBa = decoding_section(AR_ACT, "Task (active) trials", "task (active) trials")
     has_pas = (AR_PAS / "onset_bootstrap_N200.csv").exists()
     pas, OBp = decoding_section(AR_PAS, "Passive trials", "passive trials") if has_pas else ("", None)
     ga = OBa[OBa.level == "area_group"].dropna(subset=["onset_ms"]).sort_values("onset_ms")
     lat_sw, lat_mb = LG.loc["Somatosensory-whisker"], LG.loc["Midbrain"]
     sig_mc = MC[MC.p_distance_holm < 0.05]
+    numbers(U, ses, fr, n_r, n_b, lat, LG, PZ, OVS, OVS70, OV, T70, T90, MC, nrec, OBa, OBp)
     lines = []
     A = lines.append
     A(f"""---
@@ -156,13 +205,13 @@ format:
     A(f"""
 **Convergence**
 
-5. **Whisker and auditory cortex project to partly overlapping targets.** The 70 % projection zones of whisker cortex
-   ({OVS['whisker_union_mm3']:.1f} mm³) and auditory cortex ({OVS['auditory_union_mm3']:.1f} mm³) overlap in {OVS['overlap_mm3']:.1f} mm³, mainly in
-   {', '.join(OV.head(6).structure)}.
+5. **Whisker and auditory cortex project to partly overlapping targets.** The 90 % projection zones of whisker cortex
+   ({OVS['whisker_union_mm3']:.1f} mm³) and auditory cortex ({OVS['auditory_union_mm3']:.1f} mm³) overlap in {OVS['overlap_mm3']:.1f} mm³ (70 % zones:
+   {OVS70['overlap_mm3']:.1f} mm³), mainly in {', '.join(OV[~OV.structure.isin(["root", "grey", "MB", "TH", "HY", "CTX"])].head(6).structure)}.
 6. **Bimodal neurons are enriched where these projections converge.** {100 * n_b / n_r:.1f} % of sensory-responsive neurons respond to both
-   modalities; inside the overlap {100 * T70.P_in:.1f} % vs {100 * T70.P_ref:.1f} % of all responsive neurons ({100 * T70['diff']:+.1f} points, 95 % CI
-   {100 * T70.diff_ci_lo:+.1f} to {100 * T70.diff_ci_hi:+.1f}; hierarchical bootstrap {p_txt(T70.p_boot)}; 90 % zones {100 * T90['diff']:+.1f} points,
-   {p_txt(T90.p_boot)}). A co-location, not evidence of causation.
+   modalities; inside the overlap (90 % zones) {100 * T90.P_in:.1f} % vs {100 * T90.P_ref:.1f} % of all responsive neurons ({100 * T90['diff']:+.1f} points,
+   95 % CI {100 * T90.diff_ci_lo:+.1f} to {100 * T90.diff_ci_hi:+.1f}; hierarchical bootstrap {p_txt(T90.p_boot)}); with the stricter 70 % zones
+   {100 * T70['diff']:+.1f} points ({p_txt(T70.p_boot)}). A co-location, not evidence of causation.
 7. **Within shared targets, whisker- and auditory-preferring neurons are spatially offset** in {len(sig_mc)} of {len(MC)} target slabs
    (within-session permutation, Holm p < 0.05).
 
@@ -249,30 +298,31 @@ Allen Mouse Brain Connectivity Atlas: anterograde injections in wild-type mice a
 neurons (interneuron lines excluded; """ +
       ", ".join(f"{r.source} {r.n_experiments} experiments in {r.n_lines} lines" for r in PZ.itertuples()) + """). Per source,
 experiments are normalised, averaged within each line $l$ and then over the $K$ lines (no line dominates):
-$\\bar D(v) = \\frac{1}{K}\\sum_l \\frac{1}{E_l}\\sum_{e \\in l} d_e(v) / \\sum_{v' \\in C} d_e(v')$, smoothed ($\\tilde D = G_{50\\,\\mu m} * \\bar D$); 70 % zone
-$Z = \\{v : \\tilde D(v) \\ge \\tau\\}$ with $\\sum_{Z} \\tilde D = 0.7 \\sum_C \\tilde D$; merged whisker (SSp-bfd + SSs) and auditory (AUDp + AUDd/v)
-zones; overlap $Z_w \\cap Z_a$. """ + f"""Overlap {OVS['overlap_mm3']:.1f} mm³; largest recorded pieces: """ +
+$\\bar D(v) = \\frac{1}{K}\\sum_l \\frac{1}{E_l}\\sum_{e \\in l} d_e(v) / \\sum_{v' \\in C} d_e(v')$, smoothed ($\\tilde D = G_{50\\,\\mu m} * \\bar D$); 90 % zone
+$Z = \\{v : \\tilde D(v) \\ge \\tau\\}$ with $\\sum_{Z} \\tilde D = 0.9 \\sum_C \\tilde D$ (main; 70 % as the stricter version); merged whisker
+(SSp-bfd + SSs) and auditory (AUDp + AUDd/v) zones; overlap $Z_w \\cap Z_a$. """ + f"""Overlap {OVS['overlap_mm3']:.1f} mm³ (70 %: {OVS70['overlap_mm3']:.1f} mm³); largest recorded pieces: """ +
       ", ".join(f"{r.structure} {r.overlap_mm3:.2f} mm³" for r in OV.head(8).itertuples()) + ".\n\n")
-    A(fig(SM / "figures" / "projection_zones_coronal.png", "projection_zones_coronal.png",
-          "**Projection zones of whisker and auditory cortex**, coronal 500-µm slabs (density, 70 % contours, overlap; right: largest "
+    A(fig(FZ / "projection_zones_coronal.png", "projection_zones_coronal.png",
+          "**Projection zones of whisker and auditory cortex**, coronal 500-µm slabs (density, 90 % contours, overlap; right: largest "
           "recorded structures as % of the zone)."))
-    A(fig(SM / "figures" / "projection_zones_sagittal.png", "projection_zones_sagittal.png", "Same, sagittal slabs."))
+    A(fig(FZ / "projection_zones_sagittal.png", "projection_zones_sagittal.png", "Same, sagittal slabs."))
     A("\n## Responses relative to the projection zones\n\n")
-    A(fig(SM / "figures" / "cortical_flatmaps.png", "cortical_flatmaps.png",
-          "**The flatmaps of the Where section with the projection zones** (70 % contours of whisker (teal) and auditory (brown dashed) "
+    A(fig(FZ / "cortical_flatmaps.png", "cortical_flatmaps.png",
+          "**The flatmaps of the Where section with the projection zones** (90 % contours of whisker (teal) and auditory (brown dashed) "
           "cortex projections; first column, bottom: whisker zone yellow, auditory zone blue, overlap purple)."))
     A(f"""
 ## Bimodal neurons and projection overlap
 
 $\\Delta = P_\\text{{in}} - P_\\text{{ref}}$ (bimodal fraction of responsive neurons inside the overlap minus among all); hierarchical bootstrap
 over sessions then neurons ($B$ = 2000), $p = (1 + \\#\\{{\\Delta^* \\le 0\\}})/(1 + B)$; Fisher's exact test alongside. Sub-regions described,
-not tested. 70 % zones: {100 * T70.P_in:.1f} % of {int(T70.n_resp_in):,} vs {100 * T70.P_ref:.1f} % of {int(T70.n_resp_ref):,}, {100 * T70['diff']:+.1f} points
-(95 % CI {100 * T70.diff_ci_lo:+.1f} to {100 * T70.diff_ci_hi:+.1f}), {p_txt(T70.p_boot)}. 90 % zones: {100 * T90.P_in:.1f} % vs {100 * T90.P_ref:.1f} %,
-{100 * T90['diff']:+.1f} points ({100 * T90.diff_ci_lo:+.1f} to {100 * T90.diff_ci_hi:+.1f}), {p_txt(T90.p_boot)}.
+not tested. 90 % zones (main): {100 * T90.P_in:.1f} % of {int(T90.n_resp_in):,} vs {100 * T90.P_ref:.1f} % of {int(T90.n_resp_ref):,},
+{100 * T90['diff']:+.1f} points (95 % CI {100 * T90.diff_ci_lo:+.1f} to {100 * T90.diff_ci_hi:+.1f}), {p_txt(T90.p_boot)}. 70 % zones (stricter):
+{100 * T70.P_in:.1f} % of {int(T70.n_resp_in):,} vs {100 * T70.P_ref:.1f} %, {100 * T70['diff']:+.1f} points ({100 * T70.diff_ci_lo:+.1f} to
+{100 * T70.diff_ci_hi:+.1f}), {p_txt(T70.p_boot)}.
 
 """)
-    A(fig(SM / "figures" / "colocation_figure.png", "colocation_figure.png",
-          "**Bimodal neurons and the convergence of whisker- and auditory-cortex projections** (70 % zones). a, zones and sub-regions; "
+    A(fig(FZ / "colocation_figure.png", "colocation_figure.png",
+          "**Bimodal neurons and the convergence of whisker- and auditory-cortex projections** (90 % zones). a, zones and sub-regions; "
           "b, responsive / bimodal neurons; c, bimodal fraction; d, inside vs all responsive neurons."))
     A(f"""
 ## Modality preference within shared targets
@@ -284,7 +334,7 @@ labels permuted within sessions (5000), Holm correction.
 |---|---|---|---|---|---|
 """ + "\n".join(f"| {r.slab.split(',')[0]} / {r.area} | {r.n_whisker_pref} / {r.n_auditory_pref} | {r.n_sessions} | {r.centroid_distance_um:.0f} | "
                 f"{r.shift_depth_um:+.0f} | {r.p_distance_holm:.3f} |" for r in MC.itertuples()) + "\n")
-    A(fig(SM / "figures" / "modality_contours.png", "modality_contours.png",
+    A(fig(FZ / "modality_contours.png", "modality_contours.png",
           "**Location of whisker- vs auditory-preferring neurons within areas** (80 % contours, centroids)."))
     sch = SM / "deck" / "img" / "summary_schematic.png"
     if sch.exists():
@@ -297,24 +347,15 @@ labels permuted within sessions (5000), Holm correction.
 # Caveats
 
 - Co-location, not causation (tracing from other mice, axons of passage, CCF uncertainty of ~100-200 µm).
-- Cohorts and stages pooled; splits are a next step.
+- Cohorts and stages are pooled throughout (scope of this report).
+- The bimodal enrichment depends on the zone level: clear with the 90 % zones (main), smaller and not significant with the
+  stricter 70 % zones.
 - Task-trial decoding after ~100 ms can use lick preparation (auditory trials nearly always licked); passive trials and onsets in the
   first 20 ms are unaffected.
 - Whisker-trial spikes in -10 to +5 ms are replaced by baseline-rate Poisson spikes: whisker information cannot appear before ~5 ms.
-- 100 iterations x 10 shuffles are pilot values.
-
-# Appendix: target slabs
-
-500-µm coronal slabs tiling the recorded AP range, sagittal slabs tiling ML, and 13 coronal slabs centred on projection zones / areas;
-neurons within ±250 µm projected on the central section; density averaged over the slab (3-D Gaussian, sigma 150 µm, 50-µm CCF grid).
-Lines: 70 % projection zones.
-
+- 100 iterations x 10 shuffles are pilot values (final N = 200 onsets: 1000 x 20, separate run).
 """)
-    for q, ttl in (("whisker", "Whisker responsiveness"), ("auditory", "Auditory responsiveness"), ("modality", "Modality preference"),
-                   ("latency_whisker", "Whisker response latency"), ("latency_auditory", "Auditory response latency"),
-                   ("bimodal", "Bimodal neurons")):
-        A(fig(SM / "figures" / q / "targets_p1.png", f"{q}_targets_p1.png",
-              f"**{ttl}** in slabs centred on projection zones (first page; all pages in `figures/{q}/`)."))
+    # target-slab figures dropped from the report (user 2026-10-04); the within-target offset test (004) is kept
     OUTD.mkdir(parents=True, exist_ok=True)
     (OUTD / "sensory_maps_report.qmd").write_text("\n".join(lines), encoding="utf-8")
     (OUTD / "report_figures.txt").write_text("\n".join(f"{s}\t{n}" for s, n in FIGS) + "\n")

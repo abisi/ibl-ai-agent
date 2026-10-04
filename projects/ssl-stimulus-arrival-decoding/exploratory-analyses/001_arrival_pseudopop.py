@@ -64,7 +64,7 @@ COARSE, FINE, LEVELS = AR.COARSE, AR.FINE, AR.LEVELS
 N_LIST = [20, 50, 100, 200, 300, 500]
 N_SESS = 20
 MIN_UNITS, MIN_TRIALS = 5, 3
-N_SHUF = 10                                   # PILOT value
+N_SHUF = int(os.environ.get("ARRIVAL_NSHUF", "10"))  # PILOT value 10; final N = 200 run: 20 (user 2026-10-04)
 N_ITER = 100                                  # PILOT value
 CHUNK = 5
 C_GRID = 1.0 / np.array([1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10])     # = scripts/ssl_bwm_decoding.C_GRID (002's grid)

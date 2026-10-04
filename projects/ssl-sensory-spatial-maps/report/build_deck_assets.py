@@ -12,6 +12,7 @@ from PIL import Image
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 SM, AA, AP = RES / "_sensory_spatial_maps", RES / "_stimulus_arrival", RES / "_stimulus_arrival_passive"
 OUT = SM / "deck" / "img"
+FZ = SM / "figures_zone90"                       # 90 % projection zones = main (user 2026-10-04)
 REPO = pathlib.Path.home() / "code" / "ibl-ai-agent" / "projects"
 sys.path.insert(0, str(REPO / "ssl-stimulus-arrival-decoding" / "exploratory-analyses"))
 LOG = []
@@ -59,7 +60,7 @@ def save(im, box, name, pad=8):
 
 def flatmap_columns(name, sfx):
     """columns of the flatmap figure; sfx "" = no zone contours (sensory-coding slides), "_zones" = with contours"""
-    path = SM / "figures" / f"{name}.png"
+    path = FZ / f"{name}.png"
     if not path.exists():
         LOG.append(f"missing {path.name}")
         return
@@ -148,12 +149,12 @@ def schematic():
     OB = pd.read_csv(AA / "onset_bootstrap_N200.csv")
     on = dict(zip(OB.area, OB.onset_ms))
     # shared targets and the co-location result come from the current zone tables (002, 006), not hard-coded
-    OV_T = pd.read_csv(SM / "projection_overlap.csv")
+    OV_T = pd.read_csv(SM / "projection_overlap_zone90.csv")
     OV_T = OV_T[OV_T.recorded] if "recorded" in OV_T else OV_T
     OV_T = OV_T[~OV_T.structure.isin(["root", "grey", "MB", "TH", "HY", "CTX", "STR", "P", "MY"])]
     top = list(OV_T.sort_values("overlap_mm3", ascending=False).structure.head(6))
     shared = "Shared targets\n" + " · ".join(top[:3]) + "\n" + " · ".join(top[3:6])
-    T = pd.read_csv(SM / "colocation_tests.csv").query("kind == 'global'").iloc[0]
+    T = pd.read_csv(SM / "colocation_tests_zone90.csv").query("kind == 'global'").iloc[0]
     ptxt = "p < 0.001" if T.p_boot < 0.001 else f"p = {T.p_boot:.3f}"
     coloc = f"bimodal neurons {100 * T['diff']:+.1f} points\n({100 * T.P_in:.1f} % vs {100 * T.P_ref:.1f} %, {ptxt})"
     WH, AU, OV = "#f7b519", "#2c2cdb", "#8e44ad"
@@ -217,11 +218,10 @@ def schematic():
 
 
 def copies():
-    for src, name in [(SM / "figures" / "projection_zones_coronal.png", "projection_zones_coronal.png"),
-                      (SM / "figures" / "colocation_figure.png", "colocation_figure.png"),
-                      (SM / "figures" / "modality_contours.png", "modality_contours.png"),
-                      (SM / "figures" / "modality" / "targets_p1.png", "modality_targets.png"),
-                      (SM / "figures" / "whisker" / "targets_p1.png", "whisker_targets.png")]:
+    # target-slab figures are no longer used (user 2026-10-04)
+    for src, name in [(FZ / "projection_zones_coronal.png", "projection_zones_coronal.png"),
+                      (FZ / "colocation_figure.png", "colocation_figure.png"),
+                      (FZ / "modality_contours.png", "modality_contours.png")]:
         if src.exists():
             Image.open(src).convert("RGB").save(OUT / name)
             LOG.append(f"{name} copied")

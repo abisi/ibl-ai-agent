@@ -1,6 +1,6 @@
 ---
-title: "Whisker and auditory responses across the mouse brain: spatial maps, projection anatomy and the arrival of stimulus information"
-subtitle: "SSL dataset (Neuropixels, KS4) -- working report, version of 2026-10-04"
+title: "Whisker and auditory responses across the mouse brain: where, when, and where the two streams converge"
+subtitle: "SSL dataset (Neuropixels, KS4) -- report generated 2026-10-04 16:02"
 format:
   typst:
     papersize: a4
@@ -15,317 +15,244 @@ format:
 
 # Key conclusions
 
-1. **Sensory responses are widespread but spatially organised.** Of 179,064 good and multi-unit neurons (122 sessions,
-   92 mice), 15.3 % respond to the whisker stimulus and 15.2 % to the auditory stimulus in the active task (5-35 ms after
-   onset); 27.8 % prefer one modality. Whisker-excited neurons concentrate in barrel cortex, SSs, the whisker motor
-   cortices, dorsolateral striatum and the superior colliculus; auditory responses dominate in auditory cortex, the
-   tail of the striatum and the midbrain (Section 3).
-2. **Each modality reaches its own sensory system first.** Median half-time to peak of responsive neurons: whisker
-   11.6 ms in whisker somatosensory cortex vs 18.0 ms for auditory responses there; auditory 8.5 ms in the midbrain vs
-   16.9 ms for whisker responses there (Section 3.4).
-3. **Whisker and auditory cortex project to partly overlapping targets.** In the Allen anterograde tracing data the
-   70 % projection zones of whisker cortex (SSp-bfd + SSs, 29.4 mm³) and auditory cortex (AUDp + AUDd/v, 14.5 mm³)
-   overlap in 3.9 mm³: mainly the caudal / tail striatum, posterior parietal cortex (VISa, VISrl, VISal), SCm, MRN
-   and TEa (Section 4).
-4. **Bimodal neurons are enriched where these projections converge.** 24.2 % of the sensory-responsive neurons respond to
-   both modalities; inside the overlap zone 29.5 % do vs 23.8 % of all responsive neurons (+5.7 percentage points,
-   95 % CI +1.1 to +10.3; hierarchical bootstrap p = 0.008; 90 % zones: +6.3 points, p < 0.001). This is a
-   co-location, not evidence of causation (Section 5).
-5. **Within areas, whisker- and auditory-preferring neurons are spatially offset.** In 10 of 13 target slabs the two
-   populations differ in location by 70-710 µm (within-session permutation, Holm p < 0.05), e.g. auditory-preferring
-   neurons lie deeper in SSp-bfd and SCm and more superficial in auditory cortex (Section 6).
-6. **Stimulus modality can be decoded within 8-18 ms of stimulus onset, earliest in the midbrain.** With 200-neuron
-   pseudo-populations the first significant 20-ms bin ends at 8 ms in the midbrain / SCm, 10 ms in whisker
-   somatosensory cortex and thalamus, 12 ms in auditory cortex and the striatum and 14-18 ms in motor-frontal areas
-   (ALM last). Earlier onset goes with higher early accuracy (Spearman ρ = -0.9), and at matched early accuracy the
-   midbrain needs about 3 times fewer neurons than whisker cortex (Section 7).
+**Sensory coding**
 
-**Status.** Pending: the ROC of three sessions with corrected context labels (maps and co-location will be refreshed),
-the decoding sweep over all 18 area groups and the 40 best-sampled areas (this report shows the first 6 groups and 8
-areas), and decoding of passive trials. Pseudo-population iterations (100 x 10 shuffles) are pilot values.
+1. **Sensory responses are widespread but spatially organised.** Of 179,064 good and multi-unit neurons (122
+   sessions, 92 mice), 15.3 % respond to the whisker stimulus and 15.2 % to
+   the auditory stimulus in the active task (5-35 ms after onset); 27.8 % prefer one modality (Where).
+2. **Each modality reaches its own sensory system first.** Median half-time to peak: whisker 11.6 ms in whisker
+   somatosensory cortex (auditory there 18.0 ms); auditory 8.5 ms in the midbrain
+   (whisker there 16.9 ms) (When).
+3. **Stimulus modality can be decoded within 8-16 ms of stimulus onset (area groups, task trials)**, earliest in
+   Midbrain; faster areas also carry more early information (Population coding).
+
+**Convergence**
+
+5. **Whisker and auditory cortex project to partly overlapping targets.** The 70 % projection zones of whisker cortex
+   (29.4 mm³) and auditory cortex (14.5 mm³) overlap in 3.9 mm³, mainly in
+   CP, VISa, VISrl, VISal, SCm, MRN.
+6. **Bimodal neurons are enriched where these projections converge.** 24.2 % of sensory-responsive neurons respond to both
+   modalities; inside the overlap 29.5 % vs 23.8 % of all responsive neurons (+5.7 points, 95 % CI
+   +1.1 to +10.3; hierarchical bootstrap p = 0.008; 90 % zones +6.3 points,
+   p < 0.001). A co-location, not evidence of causation.
+7. **Within shared targets, whisker- and auditory-preferring neurons are spatially offset** in 9 of 13 target slabs
+   (within-session permutation, Holm p < 0.05).
+
+**Notes.** Pseudo-population iterations (100 x 10 shuffles) are pilot values. All analyses pool both cohorts and both stages.
 
 # Data
 
-## Sessions, neurons and trials
+- **Recordings.** Neuropixels, Kilosort 4 (`NWB_ks4`); 122 whisker-training sessions (90 learning-day,
+  32 expert; 68 R+ and 54 R- sessions; 92 mice); inclusion and cohort labels
+  from the dataset record (`skills/ssl-valid-data`).
+- **Neurons.** Good and multi-unit clusters (v2 unit table with drift test), 179,064 neurons; CCF positions folded onto one
+  hemisphere; custom area groups / areas (`allen_utils`); 111 structures recorded (>= 10 neurons).
+- **Trials.** Active: context active, `perf` != 6, auditory warm-up removed (trial before the first whisker trial kept), end-of-session
+  disengagement trimmed (rule A1). Passive: fixed ~3 s ITI sequence or labelled passive (pre- and post-task blocks). Unlabelled trials
+  in a session with context labels are active.
+- **Whisker artefact.** Spikes in -10 to +5 ms around every whisker onset replaced by a Poisson train at the pre-onset rate.
+- **Maps.** Density $\rho_q(x) = (G_\sigma * \sum_i q_i \delta_{x_i})(x) \,/\, (G_\sigma * \sum_i \delta_{x_i})(x)$ (Gaussian, sigma 150 µm;
+  normalised by the recorded-neuron density), shown where >= 3 neurons fall within the kernel. Isocortex flatmap: Allen CCFv3 butterfly
+  flatmap (cortical streamlines; geodesic embedding to two pairs of anchor points; Wang et al. 2020, Harris et al. 2019) via
+  `ccf_streamlines`; 98,166 isocortex neurons placed at their closest streamline; left hemisphere, anterior up; area not preserved
+  (numbers computed in 3-D).
 
-- **Recordings.** Neuropixels recordings sorted with Kilosort 4 (NWB files, `NWB_ks4`); 122 whisker-training sessions
-  (learning day and expert days, R+ and R- cohorts; 90 learning-day and 32 expert sessions; 68 R+ and 54 R- sessions;
-  92 mice). Inclusion and cohort labels follow the dataset record (`skills/ssl-valid-data`).
-- **Neurons.** Good and multi-unit clusters (`quality_label` from the v2 unit table, with the drift test); 179,064
-  neurons. Positions: CCF coordinates of the probe-track reconstruction (`ccf_atlas_ap/ml/dv`, µm), folded onto one
-  hemisphere. Areas: the custom area groups and areas of `allen_utils` (18 groups, 46 areas); a structure counts as
-  recorded with at least 10 neurons (111 structures).
-- **Trials.** Active trials: context active, `perf` ≠ 6, auditory warm-up block removed (keeping the trial before the
-  first whisker trial), end-of-session disengagement trimmed (rule A1). Passive trials: trials in a fixed ~3 s ITI
-  sequence or labelled passive (pre- and post-task blocks). Unlabelled trials in a session with context labels are
-  active (one session, MH062 day +4).
-- **Whisker artefact.** Spikes in -10 to +5 ms around every whisker-stimulus onset are replaced by a Poisson spike train
-  at the neuron's pre-onset rate (-200 to -10 ms); all analyses use these corrected spike trains.
-
-## Pooling
-
-All analyses here pool both cohorts and both learning stages: the goal is to describe sensory responses, not their
-change with learning. Cohort / stage splits are listed as next steps.
-
-# Single-neuron sensory responses
+# Where: single-neuron sensory responses
 
 ## Responsiveness and modality preference (rate-based ROC)
 
-For a neuron, a condition A (baseline) and B (response), the spike counts in the response window (5-35 ms after onset)
-and the baseline window (-1 s to -15 ms before the trial) of each trial give the area under the ROC curve; the
-selectivity is
+Spike counts in the response window (5-35 ms) and the baseline window (-1 s to -15 ms) give $\mathrm{sel} = 2\,\mathrm{AUC}(A, B) - 1$
+(positive when B is higher); significance from 1000 label permutations, one-sided, p < 0.05.
 
-$$ \mathrm{sel} = 2\,\mathrm{AUC}(A, B) - 1 \in [-1, 1], $$
-
-positive when B is higher. Significance: 1000 label permutations, one-sided on the side of the observed selectivity,
-p < 0.05. Quantities used:
-
-| Quantity | A vs B | positive means |
-|---|---|---|
-| whisker responsiveness (`whisker_active`) | baseline vs whisker trials (active) | excited by whisker |
-| auditory responsiveness (`auditory_active`) | baseline vs auditory trials (active) | excited by sound |
-| modality preference (`wh_vs_aud_active`) | whisker vs auditory trials (active) | auditory-preferring |
-
-Fractions significant: whisker 15.3 % (12.1 % excited, 3.2 % inhibited), auditory 15.2 % (13.6 % / 1.5 %),
-modality 27.8 % (17.6 % auditory-preferring, 10.2 % whisker-preferring).
+| Quantity | A vs B | positive | significant | positive / negative |
+|---|---|---|---|---|
+| whisker responsiveness | baseline vs whisker (active) | excited | 15.3 % | 12.1 / 3.2 % |
+| auditory responsiveness | baseline vs auditory (active) | excited | 15.2 % | 13.6 / 1.5 % |
+| modality preference | whisker vs auditory (active) | auditory-preferring | 27.8 % | 17.6 / 10.2 % |
 
 ## Bimodal neurons
 
-A neuron is responsive to modality $m$ if any of its stimulus-vs-baseline tests in the $k_m$ epochs available in its
-session (active, passive pre, passive post; $k_m \in \{1,2,3\}$) is significant after Bonferroni correction:
+Responsive to modality $m$ if any stimulus-vs-baseline test in the $k_m$ epochs of the session (active, passive pre, passive post) is
+significant after Bonferroni correction: $R_m = \exists\, e:\; p_{m,e} < 0.05 / k_m$. Bimodal: $R_\text{whisker} \wedge R_\text{auditory}$.
+Of 44,913 responsive neurons, 15,124 respond to whiskers only, 18,907 to sound only and 10,882 to both ($B$ = 24.2 %).
 
-$$ R_m = \exists\, e:\; p_{m,e} < 0.05 / k_m . $$
+## Maps
 
-Bimodal: $R_\text{whisker} \wedge R_\text{auditory}$ (excited or inhibited). Of the 44,913 sensory-responsive neurons,
-15,124 respond to whiskers only, 18,907 to sound only and 10,882 to both: bimodal fraction
-$B = n_\text{both} / n_\text{responsive} = 24.2\,\%$.
 
-## Response latency
+![**Sensory responses across the isocortex** (Allen butterfly flatmap). Top: significant neurons coloured by the quantity (grey number: neurons in colour); bottom: density normalised by recorded-neuron density; first column: recorded neurons and their density. Projection zones are added in the Convergence section.](fig/cortical_flatmaps_nozones.png){width=100%}
 
-For each responsive neuron and modality: PSTH in 1-ms bins (-100 to +200 ms, all trials of that modality), minus its
-mean over -100 to -10 ms, smoothed (Gaussian, σ = 2 ms) and signed by the ROC selectivity $s$:
-$r(t) = s\,[\mathrm{PSTH}(t) - \overline{\mathrm{PSTH}}_{[-100,-10]}]$. With $t_\text{peak} = \arg\max_{5 \le t \le 100} r(t)$,
-the latency is the half-time to peak, the last upward crossing of $r(t) = r(t_\text{peak})/2$ before the peak (searched
-after +5 ms for whisker trials, the end of the artefact window). Medians: whisker 17.4 ms (IQR 11.8-24.4, 24,200
-neurons), auditory 15.2 ms (9.2-22.9, 26,639 neurons).
 
-## Latency by area group
+# When: response latency
+
+$r(t) = s\,[\mathrm{PSTH}(t) - \overline{\mathrm{PSTH}}_{[-100,-10]}]$ (1-ms bins, Gaussian sigma 2 ms, $s$ = sign of the selectivity); latency =
+last upward crossing of $r(t_\text{peak})/2$ before $t_\text{peak} = \arg\max_{5 \le t \le 100} r(t)$ (whisker: after +5 ms). Medians:
+whisker 17.4 ms (24,200 neurons), auditory 15.2 ms (26,639).
+The latency flatmaps are columns 5-6 of the flatmap figure above.
 
 | Area group | whisker (ms) | auditory (ms) |
 |---|---|---|
-| Somatosensory-whisker | **11.6** | 18.0 |
-| Posterior parietal | **12.6** | 16.7 |
+| SS-whisker | 11.6 | 18.0 |
+| Posterior parietal | 12.6 | 16.7 |
 | Auditory | 15.1 | 15.4 |
-| Midbrain | 16.9 | **8.5** |
+| Midbrain | 16.9 | 8.5 |
+| Amygdala + hypothalamus | 17.3 | 8.6 |
 | Thalamus | 17.8 | 15.8 |
+| SS-orofacial | 19.6 | 20.9 |
+| Pallidum | 19.6 | 11.4 |
+| SS-body | 20.0 | 15.4 |
 | Motor | 20.8 | 15.8 |
 | Striatum | 21.1 | 16.5 |
+| Retrosplenial | 23.3 | 14.2 |
+| Visual | 24.1 | 19.6 |
 | Frontal | 25.2 | 19.5 |
+| Hippocampus | 25.7 | 18.0 |
+| Lateral septum | 28.1 | 19.0 |
+| Olfactory | 33.0 | 17.0 |
+| Insular | 33.3 | 23.0 |
 
-# Spatial organisation of sensory responses
 
-## Maps: slabs, density and flatmaps
+# Population coding: when does stimulus information arrive?
 
-- **Slabs.** 500-µm-thick coronal slabs tiling the recorded AP range (16), sagittal slabs tiling the ML range (10),
-  and 13 coronal slabs centred on projection zones / areas (SSp-bfd, SSs, wM1, wM2, ORB, anterior / caudal / tail of
-  the striatum, SCm, AUDp, TEa, PO, MG). All neurons within ±250 µm are projected on the slab's central section.
-- **Density (normalised by sampling).** Each quantity $q_i$ of neuron $i$ at position $x_i$ is summed on the 50-µm CCF grid
-  and divided by the number of neurons with a value, both smoothed with the same 3-D Gaussian $G_\sigma$
-  (σ = 150 µm):
-  $$ \rho_q(x) = \frac{\left(G_\sigma * \sum_i q_i\, \delta_{x_i}\right)(x)}{\left(G_\sigma * \sum_i \delta_{x_i}\right)(x)}, $$
-  averaged over the slab and shown where at least 3 neurons fall within the kernel. For the bimodal map, $q_i$ = 1 for
-  bimodal and 0 for one-modality neurons, so $\rho$ is the local bimodal fraction.
-- **Isocortex flatmap.** Allen CCFv3 butterfly flatmap (cortical streamlines from the Laplace solution between pia and
-  white matter; 2-D coordinates from geodesic distances on the cortical surface to two pairs of anchor points; Wang
-  et al. 2020, Harris et al. 2019), via Allen's `ccf_streamlines`. Each isocortex neuron (98,166) is placed at the flat
-  position of its closest streamline (left hemisphere shown, anterior up). The embedding does not preserve area;
-  numbers are computed in 3-D.
+**Method.** One iteration: 20 sessions with replacement, $N/20$ neurons of the area per session, pseudo-trials per class by balanced
+reuse; L2 logistic regression per time bin (3-fold CV on real trials, inner 2-fold for C); $\mathrm{BA} = (\mathrm{TPR} + \mathrm{TNR})/2$;
+corrected accuracy $d(t) = \mathrm{BA}_\text{real}(t) - \frac{1}{10}\sum_k \mathrm{BA}_{\text{shuffle},k}(t)$ (labels shuffled within
+sessions); 100 iterations; $N$ = 20-500. Bin above chance: 5th percentile of $d(t)$ > 0. Onset: first $t > 0$ above chance with >= 80 % of
+the bins in $[t, t + 25\,\text{ms}]$ above chance (20-ms bins, 2-ms steps); 95 % range from 1000 resamples of the iterations. Early accuracy:
+mean $d$ over bins ending 5-50 ms. Areas: all 18 area groups and the 40 best-sampled areas.
 
-![**Sensory responses across the isocortex.** Allen butterfly flatmap, left hemisphere (anterior up, lateral left).
-Top: neurons with a significant response coloured by the quantity (grey: tested, not significant); bottom: density
-normalised by the recorded-neuron density (σ = 150 µm). Lines: whisker-cortex (teal) and auditory-cortex (brown dashed)
-70 % projection zones. First column: recorded neurons with Allen areas; projection zones and their overlap.](fig/cortical_flatmaps.png){width=100%}
+## Task (active) trials
 
-## Example slabs
+With 200-neuron pseudo-populations (task (active) trials), the first significant 20-ms bin ends at 8 ms in Midbrain, 10 ms in SS-whisker, 10 ms in Thalamus, 12 ms in Auditory (area groups; last: Motor, 16 ms). Among areas, the earliest are SCm (8 ms), SSp-bfd (10 ms), SSs (10 ms), DLS (12 ms), DMS (12 ms). Onset and early accuracy are related across areas and neuron counts (Spearman rho = -0.89 for area groups, -0.93 for areas).
 
-![**Whisker responsiveness in slabs centred on projection zones.** Columns: slab position (Allen colours), all recorded
-neurons (main structures labelled), all neurons coloured by whisker selectivity, density normalised by recorded-neuron
-density, significant neurons. Lines: merged whisker (teal) and auditory (brown) 70 % projection zones.](fig/whisker_targets_p1.png){width=100%}
+Area groups without a significant onset: 0; areas: 0.
 
-![**Modality preference** (whisker-preferring yellow, auditory-preferring blue), same slabs and layout.](fig/modality_targets_p1.png){width=100%}
+**Area groups.**
 
-![**Whisker response latency** (half-time to peak; light = fast), same slabs.](fig/latency_whisker_targets_p1.png){width=100%}
+| Area | onset N = 200 (ms) | early accuracy N = 100 / 200 / 500 | eligible sessions |
+|---|---|---|---|
+| Midbrain | 8 (8-10) | 0.40 / 0.44 / 0.46 | 70 |
+| SS-whisker | 10 (8-10) | 0.34 / 0.38 / 0.42 | 84 |
+| Thalamus | 10 (8-10) | 0.33 / 0.38 / 0.41 | 80 |
+| Auditory | 12 (10-12) | 0.34 / 0.38 / 0.41 | 26 |
+| Striatum | 12 (12-14) | 0.31 / 0.35 / 0.38 | 92 |
+| Motor | 16 (16-18) | 0.17 / 0.22 / 0.27 | 108 |
 
-All slab pages (5 quantities + bimodal, coronal, sagittal and target sets; 70 % and 90 % zones) are in
-`_sensory_spatial_maps/figures/` and `figures_zone90/`.
+**Areas (40 best-sampled).**
 
-# Projection anatomy: where whisker and auditory cortex project
+| Area | onset N = 200 (ms) | early accuracy N = 100 / 200 / 500 | eligible sessions |
+|---|---|---|---|
+| SCm | 8 (8-8) | 0.42 / 0.45 / 0.47 | 61 |
+| SSp-bfd | 10 (8-10) | 0.34 / 0.39 / 0.42 | 58 |
+| SSs | 10 (10-12) | 0.32 / 0.37 / 0.41 | 38 |
+| DLS | 12 (12-14) | 0.25 / 0.31 / 0.35 | 44 |
+| DMS | 12 (12-12) | 0.33 / 0.35 / 0.38 | 71 |
+| MO-wM1 | 14 (14-16) | 0.25 / 0.30 / 0.34 | 46 |
+| MO-wM2 | 16 (14-18) | 0.22 / 0.26 / 0.30 | 37 |
+| MO-ALM | 18 (16-18) | 0.13 / 0.16 / 0.20 | 43 |
 
-## Data and definitions
+Neurons each area group needs to reach the early accuracy of whisker somatosensory cortex at 100 neurons: Midbrain 40, Auditory 90, SS-whisker 100, Thalamus 110, Striatum 160, Motor > 2000.
 
-Allen Mouse Brain Connectivity Atlas, anterograde AAV tracing with the primary injection in the source area, wild-type
-or Emx1-IRES-Cre mice (all cortical excitatory neurons): SSp-bfd 8 experiments, SSs 3, AUDp 6, AUDd + AUDv 3.
-Projection density $d_e(v)$: fraction of voxel $v$ (50 µm) occupied by labelled axons in experiment $e$; injections
-mirrored to one hemisphere. Candidate voxels $C$: ipsilateral brain, without fibre tracts, ventricles and the source
-area itself. Per source:
+![**Where and when can stimulus modality be decoded? Area groups, task (active) trials.** a, Method. b, Corrected accuracy over the first 50 ms (N = 200), rows sorted by onset; grey: not above chance; tick: onset. c, Onset ranking (95 % range). d, Early accuracy vs number of neurons. e, Onset vs early accuracy (area x N). f, Matched early accuracy (or best-sampled curves). g, Real and shuffled balanced accuracy. h, Time course with bars marking the bins above chance.](fig/arrival_summary_area_group.png){width=100%}
+![Same for the 40 best-sampled areas (task (active) trials).](fig/arrival_summary_area_acronym_custom.png){width=100%}
+![**Main figure, area groups (task (active) trials, N = 200).** Heatmaps of the whole time course and the first 50 ms (rows sorted by onset), onset ranking, and time courses of the 8 best-sampled groups with significance bars.](fig/arrival_main_N200_area_group.png){width=100%}
+![Main figure for the areas (task (active) trials).](fig/arrival_main_N200_area_acronym_custom.png){width=100%}
 
-$$ \bar D(v) = \frac{1}{E}\sum_{e=1}^{E} \frac{d_e(v)}{\sum_{v' \in C} d_e(v')}, \qquad \tilde D = G_{50\,\mu m} * \bar D . $$
+*Passive-trial decoding: not finished at report time.*
 
-**70 % zone.** $Z = \{v \in C : \tilde D(v) \ge \tau\}$ with $\tau$ such that $\sum_{v \in Z} \tilde D(v) = 0.7 \sum_{v \in C}
-\tilde D(v)$: the highest-density voxels holding 70 % of the projection. Merged zones: whisker = mean of the SSp-bfd
-and SSs densities, auditory = mean of AUDp and AUDd/v, each thresholded the same way; overlap = $Z_\text{whisker} \cap
-Z_\text{auditory}$. The same analyses were repeated with 90 % zones.
 
-## Results
+## Single-neuron latency and population onset
 
-Whisker-cortex zone 29.4 mm³, auditory-cortex zone 14.5 mm³, overlap 3.9 mm³ (almost all from SSp-bfd ∩ auditory
-cortex). Largest pieces of the overlap: CP 0.87 mm³ (caudal and tail striatum), VISa 0.44 mm³ (61 % of VISa), VISrl
-0.28, VISal 0.28 (74 % of VISal), SCm 0.21, MRN 0.17, TEa 0.16, SSp-tr 0.16. Composition of each zone: cortex 47-60 %,
-striatum 8-20 %, thalamus 9-13 %, midbrain 6-30 % (auditory zones richest in midbrain: inferior and superior colliculus).
 
-![**Projection zones of whisker and auditory cortex**, coronal 500-µm slabs. Rows: SSp-bfd, SSs, AUDp, AUDd + AUDv
-(density, white = none; black line: 70 % contour; grey: injected area, excluded) and the overlap of the merged zones.
-Labels: structures holding most of the zone in the slab; right: largest recorded structures as % of the zone volume.](fig/projection_zones_coronal.png){width=100%}
+![**Population decoding onset (N = 200) vs median single-neuron latency** per area group (left: faster modality; right: whisker); Spearman rho, OLS line with 95 % CI (solid when p < 0.05).](fig/link_latency_onset.png){width=100%}
 
-![Same, sagittal 500-µm slabs.](fig/projection_zones_sagittal.png){width=100%}
 
-**What the anatomy can and cannot say.** The zones come from other mice and pool intratelencephalic, pyramidal-tract and
-corticothalamic axons (including axons of passage); overlap marks where inputs from the two cortices *can* converge.
+# Convergence: where do the whisker and auditory streams meet?
 
-# Bimodal neurons and projection convergence (co-location)
+## Projection anatomy
 
-## Definitions and test
+Allen Mouse Brain Connectivity Atlas (wild-type and Emx1-IRES-Cre anterograde injections: SSp-bfd 8, SSs 3, AUDp 6, AUD-sec 3). Per source,
+$\bar D(v) = \frac{1}{E}\sum_e d_e(v) / \sum_{v' \in C} d_e(v')$, smoothed ($\tilde D = G_{50\,\mu m} * \bar D$); 70 % zone
+$Z = \{v : \tilde D(v) \ge \tau\}$ with $\sum_{Z} \tilde D = 0.7 \sum_C \tilde D$; merged whisker (SSp-bfd + SSs) and auditory (AUDp + AUDd/v)
+zones; overlap $Z_w \cap Z_a$. Overlap 3.9 mm³; largest recorded pieces: CP 0.87 mm³, VISa 0.44 mm³, VISrl 0.28 mm³, VISal 0.28 mm³, SCm 0.21 mm³, MRN 0.17 mm³, SSp-tr 0.16 mm³, AUDpo 0.08 mm³.
 
-Sensory-responsive neurons with their CCF position; $P_\text{in}$ = bimodal fraction among responsive neurons inside the
-overlap, $P_\text{ref}$ = among all responsive neurons, $\Delta = P_\text{in} - P_\text{ref}$. Main test: hierarchical
-bootstrap over sessions then neurons ($B$ = 2000): sessions resampled with replacement, binomial resampling of each
-session's counts inside and outside, $\Delta^*_b$ recomputed;
 
-$$ p = \frac{1 + \#\{b: \Delta^*_b \le 0\}}{1 + B} \quad\text{(one-sided)}, $$
+![**Projection zones of whisker and auditory cortex**, coronal 500-µm slabs (density, 70 % contours, overlap; right: largest recorded structures as % of the zone).](fig/projection_zones_coronal.png){width=100%}
 
-95 % CI from the percentiles of $\Delta^*$. Fisher's exact test (neurons treated as independent) is reported alongside.
-Overlap sub-regions (the overlap cut by structure into connected 3-D pieces ≥ 0.04 mm³, with ≥ 10 recorded neurons)
-are described, not tested.
+![Same, sagittal slabs.](fig/projection_zones_sagittal.png){width=100%}
 
-## Results
 
-Inside the overlap 29.5 % of 3,292 responsive neurons (97 sessions, 75 mice) are bimodal vs 23.8 % of all 41,621:
-$\Delta$ = +5.7 points (95 % CI +1.1 to +10.3), bootstrap p = 0.008 (Fisher p < 0.001). With 90 % zones:
-29.3 % vs 23.0 %, +6.3 points (+2.6 to +9.6), p < 0.001.
+## Responses relative to the projection zones
 
-![**Bimodal neurons and the convergence of whisker- and auditory-cortex projections.** a, Projection zones (yellow
-whisker, blue auditory, purple overlap; numbers: overlap sub-regions with recorded neurons). b, Sensory-responsive
-neurons (grey: one modality; purple: bimodal). c, Bimodal fraction (3-D density normalised by responsive-neuron
-density). d, Inside the overlap vs all responsive neurons (95 % hierarchical-bootstrap CI).](fig/colocation_figure.png){width=100%}
 
-# Where whisker- and auditory-preferring neurons sit within an area
+![**The flatmaps of the Where section with the projection zones** (70 % contours of whisker (teal) and auditory (brown dashed) cortex projections; first column, bottom: whisker zone yellow, auditory zone blue, overlap purple).](fig/cortical_flatmaps.png){width=100%}
 
-For each target slab and its target area(s), neurons significantly preferring whisker (sel < 0) or sound (sel > 0) in
-the modality ROC: 80 % highest-density contours of each group (2-D Gaussian KDE), distance between group centroids and
-the shifts along the lateral and depth axes; preference labels permuted within each session (5000 permutations, so
-shifts due only to which sessions contributed each preference are not counted); Holm correction across tests.
 
-| Slab / area | whisker / auditory-preferring | sessions | centroid distance (µm) | depth shift, auditory - whisker (µm) | p (Holm) |
+## Bimodal neurons and projection overlap
+
+$\Delta = P_\text{in} - P_\text{ref}$ (bimodal fraction of responsive neurons inside the overlap minus among all); hierarchical bootstrap
+over sessions then neurons ($B$ = 2000), $p = (1 + \#\{\Delta^* \le 0\})/(1 + B)$; Fisher's exact test alongside. Sub-regions described,
+not tested. 70 % zones: 29.5 % of 3,292 vs 23.8 % of 41,621, +5.7 points
+(95 % CI +1.1 to +10.3), p = 0.008. 90 % zones: 29.3 % vs 23.0 %,
++6.3 points (+2.6 to +9.6), p < 0.001.
+
+
+![**Bimodal neurons and the convergence of whisker- and auditory-cortex projections** (70 % zones). a, zones and sub-regions; b, responsive / bimodal neurons; c, bimodal fraction; d, inside vs all responsive neurons.](fig/colocation_figure.png){width=100%}
+
+
+## Modality preference within shared targets
+
+80 % highest-density contours of whisker- and auditory-preferring neurons per target slab and area; centroid distance and axis shifts;
+labels permuted within sessions (5000), Holm correction.
+
+| Slab / area | whisker / auditory-pref. | sessions | distance (µm) | depth shift A-W (µm) | p (Holm) |
 |---|---|---|---|---|---|
 | SSp-bfd / SSp-bfd | 1577 / 354 | 39 | 209 | +165 | 0.003 |
 | wM1 / MO-wM1 | 646 / 1089 | 35 | 71 | +64 | 0.004 |
 | wM2 / MO-wM2 | 429 / 685 | 28 | 191 | +123 | 0.005 |
 | ORB / ORB | 150 / 355 | 13 | 94 | +91 | 0.026 |
-| anterior striatum / DMS | 196 / 2204 | 50 | 239 | -220 | 0.003 |
-| striatum tail / TS | 149 / 380 | 13 | 196 | +179 | 0.004 |
+| Anterior striatum / DMS | 196 / 2204 | 50 | 239 | -220 | 0.003 |
+| Anterior striatum / VS | 94 / 98 | 19 | 274 | +195 | 0.972 |
+| Caudal striatum / DLS | 151 / 138 | 12 | 713 | +700 | 0.062 |
+| Caudal striatum / DMS | 15 / 120 | 5 | 315 | -301 | 0.118 |
+| Striatum tail / TS | 149 / 380 | 13 | 196 | +179 | 0.004 |
 | SCm / SCm | 1220 / 1218 | 36 | 148 | +122 | 0.003 |
 | AUDp / AUD | 88 / 265 | 9 | 350 | -342 | 0.003 |
 | TEa / AUD | 32 / 81 | 5 | 309 | -294 | 0.004 |
-| anterior striatum / VS | 94 / 98 | 19 | 274 | +195 | 0.97 |
-| caudal striatum / DLS | 151 / 138 | 12 | 713 | +700 | 0.062 |
-| caudal striatum / DMS | 15 / 120 | 5 | 315 | -301 | 0.12 |
-| PO / TH | 38 / 23 | 6 | 296 | +109 | 0.99 |
+| PO (thalamus) / TH | 38 / 23 | 6 | 296 | +109 | 0.987 |
 
-Positive depth shift: auditory-preferring neurons deeper.
+![**Location of whisker- vs auditory-preferring neurons within areas** (80 % contours, centroids).](fig/modality_contours.png){width=100%}
 
-# When does stimulus information arrive? Pseudo-population decoding
 
-## Method
+## Summary
 
-- **Data.** Whisker vs auditory active trials (all trials, lick or not), all sessions pooled, good + mua neurons,
-  artefact-corrected spikes; a session is eligible for an area with ≥ 5 neurons there and ≥ 3 trials per class.
-- **Pseudo-population (one iteration).** 20 sessions drawn with replacement; $N/20$ neurons of the area drawn within each
-  session (with replacement); pseudo-trials built per class by concatenating one trial of that class per session
-  (balanced reuse of each session's trials). $N$ = 20, 50, 100, 200, 300, 500.
-- **Decoder.** For each time bin, L2-regularised logistic regression on z-scored rates; 3-fold cross-validation built on
-  each session's real trials (100 training and 100 test pseudo-trials per class), regularisation chosen by an inner
-  2-fold split. Balanced accuracy $\mathrm{BA} = \tfrac12(\mathrm{TPR} + \mathrm{TNR})$.
-- **Null and corrected accuracy.** The same draw is re-decoded $K$ = 10 times with labels shuffled within sessions (same
-  regularisation): $d(t) = \mathrm{BA}_\text{real}(t) - \frac{1}{K}\sum_k \mathrm{BA}_{\text{shuffle},k}(t)$ (0 = chance,
-  0.5 = perfect). 100 iterations.
-- **Time bins.** Causal bins labelled at their end: 50-ms bins in 5-ms steps (-200 to +600 ms) and 20-ms bins in 2-ms steps
-  (-20 to +100 ms) for the first 50 ms.
-- **Above chance.** Bin $t$ is above chance when the 5th percentile of $d(t)$ over iterations is > 0.
-- **Onset.** $t_\text{on} = \min\{t > 0 : t \text{ above chance and} \ge 80\,\% \text{ of the bins in } [t, t+25\,\text{ms}]
-  \text{ above chance}\}$ (20-ms bins); 95 % range from 1000 resamples of the iterations.
-- **Early accuracy.** Mean $d$ over the 20-ms bins ending 5-50 ms after onset. **Matched neurons:** the $N$ an area
-  needs to reach the early accuracy of a reference area at 100 neurons, interpolated linearly in $\log N$.
 
-## Results (first 6 area groups and 8 areas; full sweep pending)
+![**Separate entry routes, shared targets (draft).** a, Whisker route via thalamus to barrel cortex; sound via midbrain and thalamus to auditory cortex; both cortices project to the shared targets, where bimodal neurons are enriched; times: population decoding onset (N = 200). Routes: textbook anatomy and the Allen projection zones. b, Onsets with 95 % bootstrap CI.](fig/summary_schematic.png){width=100%}
 
-| Area | onset at N = 200 (ms) | early accuracy N = 100 / 200 / 500 | eligible sessions |
-|---|---|---|---|
-| Midbrain | 8 (8-10) | 0.41 / 0.44 / 0.46 | 70 |
-| SCm | 8 (8-8) | 0.42 / 0.45 / 0.47 | 61 |
-| Somatosensory-whisker | 10 (8-10) | 0.34 / 0.38 / 0.42 | 84 |
-| SSp-bfd | 10 (8-10) | 0.35 / 0.39 / 0.42 | 58 |
-| SSs | 10 (10-12) | 0.32 / 0.38 / 0.41 | 38 |
-| Thalamus | 10 (8-10) | 0.33 / 0.38 / 0.41 | 80 |
-| Auditory | 12 (10-12) | 0.34 / 0.38 / 0.41 | 26 |
-| Striatum | 12 (12-14) | 0.31 / 0.35 / 0.38 | 92 |
-| DMS | 12 (12-12) | 0.33 / 0.35 / 0.38 | 71 |
-| DLS | 12 (12-14) | 0.25 / 0.31 / 0.35 | 44 |
-| MO-wM1 | 14 (14-16) | 0.25 / 0.30 / 0.34 | 46 |
-| Motor | 16 (16-18) | 0.17 / 0.22 / 0.27 | 108 |
-| MO-wM2 | 16 (14-18) | 0.22 / 0.26 / 0.30 | 37 |
-| MO-ALM | 18 (16-18) | 0.13 / 0.16 / 0.20 | 43 |
 
-Onset and early accuracy are strongly related across areas and neuron counts (area groups: Spearman ρ = -0.90;
-areas: ρ = -0.93). Neurons needed to reach the early accuracy of whisker somatosensory cortex at 100 neurons: SCm /
-midbrain 30-40, SSp-bfd 90, auditory 90, thalamus 110, SSs and DMS 120, DLS 340, wM1 420, wM2 1,160.
+# Caveats
 
-![**Where and when can stimulus modality be decoded? Area groups.** a, Method. b, Corrected accuracy over the first
-50 ms (N = 200), rows sorted by onset; grey: not above chance; tick: onset. c, Onset ranking (95 % range). d, Early
-accuracy vs number of neurons. e, Onset vs early accuracy (area × N). f, Matched early accuracy. g, Real and shuffled
-balanced accuracy. h, Time course with bars marking the bins above chance.](fig/arrival_summary_area_group.png){width=100%}
+- Co-location, not causation (tracing from other mice, axons of passage, CCF uncertainty of ~100-200 µm).
+- Cohorts and stages pooled; splits are a next step.
+- Task-trial decoding after ~100 ms can use lick preparation (auditory trials nearly always licked); passive trials and onsets in the
+  first 20 ms are unaffected.
+- Whisker-trial spikes in -10 to +5 ms are replaced by baseline-rate Poisson spikes: whisker information cannot appear before ~5 ms.
+- 100 iterations x 10 shuffles are pilot values.
 
-![Same for the fine areas (8 best-sampled shown in colour).](fig/arrival_summary_area_acronym_custom.png){width=100%}
+# Appendix: target slabs
 
-![**Main figure (area groups, N = 200).** Heatmaps of the whole time course and the first 50 ms, onset ranking and time
-courses with significance bars.](fig/arrival_main_N200_area_group.png){width=100%}
+500-µm coronal slabs tiling the recorded AP range, sagittal slabs tiling ML, and 13 coronal slabs centred on projection zones / areas;
+neurons within ±250 µm projected on the central section; density averaged over the slab (3-D Gaussian, sigma 150 µm, 50-µm CCF grid).
+Lines: 70 % projection zones.
 
-# Caveats and next steps
 
-- **Co-location, not causation.** Projection zones come from other mice and include axons of passage; CCF positions of
-  recorded neurons carry an uncertainty of about 100-200 µm.
-- **Pooled cohorts and stages.** Split by cohort (R+ / R-) and stage (learning / expert) to check that pooling does not
-  hide differences.
-- **Lick confound in decoding.** Auditory trials are nearly always licked; after ~100 ms the decoder can use lick
-  preparation. Passive-trial decoding (running) and licked-trials-only decoding address this; onsets in the first 20 ms
-  are unaffected.
-- **Artefact handling.** Whisker-trial spikes in -10 to +5 ms are replaced by baseline-rate Poisson spikes: onsets cannot
-  fall before ~5 ms on whisker trials. A version with the window excised would test the earliest onsets.
-- **Pilot sampling.** 100 iterations x 10 shuffles; increase before final figures.
-- **Pending.** ROC of 3 context-corrected sessions; all 18 area groups and 40 best-sampled areas; passive-trial decoding.
+![**Whisker responsiveness** in slabs centred on projection zones (first page; all pages in `figures/whisker/`).](fig/whisker_targets_p1.png){width=100%}
 
-# Appendix: parameters and files
+![**Auditory responsiveness** in slabs centred on projection zones (first page; all pages in `figures/auditory/`).](fig/auditory_targets_p1.png){width=100%}
 
-| Item | Value |
-|---|---|
-| neurons | good + mua, v2 unit table (drift test), 179,064 |
-| ROC response window | 5-35 ms; baseline -1 s to -15 ms; 1000 permutations; p < 0.05 |
-| bimodal | Bonferroni over active / passive pre / passive post per modality and session |
-| latency | half-time to peak, 1-ms PSTH, σ 2 ms, peak in 5-100 ms |
-| slabs | 500 µm; density σ 150 µm (3-D), ≥ 3 neurons |
-| projection zones | Allen tracing, 50 µm, σ 50 µm, 70 % (and 90 %) of the projection mass |
-| flatmap | Allen butterfly (`ccf_streamlines`), left hemisphere, density σ 150 µm (2-D) |
-| decoding | 20 sessions x N/20 neurons, 100 + 100 pseudo-trials, 3-fold CV, 10 shuffles, 100 iterations |
+![**Modality preference** in slabs centred on projection zones (first page; all pages in `figures/modality/`).](fig/modality_targets_p1.png){width=100%}
 
-Results: `combined_results_ks4/_sensory_spatial_maps/` (maps, zones, co-location; `figures/`, `figures_zone90/`) and
-`combined_results_ks4/_stimulus_arrival/` (decoding). Code: `projects/ssl-sensory-spatial-maps/` and
-`projects/ssl-stimulus-arrival-decoding/` (abisi/ibl-ai-agent, branch `ssl-prelick-convergence`).
+![**Whisker response latency** in slabs centred on projection zones (first page; all pages in `figures/latency_whisker/`).](fig/latency_whisker_targets_p1.png){width=100%}
+
+![**Auditory response latency** in slabs centred on projection zones (first page; all pages in `figures/latency_auditory/`).](fig/latency_auditory_targets_p1.png){width=100%}
+
+![**Bimodal neurons** in slabs centred on projection zones (first page; all pages in `figures/bimodal/`).](fig/bimodal_targets_p1.png){width=100%}
