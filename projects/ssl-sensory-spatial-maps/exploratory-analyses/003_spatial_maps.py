@@ -9,6 +9,8 @@ baseline; selectivity = 2 AUC - 1, significant if permutation p < 0.05):
   auditory  auditory_active  (+ excited, - inhibited)
   modality  wh_vs_aud_active (+ auditory-preferring, - whisker-preferring)
   latency_whisker / latency_auditory  half-time to peak (001) of the responsive units
+  bimodal   responsive to whisker AND auditory stimuli (any epoch's stimulus test significant after Bonferroni over the
+            modality's number of tests in the session); density = fraction of responsive neurons that are bimodal
 Slab sets (500 um thick; units within +-250 um of the slab centre are projected onto its central section):
   coronal   tiling the AP range of the recorded units
   sagittal  tiling the ML range (lateral distance from the midline)
@@ -68,7 +70,34 @@ QUANT = {
                             cbar="Half-time to peak after whisker stimulus (ms; light = fast)", cmap="inferno_light_fast", vmin=5, vmax=40),
     "latency_auditory": dict(col="latency_auditory_ms", title="Auditory response latency",
                              cbar="Half-time to peak after auditory stimulus (ms; light = fast)", cmap="inferno_light_fast", vmin=5, vmax=40),
+    "bimodal": dict(categorical=True, title="Bimodal (whisker and auditory) responsiveness",
+                    cbar="Fraction of sensory-responsive neurons that are bimodal", cmap="bimodal", vmin=0.0, vmax=0.6),
 }
+# bimodal classification (user, 2026-10-04): a unit is responsive to a modality if any of that modality's ROC tests is
+# significant after Bonferroni over the number of tests the modality has in the session (all epochs: active stimulus vs
+# baseline, passive pre, passive post, and the active miss vs correct-rejection "sensory" test); excited or inhibited.
+MOD_TESTS = {"whisker": ["whisker_active", "whisker_passive_pre", "whisker_passive_post", "whisker_sensory"],
+             "auditory": ["auditory_active", "auditory_passive_pre", "auditory_passive_post", "auditory_sensory"]}
+CAT_COL = {0: "0.82", 1: "#f7b519", 2: "#2c2cdb", 3: "#7b3294"}
+CAT_NAME = {1: "whisker only", 2: "auditory only", 3: "bimodal"}
+
+
+def bimodal_classes(alpha=0.05):
+    """per unit: k tests and Bonferroni-responsive flag per modality, category 0 none / 1 whisker / 2 auditory / 3 both"""
+    R = pd.read_parquet(ROC / "roc_long.parquet")
+    R = R[R.analysis_type.isin(MOD_TESTS["whisker"] + MOD_TESTS["auditory"]) & R.sel.notna()].drop_duplicates(KEYS + ["analysis_type"])
+    R["mod"] = np.where(R.analysis_type.str.startswith("whisker"), "whisker", "auditory")
+    k = R.groupby(["session_id", "mod"]).analysis_type.nunique().rename("k_tests").reset_index()
+    pmin = R.groupby(KEYS + ["mod"]).p_value_to_show.min().rename("p_min").reset_index().merge(k, on=["session_id", "mod"])
+    pmin["resp"] = pmin.p_min < alpha / pmin.k_tests
+    B = pmin.pivot_table(index=KEYS, columns="mod", values=["resp", "k_tests", "p_min"], aggfunc="first")
+    B.columns = [f"{a}_{b}" for a, b in B.columns]
+    B = B.reset_index()
+    for m in ("whisker", "auditory"):
+        B[f"resp_{m}"] = B[f"resp_{m}"].astype("boolean")
+    ok = B.resp_whisker.notna() & B.resp_auditory.notna()
+    B["bimodal_cat"] = np.where(ok, B.resp_whisker.fillna(False).astype(int) + 2 * B.resp_auditory.fillna(False).astype(int), -1)
+    return B
 # coronal slabs centred on projection zones / areas: (label, how, what); atlas = centroid (right hemisphere) of the Allen
 # structure(s); units = centroid of the units with that area_acronym_custom; bregma = fixed AP (mm from bregma, approx.)
 TARGETS = [("SSp-bfd", "atlas", ["SSp-bfd"]), ("SSs", "atlas", ["SSs"]), ("wM1", "units", "MO-wM1"),
@@ -95,6 +124,8 @@ def load_units():
         U = U.merge(L[KEYS + ["latency_whisker_ms", "latency_auditory_ms"]], on=KEYS, how="left")
     else:
         U["latency_whisker_ms"] = U["latency_auditory_ms"] = np.nan
+    U = U.merge(bimodal_classes()[KEYS + ["bimodal_cat", "k_tests_whisker", "k_tests_auditory"]], on=KEYS, how="left")
+    U["bimodal_cat"] = U.bimodal_cat.fillna(-1).astype(int)
     U["ml_f"] = MID + np.abs(U.ccf_atlas_ml - MID)
     U["lat_mm"] = (U.ml_f - MID) / 1000
     U["ap_mm"] = U.ccf_atlas_ap / 1000
@@ -106,6 +137,10 @@ def values(U, qk):
     q = QUANT[qk]
     if "atype" in q:
         v, sig = U[f"sel_{q['atype']}"].to_numpy(float), U[f"sig_{q['atype']}"].to_numpy(float) == 1
+    elif q.get("categorical"):                     # 1 = bimodal, 0 = responsive to one modality, NaN = not responsive / untested
+        cat = U.bimodal_cat.to_numpy()
+        v = np.where(cat == 3, 1.0, np.where((cat == 1) | (cat == 2), 0.0, np.nan))
+        sig = cat == 3
     else:
         v = U[q["col"]].to_numpy(float)
         sig = np.isfinite(v)
@@ -296,6 +331,9 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
     q = QUANT[qk]
     if q["cmap"] == "modality":
         cmap = cmap_modality()
+    elif q["cmap"] == "bimodal":
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list("white_bimodal", ["#ffffff", "#c2a5cf", "#7b3294", "#40004b"])
     elif q["cmap"] == "inferno_light_fast":                 # inferno_r without its near-white end (light = fast)
         from matplotlib.colors import ListedColormap
         cmap = ListedColormap(plt.get_cmap("inferno_r")(np.linspace(0.1, 1.0, 256)))
@@ -347,10 +385,17 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
         # 3 coloured by the quantity (+ projection zones)
         draw_section(axs[2], A, sec, ext_sec)
         fin = np.isfinite(v)
-        axs[2].scatter(xs[~fin], ys[~fin], s=DOT["grey"], c="0.82", lw=0, zorder=3.5, rasterized=True)
-        o = np.argsort(np.abs(v[fin] - (0 if q["vmin"] < 0 else np.nanmedian(v))))
-        axs[2].scatter(xs[fin][o], ys[fin][o], s=DOT["value"], c=v[fin][o], cmap=cmap, vmin=q["vmin"], vmax=q["vmax"], lw=0, zorder=4,
-                       rasterized=True)
+        if q.get("categorical"):
+            cat = U.bimodal_cat.to_numpy()[m]
+            for k_, z_ in ((0, 3.5), (1, 4), (2, 4), (3, 4.5)):
+                sel_ = cat == k_
+                axs[2].scatter(xs[sel_], ys[sel_], s=DOT["grey"] if k_ == 0 else DOT["value"], c=CAT_COL[k_], lw=0,
+                               zorder=z_, rasterized=True)
+        else:
+            axs[2].scatter(xs[~fin], ys[~fin], s=DOT["grey"], c="0.82", lw=0, zorder=3.5, rasterized=True)
+            o = np.argsort(np.abs(v[fin] - (0 if q["vmin"] < 0 else np.nanmedian(v))))
+            axs[2].scatter(xs[fin][o], ys[fin][o], s=DOT["value"], c=v[fin][o], cmap=cmap, vmin=q["vmin"], vmax=q["vmax"], lw=0,
+                           zorder=4, rasterized=True)
         draw_zones(axs[2], A, kind, c, ext_sec)
         # 4 density
         draw_section(axs[3], A, sec, ext_sec)
@@ -369,9 +414,12 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
         draw_zones(axs[3], A, kind, c, ext_sec)
         # 5 significant only
         draw_section(axs[4], A, sec, ext_sec)
-        o = np.argsort(np.abs(v[sig]))
-        axs[4].scatter(xs[sig][o], ys[sig][o], s=DOT["sig"], c=v[sig][o], cmap=cmap, vmin=q["vmin"], vmax=q["vmax"], lw=0, zorder=4,
-                       rasterized=True)
+        if q.get("categorical"):
+            axs[4].scatter(xs[sig], ys[sig], s=DOT["sig"], c=CAT_COL[3], lw=0, zorder=4, rasterized=True)
+        else:
+            o = np.argsort(np.abs(v[sig]))
+            axs[4].scatter(xs[sig][o], ys[sig][o], s=DOT["sig"], c=v[sig][o], cmap=cmap, vmin=q["vmin"], vmax=q["vmax"], lw=0,
+                           zorder=4, rasterized=True)
         draw_zones(axs[4], A, kind, c, ext_sec)
         for ax in axs[1:]:
             ax.set_xlim(*xlim); ax.set_ylim(*ylim)
@@ -381,14 +429,20 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
             scalebar(axs[1], xlim[0] + 0.2, 7.25)
         if r == 0:
             heads = ["Slab position", "All recorded neurons", "All neurons (coloured)", "Density, 550-um window",
-                     "Significant neurons" if "atype" in q else "Responsive neurons"]
+                     "Significant neurons" if "atype" in q else "Bimodal neurons" if q.get("categorical") else "Responsive neurons"]
             for ax, t in zip(axs, heads):
                 ax.set_title(t, fontsize=6.2, pad=3)
         rows.append(dict(quantity=qk, set=set_name, slab=lab, centre_um=c, n_units=int(m.sum()),
                          n_with_value=int(np.isfinite(v).sum()), n_significant=int(sig.sum()),
                          n_sessions=int(U.session_id[m].nunique())))
-    for xc, mappable, lab in [(0.1, im, q["cbar"].replace(" (", "\n(") + ", neurons"),
-                              (0.4, imd, "Density: mean over\nthe 550-um window")]:
+    bars = [(0.1, im, q["cbar"].replace(" (", "\n(") + ", neurons"), (0.4, imd, "Density: mean over\nthe 550-um window")]
+    if q.get("categorical"):
+        bars = [(0.4, imd, "Density: fraction of responsive\nneurons that are bimodal (550-um window)")]
+        hc = [plt.Line2D([], [], marker="o", ls="", ms=3, color=CAT_COL[k_], label=CAT_NAME[k_]) for k_ in (1, 2, 3)]
+        hc.append(plt.Line2D([], [], marker="o", ls="", ms=2, color=CAT_COL[0], label="not responsive"))
+        fig.legend(handles=hc, loc="lower left", bbox_to_anchor=(0.08, 0.0), ncol=2, frameon=False, fontsize=5.0,
+                   title="Neurons (Bonferroni per session and modality)", title_fontsize=5.0)
+    for xc, mappable, lab in bars:
         cax = fig.add_axes([xc, 0.3 / H, 0.22, 0.06 / H])
         cb = fig.colorbar(mappable, cax=cax, orientation="horizontal")
         cb.set_label(lab, fontsize=5.0); cb.ax.tick_params(labelsize=4.8, width=0.4, length=1.5); cb.outline.set_linewidth(0.4)
