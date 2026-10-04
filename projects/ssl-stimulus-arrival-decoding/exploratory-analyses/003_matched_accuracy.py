@@ -52,7 +52,7 @@ def plan():
         if not len(t):
             continue
         target = float(t.iloc[0])
-        for level, areas in LEVELS.items():
+        for level, areas in {"area_group": LEVELS["area_group"]}.items():     # matched N for area groups only
             for a in areas:
                 q = W[(W.level == level) & (W.area == a)]
                 if len(q) < 2:

@@ -25,11 +25,12 @@ import pandas as pd
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 S = importlib.import_module("_style")
-OUT = pathlib.Path(os.environ.get("ARRIVAL_OUT", "/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/_stimulus_arrival"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+AR = importlib.import_module("_areas")
+OUT = AR.OUT
 FIG = OUT / "figures"
-COARSE = ["Somatosensory-whisker", "Auditory areas", "Motor areas", "Midbrain", "Striatum", "Thalamus"]
-FINE = ["SSp-bfd", "SSs", "SCm", "MO-wM1", "MO-wM2", "DMS", "DLS", "MO-ALM"]
-LEVELS = {"area_group": COARSE, "area_acronym_custom": FINE}
+COARSE, FINE, LEVELS = AR.COARSE, AR.FINE, AR.LEVELS
+S.AREA_C.update(AR.colors())
 LEVEL_NAME = {"area_group": "Area groups", "area_acronym_custom": "Areas"}
 WIDE_T = np.round(np.arange(-0.2, 0.6 + 1e-9, 0.005), 6)
 ZOOM_T = np.round(np.arange(-0.02, 0.1 + 1e-9, 0.002), 6)

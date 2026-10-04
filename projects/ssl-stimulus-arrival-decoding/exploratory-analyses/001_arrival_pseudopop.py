@@ -54,13 +54,13 @@ m2 = importlib.import_module("002_pseudopop_decoding")
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 NWB = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/NWB_ks4")
 UNITS = RES / "_roc_stage_analysis" / "units.parquet"          # v2 unit table (045): keys, quality, areas, ccf, stage
-OUT = pathlib.Path(os.environ.get("ARRIVAL_OUT", RES / "_stimulus_arrival"))
-CACHE = OUT / "cache"
+sys.path.insert(0, str(HERE))
+AR = importlib.import_module("_areas")
+EPOCH, OUT = AR.EPOCH, AR.OUT                                  # ARRIVAL_EPOCH=active|passive (user, 2026-10-04)
+CACHE = OUT / "cache_all"                                      # every area group + top-40 fine areas (2026-10-04)
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 
-COARSE = ["Somatosensory-whisker", "Auditory areas", "Motor areas", "Midbrain", "Striatum", "Thalamus"]
-FINE = ["SSp-bfd", "SSs", "SCm", "MO-wM1", "MO-wM2", "DMS", "DLS", "MO-ALM"]
-LEVELS = {"area_group": COARSE, "area_acronym_custom": FINE}
+COARSE, FINE, LEVELS = AR.COARSE, AR.FINE, AR.LEVELS
 N_LIST = [20, 50, 100, 200, 300, 500]
 N_SESS = 20
 MIN_UNITS, MIN_TRIALS = 5, 3
@@ -91,6 +91,14 @@ def resolve_context(t):
     fixed = (np.abs(dp - 3.0) < 0.3) | (np.abs(dn - 3.0) < 0.3)
     lab = t["context"].astype(str).to_numpy()
     return pd.Series(np.where(fixed | (lab == "passive"), "passive", "active"), index=t.index)
+
+
+def passive_trials(trials):
+    """passive epoch (user, 2026-10-04): passive trials (fixed ~3 s ITI or labelled passive; pre and post blocks pooled,
+    perf 6 kept as it codes passive trials), whisker vs auditory"""
+    t = trials.sort_values("start_time").reset_index(drop=True)
+    t = t[(resolve_context(t) == "passive").to_numpy()]
+    return t[t.trial_type.isin(["whisker_trial", "auditory_trial"])].reset_index(drop=True)
 
 
 def stim_trials(trials):
@@ -132,7 +140,7 @@ def cache_session(sid):
                         on=["electrode_group", "cluster_id"], how="inner", validate="one_to_one")
     onsets = trials.loc[trials["whisker_stim"] == 1, "start_time"].to_numpy()        # every whisker onset, any context
     rng = np.random.default_rng(zlib.crc32(sid.encode()))
-    t = stim_trials(trials)
+    t = stim_trials(trials) if EPOCH == "active" else passive_trials(trials)
     starts = t.start_time.to_numpy()
     y = (t.trial_type == "whisker_trial").to_numpy()
     lo, hi = starts[:, None] + EDGES[None, :, 0], starts[:, None] + EDGES[None, :, 1]
