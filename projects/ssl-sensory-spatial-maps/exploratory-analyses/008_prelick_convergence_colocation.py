@@ -15,8 +15,8 @@ auditory zone only, overlap) and overlap vs each single-modality zone (same boot
 Maps: converging fraction density = Gaussian-smoothed converging count / smoothed tested count (3-D, sigma 150 um,
 >= 3 neurons in the kernel), coronal 500-um slabs through the overlap sub-regions (as 006) and the isocortex flatmap
 (as 007).
-Outputs: combined_results_ks4/_sensory_spatial_maps/prelick_convergence/ (tests, zone categories, unit table with
-mouse_id, session_id, electrode_group, cluster_id, provenance, caption) and figures<ZTAG>/prelick_convergence_{colocation,
+Outputs: combined_results_ks4/_roc_prelick_sl/projection_colocation/ (tests, zone categories, unit table with
+mouse_id, session_id, electrode_group, cluster_id, provenance, caption) and its figures<ZTAG>/prelick_convergence_{colocation,
 groups,flatmaps}.{png,pdf,svg}.
 """
 import importlib
@@ -37,7 +37,8 @@ m6 = importlib.import_module("006_colocation_figure")
 m7 = importlib.import_module("007_cortical_flatmaps")
 S, FIG, ZTAG, ZONE_PCT = m3.S, m3.FIG, m3.ZTAG, m3.ZONE_PCT
 PRE = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/_roc_prelick_sl")
-POUT = m3.OUT / "prelick_convergence"
+POUT = PRE / "projection_colocation"                       # results live with the pre-lick analyses (user)
+FIGO = POUT / f"figures{ZTAG}"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 AF, WF = "auditory_hit_vs_fa_prelick@all", "whisker_hit_vs_fa_prelick@all"   # "fa" class = spontaneous licks here
 GROUPS = [("R+", "learning"), ("R+", "expert"), ("R-", "learning"), ("R-", "expert")]
@@ -261,7 +262,7 @@ def fig_colocation(plt, A, D, T, C, slabs, vmax):
         fig.text(0.04 / W, 1 - 0.52 / H - k * ph / H - 0.005, ltr, fontsize=9, weight="bold", va="top")
     fig.suptitle("Pre-lick converging neurons and the convergence of whisker- and auditory-cortex projections",
                  x=0.4 / W, y=1 - 0.02 / H, ha="left", va="top", fontsize=7.2, weight="bold")
-    S.save(fig, FIG, "prelick_convergence_colocation")
+    S.save(fig, FIGO, "prelick_convergence_colocation")
     plt.close(fig)
 
 
@@ -301,7 +302,7 @@ def fig_groups(plt, A, D, slabs, vmax):
              "converging / tested neurons in the slab", fontsize=4.8, va="center")
     fig.suptitle("Pre-lick converging neurons by cohort and stage (coronal 500-um slabs)", x=0.55 / W, y=1 - 0.05 / H,
                  ha="left", va="top", fontsize=7.2, weight="bold")
-    S.save(fig, FIG, "prelick_convergence_groups")
+    S.save(fig, FIGO, "prelick_convergence_groups")
     plt.close(fig)
 
 
@@ -394,7 +395,7 @@ def fig_flatmaps(plt, A, D, vmax):
     fig.legend(handles=h, loc="lower left", ncol=3, frameon=False, fontsize=4.8, bbox_to_anchor=(2.0 / W, 0.08 / H))
     fig.suptitle("Pre-lick converging neurons across the isocortex (Allen butterfly flatmap, left hemisphere)",
                  x=0.3 / W, y=1 - 0.05 / H, ha="left", va="top", fontsize=7, weight="bold")
-    S.save(fig, FIG, "prelick_convergence_flatmaps")
+    S.save(fig, FIGO, "prelick_convergence_flatmaps")
     plt.close(fig)
     return len(D)
 
@@ -403,7 +404,7 @@ def fig_flatmaps(plt, A, D, vmax):
 def main():
     rng = np.random.default_rng(0)
     plt = S.setup()
-    POUT.mkdir(parents=True, exist_ok=True)
+    FIGO.mkdir(parents=True, exist_ok=True)
     D = load()
     A = m3.Atlas()
     Z = np.load(m3.ZONES_NPZ)
@@ -434,7 +435,7 @@ def main():
                 colour_max=float(vmax), groups=[GLAB[g] for g in GROUPS])
     (POUT / f"provenance{ZTAG}.json").write_text(json.dumps(prov, indent=1))
     caption(D, T, C, n_flat)
-    print("ALL DONE", FIG / "prelick_convergence_colocation.png")
+    print("ALL DONE", FIGO / "prelick_convergence_colocation.png")
 
 
 def caption(D, T, C, n_flat):
