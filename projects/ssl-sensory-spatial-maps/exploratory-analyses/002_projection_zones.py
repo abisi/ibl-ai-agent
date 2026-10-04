@@ -206,6 +206,8 @@ def composition(out, lab, structs):
             rows.append(dict(zone=src, structure=acr.get(int(k), str(k)), name=name.get(int(k), ""),
                              division=div.get(int(k), "other"), volume_mm3=n * v, frac_of_zone=n / m.sum()))
     C = pd.DataFrame(rows).sort_values(["zone", "frac_of_zone"], ascending=[True, False])
+    rec = m3_module().recorded_structures()
+    C["recorded"] = C.structure.isin(rec) if rec is not None else True
     C.to_csv(OUT / f"projection_zone_composition{ZTAG}.csv", index=False)
     D = C.groupby(["zone", "division"]).frac_of_zone.sum().unstack(fill_value=0).round(3)
     D.to_csv(OUT / f"projection_zone_composition_divisions{ZTAG}.csv")
@@ -232,6 +234,8 @@ def overlap_table(out, lab, structs):
                          frac_structure_in_auditory_zone=float((a & inside).sum() / max(1, inside.sum())),
                          ap_centre_um=float(np.mean(np.where(ov & inside)[0]) * RES_UM + RES_UM / 2)))
     T = pd.DataFrame(rows).sort_values("overlap_mm3", ascending=False)
+    rec = m3_module().recorded_structures()
+    T["recorded"] = T.structure.isin(rec) if rec is not None else True
     pairs = {f"{x}&{y}": float((out[f"zone70_{x}"] & out[f"zone70_{y}"]).sum() * v) for x in WHISKER_SRC for y in AUDITORY_SRC}
     T.to_csv(OUT / f"projection_overlap{ZTAG}.csv", index=False)
     json.dump(dict(whisker_union_mm3=float(w.sum() * v), auditory_union_mm3=float(a.sum() * v), overlap_mm3=float(ov.sum() * v),
@@ -262,6 +266,7 @@ def figure(out, lab, structs, C, kind):
     plt = S.setup()
     A = m3.Atlas(load_zones=False)
     acr = {s["id"]: s["acronym"] for s in structs}
+    REC = m3.recorded_structures()
     z, w_all, a_all = zone_sets(out)
     from matplotlib.colors import LinearSegmentedColormap
     # user 2026-10-04: white -> modality colour -> dark grey (white = no projection)
@@ -312,7 +317,7 @@ def figure(out, lab, structs, C, kind):
     def annotate(ax, zm, lb):
         """the (up to) 3 structures holding most of the zone in this slab; labels closer than 0.7 mm are skipped"""
         ids, cnt = np.unique(lb[zm], return_counts=True)
-        keep = [(k, n) for k, n in zip(ids, cnt) if k != 0 and n >= 15]
+        keep = [(k, n) for k, n in zip(ids, cnt) if k != 0 and n >= 15 and (REC is None or acr.get(int(k), "") in REC)]
         placed = []
         for k, n in sorted(keep, key=lambda t: -t[1]):
             yy, xx = np.where(zm & (lb == k))
@@ -362,7 +367,7 @@ def figure(out, lab, structs, C, kind):
                 ax.text(xlim[0] + 0.7, 7.0, "1 mm", ha="center", va="bottom", fontsize=4.8)
         # composition of the whole zone (all slabs): top structures, % of the zone volume
         axb = fig.add_subplot(gs[r, -1])
-        q = C[C.zone == src].reset_index(drop=True)
+        q = C[(C.zone == src) & (C.recorded if "recorded" in C else True)].reset_index(drop=True)
         need = [int(q.index[q.structure == k][0]) + 1 for k in ("SCm", "MRN") if (q.structure == k).any()]
         q = q.head(min(16, max([8] + need)))                      # enough rows to reach SCm and MRN
         col = ocol if src == "overlap" else (wcol if src in WHISKER_SRC else acol)
@@ -384,7 +389,7 @@ def figure(out, lab, structs, C, kind):
         else:
             axb.set_xticklabels([])
         if r == 0:
-            axb.set_title("Largest structures", fontsize=5.4, pad=1, loc="left")
+            axb.set_title("Largest recorded structures", fontsize=5.4, pad=1, loc="left")
     for k, (src, x0) in enumerate([(WHISKER_SRC[0], 0.07), (AUDITORY_SRC[0], 0.40)]):
         cax = fig.add_axes([x0 * 0.85, 0.3 / H, 0.22, 0.07 / H])
         cb = fig.colorbar(ims[src], cax=cax, orientation="horizontal")

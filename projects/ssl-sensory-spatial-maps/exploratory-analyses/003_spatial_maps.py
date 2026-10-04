@@ -461,11 +461,36 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
     return rows
 
 
+MIN_RECORDED = 10            # a structure counts as recorded with >= 10 good + mua neurons (user: show recorded areas only)
+
+
+def write_recorded_structures(U, A):
+    """structures (layers merged, as the maps) holding >= MIN_RECORDED neurons -> OUT/recorded_structures.csv"""
+    g = U[U.atlas_id > 0].groupby("atlas_id").agg(n_neurons=("cluster_id", "size"), n_sessions=("session_id", "nunique"))
+    g["structure"] = [A.acr.get(int(k), str(k)) for k in g.index]
+    g = g.reset_index().sort_values("n_neurons", ascending=False)
+    g["recorded"] = g.n_neurons >= MIN_RECORDED
+    g.to_csv(OUT / "recorded_structures.csv", index=False)
+    return set(g.loc[g.recorded, "structure"])
+
+
+def recorded_structures():
+    f = OUT / "recorded_structures.csv"
+    if not f.exists():
+        return None
+    g = pd.read_csv(f)
+    return set(g.loc[g.recorded, "structure"])
+
+
 def main(a):
     plt = S.setup()
     U = load_units()
     A = Atlas()
     U["atlas_id"] = A.unit_ids(U)
+    write_recorded_structures(U, A)
+    if a.recorded_only:
+        print("recorded structures:", len(recorded_structures()))
+        return
     sets = slab_sets(U, A)
     schem = {"cor": A.section("sag", MID + 2300), "sag": A.section("corfull", 6000)}
     rows = []
@@ -486,4 +511,5 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--quantities", default=None)
     ap.add_argument("--sets", default=None)
+    ap.add_argument("--recorded-only", action="store_true", help="only write recorded_structures.csv")
     main(ap.parse_args())

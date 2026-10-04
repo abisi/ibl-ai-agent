@@ -36,6 +36,9 @@ GENERIC = {"MB", "TH", "HY", "CTX", "grey", "root", "STR", "PAL", "CB", "P", "MY
 def top_areas():
     T = pd.read_csv(OUT / f"projection_overlap{ZTAG}.csv")
     T = T[~T.structure.isin(GENERIC)].sort_values("overlap_mm3", ascending=False)
+    rec = m3.recorded_structures()
+    if rec is not None:
+        T = T[T.structure.isin(rec)]                       # recorded structures only (>= 10 neurons; user)
     return T.head(N_TOP).structure.tolist(), T
 
 

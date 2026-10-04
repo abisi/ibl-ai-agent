@@ -35,6 +35,7 @@ m2 = importlib.import_module("002_projection_zones")
 S, OUT = m3.S, m3.OUT
 FIG, ZTAG, ZONE_PCT = m3.FIG, m3.ZTAG, m3.ZONE_PCT
 MIN_VOL, MIN_UNITS, N_SHIFT, N_BOOT = 0.04, 30, 2000, 2000
+MIN_REC = 10                 # sub-regions shown / listed only with >= 10 recorded good + mua neurons inside
 GENERIC = {"MB", "TH", "HY", "CTX", "grey", "root", "STR", "PAL", "CB", "P", "MY"}
 R50 = 50.0
 PURPLE, WCOL, ACOL = "#7b3294", "#f7b519", "#2c2cdb"
@@ -174,6 +175,13 @@ def main():
     Z = np.load(m3.ZONES_NPZ)
     lab = m2.merged_ids(m2.atlas_50um())
     SR, masks, ov = subregions(Z, lab, A.acr)
+    # keep sub-regions with recorded neurons only (user): >= MIN_REC good + mua neurons inside; renumbered
+    iU, okU = unit_voxels(U, ov.shape)
+    SR["n_neurons"] = [int(in_mask(mk, iU, okU).sum()) for mk in masks]
+    keep = (SR.n_neurons >= MIN_REC).to_numpy()
+    print(f"sub-regions: {len(SR)}, with >= {MIN_REC} recorded neurons: {int(keep.sum())}")
+    SR, masks = SR[keep].reset_index(drop=True), [m for m, k in zip(masks, keep) if k]
+    SR["id"] = np.arange(1, len(SR) + 1)
     D = U[U.bimodal_cat.isin([1, 2, 3])].reset_index(drop=True)
     D["bimodal"] = D.bimodal_cat == 3
     ijk, ok = unit_voxels(D, ov.shape)
@@ -405,8 +413,9 @@ def caption(SR, T, D):
         "contour of the merged anterograde projection density of SSp-bfd and SSs (Allen Mouse Brain Connectivity Atlas; wild-type "
         "and Emx1-IRES-Cre injections, 8 and 3 experiments, each normalised to its total); auditory zone (blue): same for AUDp "
         "and AUDd/AUDv (6 and 3); purple: overlap of the two zones. Numbers: overlap sub-regions (the overlap volume cut by "
-        f"Allen structure into connected 3-D pieces >= {MIN_VOL} mm^3, named by their position within the structure); white "
-        "numbers: sub-regions with enough recorded neurons to test.",
+        f"Allen structure into connected 3-D pieces >= {MIN_VOL} mm^3, named by their position within the structure); only "
+        f"sub-regions holding >= {MIN_REC} recorded neurons are shown and listed (structures without recorded neurons omitted); "
+        f"white numbers: sub-regions with >= {MIN_UNITS} sensory-responsive neurons, tested.",
         "**b**, Sensory-responsive neurons in the same slabs (grey: one modality; purple: bimodal); line: overlap zone; grey "
         "number: responsive neurons in the slab.",
         "**c**, Bimodal fraction: fraction of the responsive neurons that are bimodal within a 550 x 550-um window (50-um grid, "
