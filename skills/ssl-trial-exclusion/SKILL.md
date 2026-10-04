@@ -14,6 +14,10 @@ description: Use this skill whenever an SSL analysis selects trials (behaviour, 
    the end of whisker day 0). Drop them from every active-context analysis: behaviour, learning curves, learning-trial
    identification, decoding, single-cell. Passive trials (`context == 'passive'`) keep their own definition (see
    `skills/ssl-analyze/references/ssl_task_semantics.md`) and are not filtered on `perf`. User rule, 2026-10-01.
+   In ssl_ephys 1.0.0 there are 313 active perf == 6 trials: 155 in pretraining sessions, 128 in six whisker day-0
+   sessions (AB107 52 mid-session, AB142 43, AB149 25 at the end; AB128 / AB162 / AB164 2-3 each), 30 in seven expert
+   sessions. Only 18 sit in 3 s ITI runs. The user confirmed (2026-10-04) that the day-0 blocks are invalid trials,
+   correctly excluded, not an artefact of older NWB files.
 2. **Context.** Active analyses use `context == 'active'` (sessions without recorded context store the string `'nan'`
    and are all active). Per-trial rule (user, 2026-10-04): a trial in a fixed ~3 s ITI sequence (gap to the previous or
    next trial 3.0 +- 0.3 s) is passive whatever its label; otherwise the context column decides -- labelled passive
@@ -36,7 +40,9 @@ description: Use this skill whenever an SSL analysis selects trials (behaviour, 
    `skills/ssl-analyze/references/ssl_artifact_dead_zone.md`, `skills/ssl-lick-alignment/SKILL.md`.
 
 ## Where it is implemented
-- `scripts/ssl_bwm_trial_prep.py::prep_session` -- context, perf != 6 (added 2026-10-01), warm-up cut. Used by
+- `scripts/ssl_bwm_trial_prep.py::prep_session` -- context (per-trial `resolve_context`, added 2026-10-04; in
+  ssl_ephys it changes only MH062_20260113_125836, whisker +4: 21 -> 398 active trials), perf != 6 (added
+  2026-10-01), warm-up cut. Used by
   `prep_hitmiss_trials`, `prep_modality_trials`, `prep_lick_aligned_trials` and the decoding pipelines.
 - `scripts/ssl_timeresolved_decoding.py::_active_trials_from_whisker_onset_for_curve` /
   `_active_trials_for_curve_untrimmed` -- the learning-curve trial sets (active, perf != 6).
