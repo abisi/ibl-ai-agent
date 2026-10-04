@@ -15,7 +15,10 @@ description: Use this skill whenever an SSL analysis selects trials (behaviour, 
    identification, decoding, single-cell. Passive trials (`context == 'passive'`) keep their own definition (see
    `skills/ssl-analyze/references/ssl_task_semantics.md`) and are not filtered on `perf`. User rule, 2026-10-01.
 2. **Context.** Active analyses use `context == 'active'` (sessions without recorded context store the string `'nan'`
-   and are all active).
+   and are all active). Passive trials are `perf == 6` with a fixed ITI (~3 s); in a session that mixes unlabelled
+   (`'nan'`) and labelled trials, unlabelled trials are active if `perf != 6` and passive if `perf == 6` (user,
+   2026-10-04; only MH062_20260113_125836, whose 377-trial training block is unlabelled). `roc_utils_new.process_nwb_tables`
+   applies this rule since 2026-10-04 (before, such trials became passive_pre / passive_post by position).
 3. **Auditory warm-up block.** Drop the auditory-only block before the first whisker trial, but keep exactly one trial
    before the first whisker trial and never drop the first whisker trial
    (`skills/ssl-analyze/references/ssl_auditory_warmup_block.md`). The kept pre-whisker trial is usually the last warm-up

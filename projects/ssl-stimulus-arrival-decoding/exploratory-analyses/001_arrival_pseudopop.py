@@ -86,6 +86,10 @@ def stim_trials(trials):
     """active, perf != 6, warm-up cut (keep 1 trial before the first whisker trial), rule A1; whisker + auditory trials"""
     t = trials.sort_values("start_time").reset_index(drop=True)
     ctx = t["context"].astype(str)
+    # unlabelled trials in a session with context labels (MH062_20260113_125836): passive trials are perf == 6 with a
+    # fixed ITI, every other trial is active (user, 2026-10-04)
+    if (ctx == "nan").any() and ctx.isin(["active", "passive"]).any():
+        ctx = ctx.where(ctx != "nan", np.where(t["perf"] == 6, "passive", "active"))
     if (ctx == "active").any():
         t = t[ctx == "active"].reset_index(drop=True)
     if "perf" in t:
