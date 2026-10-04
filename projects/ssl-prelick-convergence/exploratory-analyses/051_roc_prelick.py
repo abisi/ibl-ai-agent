@@ -1,7 +1,7 @@
 """Pre-lick ROC types (rate-based, active trials), run separately from the main ROC table (026 / roc_utils_new).
 
 Trials (NWB trials table; skills ssl-trial-exclusion, ssl-lick-alignment):
-  active context (sessions without recorded context: all trials), perf != 6, auditory warm-up cut (keep 1 trial
+  active context (per-trial rule resolve_context: fixed ~3 s ITI = passive, else the context column; unlabelled = active), perf != 6, auditory warm-up cut (keep 1 trial
   before the first whisker trial), end-of-session disengagement rule A1 (tail after the last lick dropped if it holds
   >= 5 whisker and >= 1 auditory trials).
   Classes: whisker hit (whisker_trial, lick_flag 1), auditory hit (auditory_trial, lick_flag 1), false alarm (FA:
@@ -82,11 +82,25 @@ PSTH_WIN, PSTH_BIN = (-0.6, 0.4), 0.010
 WARMUP_KEEP_AH = {"MH065_20260115_163926": 1}
 
 
+def resolve_context(t):
+    """per-trial context (user, 2026-10-04): a trial in a fixed ~3 s ITI sequence (gap to the previous or next trial
+    3.0 +- 0.3 s) is passive; otherwise the context column decides (passive stays passive; active and unlabelled "nan"
+    are active; perf == 6 trials inside active blocks stay active and are dropped by the perf rule). Changes vs the
+    labels: MH062_20260113 (377 unlabelled training trials -> active), MH064_20260114 (21 -> passive), AB128_20240829
+    (2 -> passive). t sorted by start_time."""
+    st = t["start_time"].to_numpy()
+    dp, dn = np.r_[np.inf, np.diff(st)], np.r_[np.diff(st), np.inf]
+    fixed = (np.abs(dp - 3.0) < 0.3) | (np.abs(dn - 3.0) < 0.3)
+    lab = t["context"].astype(str).to_numpy()
+    return pd.Series(np.where(fixed | (lab == "passive"), "passive", "active"), index=t.index)
+
+
 def select_trials(trials, sid=None):
-    """active, perf != 6, warm-up cut (with the WARMUP_KEEP_AH exception), rule A1; returns (classified trials, log)"""
+    """active (resolve_context), perf != 6, warm-up cut (with the WARMUP_KEEP_AH exception), rule A1; returns
+    (classified trials, log)"""
     t = trials.sort_values("start_time").reset_index(drop=True)
     log = dict(n_all=len(t))
-    ctx = t["context"].astype(str)
+    ctx = resolve_context(t)
     if (ctx == "active").any():
         t = t[ctx == "active"].reset_index(drop=True)
     log["n_active"] = len(t)
