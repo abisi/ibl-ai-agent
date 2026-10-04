@@ -244,8 +244,8 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     top_frac = (3 * ph) / H
     gs = fig.add_gridspec(3, ncol, left=0.4 / W, right=1 - 0.05 / W, top=1 - 0.42 / H, bottom=1 - 0.42 / H - top_frac,
                           wspace=0.03, hspace=0.05)
-    gb = fig.add_gridspec(1, 4, left=0.55 / W, right=1 - 0.08 / W, top=(2.05) / H, bottom=0.5 / H,
-                          width_ratios=[0.9, 1.1, 2.6, 1.6], wspace=0.55)
+    gb = fig.add_gridspec(1, 4, left=0.5 / W, right=1 - 0.42 / W, top=1.95 / H, bottom=0.42 / H,
+                          width_ratios=[0.75, 1.0, 2.5, 1.15], wspace=0.75)
     cmap_b = LinearSegmentedColormap.from_list("white_bimodal", ["#ffffff", "#c2a5cf", "#7b3294", "#40004b"])
     ijk_all = None
     tested = T[(T.kind == "sub-region") & T.p_shift.notna()]
@@ -312,11 +312,11 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
           plt.Line2D([], [], marker="o", ls="", ms=2.5, color=PURPLE, label="bimodal")]
     fig.legend(handles=hz, loc="upper left", bbox_to_anchor=(0.4 / W, 1 - 0.1 / H), ncol=5, frameon=False, fontsize=5.0,
                handlelength=1.2, columnspacing=1.0)
-    cax = fig.add_axes([1 - 1.6 / W, 1 - 0.36 / H, 1.4 / W, 0.05 / H])
+    c_bottom = 1 - 0.42 / H - top_frac
+    cax = fig.add_axes([1 - 1.75 / W, c_bottom - 0.2 / H, 1.5 / W, 0.05 / H])
     cb = fig.colorbar(imd, cax=cax, orientation="horizontal")
-    cb.set_label("Bimodal fraction (550-um window)", fontsize=4.8, labelpad=1)
+    cb.set_label("Bimodal fraction of responsive neurons (550-um window)", fontsize=4.8, labelpad=1)
     cb.ax.tick_params(labelsize=4.4, length=1.2, width=0.4); cb.outline.set_linewidth(0.4)
-    cax.xaxis.set_label_position("top")
     # bottom row
     axd, axe, axf, axg = [fig.add_subplot(gb[0, k]) for k in range(4)]
     g = T[T.kind == "global"].iloc[0]
@@ -324,63 +324,65 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
             yerr=[[100 * (g.P_in - g.ci_lo), 100 * (g.P_ref - g.ref_ci_lo)], [100 * (g.ci_hi - g.P_in), 100 * (g.ref_ci_hi - g.P_ref)]],
             error_kw=dict(lw=0.6))
     axd.set_xticks([0, 1], ["inside\noverlap", "all\nresponsive"], fontsize=5.2)
-    axd.set_ylabel("Bimodal neurons\n(% of responsive)")
+    axd.set_ylabel("Bimodal neurons (% of responsive)")
     topd = 100 * max(g.ci_hi, g.ref_ci_hi)
     axd.plot([0, 0, 1, 1], [topd + 1.5, topd + 2.5, topd + 2.5, topd + 1.5], color="k", lw=0.5)
     axd.text(0.5, topd + 3, f"shift {S.fmt_p(g.p_shift)}\nFisher {S.fmt_p(g.p_fisher)}", ha="center", va="bottom", fontsize=4.5)
-    axd.set_ylim(0, topd + 12)
-    axd.text(0, 1, f"n = {g.n_resp_in}", ha="center", fontsize=4.3, color="white", transform=axd.get_xaxis_transform(), va="bottom",
-             alpha=0)
+    axd.set_ylim(0, topd + 13)
     for xx_, nn in ((0, g.n_resp_in), (1, g.n_resp_ref)):
         axd.text(xx_, 1.0, f"{nn}", ha="center", va="bottom", fontsize=4.3, color="white")
+    axd.set_title("Whole overlap", fontsize=5.4, loc="left")
     # e: shift null
     nl = nulls.get("whole overlap zone")
     if nl is not None and len(nl):
         axe.hist(100 * nl, bins=40, color="0.7", lw=0, edgecolor="none")
         axe.axvline(100 * g.P_in, color=PURPLE, lw=1.0)
-        axe.text(100 * g.P_in, axe.get_ylim()[1] * 0.95, " observed", color=PURPLE, fontsize=4.6, va="top")
-        axe.set_xlabel("Bimodal % in the shifted\noverlap volume")
-        axe.set_ylabel("Shifts")
-        axe.set_title(f"{len(nl)} random 3-D shifts", fontsize=5.4, loc="left")
-    # f: sub-regions
-    Q = T[(T.kind == "sub-region")].sort_values("id").reset_index(drop=True)
-    yv = np.arange(len(Q))
-    base = 100 * g.P_ref
+        axe.text(100 * g.P_in, axe.get_ylim()[1] * 0.97, " observed", color=PURPLE, fontsize=4.6, va="top")
+        axe.set_xlabel("Bimodal % in the shifted volume")
+        axe.set_ylabel("Random shifts")
+        axe.set_title(f"Spatial-shift null ({len(nl)} shifts)", fontsize=5.4, loc="left")
+    # f: tested sub-regions
+    Q = T[(T.kind == "sub-region") & T.p_shift.notna()].sort_values("id").reset_index(drop=True)
     axf.axvspan(100 * g.ref_ci_lo, 100 * g.ref_ci_hi, color="0.88", lw=0, edgecolor="none", zorder=0)
-    axf.axvline(base, color="0.45", lw=0.6, ls="--", zorder=1)
+    axf.axvline(100 * g.P_ref, color="0.45", lw=0.6, ls="--", zorder=1)
     for i, q in Q.iterrows():
-        if not np.isfinite(q.get("p_shift", np.nan)):
-            axf.text(1, i, f"not sampled (n = {q.n_resp_in})", va="center", fontsize=4.3, color="0.5")
-            continue
         axf.errorbar(100 * q.P_in, i, xerr=[[100 * (q.P_in - q.ci_lo)], [100 * (q.ci_hi - q.P_in)]], fmt="o", ms=2.6,
                      color=PURPLE, lw=0.7, capsize=0, zorder=3)
         if np.isfinite(q.get("P_rest_structure", np.nan)):
-            axf.plot(100 * q.P_rest_structure, i, marker="|", ms=5, color="0.25", mew=0.8, zorder=2)
-        axf.text(101, i, f"{S.fmt_p(q.p_shift_holm)}   n = {q.n_resp_in} / {q.n_sessions_in} s", va="center",
-                 fontsize=4.2, transform=axf.get_yaxis_transform() if False else axf.transData)
-    axf.set_yticks(yv, [f"{q.id}  {q.region}" for q in Q.itertuples()], fontsize=4.8)
+            axf.plot(100 * q.P_rest_structure, i, marker="|", ms=5.5, color="0.2", mew=0.9, zorder=2)
+        axf.text(1.02, i, f"{S.fmt_p(q.p_shift_holm).replace('p ', '')}", va="center", fontsize=4.3,
+                 transform=axf.get_yaxis_transform())
+        axf.text(1.30, i, f"{int(q.n_resp_in)} / {int(q.n_sessions_in)}", va="center", fontsize=4.3, color="0.35",
+                 transform=axf.get_yaxis_transform())
+    axf.text(1.02, -1.1, "shift p\n(Holm)", fontsize=4.3, va="bottom", transform=axf.get_yaxis_transform())
+    axf.text(1.30, -1.1, "neurons /\nsessions", fontsize=4.3, va="bottom", color="0.35", transform=axf.get_yaxis_transform())
+    axf.set_yticks(range(len(Q)), [f"{int(q.id)}  {q.region}" for q in Q.itertuples()], fontsize=4.8)
     axf.set_ylim(len(Q) - 0.4, -0.6)
-    axf.set_xlim(0, 100)
+    axf.set_xlim(0, max(70, 100 * Q.ci_hi.max() + 5))
     axf.set_xlabel("Bimodal neurons (% of responsive)")
-    axf.set_title("Overlap sub-regions (95 % CI); | rest of the structure;\ndashed: all responsive neurons; p: shift test, Holm",
+    axf.set_title("Overlap sub-regions: dot = inside (95 % CI), | = rest of the structure,\ndashed = all responsive neurons",
                   fontsize=5.0, loc="left")
-    # g: within-structure difference
-    Qg = Q.dropna(subset=["P_rest_structure"]) if "P_rest_structure" in Q else Q.iloc[:0]
-    for j, q in enumerate(Qg.itertuples()):
+    # g: within-structure difference (same rows as f)
+    for j, q in Q.iterrows():
+        if not np.isfinite(q.get("P_rest_structure", np.nan)):
+            continue
         d = 100 * (q.P_in - q.P_rest_structure)
-        axg.barh(j, d, color=PURPLE if d > 0 else "0.6", height=0.65, lw=0)
-        axg.text(d + (1 if d >= 0 else -1), j, S.fmt_p(q.p_vs_rest_holm), va="center", ha="left" if d >= 0 else "right", fontsize=4.2)
+        axg.barh(j, d, color=PURPLE if d > 0 else "0.6", height=0.62, lw=0)
+        axg.text(1.02, j, S.fmt_p(q.p_vs_rest_holm).replace("p ", ""), va="center", fontsize=4.3,
+                 transform=axg.get_yaxis_transform())
+    axg.text(1.02, -1.1, "Fisher p\n(Holm)", fontsize=4.3, va="bottom", transform=axg.get_yaxis_transform())
     axg.axvline(0, color="k", lw=0.5)
-    axg.set_yticks(range(len(Qg)), [str(q.id) for q in Qg.itertuples()], fontsize=4.8)
-    axg.set_ylim(len(Qg) - 0.4, -0.6)
-    axg.set_xlabel("Sub-region minus rest of\nthe structure (% points)")
+    axg.set_yticks(range(len(Q)), [str(int(q.id)) for q in Q.itertuples()], fontsize=4.8)
+    axg.set_ylim(len(Q) - 0.4, -0.6)
+    lim = max(5, np.nanmax(np.abs(100 * (Q.P_in - Q.P_rest_structure)))) * 1.1
+    axg.set_xlim(-lim, lim)
+    axg.set_xlabel("Inside minus rest of the\nstructure (% points)")
     axg.set_title("Same structure", fontsize=5.4, loc="left")
-    fig.text(0.4 / W - 0.25 / W, 1 - 0.42 / H + 0.02, "a", fontsize=9, weight="bold", va="bottom")
-    S.letter_row(fig, [axd, axe, axf, axg], "defg", dx_in=0.45)
-    for k, ltr in enumerate("bc"):
-        fig.text(0.05 / W, 1 - 0.42 / H - (k + 1) * ph / H - 0.01, ltr, fontsize=9, weight="bold", va="top")
-    fig.suptitle("Bimodal neurons co-locate with converging whisker and auditory cortical projections",
-                  x=0.4 / W, y=1 - 0.01 / H, ha="left", va="top", fontsize=7.2, weight="bold")
+    S.letter_row(fig, [axd, axe, axf, axg], "defg", dx_in=0.42, dy_in=0.25)
+    for k, ltr in enumerate("abc"):
+        fig.text(0.04 / W, 1 - 0.42 / H - k * ph / H - 0.005, ltr, fontsize=9, weight="bold", va="top")
+    fig.suptitle("Bimodal neurons and the convergence of whisker- and auditory-cortex projections",
+                 x=0.4 / W, y=1 - 0.01 / H, ha="left", va="top", fontsize=7.2, weight="bold")
     S.save(fig, FIG, "colocation_figure")
     plt.close(fig)
 
@@ -390,9 +392,9 @@ def caption(SR, T, D):
     Q = T[T.kind == "sub-region"].sort_values("id")
     sig = Q[Q.p_shift_holm < 0.05] if "p_shift_holm" in Q else Q.iloc[:0]
     lines = [
-        "# Co-location of bimodal neurons with converging whisker and auditory cortical projections",
+        "# Bimodal neurons and the convergence of whisker- and auditory-cortex projections",
         "",
-        f"**Bimodal neurons co-locate with converging whisker- and auditory-cortex projections.** Neurons: good and multi-unit "
+        f"**Bimodal neurons and the convergence of whisker- and auditory-cortex projections.** Neurons: good and multi-unit "
         f"clusters, all sessions (both cohorts, learning day and expert days); {len(D)} sensory-responsive neurons from "
         f"{D.session_id.nunique()} sessions. A neuron is responsive to a modality if any of its stimulus-vs-baseline ROC tests "
         f"(active, passive pre, passive post; 5-35 ms after stimulus onset vs the pre-trial baseline, 1000 label permutations) "
@@ -429,6 +431,20 @@ def caption(SR, T, D):
         "",
         "Sub-regions (id, name, volume, centroid AP from bregma):",
     ]
+    vr = Q[Q.get("p_vs_rest_holm", pd.Series(np.nan, index=Q.index)) < 0.05] if "p_vs_rest_holm" in Q else Q.iloc[:0]
+    res = (f"**Results.** Inside the overlap, {100 * g.P_in:.1f} % of responsive neurons were bimodal vs {100 * g.P_ref:.1f} % "
+           f"overall (Fisher {S.fmt_p(g.p_fisher)}), but random 3-D shifts of the same volume over the recorded tissue reached "
+           f"similar fractions (shift test {S.fmt_p(g.p_shift)}): the global enrichment does not exceed what the spatial "
+           f"structure of the recordings produces. {len(sig)} of {Q.p_shift.notna().sum()} tested sub-regions passed the shift "
+           f"test after Holm correction. Compared with the rest of their own structure, "
+           + (", ".join(f"{q.region} ({100 * q.P_in:.0f} % vs {100 * q.P_rest_structure:.0f} %, Holm {S.fmt_p(q.p_vs_rest_holm)})"
+                        for q in vr.itertuples()) if len(vr) else "no sub-region")
+           + " had more bimodal neurons (Fisher, neurons treated as independent). Sub-regions with < "
+           f"{MIN_UNITS} responsive neurons were not tested.")
+    lines.insert(lines.index("Interpretation: co-location. The projection zones come from other mice (population-averaged tracing of excitatory "
+                             "cortical axons, including axons of passage), so overlap marks where whisker and auditory cortical inputs can converge; "
+                             "it does not show that the bimodal responses are driven by these inputs. CCF positions of the recorded neurons carry an "
+                             "uncertainty of roughly 100-200 um."), res + "\n")
     for sr in SR.itertuples():
         q = Q[Q.id == sr.id]
         extra = ""
