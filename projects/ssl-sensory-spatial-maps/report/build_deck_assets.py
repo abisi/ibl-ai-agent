@@ -147,6 +147,15 @@ def schematic():
     col = AR.colors()
     OB = pd.read_csv(AA / "onset_bootstrap_N200.csv")
     on = dict(zip(OB.area, OB.onset_ms))
+    # shared targets and the co-location result come from the current zone tables (002, 006), not hard-coded
+    OV_T = pd.read_csv(SM / "projection_overlap.csv")
+    OV_T = OV_T[OV_T.recorded] if "recorded" in OV_T else OV_T
+    OV_T = OV_T[~OV_T.structure.isin(["root", "grey", "MB", "TH", "HY", "CTX", "STR", "P", "MY"])]
+    top = list(OV_T.sort_values("overlap_mm3", ascending=False).structure.head(6))
+    shared = "Shared targets\n" + " · ".join(top[:3]) + "\n" + " · ".join(top[3:6])
+    T = pd.read_csv(SM / "colocation_tests.csv").query("kind == 'global'").iloc[0]
+    ptxt = "p < 0.001" if T.p_boot < 0.001 else f"p = {T.p_boot:.3f}"
+    coloc = f"bimodal neurons {100 * T['diff']:+.1f} points\n({100 * T.P_in:.1f} % vs {100 * T.P_ref:.1f} %, {ptxt})"
     WH, AU, OV = "#f7b519", "#2c2cdb", "#8e44ad"
 
     def ms(*areas):
@@ -161,7 +170,7 @@ def schematic():
         "mb": (2.9, 1.1, "Midbrain\nIC · SCm", ms("SCm", "Midbrain"), AU),
         "ss": (5.0, 6.1, "Whisker cortex\nSSp-bfd · SSs", ms("SSp-bfd", "SSs", "Somatosensory-whisker"), WH),
         "aud": (5.0, 1.1, "Auditory cortex\nAUDp · AUDd/v", ms("Auditory areas"), AU),
-        "ov": (7.4, 3.6, "Shared targets\ntail striatum · VISa/rl/al\nSCm / MRN · TEa", ms("Striatum", "DMS", "DLS"), OV),
+        "ov": (7.4, 3.6, shared, ms("Striatum", "DMS", "DLS"), OV),
         "mo": (8.6, 6.1, "Motor-frontal\nwM1 · wM2 · ALM", ms("MO-wM1", "Motor areas"), "0.35"),
     }
     for k, (x, y, lab, t, ec) in nodes.items():
@@ -180,7 +189,7 @@ def schematic():
     arrow("snd", "mb", AU); arrow("mb", "th", AU, 0.0); arrow("th", "aud", AU, 0.25)
     arrow("ss", "ov", WH, 0.15, lw=2.4); arrow("aud", "ov", AU, -0.15, lw=2.4); arrow("ss", "mo", WH, 0.0)
     arrow("mb", "ov", AU, -0.35, ls="--", lw=1.0)
-    ax.text(7.4, 2.45, "bimodal neurons +5.7 points\n(29.5 % vs 23.8 %, p = 0.008)", ha="center", va="top", fontsize=6.5, color=OV)
+    ax.text(7.4, 2.45, coloc, ha="center", va="top", fontsize=6.5, color=OV)
     ax.text(0.2, 7.05, "a   Pathways and decoding onset (N = 200 neurons)", fontsize=9, weight="bold", va="top")
     ax.text(0.2, 0.15, "Arrows: textbook routes and Allen anterograde projection zones (70 %). Times: first above-chance "
             "whisker-vs-auditory decoding. Draft.", fontsize=5.5, color="0.4")
