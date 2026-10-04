@@ -28,7 +28,7 @@ description: Each project keeps a scientific-article report (PDF built from LaTe
 
 ```
 report/
-  build.sh              # rebuild: latexmk on report.tex, pandoc for md / html
+  build.sh              # copy of skills/project-report/build.sh: report.md -> report.tex (Pandoc) -> report.pdf (latexmk -xelatex) + report.html
   report.tex            # LaTeX source (standalone article)
   references.bib        # if citations are used
   figures/              # copies of every figure used (png for the PDF / html, plus pdf if vector is wanted)
@@ -41,8 +41,9 @@ report/
 - The generator is versioned code: `projects/<slug>/report/build_report.py` (+ `render.sh`). It reads the result tables,
   writes `numbers.json`, `report.md` (single source: Pandoc Markdown with LaTeX math and figure/table captions), converts it
   to `report.tex` with Pandoc (`quarto pandoc report.md -s -o report.tex` with the article template), copies the figures,
-  and builds `report.pdf` with `latexmk -pdf` (TinyTeX installed through Quarto) and `report.html` with
-  `pandoc --embed-resources --standalone`. No number in the text is typed by hand.
+  and builds `report.pdf` with XeLaTeX (`latexmk -xelatex`, TinyTeX installed through Quarto; Arial, so Greek letters, µ, −, ≥
+  render) and a self-contained `report.html` -- all done by `build.sh` (copy it into the report folder). Captions carry their
+  own labels ("**Figure 3.**", "**Figure S2.**"; LaTeX auto-labels are off). No number in the text is typed by hand.
 - Compute and table generation run on haas; LaTeX / Pandoc build where the toolchain is (locally: TinyTeX via Quarto).
 
 ## Content: read like a scientific article, project in its latest form
