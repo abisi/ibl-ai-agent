@@ -1,0 +1,296 @@
+"""Build the sensory-maps + stimulus-arrival report (Quarto source) from the result tables (run on haas).
+Writes combined_results_ks4/_sensory_spatial_maps/report/sensory_maps_report.qmd and the list of figures it uses
+(report_figures.txt); render.sh copies them and renders the PDF locally (Quarto / typst)."""
+import importlib
+import json
+import pathlib
+import sys
+
+import numpy as np
+import pandas as pd
+
+RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
+SM, AR_ACT, AR_PAS = RES / "_sensory_spatial_maps", RES / "_stimulus_arrival", RES / "_stimulus_arrival_passive"
+REPO = pathlib.Path.home() / "code" / "ibl-ai-agent" / "projects"
+sys.path.insert(0, str(REPO / "ssl-sensory-spatial-maps" / "exploratory-analyses"))
+OUTD = SM / "report"
+FIGS = []
+
+
+def fig(src, name, caption, width="100%"):
+    FIGS.append((str(src), name))
+    return f"![{caption}](fig/{name}){{width={width}}}\n"
+
+
+def p_txt(p):
+    return "p < 0.001" if p < 0.001 else f"p = {p:.3f}" if p < 0.01 else f"p = {p:.2f}"
+
+
+def short(a):
+    return {"Somatosensory-whisker": "SS-whisker", "Somatosensory-orofacial": "SS-orofacial", "Somatosensory-body": "SS-body",
+            "Auditory areas": "Auditory", "Motor areas": "Motor", "Frontal areas": "Frontal", "Retrosplenial areas": "Retrosplenial",
+            "Posterior parietal areas": "Posterior parietal", "Lateral septal complex": "Lateral septum", "Visual areas": "Visual",
+            "Insular areas": "Insular", "Olfactory areas": "Olfactory", "Amygdala and hypothalamus": "Amygdala + hypothalamus"}.get(a, a)
+
+
+def onset_table(OB, W, level):
+    q = OB[OB.level == level].copy()
+    q["key"] = q.onset_ms.fillna(1e9)
+    q = q.sort_values(["key", "area"])
+    w = W[W.level == level].pivot_table(index="area", columns="N", values="mean")
+    rows = ["| Area | onset N = 200 (ms) | early accuracy N = 100 / 200 / 500 | eligible sessions |", "|---|---|---|---|"]
+    for r in q.itertuples():
+        on = f"{r.onset_ms:.0f} ({r.lo:.0f}-{r.hi:.0f})" if np.isfinite(r.onset_ms) else "n.s."
+        acc = " / ".join(f"{w.loc[r.area, n]:.2f}" if r.area in w.index and n in w.columns and np.isfinite(w.loc[r.area, n]) else "-"
+                         for n in (100, 200, 500))
+        rows.append(f"| {short(r.area)} | {on} | {acc} | {r.n_eligible_sessions} |")
+    return "\n".join(rows) + "\n"
+
+
+def decoding_section(base, title, epoch_word):
+    OB = pd.read_csv(base / "onset_bootstrap_N200.csv")
+    W = pd.read_csv(base / "window_accuracy.csv")
+    st = pd.read_csv(base / "onset_vs_window_stats.csv")
+    rho = st[st.resolution == "zoom"].set_index("level").rho
+    g = OB[OB.level == "area_group"].dropna(subset=["onset_ms"]).sort_values("onset_ms")
+    f = OB[OB.level == "area_acronym_custom"].dropna(subset=["onset_ms"]).sort_values("onset_ms")
+    txt = f"## {title}\n\n"
+    txt += (f"With 200-neuron pseudo-populations ({epoch_word}), the first significant 20-ms bin ends at "
+            + ", ".join(f"{r.onset_ms:.0f} ms in {short(r.area)}" for r in g.head(4).itertuples())
+            + f" (area groups; last: {short(g.iloc[-1].area)}, {g.iloc[-1].onset_ms:.0f} ms). Among areas, the earliest are "
+            + ", ".join(f"{r.area} ({r.onset_ms:.0f} ms)" for r in f.head(5).itertuples())
+            + f". Onset and early accuracy are related across areas and neuron counts (Spearman rho = {rho.get('area_group', np.nan):.2f} "
+            f"for area groups, {rho.get('area_acronym_custom', np.nan):.2f} for areas).\n\n")
+    n_ng = OB[(OB.level == "area_group")].onset_ms.isna().sum()
+    n_nf = OB[(OB.level == "area_acronym_custom")].onset_ms.isna().sum()
+    txt += f"Area groups without a significant onset: {n_ng}; areas: {n_nf}.\n\n**Area groups.**\n\n" + onset_table(OB, W, "area_group")
+    txt += "\n**Areas (40 best-sampled).**\n\n" + onset_table(OB, W, "area_acronym_custom") + "\n"
+    P = base / "matched_n.csv"
+    if P.exists():
+        M = pd.read_csv(P)
+        M = M[(M.reference == "Somatosensory-whisker") & (M.level == "area_group")].sort_values("matched_N")
+        txt += ("Neurons each area group needs to reach the early accuracy of whisker somatosensory cortex at 100 neurons: "
+                + ", ".join(f"{short(r.area)} {r.matched_N:.0f}" if np.isfinite(r.matched_N) else f"{short(r.area)} > 2000"
+                            for r in M.itertuples()) + ".\n\n")
+    tag = "passive_" if "passive" in epoch_word else ""
+    txt += fig(base / "figures" / "arrival_summary_area_group.png", f"{tag}arrival_summary_area_group.png",
+               f"**Where and when can stimulus modality be decoded? Area groups, {epoch_word}.** a, Method. b, Corrected "
+               "accuracy over the first 50 ms (N = 200), rows sorted by onset; grey: not above chance; tick: onset. c, Onset "
+               "ranking (95 % range). d, Early accuracy vs number of neurons. e, Onset vs early accuracy (area x N). f, Matched "
+               "early accuracy (or best-sampled curves). g, Real and shuffled balanced accuracy. h, Time course with bars "
+               "marking the bins above chance.")
+    txt += fig(base / "figures" / "arrival_summary_area_acronym_custom.png", f"{tag}arrival_summary_area_acronym_custom.png",
+               f"Same for the 40 best-sampled areas ({epoch_word}).")
+    txt += fig(base / "figures" / "arrival_main_N200_area_group.png", f"{tag}arrival_main_N200_area_group.png",
+               f"**Main figure, area groups ({epoch_word}, N = 200).** Heatmaps of the whole time course and the first 50 ms "
+               "(rows sorted by onset), onset ranking, and time courses of the 8 best-sampled groups with significance bars.")
+    txt += fig(base / "figures" / "arrival_main_N200_area_acronym_custom.png", f"{tag}arrival_main_N200_area_acronym_custom.png",
+               f"Main figure for the areas ({epoch_word}).")
+    return txt, OB
+
+
+def main():
+    m3 = importlib.import_module("003_spatial_maps")
+    U = m3.load_units()
+    ses = U.drop_duplicates("session_id")
+    fr = {}
+    for q in ("whisker_active", "auditory_active", "wh_vs_aud_active"):
+        s, v = U[f"sig_{q}"], U[f"sel_{q}"]
+        ok = s.notna()
+        fr[q] = (100 * (s[ok] == 1).mean(), 100 * ((s == 1) & (v > 0))[ok].mean(), 100 * ((s == 1) & (v < 0))[ok].mean())
+    c = U.bimodal_cat
+    n_w, n_a, n_b = int((c == 1).sum()), int((c == 2).sum()), int((c == 3).sum())
+    n_r = n_w + n_a + n_b
+    L = pd.read_parquet(SM / "unit_latency.parquet")
+    lat = {m: L[f"latency_{m}_ms"].dropna() for m in ("whisker", "auditory")}
+    LG = U.groupby("area_group")[["latency_whisker_ms", "latency_auditory_ms"]].median().dropna(how="all")
+    PZ = pd.read_csv(SM / "projection_zones_summary.csv")
+    OVS = json.load(open(SM / "projection_overlap_summary.json"))
+    OV = pd.read_csv(SM / "projection_overlap.csv")
+    OV = OV[OV.recorded] if "recorded" in OV else OV
+    OV = OV[~OV.structure.isin(["MB", "TH", "HY", "CTX", "grey"])]           # generic remainder labels
+    T70 = pd.read_csv(SM / "colocation_tests.csv").query("kind == 'global'").iloc[0]
+    T90 = pd.read_csv(SM / "colocation_tests_zone90.csv").query("kind == 'global'").iloc[0]
+    MC = pd.read_csv(SM / "modality_contours.csv")
+    nrec = int(pd.read_csv(SM / "recorded_structures.csv").recorded.sum())
+    nflat = len(pd.read_parquet(SM / "flatmap_units.parquet", columns=["session_id"]))
+    act, OBa = decoding_section(AR_ACT, "Task (active) trials", "task (active) trials")
+    has_pas = (AR_PAS / "onset_bootstrap_N200.csv").exists()
+    pas, OBp = decoding_section(AR_PAS, "Passive trials", "passive trials") if has_pas else ("", None)
+    ga = OBa[OBa.level == "area_group"].dropna(subset=["onset_ms"]).sort_values("onset_ms")
+    lat_sw, lat_mb = LG.loc["Somatosensory-whisker"], LG.loc["Midbrain"]
+    sig_mc = MC[MC.p_distance_holm < 0.05]
+    lines = []
+    A = lines.append
+    A(f"""---
+title: "Whisker and auditory responses across the mouse brain: spatial maps, projection anatomy and the arrival of stimulus information"
+subtitle: "SSL dataset (Neuropixels, KS4) -- report generated {pd.Timestamp.now():%Y-%m-%d %H:%M}"
+format:
+  typst:
+    papersize: a4
+    margin:
+      x: 1.8cm
+      y: 2cm
+    fontsize: 9.5pt
+    toc: true
+    toc-depth: 2
+    section-numbering: "1.1"
+---
+
+# Key conclusions
+
+1. **Sensory responses are widespread but spatially organised.** Of {len(U):,} good and multi-unit neurons ({ses.session_id.nunique()}
+   sessions, {U.mouse_id.nunique()} mice), {fr['whisker_active'][0]:.1f} % respond to the whisker stimulus and {fr['auditory_active'][0]:.1f} % to
+   the auditory stimulus in the active task (5-35 ms after onset); {fr['wh_vs_aud_active'][0]:.1f} % prefer one modality (Section 3-4).
+2. **Each modality reaches its own sensory system first.** Median half-time to peak: whisker {lat_sw.latency_whisker_ms:.1f} ms in whisker
+   somatosensory cortex (auditory there {lat_sw.latency_auditory_ms:.1f} ms); auditory {lat_mb.latency_auditory_ms:.1f} ms in the midbrain
+   (whisker there {lat_mb.latency_whisker_ms:.1f} ms) (Section 3.4).
+3. **Whisker and auditory cortex project to partly overlapping targets.** The 70 % projection zones of whisker cortex
+   ({OVS['whisker_union_mm3']:.1f} mm³) and auditory cortex ({OVS['auditory_union_mm3']:.1f} mm³) overlap in {OVS['overlap_mm3']:.1f} mm³, mainly in
+   {', '.join(OV.head(6).structure)} (Section 6).
+4. **Bimodal neurons are enriched where these projections converge.** {100 * n_b / n_r:.1f} % of sensory-responsive neurons respond to both
+   modalities; inside the overlap {100 * T70.P_in:.1f} % vs {100 * T70.P_ref:.1f} % of all responsive neurons ({100 * T70['diff']:+.1f} points, 95 % CI
+   {100 * T70.diff_ci_lo:+.1f} to {100 * T70.diff_ci_hi:+.1f}; hierarchical bootstrap {p_txt(T70.p_boot)}; 90 % zones {100 * T90['diff']:+.1f} points,
+   {p_txt(T90.p_boot)}). A co-location, not evidence of causation (Section 7).
+5. **Within areas, whisker- and auditory-preferring neurons are spatially offset** in {len(sig_mc)} of {len(MC)} target slabs (within-session
+   permutation, Holm p < 0.05) (Section 5).
+6. **Stimulus modality can be decoded within {ga.onset_ms.min():.0f}-{ga.onset_ms.max():.0f} ms of stimulus onset (area groups, task trials)**, earliest in
+   {', '.join(short(a) for a in ga[ga.onset_ms == ga.onset_ms.min()].area)} (Section 8).""")
+    if has_pas:
+        gp = OBp[OBp.level == "area_group"].dropna(subset=["onset_ms"]).sort_values("onset_ms")
+        A(f"""7. **Passive trials (no task, no licks)** give onsets of {gp.onset_ms.min():.0f}-{gp.onset_ms.max():.0f} ms, earliest in
+   {', '.join(short(a) for a in gp[gp.onset_ms == gp.onset_ms.min()].area)} (Section 8.2).""")
+    A(f"""
+**Notes.** Pseudo-population iterations (100 x 10 shuffles) are pilot values. All analyses pool both cohorts and both stages.
+
+# Data
+
+- **Recordings.** Neuropixels, Kilosort 4 (`NWB_ks4`); {ses.session_id.nunique()} whisker-training sessions ({(ses.stage == 'learning').sum()} learning-day,
+  {(ses.stage == 'expert').sum()} expert; {(ses.cohort == 'R+').sum()} R+ and {(ses.cohort == 'R-').sum()} R- sessions; {U.mouse_id.nunique()} mice); inclusion and cohort labels
+  from the dataset record (`skills/ssl-valid-data`).
+- **Neurons.** Good and multi-unit clusters (v2 unit table with drift test), {len(U):,} neurons; CCF positions folded onto one
+  hemisphere; custom area groups / areas (`allen_utils`); {nrec} structures recorded (>= 10 neurons).
+- **Trials.** Active: context active, `perf` != 6, auditory warm-up removed (trial before the first whisker trial kept), end-of-session
+  disengagement trimmed (rule A1). Passive: fixed ~3 s ITI sequence or labelled passive (pre- and post-task blocks). Unlabelled trials
+  in a session with context labels are active.
+- **Whisker artefact.** Spikes in -10 to +5 ms around every whisker onset replaced by a Poisson train at the pre-onset rate.
+
+# Single-neuron sensory responses
+
+## Responsiveness and modality preference (rate-based ROC)
+
+Spike counts in the response window (5-35 ms) and the baseline window (-1 s to -15 ms) give $\\mathrm{{sel}} = 2\\,\\mathrm{{AUC}}(A, B) - 1$
+(positive when B is higher); significance from 1000 label permutations, one-sided, p < 0.05.
+
+| Quantity | A vs B | positive | significant | positive / negative |
+|---|---|---|---|---|
+| whisker responsiveness | baseline vs whisker (active) | excited | {fr['whisker_active'][0]:.1f} % | {fr['whisker_active'][1]:.1f} / {fr['whisker_active'][2]:.1f} % |
+| auditory responsiveness | baseline vs auditory (active) | excited | {fr['auditory_active'][0]:.1f} % | {fr['auditory_active'][1]:.1f} / {fr['auditory_active'][2]:.1f} % |
+| modality preference | whisker vs auditory (active) | auditory-preferring | {fr['wh_vs_aud_active'][0]:.1f} % | {fr['wh_vs_aud_active'][1]:.1f} / {fr['wh_vs_aud_active'][2]:.1f} % |
+
+## Bimodal neurons
+
+Responsive to modality $m$ if any stimulus-vs-baseline test in the $k_m$ epochs of the session (active, passive pre, passive post) is
+significant after Bonferroni correction: $R_m = \\exists\\, e:\\; p_{{m,e}} < 0.05 / k_m$. Bimodal: $R_\\text{{whisker}} \\wedge R_\\text{{auditory}}$.
+Of {n_r:,} responsive neurons, {n_w:,} respond to whiskers only, {n_a:,} to sound only and {n_b:,} to both ($B$ = {100 * n_b / n_r:.1f} %).
+
+## Response latency
+
+$r(t) = s\\,[\\mathrm{{PSTH}}(t) - \\overline{{\\mathrm{{PSTH}}}}_{{[-100,-10]}}]$ (1-ms bins, Gaussian sigma 2 ms, $s$ = sign of the selectivity); latency =
+last upward crossing of $r(t_\\text{{peak}})/2$ before $t_\\text{{peak}} = \\arg\\max_{{5 \\le t \\le 100}} r(t)$ (whisker: after +5 ms). Medians:
+whisker {lat['whisker'].median():.1f} ms ({len(lat['whisker']):,} neurons), auditory {lat['auditory'].median():.1f} ms ({len(lat['auditory']):,}).
+
+## Latency by area group
+
+| Area group | whisker (ms) | auditory (ms) |
+|---|---|---|
+""" + "\n".join(f"| {short(a)} | {r.latency_whisker_ms:.1f} | {r.latency_auditory_ms:.1f} |"
+                for a, r in LG.sort_values("latency_whisker_ms").iterrows()) + f"""
+
+# Spatial organisation of sensory responses
+
+- **Slabs.** 500-µm coronal slabs tiling the recorded AP range, sagittal slabs tiling ML, and 13 coronal slabs centred on projection
+  zones / areas; neurons within ±250 µm projected on the central section.
+- **Density.** $\\rho_q(x) = (G_\\sigma * \\sum_i q_i \\delta_{{x_i}})(x) \\,/\\, (G_\\sigma * \\sum_i \\delta_{{x_i}})(x)$ on the 50-µm CCF grid (3-D Gaussian,
+  sigma 150 µm), averaged over the slab, shown where >= 3 neurons fall within the kernel (normalised by the recorded-neuron density).
+- **Isocortex flatmap.** Allen CCFv3 butterfly flatmap (cortical streamlines; geodesic embedding to two pairs of anchor points; Wang et
+  al. 2020, Harris et al. 2019) via `ccf_streamlines`; {nflat:,} isocortex neurons placed at their closest streamline; left hemisphere,
+  anterior up; area not preserved (numbers computed in 3-D).
+
+""")
+    A(fig(SM / "figures" / "cortical_flatmaps.png", "cortical_flatmaps.png",
+          "**Sensory responses across the isocortex** (Allen butterfly flatmap). Top: significant neurons coloured by the quantity; "
+          "bottom: density normalised by recorded-neuron density; lines: 70 % projection zones of whisker (teal) and auditory (brown) "
+          "cortex."))
+    for q, ttl in (("whisker", "Whisker responsiveness"), ("auditory", "Auditory responsiveness"), ("modality", "Modality preference"),
+                   ("latency_whisker", "Whisker response latency"), ("latency_auditory", "Auditory response latency"),
+                   ("bimodal", "Bimodal neurons")):
+        A(fig(SM / "figures" / q / "targets_p1.png", f"{q}_targets_p1.png",
+              f"**{ttl}** in slabs centred on projection zones (first page; all pages in `figures/{q}/`)."))
+    A(f"""
+# Modality preference within areas
+
+80 % highest-density contours of whisker- and auditory-preferring neurons per target slab and area; centroid distance and axis shifts;
+labels permuted within sessions (5000), Holm correction.
+
+| Slab / area | whisker / auditory-pref. | sessions | distance (µm) | depth shift A-W (µm) | p (Holm) |
+|---|---|---|---|---|---|
+""" + "\n".join(f"| {r.slab.split(',')[0]} / {r.area} | {r.n_whisker_pref} / {r.n_auditory_pref} | {r.n_sessions} | {r.centroid_distance_um:.0f} | "
+                f"{r.shift_depth_um:+.0f} | {r.p_distance_holm:.3f} |" for r in MC.itertuples()) + "\n")
+    A(fig(SM / "figures" / "modality_contours.png", "modality_contours.png",
+          "**Location of whisker- vs auditory-preferring neurons within areas** (80 % contours, centroids)."))
+    A(f"""
+# Projection anatomy
+
+Allen Mouse Brain Connectivity Atlas (wild-type and Emx1-IRES-Cre anterograde injections: """ +
+      ", ".join(f"{r.source} {r.n_experiments}" for r in PZ.itertuples()) + """). Per source,
+$\\bar D(v) = \\frac{1}{E}\\sum_e d_e(v) / \\sum_{v' \\in C} d_e(v')$, smoothed ($\\tilde D = G_{50\\,\\mu m} * \\bar D$); 70 % zone
+$Z = \\{v : \\tilde D(v) \\ge \\tau\\}$ with $\\sum_{Z} \\tilde D = 0.7 \\sum_C \\tilde D$; merged whisker (SSp-bfd + SSs) and auditory (AUDp + AUDd/v)
+zones; overlap $Z_w \\cap Z_a$. """ + f"""Overlap {OVS['overlap_mm3']:.1f} mm³; largest recorded pieces: """ +
+      ", ".join(f"{r.structure} {r.overlap_mm3:.2f} mm³" for r in OV.head(8).itertuples()) + ".\n\n")
+    A(fig(SM / "figures" / "projection_zones_coronal.png", "projection_zones_coronal.png",
+          "**Projection zones of whisker and auditory cortex**, coronal 500-µm slabs (density, 70 % contours, overlap; right: largest "
+          "recorded structures as % of the zone)."))
+    A(fig(SM / "figures" / "projection_zones_sagittal.png", "projection_zones_sagittal.png", "Same, sagittal slabs."))
+    A(f"""
+# Bimodal neurons and projection convergence
+
+$\\Delta = P_\\text{{in}} - P_\\text{{ref}}$ (bimodal fraction of responsive neurons inside the overlap minus among all); hierarchical bootstrap
+over sessions then neurons ($B$ = 2000), $p = (1 + \\#\\{{\\Delta^* \\le 0\\}})/(1 + B)$; Fisher's exact test alongside. Sub-regions described,
+not tested. 70 % zones: {100 * T70.P_in:.1f} % of {int(T70.n_resp_in):,} vs {100 * T70.P_ref:.1f} % of {int(T70.n_resp_ref):,}, {100 * T70['diff']:+.1f} points
+(95 % CI {100 * T70.diff_ci_lo:+.1f} to {100 * T70.diff_ci_hi:+.1f}), {p_txt(T70.p_boot)}. 90 % zones: {100 * T90.P_in:.1f} % vs {100 * T90.P_ref:.1f} %,
+{100 * T90['diff']:+.1f} points ({100 * T90.diff_ci_lo:+.1f} to {100 * T90.diff_ci_hi:+.1f}), {p_txt(T90.p_boot)}.
+
+""")
+    A(fig(SM / "figures" / "colocation_figure.png", "colocation_figure.png",
+          "**Bimodal neurons and the convergence of whisker- and auditory-cortex projections** (70 % zones). a, zones and sub-regions; "
+          "b, responsive / bimodal neurons; c, bimodal fraction; d, inside vs all responsive neurons."))
+    A("""
+# When does stimulus information arrive? Pseudo-population decoding
+
+**Method.** One iteration: 20 sessions with replacement, $N/20$ neurons of the area per session, pseudo-trials per class by balanced
+reuse; L2 logistic regression per time bin (3-fold CV on real trials, inner 2-fold for C); $\\mathrm{BA} = (\\mathrm{TPR} + \\mathrm{TNR})/2$;
+corrected accuracy $d(t) = \\mathrm{BA}_\\text{real}(t) - \\frac{1}{10}\\sum_k \\mathrm{BA}_{\\text{shuffle},k}(t)$ (labels shuffled within
+sessions); 100 iterations; $N$ = 20-500. Bin above chance: 5th percentile of $d(t)$ > 0. Onset: first $t > 0$ above chance with >= 80 % of
+the bins in $[t, t + 25\\,\\text{ms}]$ above chance (20-ms bins, 2-ms steps); 95 % range from 1000 resamples of the iterations. Early accuracy:
+mean $d$ over bins ending 5-50 ms. Areas: all 18 area groups and the 40 best-sampled areas.
+
+""" + act + ("\n" + pas if has_pas else "\n*Passive-trial decoding: not finished at report time.*\n"))
+    A("""
+# Caveats
+
+- Co-location, not causation (tracing from other mice, axons of passage, CCF uncertainty of ~100-200 µm).
+- Cohorts and stages pooled; splits are a next step.
+- Task-trial decoding after ~100 ms can use lick preparation (auditory trials nearly always licked); passive trials and onsets in the
+  first 20 ms are unaffected.
+- Whisker-trial spikes in -10 to +5 ms are replaced by baseline-rate Poisson spikes: whisker information cannot appear before ~5 ms.
+- 100 iterations x 10 shuffles are pilot values.
+""")
+    OUTD.mkdir(parents=True, exist_ok=True)
+    (OUTD / "sensory_maps_report.qmd").write_text("\n".join(lines), encoding="utf-8")
+    (OUTD / "report_figures.txt").write_text("\n".join(f"{s}\t{n}" for s, n in FIGS) + "\n")
+    print("wrote", OUTD / "sensory_maps_report.qmd", len(FIGS), "figures, passive:", has_pas)
+
+
+if __name__ == "__main__":
+    main()
