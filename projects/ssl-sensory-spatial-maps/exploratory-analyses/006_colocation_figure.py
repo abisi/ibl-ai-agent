@@ -33,7 +33,7 @@ sys.path.insert(0, str(HERE))
 m3 = importlib.import_module("003_spatial_maps")
 m2 = importlib.import_module("002_projection_zones")
 S, OUT = m3.S, m3.OUT
-FIG = OUT / "figures"
+FIG, ZTAG, ZONE_PCT = m3.FIG, m3.ZTAG, m3.ZONE_PCT
 MIN_VOL, MIN_UNITS, N_SHIFT, N_BOOT = 0.04, 30, 2000, 2000
 GENERIC = {"MB", "TH", "HY", "CTX", "grey", "root", "STR", "PAL", "CB", "P", "MY"}
 R50 = 50.0
@@ -171,7 +171,7 @@ def main():
     A = m3.Atlas()
     U["atlas_id"] = A.unit_ids(U)
     U["structure"] = U.atlas_id.map(lambda k: A.acr.get(int(k), ""))
-    Z = np.load(OUT / "projection_zones.npz")
+    Z = np.load(m3.ZONES_NPZ)
     lab = m2.merged_ids(m2.atlas_50um())
     SR, masks, ov = subregions(Z, lab, A.acr)
     D = U[U.bimodal_cat.isin([1, 2, 3])].reset_index(drop=True)
@@ -204,8 +204,8 @@ def main():
     if "p_fisher_vs_rest" in T:
         sv = sub & T.p_fisher_vs_rest.notna()
         T.loc[sv, "p_vs_rest_holm"] = holm(T.loc[sv, "p_fisher_vs_rest"])
-    SR.to_csv(OUT / "colocation_subregions.csv", index=False)
-    T.to_csv(OUT / "colocation_tests.csv", index=False)
+    SR.to_csv(OUT / f"colocation_subregions{ZTAG}.csv", index=False)
+    T.to_csv(OUT / f"colocation_tests{ZTAG}.csv", index=False)
     print(SR.round(3).to_string())
     print(T.drop(columns=[c for c in T.columns if c.endswith("ci_lo") or c.endswith("ci_hi")]).round(4).to_string())
     figure(plt, A, U, D, SR, masks, T, nulls, Z)
@@ -401,7 +401,7 @@ def caption(SR, T, D):
         f"is significant after Bonferroni correction over the number of such tests in its session (1-3); bimodal = responsive "
         f"to both whisker and auditory stimuli (excited or inhibited).",
         "",
-        "**a**, Projection zones on coronal 500-um slabs (right hemisphere; neurons folded onto it). Whisker zone (yellow): 70 % "
+        f"**a**, Projection zones on coronal 500-um slabs (right hemisphere; neurons folded onto it). Whisker zone (yellow): {ZONE_PCT} % "
         "contour of the merged anterograde projection density of SSp-bfd and SSs (Allen Mouse Brain Connectivity Atlas; wild-type "
         "and Emx1-IRES-Cre injections, 8 and 3 experiments, each normalised to its total); auditory zone (blue): same for AUDp "
         "and AUDd/AUDv (6 and 3); purple: overlap of the two zones. Numbers: overlap sub-regions (the overlap volume cut by "
@@ -453,7 +453,7 @@ def caption(SR, T, D):
             extra = (f"; bimodal {100 * qq.P_in:.1f} % (n = {qq.n_resp_in}, {qq.n_sessions_in} sessions), shift p (Holm) "
                      f"{qq.p_shift_holm:.3g}")
         lines.append(f"- {sr.id}: {sr.name}, {sr.volume_mm3:.2f} mm^3, AP {sr.ap_bregma_mm:+.2f} mm{extra}")
-    (OUT / "colocation_figure_caption.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (OUT / f"colocation_figure_caption{ZTAG}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines[:4]))
 
 

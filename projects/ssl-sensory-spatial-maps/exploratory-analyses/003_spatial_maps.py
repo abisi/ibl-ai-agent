@@ -28,6 +28,7 @@ Output: combined_results_ks4/_sensory_spatial_maps/figures/<quantity>/<set>_p<k>
 import argparse
 import importlib
 import json
+import os
 import pathlib
 import sys
 
@@ -41,7 +42,10 @@ S = importlib.import_module("_style")
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 ROC = RES / "_roc_stage_analysis"
 OUT = RES / "_sensory_spatial_maps"
-FIG = OUT / "figures"
+ZONE_PCT = int(os.environ.get("ZONE_PCT", "70"))      # projection-zone contour level (% of the projection mass)
+ZTAG = "" if ZONE_PCT == 70 else f"_zone{ZONE_PCT}"
+ZONES_NPZ = OUT / f"projection_zones{ZTAG}.npz"
+FIG = OUT / f"figures{ZTAG}"
 ATLAS = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/Anatomy/allen_mouse_bluebrain_barrels_10um_v1.0")
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 MID, BREGMA_AP = 5700.0, 5400.0               # CCF midline (ML) and approximate bregma (AP), um
@@ -49,8 +53,8 @@ SLAB, BOX, GRID, SMOOTH, MIN_N = 500.0, 550.0, 50.0, 50.0, 5
 ROWS_PER_PAGE = 4
 # merged projection zones (002: 70 % contour of the mean density of the modality's source areas; user 2026-10-04)
 SRC_STYLE = {"whisker": ("#00897b", "-"), "auditory": ("#5d4037", (0, (3.5, 1.5)))}
-SRC_LABEL = {"whisker": "whisker-cortex projection zone (SSp-bfd + SSs, 70 % contour)",
-             "auditory": "auditory-cortex projection zone (AUDp + AUDd/v, 70 % contour)"}
+SRC_LABEL = {"whisker": f"whisker-cortex projection zone (SSp-bfd + SSs, {ZONE_PCT} % contour)",
+             "auditory": f"auditory-cortex projection zone (AUDp + AUDd/v, {ZONE_PCT} % contour)"}
 DOT = dict(all=0.12, value=0.45, grey=0.1, sig=0.55)          # marker areas (pt^2)
 
 
@@ -174,7 +178,7 @@ class Atlas:
         self.path = {s["id"]: s["structure_id_path"] for s in js}
         self.acr = {s["id"]: s["acronym"] for s in js}
         if load_zones:
-            Z = np.load(OUT / "projection_zones.npz")
+            Z = np.load(ZONES_NPZ)
             self.zres = float(Z["res_um"])
             self.zones = {g: Z[f"zone70_{g}"] for g in ("whisker", "auditory")}
 
@@ -473,7 +477,7 @@ def main(a):
             for k, sl in enumerate(pages):
                 rows += make_page(plt, A, U, qk, set_name, kind, sl, k + 1, len(pages), schem["cor" if kind == "cor" else "sag"])
                 print(qk, set_name, k + 1, "/", len(pages), flush=True)
-    pd.DataFrame(rows).to_csv(OUT / "slab_units.csv", index=False)
+    pd.DataFrame(rows).to_csv(OUT / f"slab_units{ZTAG}.csv", index=False)
     json.dump({k: [(l, float(c)) for l, c in v[1]] for k, v in sets.items()}, open(OUT / "slabs.json", "w"), indent=1)
     print("ALL DONE", FIG)
 

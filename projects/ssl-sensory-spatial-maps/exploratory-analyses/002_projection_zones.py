@@ -23,6 +23,7 @@ sources + overlap of the whisker and auditory zones, labels = the 3 structures h
 column = composition of the whole zone (% of its volume per structure, projection_zone_composition*.csv).
 """
 import json
+import os
 import pathlib
 import time
 import urllib.request
@@ -35,7 +36,9 @@ RAW = OUT / "allen_projection_density_50um"
 ATLAS = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/Anatomy/allen_mouse_bluebrain_barrels_10um_v1.0")
 SOURCES = {"SSp-bfd": [329], "SSs": [378], "AUDp": [1002], "AUD-sec": [1011, 1018]}
 LINES_OK = {"", "Emx1-IRES-Cre"}
-RES_UM, MID_UM, TOP, MASS, SMOOTH_UM = 50, 5700, 0.10, 0.70, 50.0
+ZONE_PCT = int(os.environ.get("ZONE_PCT", "70"))      # projection-zone contour level (user: 70, repeated with 90)
+ZTAG = "" if ZONE_PCT == 70 else f"_zone{ZONE_PCT}"
+RES_UM, MID_UM, TOP, MASS, SMOOTH_UM = 50, 5700, 0.10, ZONE_PCT / 100, 50.0
 SLAB_UM, CONTOUR_SIGMA = 500.0, 0.8           # figure slabs (um) and contour-line smoothing (50-um voxels)
 WHISKER_SRC, AUDITORY_SRC = ["SSp-bfd", "SSs"], ["AUDp", "AUD-sec"]
 SRC_NAME = {"SSp-bfd": "SSp-bfd\n(barrel cortex)", "SSs": "SSs (secondary\nsomatosensory)", "AUDp": "AUDp (primary\nauditory)",
@@ -90,7 +93,7 @@ def descendants(structs, ids):
 
 def main():
     RAW.mkdir(parents=True, exist_ok=True)
-    (OUT / "figures").mkdir(parents=True, exist_ok=True)
+    (OUT / f"figures{ZTAG}").mkdir(parents=True, exist_ok=True)
     E = experiments()
     E.to_csv(OUT / "projection_experiments.csv", index=False)
     print(E.groupby("source").agg(n=("experiment_id", "size"), lines=("line", lambda x: dict(x.value_counts()))).to_string())
@@ -136,10 +139,10 @@ def main():
                          zone70_volume_mm3=float(zone.sum() * (RES_UM / 1000) ** 3),
                          top10_volume_mm3=float(mask.sum() * (RES_UM / 1000) ** 3), top_regions_zone70=top_regions.to_dict()))
         print(src, summ[-1], flush=True)
-    np.savez_compressed(OUT / "projection_zones.npz", res_um=RES_UM, **out)
-    pd.DataFrame(summ).to_csv(OUT / "projection_zones_summary.csv", index=False)
+    np.savez_compressed(OUT / f"projection_zones{ZTAG}.npz", res_um=RES_UM, **out)
+    pd.DataFrame(summ).to_csv(OUT / f"projection_zones_summary{ZTAG}.csv", index=False)
     finish(out, ann, structs)
-    print("ALL DONE", OUT / "projection_zones.npz")
+    print("ALL DONE", OUT / f"projection_zones{ZTAG}.npz")
 
 
 def m3_module():
@@ -203,9 +206,9 @@ def composition(out, lab, structs):
             rows.append(dict(zone=src, structure=acr.get(int(k), str(k)), name=name.get(int(k), ""),
                              division=div.get(int(k), "other"), volume_mm3=n * v, frac_of_zone=n / m.sum()))
     C = pd.DataFrame(rows).sort_values(["zone", "frac_of_zone"], ascending=[True, False])
-    C.to_csv(OUT / "projection_zone_composition.csv", index=False)
+    C.to_csv(OUT / f"projection_zone_composition{ZTAG}.csv", index=False)
     D = C.groupby(["zone", "division"]).frac_of_zone.sum().unstack(fill_value=0).round(3)
-    D.to_csv(OUT / "projection_zone_composition_divisions.csv")
+    D.to_csv(OUT / f"projection_zone_composition_divisions{ZTAG}.csv")
     print(D.to_string())
     print(C.groupby("zone").head(6).round(3).to_string())
     return C
@@ -230,16 +233,16 @@ def overlap_table(out, lab, structs):
                          ap_centre_um=float(np.mean(np.where(ov & inside)[0]) * RES_UM + RES_UM / 2)))
     T = pd.DataFrame(rows).sort_values("overlap_mm3", ascending=False)
     pairs = {f"{x}&{y}": float((out[f"zone70_{x}"] & out[f"zone70_{y}"]).sum() * v) for x in WHISKER_SRC for y in AUDITORY_SRC}
-    T.to_csv(OUT / "projection_overlap.csv", index=False)
+    T.to_csv(OUT / f"projection_overlap{ZTAG}.csv", index=False)
     json.dump(dict(whisker_union_mm3=float(w.sum() * v), auditory_union_mm3=float(a.sum() * v), overlap_mm3=float(ov.sum() * v),
-                   pairwise_overlap_mm3=pairs), open(OUT / "projection_overlap_summary.json", "w"), indent=1)
+                   pairwise_overlap_mm3=pairs), open(OUT / f"projection_overlap_summary{ZTAG}.json", "w"), indent=1)
     print("overlap", float(ov.sum() * v), "mm3;", pairs)
 
 
 def finish(out, ann, structs):
     out = merged_zones(out, ann, structs)
     out["res_um"] = RES_UM
-    np.savez_compressed(OUT / "projection_zones.npz", **out)
+    np.savez_compressed(OUT / f"projection_zones{ZTAG}.npz", **out)
     lab = merged_ids(ann)
     overlap_table(out, lab, structs)
     C = composition(out, lab, structs)
@@ -387,10 +390,10 @@ def figure(out, lab, structs, C, kind):
         cb = fig.colorbar(ims[src], cax=cax, orientation="horizontal")
         cb.set_label(("Whisker" if k == 0 else "Auditory") + "-cortex projection density (normalised, log)", fontsize=5.0)
         cb.ax.tick_params(labelsize=4.6, width=0.4, length=1.5); cb.outline.set_linewidth(0.4)
-    h = [plt.Line2D([], [], color="k", lw=0.8, label="70 % contour"),
+    h = [plt.Line2D([], [], color="k", lw=0.8, label=f"{ZONE_PCT} % contour"),
          plt.Rectangle((0, 0), 1, 1, color="#cfcfcf", lw=0, label="injected area (excluded)"),
-         plt.Line2D([], [], color=wcol, lw=1, label="whisker zone (SSp-bfd + SSs merged, 70 %)"),
-         plt.Line2D([], [], color=acol, lw=1, label="auditory zone (AUDp + AUDd/v merged, 70 %)"),
+         plt.Line2D([], [], color=wcol, lw=1, label=f"whisker zone (SSp-bfd + SSs merged, {ZONE_PCT} %)"),
+         plt.Line2D([], [], color=acol, lw=1, label=f"auditory zone (AUDp + AUDd/v merged, {ZONE_PCT} %)"),
          plt.Rectangle((0, 0), 1, 1, color=ocol, alpha=0.6, lw=0, label="overlap")]
     fig.legend(handles=h, loc="lower right", bbox_to_anchor=(0.995, 0.0), frameon=False, fontsize=4.7, ncol=2,
                columnspacing=0.8, handlelength=1.6)
@@ -398,12 +401,12 @@ def figure(out, lab, structs, C, kind):
     fig.suptitle(f"Projection zones of whisker and auditory cortex, {word} 500-um slabs (Allen anterograde tracing, right "
                  f"hemisphere; white = no projection)", x=0.5 / W, y=1 - 0.06 / H, ha="left", va="top", fontsize=6.8,
                  weight="bold")
-    S.save(fig, OUT / "figures", f"projection_zones_{'coronal' if kind == 'cor' else 'sagittal'}")
+    S.save(fig, OUT / f"figures{ZTAG}", f"projection_zones_{'coronal' if kind == 'cor' else 'sagittal'}")
     plt.close(fig)
 
 
 def main_figure_only():
-    Z = np.load(OUT / "projection_zones.npz")
+    Z = np.load(OUT / f"projection_zones{ZTAG}.npz")
     finish({k: Z[k] for k in Z.files}, atlas_50um(), json.load(open(ATLAS / "structures.json")))
 
 

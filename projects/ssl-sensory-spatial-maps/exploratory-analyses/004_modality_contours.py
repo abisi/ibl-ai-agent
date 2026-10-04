@@ -112,11 +112,11 @@ def main():
             panels.append((lab_slab, c, area, P, aud, ka, kw))
             print(rows[-1], flush=True)
     T = pd.DataFrame(rows)
-    T.to_csv(OUT / "modality_contours_all_areas.csv", index=False)          # exploratory: every area of every slab
+    T.to_csv(OUT / f"modality_contours_all_areas{m3.ZTAG}.csv", index=False)          # exploratory: every area of every slab
     keep = T.target.to_numpy()
     T = T[keep].reset_index(drop=True)
     T["p_distance_holm"] = holm(T.p_distance)
-    T.to_csv(OUT / "modality_contours.csv", index=False)
+    T.to_csv(OUT / f"modality_contours{m3.ZTAG}.csv", index=False)
     figure(plt, A, T, [p for p, k in zip(panels, keep) if k])
     print("ALL DONE", OUT / "modality_contours.csv")
 

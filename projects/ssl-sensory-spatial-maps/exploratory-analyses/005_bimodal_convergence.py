@@ -28,19 +28,19 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 m3 = importlib.import_module("003_spatial_maps")
 S, OUT = m3.S, m3.OUT
-FIG = OUT / "figures"
+FIG, ZTAG = m3.FIG, m3.ZTAG
 N_TOP, MIN_RESP, N_PERM = 8, 5, 5000
 GENERIC = {"MB", "TH", "HY", "CTX", "grey", "root", "STR", "PAL", "CB", "P", "MY", "fiber tracts"}
 
 
 def top_areas():
-    T = pd.read_csv(OUT / "projection_overlap.csv")
+    T = pd.read_csv(OUT / f"projection_overlap{ZTAG}.csv")
     T = T[~T.structure.isin(GENERIC)].sort_values("overlap_mm3", ascending=False)
     return T.head(N_TOP).structure.tolist(), T
 
 
 def in_overlap(U):
-    Z = np.load(OUT / "projection_zones.npz")
+    Z = np.load(m3.ZONES_NPZ)
     ov = Z["zone70_whisker"] & Z["zone70_auditory"]
     r = float(Z["res_um"])
     ijk = np.round(np.c_[U.ccf_atlas_ap, U.ccf_atlas_dv, U.ml_f].astype(float) / r - 0.5)
@@ -142,13 +142,13 @@ def main():
     Wt["p_perm_holm"] = holm(Wt.p_perm_one_sided.fillna(1))
     Wt["control"] = "within structure"
     R = pd.concat([pd.DataFrame(rows), P, Wt], ignore_index=True)
-    R.to_csv(OUT / "bimodal_convergence.csv", index=False)
-    pd.concat(sess, ignore_index=True).to_csv(OUT / "bimodal_convergence_sessions.csv", index=False)
+    R.to_csv(OUT / f"bimodal_convergence{ZTAG}.csv", index=False)
+    pd.concat(sess, ignore_index=True).to_csv(OUT / f"bimodal_convergence_sessions{ZTAG}.csv", index=False)
     # pooled counts per area (descriptive)
     cnt = D.assign(area=np.where(in_top, D.structure, "elsewhere")).groupby("area").agg(
         n_responsive=("bimodal", "size"), n_bimodal=("bimodal", "sum"), frac_bimodal=("bimodal", "mean"),
         n_sessions=("session_id", "nunique"))
-    cnt.to_csv(OUT / "bimodal_convergence_counts.csv")
+    cnt.to_csv(OUT / f"bimodal_convergence_counts{ZTAG}.csv")
     print(R.drop(columns=[c for c in R.columns if c.startswith("pooled")]).round(4).to_string())
     print(cnt.round(3).to_string())
     figure(plt, R, P, Wt, cnt, areas, D)
