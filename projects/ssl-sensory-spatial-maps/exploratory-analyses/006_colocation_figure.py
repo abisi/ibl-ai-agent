@@ -263,7 +263,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     gs = fig.add_gridspec(3, ncol, left=0.4 / W, right=1 - 0.05 / W, top=1 - 0.42 / H, bottom=1 - 0.42 / H - top_frac,
                           wspace=0.03, hspace=0.05)
     gb = fig.add_gridspec(1, 4, left=0.5 / W, right=1 - 0.42 / W, top=1.85 / H, bottom=0.42 / H,
-                          width_ratios=[0.75, 1.0, 2.5, 1.15], wspace=0.75)
+                          width_ratios=[0.7, 0.9, 1.9, 1.05], wspace=1.3)
     cmap_b = LinearSegmentedColormap.from_list("white_bimodal", ["#ffffff", "#c2a5cf", "#7b3294", "#40004b"])
     ijk_all = None
     tested = T[(T.kind == "sub-region") & T.p_boot.notna()]
@@ -378,8 +378,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     axf.set_ylim(len(Q) - 0.4, -0.6)
     axf.set_xlim(0, max(70, 100 * Q.ci_hi.max() + 5))
     axf.set_xlabel("Bimodal neurons (% of responsive)")
-    axf.set_title("Overlap sub-regions (responsive neurons / sessions): dot = inside\n(95 % CI), | = rest of the "
-                  "structure, dashed = all responsive neurons", fontsize=5.0, loc="left")
+    axf.set_title("Sub-regions (n neurons / sessions)\ndot: inside, 95 % CI; |: rest of structure", fontsize=5.0, loc="left")
     # g: within-structure difference (same rows as f)
     for j, q in Q.iterrows():
         if not np.isfinite(q.get("P_rest_structure", np.nan)):
