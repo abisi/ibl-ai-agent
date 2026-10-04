@@ -57,22 +57,27 @@ def save(im, box, name, pad=8):
     LOG.append(f"{name}\t{crop.size[0]}x{crop.size[1]}")
 
 
-def flatmap_columns():
-    im = Image.open(SM / "figures" / "cortical_flatmaps.png").convert("RGB")
+def flatmap_columns(name, sfx):
+    """columns of the flatmap figure; sfx "" = no zone contours (sensory-coding slides), "_zones" = with contours"""
+    path = SM / "figures" / f"{name}.png"
+    if not path.exists():
+        LOG.append(f"missing {path.name}")
+        return
+    im = Image.open(path).convert("RGB")
     W, H = im.size
     R = rows_of(im, 15)
     body = (R[1][0], R[-1][1]) if len(R) > 2 else (0, H)            # skip the title row
     C = cols_of(im, int(H * 0.15), int(H * 0.8), 10)
     C = [c for c in C if c[1] - c[0] > W * 0.05]
-    LOG.append(f"flatmap columns {C}")
+    LOG.append(f"{name} columns {C}")
     if len(C) >= 7:
         y0 = body[0]
-        save(im, (C[0][0], y0, C[0][1], H), "flat_recorded_zones.png")
-        save(im, (C[1][0], y0, C[2][1], H), "flat_whisker_auditory.png")
-        save(im, (C[3][0], y0, C[3][1], H), "flat_modality.png")
-        save(im, (C[4][0], y0, C[5][1], H), "flat_latency.png")
-        save(im, (C[6][0], y0, C[6][1], H), "flat_bimodal.png")
-    save(im, (0, 0, W, H), "flat_all.png", pad=0)
+        save(im, (C[0][0], y0, C[0][1], H), f"flat_recorded{sfx}.png")
+        save(im, (C[1][0], y0, C[2][1], H), f"flat_whisker_auditory{sfx}.png")
+        save(im, (C[3][0], y0, C[3][1], H), f"flat_modality{sfx}.png")
+        save(im, (C[4][0], y0, C[5][1], H), f"flat_latency{sfx}.png")
+        save(im, (C[6][0], y0, C[6][1], H), f"flat_bimodal{sfx}.png")
+    save(im, (0, 0, W, H), f"flat_all{sfx}.png", pad=0)
 
 
 def summary_parts(path, tag):
@@ -215,7 +220,8 @@ def copies():
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    flatmap_columns()
+    flatmap_columns("cortical_flatmaps_nozones", "")
+    flatmap_columns("cortical_flatmaps", "_zones")
     summary_parts(AA / "figures" / "arrival_summary_area_group.png", "arr_groups")
     summary_parts(AA / "figures" / "arrival_summary_area_acronym_custom.png", "arr_areas")
     summary_parts(AP / "figures" / "arrival_summary_area_group.png", "pas_groups")

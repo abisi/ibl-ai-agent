@@ -16,7 +16,8 @@ sum of the quantity over neurons and number of neurons with a value on the flat 
 (sigma 150 um), divided (normalised by the recorded-neuron density); shown inside the isocortex where >= 3 neurons fall
 within the kernel; lines: whisker and auditory projection zones (002, ZONE_PCT contour), projected with the same streamlines
 (a flat pixel belongs to a zone when >= half of its streamline lies in it).
-Output: combined_results_ks4/_sensory_spatial_maps/figures<ZTAG>/cortical_flatmaps.{png,pdf,svg},
+Output: combined_results_ks4/_sensory_spatial_maps/figures<ZTAG>/cortical_flatmaps{,_nozones}.{png,pdf,svg} (_nozones: no zone
+contours; recorded-neuron density instead of the zone panel),
 cortical_flatmaps_caption<ZTAG>.md, flatmap_units<ZTAG>.parquet
 """
 import importlib
@@ -84,13 +85,14 @@ def main():
                                                                     "area_acronym_custom")]
     U[keep].to_parquet(OUT / f"flatmap_units{m3.ZTAG}.parquet")
     figure(plt, U, B, zw, za)
+    figure(plt, U, B, zw, za, show_zones=False)                      # sensory-coding slides / report: no anatomy yet
     caption(U)
     print("ALL DONE", FIG / "cortical_flatmaps.png")
 
 
-def figure(plt, U, B, zw, za):
+def figure(plt, U, B, zw, za, show_zones=True):
     import matplotlib.patheffects as pe
-    from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+    from matplotlib.colors import LinearSegmentedColormap, ListedColormap, LogNorm
     from matplotlib.path import Path
     allp = np.vstack(list(B.values()))
     x0, x1 = int(allp[:, 0].min()) - 10, int(allp[:, 0].max()) + 10
@@ -132,6 +134,8 @@ def figure(plt, U, B, zw, za):
         ax.set_xlim(0, nx); ax.set_ylim(ny, 0); ax.set_aspect("equal"); ax.set_axis_off()
 
     def zones(ax):
+        if not show_zones:
+            return
         for z, col, ls in ((zW, m3.SRC_STYLE["whisker"][0], "-"), (zA, m3.SRC_STYLE["auditory"][0], "--")):
             if z.any():
                 ax.contour(ndimage.gaussian_filter(z.astype(float), 3), levels=[0.5], colors=[col], linewidths=0.7,
@@ -152,12 +156,27 @@ def figure(plt, U, B, zw, za):
     ax.annotate("", xy=(0.78, 0.80), xytext=(0.93, 0.80), xycoords="axes fraction", arrowprops=dict(arrowstyle="->", lw=0.6))
     ax.text(0.76, 0.80, "L", transform=ax.transAxes, ha="right", va="center", fontsize=4.6)
     ax = fig.add_subplot(gs[1, 0]); base(ax)
-    for z, col in ((zW, "#f7b519"), (zA, "#2c2cdb")):
+    if not show_zones:                                               # recorded-neuron density (sampling) instead of the zones
+        xi, yi = x.astype(int), y.astype(int)
+        g = (xi >= 0) & (xi < nx) & (yi >= 0) & (yi < ny)
+        den = np.zeros((ny, nx))
+        np.add.at(den, (yi[g], xi[g]), 1)
+        den = ndimage.gaussian_filter(den, s) * norm
+        im = ax.imshow(np.where(inside & (den >= DENS_MIN), den, np.nan), cmap="Greys", norm=LogNorm(
+            vmin=DENS_MIN, vmax=np.nanpercentile(np.where(den >= DENS_MIN, den, np.nan), 99)), interpolation="bilinear", zorder=1)
+        ax.set_title("Recorded-neuron density", fontsize=5.4, pad=2)
+        pos = ax.get_position()
+        cax = fig.add_axes([pos.x0 + 0.1 * pos.width, pos.y0 - 0.07 / H, 0.8 * pos.width, 0.045 / H])
+        cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+        cb.ax.tick_params(labelsize=4.0, length=1.2, width=0.4, pad=1); cb.outline.set_linewidth(0.4)
+        cb.set_label("neurons per kernel", fontsize=4.4, labelpad=1)
+    for z, col in (((zW, "#f7b519"), (zA, "#2c2cdb")) if show_zones else ()):
         ax.imshow(np.ma.masked_where(~z, z.astype(float)), cmap=ListedColormap([col]), alpha=0.35, interpolation="nearest", zorder=1)
-    ov = zW & zA
+    ov = zW & zA & show_zones
     ax.imshow(np.ma.masked_where(~ov, ov.astype(float)), cmap=ListedColormap(["#7b3294"]), alpha=0.75, interpolation="nearest",
               zorder=1.2)
-    ax.set_title(f"Projection zones ({m3.ZONE_PCT} %)", fontsize=5.4, pad=2)
+    if show_zones:
+        ax.set_title(f"Projection zones ({m3.ZONE_PCT} %)", fontsize=5.4, pad=2)
     for j, qk in enumerate(QUANTS):
         q = m3.QUANT[qk]
         v, sig = m3.values(U, qk)
@@ -204,10 +223,11 @@ def figure(plt, U, B, zw, za):
     h = [plt.Line2D([], [], color=m3.SRC_STYLE["whisker"][0], lw=1, label=f"whisker-cortex zone ({m3.ZONE_PCT} %)"),
          plt.Line2D([], [], color=m3.SRC_STYLE["auditory"][0], lw=1, ls="--", label=f"auditory-cortex zone ({m3.ZONE_PCT} %)"),
          plt.Rectangle((0, 0), 1, 1, color="#7b3294", alpha=0.75, lw=0, label="overlap")]
-    fig.legend(handles=h, loc="lower left", ncol=1, frameon=False, fontsize=4.8, bbox_to_anchor=(0.25 / W, 0.0))
+    if show_zones:
+        fig.legend(handles=h, loc="lower left", ncol=1, frameon=False, fontsize=4.8, bbox_to_anchor=(0.25 / W, 0.0))
     fig.suptitle("Sensory responses across the isocortex (Allen butterfly flatmap, left hemisphere; all sessions pooled)",
                  x=0.25 / W, y=1 - 0.05 / H, ha="left", va="top", fontsize=7, weight="bold")
-    S.save(fig, FIG, "cortical_flatmaps")
+    S.save(fig, FIG, "cortical_flatmaps" if show_zones else "cortical_flatmaps_nozones")
     plt.close(fig)
 
 

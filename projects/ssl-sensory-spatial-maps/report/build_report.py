@@ -123,7 +123,7 @@ def main():
     lines = []
     A = lines.append
     A(f"""---
-title: "Whisker and auditory responses across the mouse brain: spatial maps, projection anatomy and the arrival of stimulus information"
+title: "Whisker and auditory responses across the mouse brain: where, when, and where the two streams converge"
 subtitle: "SSL dataset (Neuropixels, KS4) -- report generated {pd.Timestamp.now():%Y-%m-%d %H:%M}"
 format:
   typst:
@@ -139,28 +139,33 @@ format:
 
 # Key conclusions
 
+**Sensory coding**
+
 1. **Sensory responses are widespread but spatially organised.** Of {len(U):,} good and multi-unit neurons ({ses.session_id.nunique()}
    sessions, {U.mouse_id.nunique()} mice), {fr['whisker_active'][0]:.1f} % respond to the whisker stimulus and {fr['auditory_active'][0]:.1f} % to
-   the auditory stimulus in the active task (5-35 ms after onset); {fr['wh_vs_aud_active'][0]:.1f} % prefer one modality (Section 3-4).
+   the auditory stimulus in the active task (5-35 ms after onset); {fr['wh_vs_aud_active'][0]:.1f} % prefer one modality (Where).
 2. **Each modality reaches its own sensory system first.** Median half-time to peak: whisker {lat_sw.latency_whisker_ms:.1f} ms in whisker
    somatosensory cortex (auditory there {lat_sw.latency_auditory_ms:.1f} ms); auditory {lat_mb.latency_auditory_ms:.1f} ms in the midbrain
-   (whisker there {lat_mb.latency_whisker_ms:.1f} ms) (Section 3.4).
-3. **Whisker and auditory cortex project to partly overlapping targets.** The 70 % projection zones of whisker cortex
-   ({OVS['whisker_union_mm3']:.1f} mm³) and auditory cortex ({OVS['auditory_union_mm3']:.1f} mm³) overlap in {OVS['overlap_mm3']:.1f} mm³, mainly in
-   {', '.join(OV.head(6).structure)} (Section 6).
-4. **Bimodal neurons are enriched where these projections converge.** {100 * n_b / n_r:.1f} % of sensory-responsive neurons respond to both
-   modalities; inside the overlap {100 * T70.P_in:.1f} % vs {100 * T70.P_ref:.1f} % of all responsive neurons ({100 * T70['diff']:+.1f} points, 95 % CI
-   {100 * T70.diff_ci_lo:+.1f} to {100 * T70.diff_ci_hi:+.1f}; hierarchical bootstrap {p_txt(T70.p_boot)}; 90 % zones {100 * T90['diff']:+.1f} points,
-   {p_txt(T90.p_boot)}). A co-location, not evidence of causation (Section 7).
-5. **Within areas, whisker- and auditory-preferring neurons are spatially offset** in {len(sig_mc)} of {len(MC)} target slabs (within-session
-   permutation, Holm p < 0.05) (Section 5).
-6. **Stimulus modality can be decoded within {ga.onset_ms.min():.0f}-{ga.onset_ms.max():.0f} ms of stimulus onset (area groups, task trials)**, earliest in
-   {', '.join(short(a) for a in ga[ga.onset_ms == ga.onset_ms.min()].area)} (Section 8).""")
+   (whisker there {lat_mb.latency_whisker_ms:.1f} ms) (When).
+3. **Stimulus modality can be decoded within {ga.onset_ms.min():.0f}-{ga.onset_ms.max():.0f} ms of stimulus onset (area groups, task trials)**, earliest in
+   {', '.join(short(a) for a in ga[ga.onset_ms == ga.onset_ms.min()].area)}; faster areas also carry more early information (Population coding).""")
     if has_pas:
         gp = OBp[OBp.level == "area_group"].dropna(subset=["onset_ms"]).sort_values("onset_ms")
-        A(f"""7. **Passive trials (no task, no licks)** give onsets of {gp.onset_ms.min():.0f}-{gp.onset_ms.max():.0f} ms, earliest in
-   {', '.join(short(a) for a in gp[gp.onset_ms == gp.onset_ms.min()].area)} (Section 8.2).""")
+        A(f"""4. **Passive trials (no task, no licks)** give onsets of {gp.onset_ms.min():.0f}-{gp.onset_ms.max():.0f} ms, earliest in
+   {', '.join(short(a) for a in gp[gp.onset_ms == gp.onset_ms.min()].area)} (Population coding, passive).""")
     A(f"""
+**Convergence**
+
+5. **Whisker and auditory cortex project to partly overlapping targets.** The 70 % projection zones of whisker cortex
+   ({OVS['whisker_union_mm3']:.1f} mm³) and auditory cortex ({OVS['auditory_union_mm3']:.1f} mm³) overlap in {OVS['overlap_mm3']:.1f} mm³, mainly in
+   {', '.join(OV.head(6).structure)}.
+6. **Bimodal neurons are enriched where these projections converge.** {100 * n_b / n_r:.1f} % of sensory-responsive neurons respond to both
+   modalities; inside the overlap {100 * T70.P_in:.1f} % vs {100 * T70.P_ref:.1f} % of all responsive neurons ({100 * T70['diff']:+.1f} points, 95 % CI
+   {100 * T70.diff_ci_lo:+.1f} to {100 * T70.diff_ci_hi:+.1f}; hierarchical bootstrap {p_txt(T70.p_boot)}; 90 % zones {100 * T90['diff']:+.1f} points,
+   {p_txt(T90.p_boot)}). A co-location, not evidence of causation.
+7. **Within shared targets, whisker- and auditory-preferring neurons are spatially offset** in {len(sig_mc)} of {len(MC)} target slabs
+   (within-session permutation, Holm p < 0.05).
+
 **Notes.** Pseudo-population iterations (100 x 10 shuffles) are pilot values. All analyses pool both cohorts and both stages.
 
 # Data
@@ -174,8 +179,13 @@ format:
   disengagement trimmed (rule A1). Passive: fixed ~3 s ITI sequence or labelled passive (pre- and post-task blocks). Unlabelled trials
   in a session with context labels are active.
 - **Whisker artefact.** Spikes in -10 to +5 ms around every whisker onset replaced by a Poisson train at the pre-onset rate.
+- **Maps.** Density $\\rho_q(x) = (G_\\sigma * \\sum_i q_i \\delta_{{x_i}})(x) \\,/\\, (G_\\sigma * \\sum_i \\delta_{{x_i}})(x)$ (Gaussian, sigma 150 µm;
+  normalised by the recorded-neuron density), shown where >= 3 neurons fall within the kernel. Isocortex flatmap: Allen CCFv3 butterfly
+  flatmap (cortical streamlines; geodesic embedding to two pairs of anchor points; Wang et al. 2020, Harris et al. 2019) via
+  `ccf_streamlines`; {nflat:,} isocortex neurons placed at their closest streamline; left hemisphere, anterior up; area not preserved
+  (numbers computed in 3-D).
 
-# Single-neuron sensory responses
+# Where: single-neuron sensory responses
 
 ## Responsiveness and modality preference (rate-based ROC)
 
@@ -194,53 +204,46 @@ Responsive to modality $m$ if any stimulus-vs-baseline test in the $k_m$ epochs 
 significant after Bonferroni correction: $R_m = \\exists\\, e:\\; p_{{m,e}} < 0.05 / k_m$. Bimodal: $R_\\text{{whisker}} \\wedge R_\\text{{auditory}}$.
 Of {n_r:,} responsive neurons, {n_w:,} respond to whiskers only, {n_a:,} to sound only and {n_b:,} to both ($B$ = {100 * n_b / n_r:.1f} %).
 
-## Response latency
+## Maps
+
+""")
+    A(fig(SM / "figures" / "cortical_flatmaps_nozones.png", "cortical_flatmaps_nozones.png",
+          "**Sensory responses across the isocortex** (Allen butterfly flatmap). Top: significant neurons coloured by the quantity "
+          "(grey number: neurons in colour); bottom: density normalised by recorded-neuron density; first column: recorded neurons and "
+          "their density. Projection zones are added in the Convergence section."))
+    A(f"""
+# When: response latency
 
 $r(t) = s\\,[\\mathrm{{PSTH}}(t) - \\overline{{\\mathrm{{PSTH}}}}_{{[-100,-10]}}]$ (1-ms bins, Gaussian sigma 2 ms, $s$ = sign of the selectivity); latency =
 last upward crossing of $r(t_\\text{{peak}})/2$ before $t_\\text{{peak}} = \\arg\\max_{{5 \\le t \\le 100}} r(t)$ (whisker: after +5 ms). Medians:
 whisker {lat['whisker'].median():.1f} ms ({len(lat['whisker']):,} neurons), auditory {lat['auditory'].median():.1f} ms ({len(lat['auditory']):,}).
-
-## Latency by area group
+The latency flatmaps are columns 5-6 of the flatmap figure above.
 
 | Area group | whisker (ms) | auditory (ms) |
 |---|---|---|
 """ + "\n".join(f"| {short(a)} | {r.latency_whisker_ms:.1f} | {r.latency_auditory_ms:.1f} |"
-                for a, r in LG.sort_values("latency_whisker_ms").iterrows()) + f"""
+                for a, r in LG.sort_values("latency_whisker_ms").iterrows()) + "\n")
+    A("""
+# Population coding: when does stimulus information arrive?
 
-# Spatial organisation of sensory responses
+**Method.** One iteration: 20 sessions with replacement, $N/20$ neurons of the area per session, pseudo-trials per class by balanced
+reuse; L2 logistic regression per time bin (3-fold CV on real trials, inner 2-fold for C); $\\mathrm{BA} = (\\mathrm{TPR} + \\mathrm{TNR})/2$;
+corrected accuracy $d(t) = \\mathrm{BA}_\\text{real}(t) - \\frac{1}{10}\\sum_k \\mathrm{BA}_{\\text{shuffle},k}(t)$ (labels shuffled within
+sessions); 100 iterations; $N$ = 20-500. Bin above chance: 5th percentile of $d(t)$ > 0. Onset: first $t > 0$ above chance with >= 80 % of
+the bins in $[t, t + 25\\,\\text{ms}]$ above chance (20-ms bins, 2-ms steps); 95 % range from 1000 resamples of the iterations. Early accuracy:
+mean $d$ over bins ending 5-50 ms. Areas: all 18 area groups and the 40 best-sampled areas.
 
-- **Slabs.** 500-µm coronal slabs tiling the recorded AP range, sagittal slabs tiling ML, and 13 coronal slabs centred on projection
-  zones / areas; neurons within ±250 µm projected on the central section.
-- **Density.** $\\rho_q(x) = (G_\\sigma * \\sum_i q_i \\delta_{{x_i}})(x) \\,/\\, (G_\\sigma * \\sum_i \\delta_{{x_i}})(x)$ on the 50-µm CCF grid (3-D Gaussian,
-  sigma 150 µm), averaged over the slab, shown where >= 3 neurons fall within the kernel (normalised by the recorded-neuron density).
-- **Isocortex flatmap.** Allen CCFv3 butterfly flatmap (cortical streamlines; geodesic embedding to two pairs of anchor points; Wang et
-  al. 2020, Harris et al. 2019) via `ccf_streamlines`; {nflat:,} isocortex neurons placed at their closest streamline; left hemisphere,
-  anterior up; area not preserved (numbers computed in 3-D).
-
-""")
-    A(fig(SM / "figures" / "cortical_flatmaps.png", "cortical_flatmaps.png",
-          "**Sensory responses across the isocortex** (Allen butterfly flatmap). Top: significant neurons coloured by the quantity; "
-          "bottom: density normalised by recorded-neuron density; lines: 70 % projection zones of whisker (teal) and auditory (brown) "
-          "cortex."))
-    for q, ttl in (("whisker", "Whisker responsiveness"), ("auditory", "Auditory responsiveness"), ("modality", "Modality preference"),
-                   ("latency_whisker", "Whisker response latency"), ("latency_auditory", "Auditory response latency"),
-                   ("bimodal", "Bimodal neurons")):
-        A(fig(SM / "figures" / q / "targets_p1.png", f"{q}_targets_p1.png",
-              f"**{ttl}** in slabs centred on projection zones (first page; all pages in `figures/{q}/`)."))
+""" + act + ("\n" + pas if has_pas else "\n*Passive-trial decoding: not finished at report time.*\n"))
+    link = SM / "deck" / "img" / "link_latency_onset.png"
+    if link.exists():
+        A("\n## Single-neuron latency and population onset\n\n")
+        A(fig(link, "link_latency_onset.png",
+              "**Population decoding onset (N = 200) vs median single-neuron latency** per area group (left: faster modality; right: "
+              "whisker); Spearman rho, OLS line with 95 % CI (solid when p < 0.05)."))
     A(f"""
-# Modality preference within areas
+# Convergence: where do the whisker and auditory streams meet?
 
-80 % highest-density contours of whisker- and auditory-preferring neurons per target slab and area; centroid distance and axis shifts;
-labels permuted within sessions (5000), Holm correction.
-
-| Slab / area | whisker / auditory-pref. | sessions | distance (µm) | depth shift A-W (µm) | p (Holm) |
-|---|---|---|---|---|---|
-""" + "\n".join(f"| {r.slab.split(',')[0]} / {r.area} | {r.n_whisker_pref} / {r.n_auditory_pref} | {r.n_sessions} | {r.centroid_distance_um:.0f} | "
-                f"{r.shift_depth_um:+.0f} | {r.p_distance_holm:.3f} |" for r in MC.itertuples()) + "\n")
-    A(fig(SM / "figures" / "modality_contours.png", "modality_contours.png",
-          "**Location of whisker- vs auditory-preferring neurons within areas** (80 % contours, centroids)."))
-    A(f"""
-# Projection anatomy
+## Projection anatomy
 
 Allen Mouse Brain Connectivity Atlas (wild-type and Emx1-IRES-Cre anterograde injections: """ +
       ", ".join(f"{r.source} {r.n_experiments}" for r in PZ.itertuples()) + """). Per source,
@@ -252,8 +255,12 @@ zones; overlap $Z_w \\cap Z_a$. """ + f"""Overlap {OVS['overlap_mm3']:.1f} mm³;
           "**Projection zones of whisker and auditory cortex**, coronal 500-µm slabs (density, 70 % contours, overlap; right: largest "
           "recorded structures as % of the zone)."))
     A(fig(SM / "figures" / "projection_zones_sagittal.png", "projection_zones_sagittal.png", "Same, sagittal slabs."))
+    A("\n## Responses relative to the projection zones\n\n")
+    A(fig(SM / "figures" / "cortical_flatmaps.png", "cortical_flatmaps.png",
+          "**The flatmaps of the Where section with the projection zones** (70 % contours of whisker (teal) and auditory (brown dashed) "
+          "cortex projections; first column, bottom: whisker zone yellow, auditory zone blue, overlap purple)."))
     A(f"""
-# Bimodal neurons and projection convergence
+## Bimodal neurons and projection overlap
 
 $\\Delta = P_\\text{{in}} - P_\\text{{ref}}$ (bimodal fraction of responsive neurons inside the overlap minus among all); hierarchical bootstrap
 over sessions then neurons ($B$ = 2000), $p = (1 + \\#\\{{\\Delta^* \\le 0\\}})/(1 + B)$; Fisher's exact test alongside. Sub-regions described,
@@ -265,17 +272,25 @@ not tested. 70 % zones: {100 * T70.P_in:.1f} % of {int(T70.n_resp_in):,} vs {100
     A(fig(SM / "figures" / "colocation_figure.png", "colocation_figure.png",
           "**Bimodal neurons and the convergence of whisker- and auditory-cortex projections** (70 % zones). a, zones and sub-regions; "
           "b, responsive / bimodal neurons; c, bimodal fraction; d, inside vs all responsive neurons."))
-    A("""
-# When does stimulus information arrive? Pseudo-population decoding
+    A(f"""
+## Modality preference within shared targets
 
-**Method.** One iteration: 20 sessions with replacement, $N/20$ neurons of the area per session, pseudo-trials per class by balanced
-reuse; L2 logistic regression per time bin (3-fold CV on real trials, inner 2-fold for C); $\\mathrm{BA} = (\\mathrm{TPR} + \\mathrm{TNR})/2$;
-corrected accuracy $d(t) = \\mathrm{BA}_\\text{real}(t) - \\frac{1}{10}\\sum_k \\mathrm{BA}_{\\text{shuffle},k}(t)$ (labels shuffled within
-sessions); 100 iterations; $N$ = 20-500. Bin above chance: 5th percentile of $d(t)$ > 0. Onset: first $t > 0$ above chance with >= 80 % of
-the bins in $[t, t + 25\\,\\text{ms}]$ above chance (20-ms bins, 2-ms steps); 95 % range from 1000 resamples of the iterations. Early accuracy:
-mean $d$ over bins ending 5-50 ms. Areas: all 18 area groups and the 40 best-sampled areas.
+80 % highest-density contours of whisker- and auditory-preferring neurons per target slab and area; centroid distance and axis shifts;
+labels permuted within sessions (5000), Holm correction.
 
-""" + act + ("\n" + pas if has_pas else "\n*Passive-trial decoding: not finished at report time.*\n"))
+| Slab / area | whisker / auditory-pref. | sessions | distance (µm) | depth shift A-W (µm) | p (Holm) |
+|---|---|---|---|---|---|
+""" + "\n".join(f"| {r.slab.split(',')[0]} / {r.area} | {r.n_whisker_pref} / {r.n_auditory_pref} | {r.n_sessions} | {r.centroid_distance_um:.0f} | "
+                f"{r.shift_depth_um:+.0f} | {r.p_distance_holm:.3f} |" for r in MC.itertuples()) + "\n")
+    A(fig(SM / "figures" / "modality_contours.png", "modality_contours.png",
+          "**Location of whisker- vs auditory-preferring neurons within areas** (80 % contours, centroids)."))
+    sch = SM / "deck" / "img" / "summary_schematic.png"
+    if sch.exists():
+        A("\n## Summary\n\n")
+        A(fig(sch, "summary_schematic.png",
+              "**Separate entry routes, shared targets (draft).** a, Whisker route via thalamus to barrel cortex; sound via midbrain and "
+              "thalamus to auditory cortex; both cortices project to the shared targets, where bimodal neurons are enriched; times: "
+              "population decoding onset (N = 200). Routes: textbook anatomy and the Allen projection zones. b, Onsets with 95 % bootstrap CI."))
     A("""
 # Caveats
 
@@ -285,7 +300,19 @@ mean $d$ over bins ending 5-50 ms. Areas: all 18 area groups and the 40 best-sam
   first 20 ms are unaffected.
 - Whisker-trial spikes in -10 to +5 ms are replaced by baseline-rate Poisson spikes: whisker information cannot appear before ~5 ms.
 - 100 iterations x 10 shuffles are pilot values.
+
+# Appendix: target slabs
+
+500-µm coronal slabs tiling the recorded AP range, sagittal slabs tiling ML, and 13 coronal slabs centred on projection zones / areas;
+neurons within ±250 µm projected on the central section; density averaged over the slab (3-D Gaussian, sigma 150 µm, 50-µm CCF grid).
+Lines: 70 % projection zones.
+
 """)
+    for q, ttl in (("whisker", "Whisker responsiveness"), ("auditory", "Auditory responsiveness"), ("modality", "Modality preference"),
+                   ("latency_whisker", "Whisker response latency"), ("latency_auditory", "Auditory response latency"),
+                   ("bimodal", "Bimodal neurons")):
+        A(fig(SM / "figures" / q / "targets_p1.png", f"{q}_targets_p1.png",
+              f"**{ttl}** in slabs centred on projection zones (first page; all pages in `figures/{q}/`)."))
     OUTD.mkdir(parents=True, exist_ok=True)
     (OUTD / "sensory_maps_report.qmd").write_text("\n".join(lines), encoding="utf-8")
     (OUTD / "report_figures.txt").write_text("\n".join(f"{s}\t{n}" for s, n in FIGS) + "\n")

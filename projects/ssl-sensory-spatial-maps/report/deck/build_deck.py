@@ -17,42 +17,32 @@ GREY = RGBColor(0x55, 0x55, 0x55)
 
 S = [  # (title, images, bullets, footnote, notes); images = list of (file, width fraction of the figure area)
     ("Conclusions", [], [
-        "About 15 % of neurons respond to each stimulus; modality preference is organised across and within areas",
+        "About 15 % of neurons respond to each stimulus, in different places; modality preference is spatially organised",
         "Each stimulus reaches its own sensory system first: whisker → barrel cortex (~12 ms), sound → midbrain (~9 ms)",
         "Population decoding detects stimulus modality within 8–18 ms: first midbrain, whisker cortex and thalamus; last motor-frontal cortex",
         "Faster areas also carry more early information (ρ ≈ −0.9)",
-        "Whisker and auditory cortex project together to caudal striatum, posterior parietal cortex and SC; bimodal neurons are enriched there (+6 points)"],
+        "The two streams converge where whisker- and auditory-cortex projections overlap: bimodal neurons are enriched there (+6 points), "
+        "and within shared targets the two preferences are spatially offset"],
      "Decoding: 6 area groups and 8 fine areas so far; full sweep (18 groups, 40 areas) and passive trials are running.",
-     "Same order as the report's key conclusions."),
-    ("179,064 neurons from 122 sessions, all registered to the Allen CCF", [("flat_recorded_zones.png", 0.38)], [
+     "Same order as the report: sensory coding (where, when, population) first, then convergence."),
+    ("179,064 neurons from 122 sessions, all registered to the Allen CCF", [("flat_recorded.png", 0.38)], [
         "92 mice, R+ and R− cohorts, learning day and expert days (pooled)",
         "Good + multi-unit clusters (Kilosort 4)",
         "Probe-track reconstruction, folded onto the left hemisphere",
         "111 recorded structures (≥ 10 neurons)",
         "Whisker stimulus artefact (−10 to +5 ms) corrected on all spike trains"],
-     "Top: recorded isocortex neurons on the Allen butterfly flatmap (anterior up). Bottom: 70 % projection zones of whisker (yellow) and auditory (blue) cortex.",
+     "Top: recorded isocortex neurons on the Allen butterfly flatmap (anterior up). Bottom: recorded-neuron density (σ = 150 µm).",
      "Active trials: perf ≠ 6, disengaged tail trimmed. Passive: fixed ~3 s ITI blocks."),
-    ("Whisker and auditory cortex project to partly overlapping targets", [("projection_zones_coronal.png", 1)], [],
-     "Allen anterograde tracing (SSp-bfd 8, SSs 3, AUDp 6, AUDd/v 3 injections), 70 % projection zones. "
-     "Overlap 3.9 mm³: caudal / tail striatum, VISa / VISrl / VISal, SCm, MRN, TEa.", ""),
     ("About 15 % of neurons respond to each stimulus, in different places", [("flat_whisker_auditory.png", 1)], [],
      "Whisker: 15.3 % significant (12.1 % excited); auditory: 15.2 % (13.6 % excited). ROC 5–35 ms vs pre-trial baseline, 1000 permutations, p < 0.05. "
-     "Bottom: selectivity density normalised by recorded-neuron density (3D Gaussian, σ = 150 µm).",
+     "Bottom: selectivity density normalised by recorded-neuron density (σ = 150 µm).",
      "Selectivity = 2·AUC − 1. Flatmap: left hemisphere, anterior up."),
-    ("Modality preference is spatially organised", [("flat_modality.png", 0.27), ("modality_targets.png", 0.73)], [],
-     "27.8 % of neurons prefer one modality (17.6 % auditory, 10.2 % whisker). Yellow: whisker-preferring; blue: auditory-preferring. "
-     "Right: 500 µm coronal slabs centred on the projection zones.", ""),
-    ("Within areas, whisker- and auditory-preferring neurons are spatially offset", [("modality_contours.png", 1)], [],
-     "9 of 13 target slabs: centroids 70–350 µm apart (within-session label permutation, Holm p < 0.05). Auditory-preferring neurons "
-     "deeper in SSp-bfd, SCm and striatum tail; more superficial in auditory cortex and anterior DMS.",
-     "80 % highest-density contours (Gaussian KDE). Permuting within sessions removes offsets caused by which sessions recorded which preference."),
-    ("Bimodal neurons are enriched where the projections converge", [("colocation_figure.png", 0.58)], [
-        "Bimodal = responsive to both stimuli (active or passive tests, Bonferroni per session)",
-        "24 % of responsive neurons are bimodal",
-        "Inside the overlap: 29.5 % vs 23.8 % overall",
-        "+5.7 points (95 % CI +1.1 to +10.3), p = 0.008",
-        "90 % zones: +6.3 points, p < 0.001"],
-     "Hierarchical bootstrap (sessions, then neurons) of P(bimodal | inside overlap) − P(bimodal | all responsive). Co-location, not causation.", ""),
+    ("Modality preference is spatially organised", [("flat_modality.png", 0.32)], [
+        "27.8 % of neurons prefer one modality",
+        "Auditory-preferring 17.6 %, whisker-preferring 10.2 %",
+        "Whisker-preferring neurons cluster in somatosensory cortex; auditory-preferring neurons are more widespread"],
+     "ROC whisker vs auditory trials, 5–35 ms, active task, permutation p < 0.05. Yellow: whisker-preferring; blue: auditory-preferring.",
+     "Check the regional statements against the final maps after the ROC rerun."),
     ("Each modality reaches its own sensory system first", [("flat_latency.png", 0.55)], "TABLE",
      "Median half-time to peak of responsive neurons (light = fast). Whisker latency searched after +5 ms (artefact window).",
      "Latency = last upward crossing of half the peak before the peak; 1 ms PSTH, σ = 2 ms."),
@@ -73,6 +63,24 @@ S = [  # (title, images, bullets, footnote, notes); images = list of (file, widt
         "Passive whisker vs auditory decoding runs overnight (110 sessions with ≥ 3 passive trials per stimulus)",
         "Tests whether the onset order is sensory rather than task- or lick-related"],
      "Shown here once the passive sweep finishes.", ""),
+    ("Whisker and auditory cortex project to partly overlapping targets", [("projection_zones_coronal.png", 1)], [],
+     "Allen anterograde tracing (SSp-bfd 8, SSs 3, AUDp 6, AUDd/v 3 injections), 70 % projection zones. "
+     "Overlap 3.9 mm³: caudal / tail striatum, VISa / VISrl / VISal, SCm, MRN, TEa.",
+     "Question for this section: where do the two streams described so far meet?"),
+    ("Cortical responses against the projection zones", [("flat_whisker_auditory_zones.png", 0.62), ("flat_bimodal_zones.png", 0.33)], [],
+     "Same flatmaps as before with the 70 % projection zones of whisker (teal) and auditory (brown dashed) cortex. Right: bimodal neurons "
+     "(responsive to both stimuli, Bonferroni over the session's active / passive tests).", ""),
+    ("Bimodal neurons are enriched where the projections converge", [("colocation_figure.png", 0.58)], [
+        "Bimodal = responsive to both stimuli",
+        "24 % of responsive neurons are bimodal",
+        "Inside the overlap: 29.5 % vs 23.8 % overall",
+        "+5.7 points (95 % CI +1.1 to +10.3), p = 0.008",
+        "90 % zones: +6.3 points, p < 0.001"],
+     "Hierarchical bootstrap (sessions, then neurons) of P(bimodal | inside overlap) − P(bimodal | all responsive). Co-location, not causation.", ""),
+    ("Within shared targets, the two preferences are spatially offset", [("modality_contours.png", 1)], [],
+     "9 of 13 target slabs: centroids 70–350 µm apart (within-session label permutation, Holm p < 0.05). Auditory-preferring neurons "
+     "deeper in SSp-bfd, SCm and striatum tail; more superficial in auditory cortex and anterior DMS.",
+     "80 % highest-density contours (Gaussian KDE). Permuting within sessions removes offsets caused by which sessions recorded which preference."),
     ("Summary: separate entry routes, shared targets", [("summary_schematic.png", 1)], [],
      "Draft. a) Whisker route via thalamus to barrel cortex, sound via midbrain and thalamus to auditory cortex; both cortices project to tail striatum, "
      "posterior parietal cortex, SCm / MRN and TEa, where bimodal neurons are enriched. Times: population decoding onset (N = 200). b) Onsets with 95 % bootstrap CI.",
@@ -91,17 +99,17 @@ S = [  # (title, images, bullets, footnote, notes); images = list of (file, widt
         "Above chance: 5th percentile of d over 100 iterations > 0",
         "Onset: first bin above chance with ≥ 80 % of the next 25 ms above chance"], "", ""),
     ("Backup: trial-shuffle control", [("arr_groups_shuffle.png", 0.5), ("arr_groups_timecourse.png", 0.5)], [], "", ""),
-    ("Backup: bimodal neurons on the flatmap", [("flat_bimodal.png", 1)], [], "", ""),
-    ("Backup: all flatmaps", [("flat_all.png", 1)], [], "", ""),
+    ("Backup: all flatmaps with projection zones", [("flat_all_zones.png", 1)], [], "", ""),
+    ("Backup: modality preference in target slabs", [("modality_targets.png", 1)], [], "", ""),
     ("Backup: whisker responsiveness in target slabs", [("whisker_targets.png", 1)], [], "", ""),
 ]
 
-SECTION = [("179,064", "I · Anatomy"), ("Whisker and auditory cortex project", "I · Anatomy"),
-           ("About 15 %", "II · Where neurons respond"), ("Modality preference", "II · Where neurons respond"),
-           ("Within areas", "II · Where neurons respond"), ("Bimodal", "II · Where neurons respond"),
-           ("Each modality", "III · When neurons respond"), ("Stimulus modality", "IV · Population coding"),
-           ("Fine areas", "IV · Population coding"), ("Single-neuron", "IV · Population coding"),
-           ("Faster areas", "IV · Population coding"), ("Passive", "IV · Population coding"), ("Summary", "Summary")]
+SECTION = [("179,064", "Data"), ("About 15 %", "I · Where neurons respond"), ("Modality preference", "I · Where neurons respond"),
+           ("Each modality", "II · When neurons respond"), ("Stimulus modality", "III · Population coding"),
+           ("Fine areas", "III · Population coding"), ("Single-neuron", "III · Population coding"),
+           ("Faster areas", "III · Population coding"), ("Passive", "III · Population coding"),
+           ("Whisker and auditory cortex project", "IV · Convergence"), ("Cortical responses against", "IV · Convergence"),
+           ("Bimodal", "IV · Convergence"), ("Within shared", "IV · Convergence"), ("Summary", "Summary")]
 
 
 TABLE = [("Area group", "Whisker (ms)", "Auditory (ms)"), ("SS-whisker", "11.6", "18.0"), ("Posterior parietal", "12.6", "16.7"),
