@@ -24,9 +24,17 @@ data_locations.local.yaml
 ibl-agent.local.yaml
 questions/projects/**/data_locations.local.yaml
 questions/projects/**/_tmp/
-projects/*
-!projects/ssl-prelick-convergence/
-!projects/ssl-within-day-remapping/
+# projects/: code and docs of every project are versioned (user 2026-10-04); results, figures, decks, PDFs and data
+# stay on the NAS. Two projects are versioned in full, as before.
+projects/**
+!projects/**/
+!projects/**/*.py
+!projects/**/*.sh
+!projects/**/*.md
+!projects/**/.gitignore
+!projects/ssl-prelick-convergence/**
+!projects/ssl-within-day-remapping/**
+projects/**/__pycache__/
 projects/ssl-within-day-remapping/**/__pycache__/
 projects/ssl-prelick-convergence/**/__pycache__/
 projects/ssl-prelick-convergence/**/_render/
