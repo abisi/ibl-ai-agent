@@ -387,10 +387,8 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
         rows.append(dict(quantity=qk, set=set_name, slab=lab, centre_um=c, n_units=int(m.sum()),
                          n_with_value=int(np.isfinite(v).sum()), n_significant=int(sig.sum()),
                          n_sessions=int(U.session_id[m].nunique())))
-    for xc, mappable, lab in [(0.1, im, q["cbar"].replace(" (", "
-(") + ", neurons"),
-                              (0.4, imd, "Density: mean over
-the 550-um window")]:
+    for xc, mappable, lab in [(0.1, im, q["cbar"].replace(" (", "\n(") + ", neurons"),
+                              (0.4, imd, "Density: mean over\nthe 550-um window")]:
         cax = fig.add_axes([xc, 0.3 / H, 0.22, 0.06 / H])
         cb = fig.colorbar(mappable, cax=cax, orientation="horizontal")
         cb.set_label(lab, fontsize=5.0); cb.ax.tick_params(labelsize=4.8, width=0.4, length=1.5); cb.outline.set_linewidth(0.4)
