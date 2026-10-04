@@ -13,7 +13,8 @@ Candidate voxels: right hemisphere, inside the brain, excluding fibre tracts, ve
 Projection zone (user, 2026-10-04, third version): the mean density is smoothed (Gaussian, sigma 50 um) and the zone
 is the 70 % contour = the highest-density voxels that together hold 70 % of the source's projection (candidate voxels).
 The first version (top 10 % of candidate voxels, unsmoothed) is kept as mask_<source>.
-Overlap of whisker and auditory projections: union of the SSp-bfd and SSs zones vs union of the AUDp and AUDd/AUDv zones;
+Merged zones (user 2026-10-04): whisker = 70 % contour of the mean of the SSp-bfd and SSs densities (each normalised),
+auditory = same for AUDp and AUDd/AUDv (zone70_whisker / zone70_auditory). Overlap = whisker zone & auditory zone;
 overlap volume per Allen structure (layers merged) -> projection_overlap.csv.
 Output: combined_results_ks4/_sensory_spatial_maps/projection_zones.npz (zone70_<source>, mask_<source>,
 density_<source> smoothed; AP x DV x ML, 50 um) + projection_experiments.csv + projection_overlap.csv +
@@ -38,7 +39,7 @@ RES_UM, MID_UM, TOP, MASS, SMOOTH_UM = 50, 5700, 0.10, 0.70, 50.0
 SLAB_UM, CONTOUR_SIGMA = 500.0, 0.8           # figure slabs (um) and contour-line smoothing (50-um voxels)
 WHISKER_SRC, AUDITORY_SRC = ["SSp-bfd", "SSs"], ["AUDp", "AUD-sec"]
 SRC_NAME = {"SSp-bfd": "SSp-bfd\n(barrel cortex)", "SSs": "SSs (secondary\nsomatosensory)", "AUDp": "AUDp (primary\nauditory)",
-            "AUD-sec": "AUDd + AUDv\n(secondary auditory)", "overlap": "Overlap: whisker\nand auditory zones"}
+            "AUD-sec": "AUDd + AUDv\n(secondary auditory)", "overlap": "Overlap of the\nwhisker and\nauditory zones"}
 API = "https://api.brain-map.org/api/v2/data/query.json?criteria=service::mouse_connectivity_injection_structure"
 
 
@@ -160,10 +161,29 @@ DIVISIONS = [(315, "Isocortex"), (698, "Olfactory"), (1089, "Hippocampal formati
              (771, "Pons"), (354, "Medulla"), (512, "Cerebellum")]
 
 
+def merged_zones(out, ann, structs):
+    """whisker zone = 70 % contour of the mean of the SSp-bfd and SSs densities (each normalised to its own total);
+    auditory zone = same for AUDp and AUDd/AUDv (user, 2026-10-04: merge the sources of a modality)"""
+    right = np.zeros(ann.shape, bool)
+    right[:, :, int(MID_UM / RES_UM):] = True
+    brain = (ann != 0) & ~np.isin(ann, list(descendants(structs, [1009, 73]))) & right
+    for g, srcs in (("whisker", WHISKER_SRC), ("auditory", AUDITORY_SRC)):
+        src_ids = [i for s_ in srcs for i in SOURCES[s_]]
+        cand = brain & ~np.isin(ann, list(descendants(structs, src_ids)))
+        d = np.mean([np.where(cand, out[f"density_{s_}"], 0) / out[f"density_{s_}"][cand].sum() for s_ in srcs], axis=0)
+        v = np.sort(d[cand])[::-1]
+        thr = v[np.searchsorted(np.cumsum(v) / v.sum(), MASS)]
+        out[f"zone70_{g}"] = cand & (d >= thr)
+        out[f"density_{g}"] = d.astype(np.float32)
+        out[f"thr70_{g}"] = np.float32(thr)
+        out[f"source_{g}"] = np.isin(ann, list(descendants(structs, src_ids))) & right
+    return out
+
+
 def zone_sets(out):
     z = {s: out[f"zone70_{s}"] for s in WHISKER_SRC + AUDITORY_SRC}
-    w = np.logical_or.reduce([z[s] for s in WHISKER_SRC])
-    a = np.logical_or.reduce([z[s] for s in AUDITORY_SRC])
+    w, a = out["zone70_whisker"], out["zone70_auditory"]
+    z["whisker"], z["auditory"] = w, a
     z["overlap"] = w & a
     return z, w, a
 
@@ -217,6 +237,9 @@ def overlap_table(out, lab, structs):
 
 
 def finish(out, ann, structs):
+    out = merged_zones(out, ann, structs)
+    out["res_um"] = RES_UM
+    np.savez_compressed(OUT / "projection_zones.npz", **out)
     lab = merged_ids(ann)
     overlap_table(out, lab, structs)
     C = composition(out, lab, structs)
@@ -336,12 +359,16 @@ def figure(out, lab, structs, C, kind):
                 ax.text(xlim[0] + 0.7, 7.0, "1 mm", ha="center", va="bottom", fontsize=4.8)
         # composition of the whole zone (all slabs): top structures, % of the zone volume
         axb = fig.add_subplot(gs[r, -1])
-        q = C[C.zone == src].head(7)
+        q = C[C.zone == src].reset_index(drop=True)
+        need = [int(q.index[q.structure == k][0]) + 1 for k in ("SCm", "MRN") if (q.structure == k).any()]
+        q = q.head(min(16, max([8] + need)))                      # enough rows to reach SCm and MRN
         col = ocol if src == "overlap" else (wcol if src in WHISKER_SRC else acol)
         y = np.arange(len(q))
         axb.barh(y, 100 * q.frac_of_zone, color=col, height=0.72, lw=0, edgecolor="none")
+        fs = 4.3 if len(q) <= 8 else 3.6 if len(q) <= 12 else 3.1
         for yi, (s_, f_) in enumerate(zip(q.structure, q.frac_of_zone)):
-            axb.text(100 * f_ + 1, yi, f"{s_} {100 * f_:.0f}%", va="center", fontsize=4.3)
+            axb.text(100 * f_ + 1, yi, f"{s_} {100 * f_:.1f}%" if f_ < 0.1 else f"{s_} {100 * f_:.0f}%", va="center",
+                     fontsize=fs)
         axb.set_ylim(len(q) - 0.4, -0.6)
         axb.set_xlim(0, max(60, 100 * q.frac_of_zone.max() * 1.9))
         axb.set_yticks([]); axb.spines["left"].set_visible(False)
@@ -362,8 +389,8 @@ def figure(out, lab, structs, C, kind):
         cb.ax.tick_params(labelsize=4.6, width=0.4, length=1.5); cb.outline.set_linewidth(0.4)
     h = [plt.Line2D([], [], color="k", lw=0.8, label="70 % contour"),
          plt.Rectangle((0, 0), 1, 1, color="#cfcfcf", lw=0, label="injected area (excluded)"),
-         plt.Line2D([], [], color=wcol, lw=1, label="whisker zones (SSp-bfd + SSs)"),
-         plt.Line2D([], [], color=acol, lw=1, label="auditory zones (AUDp + AUDd/v)"),
+         plt.Line2D([], [], color=wcol, lw=1, label="whisker zone (SSp-bfd + SSs merged, 70 %)"),
+         plt.Line2D([], [], color=acol, lw=1, label="auditory zone (AUDp + AUDd/v merged, 70 %)"),
          plt.Rectangle((0, 0), 1, 1, color=ocol, alpha=0.6, lw=0, label="overlap")]
     fig.legend(handles=h, loc="lower right", bbox_to_anchor=(0.995, 0.0), frameon=False, fontsize=4.7, ncol=2,
                columnspacing=0.8, handlelength=1.6)

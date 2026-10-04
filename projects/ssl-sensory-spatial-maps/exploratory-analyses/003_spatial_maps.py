@@ -16,8 +16,8 @@ Slab sets (500 um thick; units within +-250 um of the slab centre are projected 
             the striatum, SCm, AUDp, TEa, PO, MG)
 Panels per slab (one row): 1 schematic (sagittal section with Allen colours for coronal slabs, coronal section for sagittal
 slabs; the slab drawn as a band); 2 all recorded neurons; 3 neurons coloured by the quantity, with the projection zones
-(002; smoothed 70 % contours of the Allen anterograde projection density of SSp-bfd, SSs, AUDp, AUDd+AUDv, union
-over the slab, contour lines smoothed);
+(002; whisker zone = 70 % contour of the merged SSp-bfd + SSs projection density, auditory zone = same for AUDp +
+AUDd/AUDv; union over the slab, contour lines lightly smoothed); structures holding most recorded neurons labelled in panel 2;
 4 density map: mean of the quantity over the neurons in a 550 x 550 um window (in-plane, 50-um grid, Gaussian smoothing
 sigma 50 um; shown where >= MIN_N neurons contribute); 5 significant neurons only (latency: responsive neurons).
 Output: combined_results_ks4/_sensory_spatial_maps/figures/<quantity>/<set>_p<k>.{png,pdf,svg} + slab_units.csv
@@ -43,11 +43,12 @@ ATLAS = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/Anatomy/allen_mouse_bluebrai
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 MID, BREGMA_AP = 5700.0, 5400.0               # CCF midline (ML) and approximate bregma (AP), um
 SLAB, BOX, GRID, SMOOTH, MIN_N = 500.0, 550.0, 50.0, 50.0, 5
-ROWS_PER_PAGE = 5
-SRC_STYLE = {"SSp-bfd": ("#1b7837", "-"), "SSs": ("#1b7837", (0, (3, 1.5))), "AUDp": ("#8c2d04", "-"),
-             "AUD-sec": ("#8c2d04", (0, (3, 1.5)))}
-SRC_LABEL = {"SSp-bfd": "SSp-bfd projections (70 %)", "SSs": "SSs projections (70 %)", "AUDp": "AUDp projections (70 %)",
-             "AUD-sec": "AUDd/AUDv projections (70 %)"}
+ROWS_PER_PAGE = 4
+# merged projection zones (002: 70 % contour of the mean density of the modality's source areas; user 2026-10-04)
+SRC_STYLE = {"whisker": ("#00897b", "-"), "auditory": ("#5d4037", (0, (3.5, 1.5)))}
+SRC_LABEL = {"whisker": "whisker-cortex projection zone (SSp-bfd + SSs, 70 % contour)",
+             "auditory": "auditory-cortex projection zone (AUDp + AUDd/v, 70 % contour)"}
+DOT = dict(all=0.12, value=0.45, grey=0.1, sig=0.55)          # marker areas (pt^2)
 
 
 def cmap_modality():
@@ -64,9 +65,9 @@ QUANT = {
                      cbar="Modality selectivity (whisker-preferring < 0 < auditory-preferring)", cmap="modality",
                      vmin=-0.5, vmax=0.5),
     "latency_whisker": dict(col="latency_whisker_ms", title="Whisker response latency",
-                            cbar="Half-time to peak after whisker stimulus (ms)", cmap="viridis", vmin=5, vmax=40),
+                            cbar="Half-time to peak after whisker stimulus (ms; light = fast)", cmap="inferno_light_fast", vmin=5, vmax=40),
     "latency_auditory": dict(col="latency_auditory_ms", title="Auditory response latency",
-                             cbar="Half-time to peak after auditory stimulus (ms)", cmap="viridis", vmin=5, vmax=40),
+                             cbar="Half-time to peak after auditory stimulus (ms; light = fast)", cmap="inferno_light_fast", vmin=5, vmax=40),
 }
 # coronal slabs centred on projection zones / areas: (label, how, what); atlas = centroid (right hemisphere) of the Allen
 # structure(s); units = centroid of the units with that area_acronym_custom; bregma = fixed AP (mm from bregma, approx.)
@@ -139,7 +140,18 @@ class Atlas:
         if load_zones:
             Z = np.load(OUT / "projection_zones.npz")
             self.zres = float(Z["res_um"])
-            self.zones = {k[7:]: Z[k] for k in Z.files if k.startswith("zone70_")}
+            self.zones = {g: Z[f"zone70_{g}"] for g in ("whisker", "auditory")}
+
+    def unit_ids(self, U):
+        """merged atlas id at each unit position (ML folded onto the right hemisphere); 0 outside"""
+        ijk = np.round(np.c_[U.ccf_atlas_ap, U.ccf_atlas_dv, U.ml_f].astype(float) / 10)
+        ok = np.isfinite(ijk).all(1)
+        ijk = np.where(ok[:, None], ijk, 0).astype(int)
+        ok &= (ijk >= 0).all(1) & (ijk < np.array(self.ann.shape)).all(1)
+        raw = np.zeros(len(U), int)
+        raw[ok] = self.ann[ijk[ok, 0], ijk[ok, 1], ijk[ok, 2]]
+        u, inv = np.unique(raw, return_inverse=True)
+        return np.array([self.pm.get(int(k), int(k)) for k in u])[inv]
 
     def merged(self, a):
         u, inv = np.unique(a, return_inverse=True)
@@ -256,6 +268,25 @@ def draw_zones(ax, A, kind, c, extent):
                    linestyles=[ls], zorder=6)
 
 
+def label_structures(ax, A, ids, xs, ys, n_max=6, min_units=120):
+    """name the atlas structures holding most of the slab's recorded neurons (at their median position)"""
+    import matplotlib.patheffects as pe
+    u, cnt = np.unique(ids[ids > 0], return_counts=True)
+    placed = []
+    for k in u[np.argsort(-cnt)]:
+        sel = ids == k
+        if sel.sum() < min_units:
+            break
+        x, y = np.median(xs[sel]), np.median(ys[sel])
+        if any(np.hypot(x - a, y - b) < 0.75 for a, b in placed):
+            continue
+        placed.append((x, y))
+        ax.text(x, y, A.acr.get(int(k), ""), fontsize=4.3, ha="center", va="center", zorder=7, color="k",
+                path_effects=[pe.withStroke(linewidth=1.3, foreground="white")])
+        if len(placed) == n_max:
+            break
+
+
 def scalebar(ax, x0, y0):
     ax.plot([x0, x0 + 1], [y0, y0], color="k", lw=1.0, solid_capstyle="butt", zorder=8)
     ax.text(x0 + 0.5, y0 - 0.12, "1 mm", ha="center", va="bottom", fontsize=4.6)
@@ -263,7 +294,13 @@ def scalebar(ax, x0, y0):
 
 def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
     q = QUANT[qk]
-    cmap = cmap_modality() if q["cmap"] == "modality" else plt.get_cmap(q["cmap"])
+    if q["cmap"] == "modality":
+        cmap = cmap_modality()
+    elif q["cmap"] == "inferno_light_fast":                 # inferno_r without its near-white end (light = fast)
+        from matplotlib.colors import ListedColormap
+        cmap = ListedColormap(plt.get_cmap("inferno_r")(np.linspace(0.1, 1.0, 256)))
+    else:
+        cmap = plt.get_cmap(q["cmap"])
     v_all, sig_all = values(U, qk)
     if kind == "cor":
         ext_sec, xlim = (0, 5.7, 8.0, 0), (0, 5.8)
@@ -279,7 +316,7 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
     ratios = [ratio_sch] + [ratio_sec] * 4
     W = S.W_IN
     h = (W - 0.75) / sum(ratios)
-    H = h * len(slabs) + 1.0
+    H = h * len(slabs) + 1.1
     fig = plt.figure(figsize=(W, H))
     gs = fig.add_gridspec(len(slabs), 5, width_ratios=ratios, wspace=0.04, hspace=0.12, left=0.6 / W, right=1 - 0.05 / W,
                           top=1 - 0.5 / H, bottom=0.5 / H)
@@ -301,16 +338,18 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
                 ax.axvspan((MID + side * (c - MID) - SLAB / 2) / 1000, (MID + side * (c - MID) + SLAB / 2) / 1000,
                            color="k", alpha=0.35 if side > 0 else 0.12, lw=0, edgecolor="none", zorder=5)
         ax.set_xlim(*xlim_sch); ax.set_ylim(*ylim)
-        ax.text(-0.04, 0.5, f"{lab}\n{m.sum()} neurons", transform=ax.transAxes, rotation=90, ha="right", va="center", fontsize=5.4)
+        ax.text(-0.04, 0.5, f"{lab}\n{m.sum()} neurons, {U.session_id[m].nunique()} sessions", transform=ax.transAxes,
+                rotation=90, ha="right", va="center", fontsize=5.6)
         # 2 all neurons
         draw_section(axs[1], A, sec, ext_sec)
-        axs[1].scatter(xs, ys, s=0.25, c="0.35", lw=0, zorder=4, rasterized=True)
+        axs[1].scatter(xs, ys, s=DOT["all"], c="0.3", lw=0, zorder=4, rasterized=True)
+        label_structures(axs[1], A, U.atlas_id.to_numpy()[m], xs, ys)
         # 3 coloured by the quantity (+ projection zones)
         draw_section(axs[2], A, sec, ext_sec)
         fin = np.isfinite(v)
-        axs[2].scatter(xs[~fin], ys[~fin], s=0.2, c="0.8", lw=0, zorder=3.5, rasterized=True)
+        axs[2].scatter(xs[~fin], ys[~fin], s=DOT["grey"], c="0.82", lw=0, zorder=3.5, rasterized=True)
         o = np.argsort(np.abs(v[fin] - (0 if q["vmin"] < 0 else np.nanmedian(v))))
-        axs[2].scatter(xs[fin][o], ys[fin][o], s=0.9, c=v[fin][o], cmap=cmap, vmin=q["vmin"], vmax=q["vmax"], lw=0, zorder=4,
+        axs[2].scatter(xs[fin][o], ys[fin][o], s=DOT["value"], c=v[fin][o], cmap=cmap, vmin=q["vmin"], vmax=q["vmax"], lw=0, zorder=4,
                        rasterized=True)
         draw_zones(axs[2], A, kind, c, ext_sec)
         # 4 density
@@ -331,7 +370,7 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
         # 5 significant only
         draw_section(axs[4], A, sec, ext_sec)
         o = np.argsort(np.abs(v[sig]))
-        axs[4].scatter(xs[sig][o], ys[sig][o], s=1.1, c=v[sig][o], cmap=cmap, vmin=q["vmin"], vmax=q["vmax"], lw=0, zorder=4,
+        axs[4].scatter(xs[sig][o], ys[sig][o], s=DOT["sig"], c=v[sig][o], cmap=cmap, vmin=q["vmin"], vmax=q["vmax"], lw=0, zorder=4,
                        rasterized=True)
         draw_zones(axs[4], A, kind, c, ext_sec)
         for ax in axs[1:]:
@@ -341,19 +380,22 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
         if r == len(slabs) - 1:
             scalebar(axs[1], xlim[0] + 0.2, 7.25)
         if r == 0:
-            heads = ["Slab position", "All recorded neurons", f"{q['title']}, all neurons", "Density (550-um window)",
+            heads = ["Slab position", "All recorded neurons", "All neurons (coloured)", "Density, 550-um window",
                      "Significant neurons" if "atype" in q else "Responsive neurons"]
             for ax, t in zip(axs, heads):
-                ax.set_title(t, fontsize=5.8, pad=3)
+                ax.set_title(t, fontsize=6.2, pad=3)
         rows.append(dict(quantity=qk, set=set_name, slab=lab, centre_um=c, n_units=int(m.sum()),
                          n_with_value=int(np.isfinite(v).sum()), n_significant=int(sig.sum()),
                          n_sessions=int(U.session_id[m].nunique())))
-    for xc, mappable, lab in [(0.12, im, q["cbar"] + ", neurons"), (0.45, imd, "Mean over the 550-um window (density)")]:
-        cax = fig.add_axes([xc, 0.22 / H, 0.25, 0.06 / H])
+    for xc, mappable, lab in [(0.1, im, q["cbar"].replace(" (", "
+(") + ", neurons"),
+                              (0.4, imd, "Density: mean over
+the 550-um window")]:
+        cax = fig.add_axes([xc, 0.3 / H, 0.22, 0.06 / H])
         cb = fig.colorbar(mappable, cax=cax, orientation="horizontal")
         cb.set_label(lab, fontsize=5.0); cb.ax.tick_params(labelsize=4.8, width=0.4, length=1.5); cb.outline.set_linewidth(0.4)
     h_ = [plt.Line2D([], [], color=col, ls=ls, lw=0.8, label=SRC_LABEL[s]) for s, (col, ls) in SRC_STYLE.items()]
-    fig.legend(handles=h_, loc="lower right", ncol=2, frameon=False, fontsize=4.8, bbox_to_anchor=(0.99, 0.0), handlelength=2.2)
+    fig.legend(handles=h_, loc="lower right", ncol=1, frameon=False, fontsize=5.0, bbox_to_anchor=(0.995, 0.0), handlelength=2.4)
     set_word = {"coronal": "coronal slabs", "sagittal": "sagittal slabs", "targets": "coronal slabs centred on projection zones"}[set_name]
     fig.suptitle(f"{q['title']} -- {set_word} (500 um), all sessions pooled" + (f"  [{page}/{n_pages}]" if n_pages > 1 else ""),
                  x=0.6 / W, y=1 - 0.12 / H, ha="left", va="top", fontsize=7, weight="bold")
@@ -366,6 +408,7 @@ def main(a):
     plt = S.setup()
     U = load_units()
     A = Atlas()
+    U["atlas_id"] = A.unit_ids(U)
     sets = slab_sets(U, A)
     schem = {"cor": A.section("sag", MID + 2300), "sag": A.section("corfull", 6000)}
     rows = []
