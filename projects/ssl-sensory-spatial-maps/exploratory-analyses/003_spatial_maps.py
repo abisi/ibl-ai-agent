@@ -16,7 +16,8 @@ Slab sets (500 um thick; units within +-250 um of the slab centre are projected 
             the striatum, SCm, AUDp, TEa, PO, MG)
 Panels per slab (one row): 1 schematic (sagittal section with Allen colours for coronal slabs, coronal section for sagittal
 slabs; the slab drawn as a band); 2 all recorded neurons; 3 neurons coloured by the quantity, with the projection zones
-(002; top 10 % of the Allen anterograde projection density of SSp-bfd, SSs, AUDp, AUDd+AUDv, union over the slab);
+(002; smoothed 70 % contours of the Allen anterograde projection density of SSp-bfd, SSs, AUDp, AUDd+AUDv, union
+over the slab, contour lines smoothed);
 4 density map: mean of the quantity over the neurons in a 550 x 550 um window (in-plane, 50-um grid, Gaussian smoothing
 sigma 50 um; shown where >= MIN_N neurons contribute); 5 significant neurons only (latency: responsive neurons).
 Output: combined_results_ks4/_sensory_spatial_maps/figures/<quantity>/<set>_p<k>.{png,pdf,svg} + slab_units.csv
@@ -45,8 +46,8 @@ SLAB, BOX, GRID, SMOOTH, MIN_N = 500.0, 550.0, 50.0, 50.0, 5
 ROWS_PER_PAGE = 5
 SRC_STYLE = {"SSp-bfd": ("#1b7837", "-"), "SSs": ("#1b7837", (0, (3, 1.5))), "AUDp": ("#8c2d04", "-"),
              "AUD-sec": ("#8c2d04", (0, (3, 1.5)))}
-SRC_LABEL = {"SSp-bfd": "SSp-bfd projections", "SSs": "SSs projections", "AUDp": "AUDp projections",
-             "AUD-sec": "AUDd/AUDv projections"}
+SRC_LABEL = {"SSp-bfd": "SSp-bfd projections (70 %)", "SSs": "SSs projections (70 %)", "AUDp": "AUDp projections (70 %)",
+             "AUD-sec": "AUDd/AUDv projections (70 %)"}
 
 
 def cmap_modality():
@@ -126,7 +127,7 @@ def parent_map(S_):
 
 
 class Atlas:
-    def __init__(self):
+    def __init__(self, load_zones=True):
         import tifffile
         self.ann = tifffile.imread(ATLAS / "annotation.tiff")          # (AP, DV, ML), 10 um
         self.S = pd.read_csv(ATLAS / "structures.csv")
@@ -135,9 +136,10 @@ class Atlas:
         self.rgb = {s["id"]: np.array(s["rgb_triplet"]) / 255 for s in js}
         self.path = {s["id"]: s["structure_id_path"] for s in js}
         self.acr = {s["id"]: s["acronym"] for s in js}
-        Z = np.load(OUT / "projection_zones.npz")
-        self.zres = float(Z["res_um"])
-        self.zones = {k[5:]: Z[k] for k in Z.files if k.startswith("mask_")}
+        if load_zones:
+            Z = np.load(OUT / "projection_zones.npz")
+            self.zres = float(Z["res_um"])
+            self.zones = {k[7:]: Z[k] for k in Z.files if k.startswith("zone70_")}
 
     def merged(self, a):
         u, inv = np.unique(a, return_inverse=True)
@@ -248,10 +250,9 @@ def draw_zones(ax, A, kind, c, extent):
         z = A.zone_section(src, kind, c)
         if not z.any():
             continue
-        z = ndimage.binary_opening(z, iterations=1) | z
         yy = (np.arange(z.shape[0]) + 0.5) * A.zres / 1000
         xx = extent[0] + (np.arange(z.shape[1]) + 0.5) * A.zres / 1000
-        ax.contour(xx, yy, ndimage.gaussian_filter(z.astype(float), 0.7), levels=[0.5], colors=[col], linewidths=0.6,
+        ax.contour(xx, yy, ndimage.gaussian_filter(z.astype(float), 1.5), levels=[0.5], colors=[col], linewidths=0.7,
                    linestyles=[ls], zorder=6)
 
 
