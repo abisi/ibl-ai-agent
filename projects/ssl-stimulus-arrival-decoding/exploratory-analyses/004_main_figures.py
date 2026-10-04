@@ -126,7 +126,7 @@ def curves(ax, B, OB, level, areas, res, xlim, col, ylim=(-0.03, 0.52)):
         ax.fill_between(t, q["mean"] - q.sd, q["mean"] + q.sd, color=col[a], alpha=0.15, lw=0, edgecolor="none")
         ax.plot(t, q["mean"], color=col[a], lw=0.9)
     ax.axhline(0, color="0.5", lw=0.4); ax.axvline(0, color="0.3", lw=0.4, ls="--"); ax.set_xlim(*xlim)
-    y0, dy = ylim[1] + 0.025, 0.028
+    y0, dy = ylim[1] + 0.025, 0.034                  # row spacing of the significance bars (labels must not touch)
     for i, a in enumerate(areas):
         q = B[(B.level == level) & (B.area == a) & (B.N == N_MAIN) & (B.resolution == res)]
         t, sig = 1000 * q.t.to_numpy(), q.sig.to_numpy()
@@ -173,18 +173,21 @@ def main_figure(plt, D, B, OB, level, col):
     top = [a for a in areas if a in best_sampled(D, level, areas)]
     W = S.W_IN
     hh = max(2.2, 0.085 * len(areas) + 0.6)
-    H = hh + 2.4 + 0.7
+    H = hh + 2.4 + 1.0
     fig = plt.figure(figsize=(W, H))
     gs = fig.add_gridspec(2, 3, height_ratios=[hh, 2.2], width_ratios=[1.45, 0.8, 0.9], wspace=0.45, hspace=0.32,
-                          left=0.12, right=0.98, top=1 - 0.75 / H, bottom=0.35 / H)
+                          left=0.12, right=0.98, top=1 - 0.9 / H, bottom=0.35 / H)
     axa, axb, axe = fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), fig.add_subplot(gs[0, 2])
-    cax = fig.add_axes([0.45, 1 - 0.36 / H, 0.3, 0.045 / H])
+    pb = axb.get_position()                           # colour bar between panel b and its title, ticks and label on top
+    cax = fig.add_axes([pb.x0, pb.y1 + 0.1 / H, pb.width, 0.04 / H])
     heatmap(axa, B, OB, level, areas, "wide", (-50, 600), col, cax=cax)
-    axa.set_title("Time course (50-ms bins, 5-ms steps)", loc="left", fontsize=5.6)
+    cax.xaxis.set_ticks_position("top"); cax.xaxis.set_label_position("top")
+    pad = 26                                          # titles of the top row above the colour bar (points)
+    axa.set_title("Time course (50-ms bins, 5-ms steps)", loc="left", fontsize=5.6, pad=pad)
     heatmap(axb, B, OB, level, areas, "zoom", (-20, 50), col)
-    axb.set_yticklabels([]); axb.set_title("First 50 ms (20-ms bins)", loc="left", fontsize=5.6)
+    axb.set_yticklabels([]); axb.set_title("First 50 ms (20-ms bins)", loc="left", fontsize=5.6, pad=pad)
     ranking(axe, OB, level, areas, col)
-    axe.set_title("Onset ranking (95 % range)", loc="left", fontsize=5.6)
+    axe.set_title("Onset ranking (95 % range)", loc="left", fontsize=5.6, pad=pad)
     gb = gs[1, :].subgridspec(1, 2, width_ratios=[1.5, 1], wspace=0.25)
     axc, axd = fig.add_subplot(gb[0, 0]), fig.add_subplot(gb[0, 1])
     curves(axc, B, OB, level, top, "wide", (-200, 600), col)
@@ -192,8 +195,8 @@ def main_figure(plt, D, B, OB, level, col):
     axc.set_title(f"{N_CURVES} best-sampled {LEVEL_NAME[level]} (bars: above chance)", loc="left", fontsize=5.6)
     curves(axd, B, OB, level, top, "zoom", (-20, 50), col)
     axd.set_title("First 50 ms", loc="left", fontsize=5.6)
-    S.letter_row(fig, [axa, axb, axe], "abe", dx_in=0.62)
-    S.letter_row(fig, [axc, axd], "cd")
+    S.letter_row(fig, [axa, axb, axe], "abc", dx_in=0.62, dy_in=0.5)
+    S.letter_row(fig, [axc, axd], "de")
     fig.suptitle(f"Stimulus-modality decoding across {LEVEL_NAME[level]} ({EPOCH_WORD}, all sessions pooled, N = {N_MAIN} neurons)",
                  x=0.02, y=1 - 0.04 / H, ha="left", va="top", fontsize=7, weight="bold")
     S.save(fig, FIG, f"arrival_main_N200_{level}")
@@ -206,10 +209,10 @@ def summary_figure(plt, D, B, O, W, OB, level, col):
     areas = order(OB, level)
     top = [a for a in areas if a in best_sampled(D, level, areas)]
     hh = max(2.3, 0.085 * len(areas) + 0.5)
-    H = hh + 2 * 2.0 + 1.2
+    H = hh + 2 * 2.0 + 1.3
     fig = plt.figure(figsize=(S.W_IN, H))
     gs = fig.add_gridspec(3, 3, height_ratios=[hh, 2.0, 2.0], wspace=0.55, hspace=0.45, left=0.1, right=0.98,
-                          top=1 - 0.85 / H, bottom=0.3 / H)
+                          top=1 - 0.95 / H, bottom=0.3 / H)
     ax = fig.add_subplot(gs[0, 0]); ax.set_axis_off(); ax.set_xlim(0, 10); ax.set_ylim(0, 10)
     boxes = [(0.3, 7.0, "122 sessions\n(2 cohorts,\nall days)"), (0.3, 4.0, "20 sessions\nx N/20 neurons\nof the area"),
              (0.3, 1.0, "pseudo-trials\nwhisker vs\nauditory"), (5.3, 7.0, "L2 logistic\nregression\nper bin, 3-fold CV"),
@@ -260,14 +263,16 @@ def summary_figure(plt, D, B, O, W, OB, level, col):
             if len(q):
                 axf.plot(1000 * q.t, q["mean"], color=col[r.area], lw=1.1 if r.area == "Somatosensory-whisker" else 0.7,
                          label=f"{label(r.area)} ({int(r.matched_N)})")
-        axf.legend(frameon=False, fontsize=4.0, loc="lower right", title="neurons", title_fontsize=4.2)
+        axf.legend(frameon=False, fontsize=4.0, loc="upper right", title="area (neurons)", title_fontsize=4.2)
         axf.set_title("Control: matched early accuracy\n(SS-whisker at 100 neurons)", loc="left", fontsize=5.6)
     else:
         for a in top:
             q = B[(B.level == level) & (B.area == a) & (B.N == N_MAIN) & (B.resolution == "zoom")]
             axf.plot(1000 * q.t, q["mean"], color=col[a], lw=0.8, label=label(a))
-        axf.legend(frameon=False, fontsize=4.0, loc="lower right", ncol=2)
+        axf.legend(frameon=False, fontsize=4.0, loc="upper right", ncol=2, columnspacing=0.8, handlelength=1.2)
         axf.set_title(f"{N_CURVES} best-sampled, first 100 ms", loc="left", fontsize=5.6)
+    axf.set_ylim(-0.05, 0.8); axf.set_yticks([0, 0.1, 0.2, 0.3, 0.4, 0.5])      # headroom above the curves for the legend
+    axf.spines["left"].set_bounds(-0.05, 0.55)
     axf.axhline(0, color="0.5", lw=0.4); axf.axvline(0, color="0.3", lw=0.4, ls="--"); axf.set_xlim(-20, 100)
     axf.set_xlabel("Time from stimulus onset (ms)"); axf.set_ylabel("Corrected balanced accuracy")
     axg = fig.add_subplot(gs[2, 0])
@@ -281,13 +286,15 @@ def summary_figure(plt, D, B, O, W, OB, level, col):
         axg.plot(t, null.mean(0), color=col[a], lw=0.8, ls=":")
     axg.axhline(0.5, color="0.5", lw=0.4); axg.axvline(0, color="0.3", lw=0.4, ls="--"); axg.set_xlim(-200, 600)
     axg.set_xlabel("Time from stimulus onset (ms)"); axg.set_ylabel("Balanced accuracy")
-    axg.legend(frameon=False, fontsize=4.3, loc="upper right", title="solid: real, dotted: shuffled", title_fontsize=4.3)
+    axg.set_ylim(0.45, 1.3); axg.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0]); axg.spines["left"].set_bounds(0.45, 1.02)
+    axg.legend(frameon=False, fontsize=4.3, loc="upper right", ncol=1, handlelength=1.2,
+               title="solid: real, dotted: shuffled", title_fontsize=4.3)
     axg.set_title("Control: trial-shuffle null", loc="left", fontsize=5.6)
     axh = fig.add_subplot(gs[2, 1:])
     curves(axh, B, OB, level, top, "wide", (-200, 600), col)
     axh.set_ylabel("Corrected balanced accuracy")
     axh.set_title(f"{N_CURVES} best-sampled {LEVEL_NAME[level]}: time course (bars: above chance)", loc="left", fontsize=5.6)
-    S.letter_row(fig, [ax, axb, axc], "abc", dy_in=0.35); S.letter_row(fig, [axd, axe, axf], "def"); S.letter_row(fig, [axg, axh], "gh")
+    S.letter_row(fig, [ax, axb, axc], "abc", dy_in=0.45); S.letter_row(fig, [axd, axe, axf], "def"); S.letter_row(fig, [axg, axh], "gh")
     fig.suptitle(f"Where and when can stimulus modality be decoded? {LEVEL_NAME[level].capitalize()}, {EPOCH_WORD}, all sessions pooled",
                  x=0.02, y=1 - 0.04 / H, ha="left", va="top", fontsize=7, weight="bold")
     S.save(fig, FIG, f"arrival_summary_{level}")

@@ -99,9 +99,10 @@ def fig_curves(plt, B, O, level):
     nc = ncolors(Ns)
     ncols = 3
     nrows = int(np.ceil(len(areas) / ncols))
-    fig = plt.figure(figsize=(S.W_IN, 1.25 * nrows + 0.5))
+    H = 1.25 * nrows + 0.8
+    fig = plt.figure(figsize=(S.W_IN, H))
     gs = fig.add_gridspec(nrows, ncols * 2, width_ratios=[1.35, 1] * ncols, wspace=0.45, hspace=0.75,
-                          left=0.06, right=0.99, top=1 - 0.35 / (1.25 * nrows + 0.5), bottom=0.35 / (1.25 * nrows + 0.5))
+                          left=0.06, right=0.99, top=1 - 0.6 / H, bottom=0.35 / H)
     ymax = B[(B.level == level) & B.N.isin(Ns)]["mean"].max() + B[(B.level == level) & B.N.isin(Ns)]["sd"].max()
     for k, a in enumerate(areas):
         r, c = divmod(k, ncols)
@@ -127,22 +128,27 @@ def fig_curves(plt, B, O, level):
                 ax.set_ylabel("Corrected balanced\naccuracy" if c == 0 else "")
             else:
                 ax.set_xlim(-20, 100)
-                ax.set_title("zoom: 20-ms bins, 2-ms steps", fontsize=5, loc="left", color="0.35")
+                ax.set_title("zoom (20-ms bins)", fontsize=5, loc="left", color="0.35")
                 ax.set_yticklabels([])
             if r == nrows - 1 or k + ncols >= len(areas):
                 ax.set_xlabel("Time from stimulus (ms)", fontsize=5.5)
-            if k == 0 and res == "wide":
-                ax.legend(title="Neurons", frameon=False, fontsize=4.6, title_fontsize=4.8, ncol=2, handlelength=1,
-                          columnspacing=0.6, loc="upper right")
+            if k == 0 and res == "wide":                 # one legend for the figure, in the header (not over the data)
+                h, lab = ax.get_legend_handles_labels()
+                fig.legend(h, lab, title="Neurons in the pseudo-population", frameon=False, fontsize=4.8, title_fontsize=4.8,
+                           ncol=len(h), handlelength=1.2, columnspacing=0.9, loc="upper right", bbox_to_anchor=(0.99, 1 - 0.03 / H))
     fig.suptitle(f"Whisker vs auditory stimulus decoding, all sessions pooled -- {LEVEL_NAME[level].lower()}",
-                 x=0.06, ha="left", fontsize=7, weight="bold")
+                 x=0.06, y=1 - 0.05 / H, va="top", ha="left", fontsize=7, weight="bold")
     S.save(fig, FIG, f"arrival_curves_{level}")
     plt.close(fig)
 
 
 def fig_window(plt, W):
-    fig, axs = plt.subplots(1, 2, figsize=(S.W_IN * 0.75, 2.1), gridspec_kw=dict(wspace=0.35))
-    for ax, level in zip(axs, LEVELS):
+    from matplotlib.ticker import NullFormatter, NullLocator
+    fig = plt.figure(figsize=(S.W_IN, 2.8))
+    # panel | its legend | panel | its legend (legends beside the data: up to 18 groups / 40 areas)
+    gs = fig.add_gridspec(1, 4, width_ratios=[1, 0.7, 1, 0.6], wspace=0.35, left=0.08, right=0.99, top=0.88, bottom=0.17)
+    axs = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 2])]
+    for k, (ax, level) in enumerate(zip(axs, LEVELS)):
         for a in LEVELS[level]:
             q = W[(W.level == level) & (W.area == a) & W.N.isin(N_GRID)].sort_values("N")
             if not len(q):
@@ -151,11 +157,15 @@ def fig_window(plt, W):
                         lw=0.8, elinewidth=0.5, capsize=0, label=S.short(a))
         ax.set_xscale("log")
         ax.set_xticks(N_GRID, [str(n) for n in N_GRID])
+        ax.xaxis.set_minor_locator(NullLocator()); ax.xaxis.set_minor_formatter(NullFormatter())
         ax.axhline(0, color="0.5", lw=0.4)
         ax.set_xlabel("Neurons in the pseudo-population")
         ax.set_ylabel("Corrected balanced accuracy,\n5-50 ms after stimulus")
         ax.set_title(LEVEL_NAME[level], loc="left")
-        ax.legend(frameon=False, fontsize=4.8, handlelength=1.2, loc="upper left")
+        h, lab = ax.get_legend_handles_labels()
+        lax = fig.add_subplot(gs[0, 2 * k + 1]); lax.set_axis_off()
+        lax.legend(h, lab, frameon=False, fontsize=4.3, handlelength=1.0, loc="upper left", borderaxespad=0,
+                   ncol=1 if len(h) <= 22 else 2, columnspacing=0.6, labelspacing=0.25)
     S.letter_row(fig, axs, "ab")
     S.save(fig, FIG, "window_vs_N")
     plt.close(fig)
@@ -164,7 +174,10 @@ def fig_window(plt, W):
 def fig_onset_corr(plt, O, W):
     M = O.merge(W[["level", "area", "N", "mean"]], on=["level", "area", "N"])
     M = M[M.N.isin(N_GRID)]
-    fig, axs = plt.subplots(2, 2, figsize=(S.W_IN * 0.7, 3.9), gridspec_kw=dict(wspace=0.4, hspace=0.6))
+    fig = plt.figure(figsize=(S.W_IN, 5.0))
+    # 2 x 2 panels, then one legend per column underneath (area groups | areas), clear of the axes
+    gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 0.55], wspace=0.3, hspace=0.6, left=0.08, right=0.98, top=0.95, bottom=0.02)
+    axs = np.array([[fig.add_subplot(gs[i, j]) for j in range(2)] for i in range(2)])
     stats = []
     for i, res in enumerate(["zoom", "wide"]):
         for j, level in enumerate(LEVELS):
@@ -178,8 +191,13 @@ def fig_onset_corr(plt, O, W):
                     transform=ax.transAxes, ha="right", va="top", fontsize=4.8)
             ax.set_xlabel("Corrected balanced accuracy, 5-50 ms")
             ax.set_ylabel("First significant bin (ms)")
-    h = [plt.Line2D([], [], marker="o", ls="", color=S.AREA_C[a], ms=3, label=S.short(a)) for lv in LEVELS for a in LEVELS[lv]]
-    fig.legend(handles=h, loc="lower center", ncol=7, frameon=False, fontsize=4.8, bbox_to_anchor=(0.5, -0.06))
+    for j, lv in enumerate(LEVELS):
+        present = [a for a in LEVELS[lv] if a in set(M[M.level == lv].area)]
+        h = [plt.Line2D([], [], marker="o", ls="", color=S.AREA_C[a], ms=3, label=S.short(a)) for a in present]
+        lax = fig.add_subplot(gs[2, j]); lax.set_axis_off()
+        lax.legend(handles=h, loc="upper left", ncol=3 if j == 0 else 5, frameon=False, fontsize=4.4, borderaxespad=0,
+                   handletextpad=0.2, columnspacing=0.8, labelspacing=0.3, title=LEVEL_NAME[lv], title_fontsize=4.8,
+                   alignment="left")
     S.letter_row(fig, axs[0], "ab")
     S.letter_row(fig, axs[1], "cd")
     S.save(fig, FIG, "onset_vs_window")

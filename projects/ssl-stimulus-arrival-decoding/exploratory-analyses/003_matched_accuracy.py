@@ -78,16 +78,18 @@ def plot():
     P = pd.read_csv(OUT / "matched_n.csv")
     D = m2.load_raw()
     B, O, W = m2.summarise(D)
-    fig = plt.figure(figsize=(S.W_IN, 1.75 * len(REFS) + 0.3))
-    gs = fig.add_gridspec(len(REFS), 4, width_ratios=[1.5, 1.1, 1.1, 0.9], wspace=0.42, hspace=0.75, left=0.07, right=0.99,
-                          top=0.93, bottom=0.07)
+    H = 1.9 * len(REFS) + 0.7
+    fig = plt.figure(figsize=(S.W_IN * 1.3, H))
+    # columns: a (groups, 50 ms) | b (groups, 20 ms) | legend b | c (areas, 20 ms) | legend c | d (neurons needed)
+    gs = fig.add_gridspec(len(REFS), 6, width_ratios=[1.4, 1.0, 0.55, 1.0, 0.55, 0.9], wspace=0.42, hspace=0.75, left=0.06,
+                          right=0.99, top=1 - 0.6 / H, bottom=0.45 / H)
     chk = []
     for r, ref in enumerate(REFS):
         p = P[P.reference == ref]
         if not len(p):
             continue
         target = p.target_accuracy.iloc[0]
-        axs = [fig.add_subplot(gs[r, k]) for k in range(4)]
+        axs = [fig.add_subplot(gs[r, k]) for k in (0, 1, 3, 5)]
         for col, (level, res) in enumerate([("area_group", "wide"), ("area_group", "zoom"), ("area_acronym_custom", "zoom")]):
             ax = axs[col]
             for x in p[p.level == level].itertuples():
@@ -113,8 +115,11 @@ def plot():
                 ax.set_xlim(-200, 600)
             ax.set_xlabel("Time from stimulus (ms)", fontsize=5.5)
             ax.set_title(["Area groups, 50-ms bins", "Area groups, 20-ms bins", "Areas, 20-ms bins"][col], loc="left", fontsize=5.6)
-            ax.legend(frameon=False, fontsize=4.2, handlelength=1, loc="upper right" if res == "zoom" else "upper right",
-                      title="area (neurons)", title_fontsize=4.4)
+            if col > 0:                                # panel a has the same areas and N as b: one legend, beside b
+                lax = fig.add_subplot(gs[r, 2 if col == 1 else 4]); lax.set_axis_off()
+                h, lab = ax.get_legend_handles_labels()
+                lax.legend(h, lab, frameon=False, fontsize=4.2, handlelength=1, loc="upper left", borderaxespad=0,
+                           title="area (neurons)", title_fontsize=4.4, alignment="left")
         axs[0].set_ylabel(f"Reference: {S.short(ref)}, {N_REF} neurons\nCorrected balanced accuracy")
         ax = axs[3]
         q = p.sort_values("matched_N", na_position="last")
@@ -132,7 +137,7 @@ def plot():
         ax.invert_yaxis()
         S.letter_row(fig, axs, "abcd" if r == 0 else "efgh" if r == 1 else "ijkl")
     fig.suptitle("Neurons needed to match the early stimulus decoding of a reference area (* extrapolated beyond 500)",
-                 x=0.07, ha="left", fontsize=7, weight="bold")
+                 x=0.02, y=1 - 0.05 / H, ha="left", va="top", fontsize=7, weight="bold")
     S.save(fig, FIG, "matched_accuracy")
     plt.close(fig)
     pd.DataFrame(chk).to_csv(OUT / "matched_accuracy_check.csv", index=False)
