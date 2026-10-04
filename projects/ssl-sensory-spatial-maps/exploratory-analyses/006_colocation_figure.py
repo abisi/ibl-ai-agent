@@ -239,6 +239,10 @@ def pick_slabs(SR, n=6):
     return sorted(picked)
 
 
+def short_p(p):
+    return "n/a" if not np.isfinite(p) else "< 0.001" if p < 0.001 else f"{p:.3f}" if p < 0.01 else f"{p:.2f}"
+
+
 def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     import matplotlib.patheffects as pe
     from matplotlib.colors import LinearSegmentedColormap, ListedColormap
@@ -252,7 +256,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     top_frac = (3 * ph) / H
     gs = fig.add_gridspec(3, ncol, left=0.4 / W, right=1 - 0.05 / W, top=1 - 0.42 / H, bottom=1 - 0.42 / H - top_frac,
                           wspace=0.03, hspace=0.05)
-    gb = fig.add_gridspec(1, 4, left=0.5 / W, right=1 - 0.42 / W, top=1.95 / H, bottom=0.42 / H,
+    gb = fig.add_gridspec(1, 4, left=0.5 / W, right=1 - 0.42 / W, top=1.85 / H, bottom=0.42 / H,
                           width_ratios=[0.75, 1.0, 2.5, 1.15], wspace=0.75)
     cmap_b = LinearSegmentedColormap.from_list("white_bimodal", ["#ffffff", "#c2a5cf", "#7b3294", "#40004b"])
     ijk_all = None
@@ -321,7 +325,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     fig.legend(handles=hz, loc="upper left", bbox_to_anchor=(0.4 / W, 1 - 0.1 / H), ncol=5, frameon=False, fontsize=5.0,
                handlelength=1.2, columnspacing=1.0)
     c_bottom = 1 - 0.42 / H - top_frac
-    cax = fig.add_axes([1 - 1.75 / W, c_bottom - 0.2 / H, 1.5 / W, 0.05 / H])
+    cax = fig.add_axes([0.45 / W, c_bottom - 0.16 / H, 1.5 / W, 0.05 / H])
     cb = fig.colorbar(imd, cax=cax, orientation="horizontal")
     cb.set_label("Bimodal fraction of responsive neurons (550-um window)", fontsize=4.8, labelpad=1)
     cb.ax.tick_params(labelsize=4.4, length=1.2, width=0.4); cb.outline.set_linewidth(0.4)
@@ -358,27 +362,23 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
                      color=PURPLE, lw=0.7, capsize=0, zorder=3)
         if np.isfinite(q.get("P_rest_structure", np.nan)):
             axf.plot(100 * q.P_rest_structure, i, marker="|", ms=5.5, color="0.2", mew=0.9, zorder=2)
-        axf.text(1.02, i, f"{S.fmt_p(q.p_shift_holm).replace('p ', '')}", va="center", fontsize=4.3,
-                 transform=axf.get_yaxis_transform())
-        axf.text(1.30, i, f"{int(q.n_resp_in)} / {int(q.n_sessions_in)}", va="center", fontsize=4.3, color="0.35",
-                 transform=axf.get_yaxis_transform())
-    axf.text(1.02, -1.1, "shift p\n(Holm)", fontsize=4.3, va="bottom", transform=axf.get_yaxis_transform())
-    axf.text(1.30, -1.1, "neurons /\nsessions", fontsize=4.3, va="bottom", color="0.35", transform=axf.get_yaxis_transform())
-    axf.set_yticks(range(len(Q)), [f"{int(q.id)}  {q.region}" for q in Q.itertuples()], fontsize=4.8)
+        axf.text(1.02, i, short_p(q.p_shift_holm), va="center", fontsize=4.3, transform=axf.get_yaxis_transform())
+    axf.text(1.02, -0.9, "shift p\n(Holm)", fontsize=4.3, va="bottom", transform=axf.get_yaxis_transform())
+    axf.set_yticks(range(len(Q)), [f"{int(q.id)}  {q.region}  ({int(q.n_resp_in)} / {int(q.n_sessions_in)})"
+                                   for q in Q.itertuples()], fontsize=4.6)
     axf.set_ylim(len(Q) - 0.4, -0.6)
     axf.set_xlim(0, max(70, 100 * Q.ci_hi.max() + 5))
     axf.set_xlabel("Bimodal neurons (% of responsive)")
-    axf.set_title("Overlap sub-regions: dot = inside (95 % CI), | = rest of the structure,\ndashed = all responsive neurons",
-                  fontsize=5.0, loc="left")
+    axf.set_title("Overlap sub-regions (responsive neurons / sessions): dot = inside\n(95 % CI), | = rest of the "
+                  "structure, dashed = all responsive neurons", fontsize=5.0, loc="left")
     # g: within-structure difference (same rows as f)
     for j, q in Q.iterrows():
         if not np.isfinite(q.get("P_rest_structure", np.nan)):
             continue
         d = 100 * (q.P_in - q.P_rest_structure)
         axg.barh(j, d, color=PURPLE if d > 0 else "0.6", height=0.62, lw=0)
-        axg.text(1.02, j, S.fmt_p(q.p_vs_rest_holm).replace("p ", ""), va="center", fontsize=4.3,
-                 transform=axg.get_yaxis_transform())
-    axg.text(1.02, -1.1, "Fisher p\n(Holm)", fontsize=4.3, va="bottom", transform=axg.get_yaxis_transform())
+        axg.text(1.02, j, short_p(q.p_vs_rest_holm), va="center", fontsize=4.3, transform=axg.get_yaxis_transform())
+    axg.text(1.02, -0.9, "Fisher p\n(Holm)", fontsize=4.3, va="bottom", transform=axg.get_yaxis_transform())
     axg.axvline(0, color="k", lw=0.5)
     axg.set_yticks(range(len(Q)), [str(int(q.id)) for q in Q.itertuples()], fontsize=4.8)
     axg.set_ylim(len(Q) - 0.4, -0.6)
