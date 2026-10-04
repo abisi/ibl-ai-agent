@@ -33,6 +33,7 @@ Canonical record of dataset-level decisions for all SSL analyses (created 2026-1
 | MH019 | `exclude_ephys = 1` | excluded |
 | MH065 day +1 (MH065_20260115_163926) | 3 early-half auditory hits | pre-lick 051 keeps the last warm-up auditory hit (`WARMUP_KEEP_AH`), documented exception |
 | Drift-test files (before 2026-10-03) | `run_motion_shift_test_analysis` used one `session_day` for a whole multi-day table: expert sessions of a mouse were written to one folder (mostly `whisker_1`) and overwritten; most expert sessions had no or mislabelled drift results | function patched to a per-session label (backup `.bak_20261003`); mislabelled files renamed `*.mislabeled_20261003`; all expert sessions recomputed (`ssl-prelick-convergence/data_prep/run_missing_drift_tests.py`) |
+| MH062_20260113_125836 | NWB trials `context`: 377 "nan", 241 "passive", 21 "active" (the only session of 124 mixing "nan" and "active"); the standard rule keeps the 21 active trials, so the session drops out of most trial-count thresholds | kept as is pending the user's decision (flagged 2026-10-04); note `roc_utils_new.process_nwb_tables` relabels `context` -- select trials from the raw `nwb.trials` table |
 | all-days unit cache v1 (`tables_all_days.pkl`) | duplicate unit rows; session-level cohort; `recording` applied to all days; expert sessions without drift check | superseded by v2 |
 
 ## Current tables (v2)
