@@ -84,6 +84,10 @@ Single-Session-Learning (SSL) question (Axel Bisi's whisker/auditory Go/NoGo coh
 - `skills/ssl-valid-data/references/ssl_dataset_inclusion.md` before any mouse / session inclusion decision (mouse-level cohort from the reference sheet, `recording` gates day 0 only, known metadata errors, current unit-table version); record every new dataset decision there
 - `skills/ssl-analyze/references/ssl_analysis_patterns.md` when the question resembles a prior SSL project (passive selectivity, reward-history modulation, task-performance curves, TCA)
 
+Every project (code, outputs, reports):
+- `skills/project-organization/SKILL.md` (one slug: code in `projects/<slug>/`, results in `combined_results_ks4/<slug>/`, regular commits + pushes to the fork)
+- `skills/project-report/SKILL.md` (article-style PDF + Markdown + HTML in `combined_results_ks4/<slug>/report/`: ask at checkpoints, rebuild after many changes, publish privately)
+
 Skill maintenance:
 - `skills/skill-maintenance/SKILL.md`
 
@@ -96,7 +100,9 @@ repository root.
 
 If no local config is present, use the repository-local `projects/` directory.
 All outputs for a session belong under `<project_root>/<project_slug>/`, and
-nowhere else.
+nowhere else. Exception for SSL projects: code and docs stay in `projects/<project_slug>/`, while results, figures and
+the report go to `combined_results_ks4/<project_slug>/` on the NAS (same slug), as described in
+`skills/project-organization/SKILL.md`.
 
 - `<project_root>/<project_slug>/question.md` a dynamic document containing the original question, current refined explication, definitions of terms, and definition of exploration and confirmation sets;
 - `<project_root>/<project_slug>/TODO.md` for a sequential list of steps performed and planned. Change [ ] to [X] on completion and list output files generated. You can change future plans in the list but do not change descriptions of steps already performed
