@@ -9,8 +9,9 @@ baseline; selectivity = 2 AUC - 1, significant if permutation p < 0.05):
   auditory  auditory_active  (+ excited, - inhibited)
   modality  wh_vs_aud_active (+ auditory-preferring, - whisker-preferring)
   latency_whisker / latency_auditory  half-time to peak (001) of the responsive units
-  bimodal   responsive to whisker AND auditory stimuli (any epoch's stimulus test significant after Bonferroni over the
-            modality's number of tests in the session); density = fraction of responsive neurons that are bimodal
+  bimodal   responsive to whisker AND auditory stimuli (any of active / passive pre / passive post stimulus tests
+            significant after Bonferroni over the modality's number of such tests in the session); density = fraction
+            of responsive neurons that are bimodal
 Slab sets (500 um thick; units within +-250 um of the slab centre are projected onto its central section):
   coronal   tiling the AP range of the recorded units
   sagittal  tiling the ML range (lateral distance from the midline)
@@ -73,11 +74,11 @@ QUANT = {
     "bimodal": dict(categorical=True, title="Bimodal (whisker and auditory) responsiveness",
                     cbar="Fraction of sensory-responsive neurons that are bimodal", cmap="bimodal", vmin=0.0, vmax=0.6),
 }
-# bimodal classification (user, 2026-10-04): a unit is responsive to a modality if any of that modality's ROC tests is
-# significant after Bonferroni over the number of tests the modality has in the session (all epochs: active stimulus vs
-# baseline, passive pre, passive post, and the active miss vs correct-rejection "sensory" test); excited or inhibited.
-MOD_TESTS = {"whisker": ["whisker_active", "whisker_passive_pre", "whisker_passive_post", "whisker_sensory"],
-             "auditory": ["auditory_active", "auditory_passive_pre", "auditory_passive_post", "auditory_sensory"]}
+# bimodal classification (user, 2026-10-04, revised): a unit is responsive to a modality if any of that modality's
+# stimulus-vs-baseline ROC tests (active, passive pre, passive post) is significant after Bonferroni over the number of
+# those tests the session has (1-3); excited or inhibited. The active miss vs correct-rejection test is not used.
+MOD_TESTS = {"whisker": ["whisker_active", "whisker_passive_pre", "whisker_passive_post"],
+             "auditory": ["auditory_active", "auditory_passive_pre", "auditory_passive_post"]}
 CAT_COL = {0: "0.82", 1: "#f7b519", 2: "#2c2cdb", 3: "#7b3294"}
 CAT_NAME = {1: "whisker only", 2: "auditory only", 3: "bimodal"}
 
