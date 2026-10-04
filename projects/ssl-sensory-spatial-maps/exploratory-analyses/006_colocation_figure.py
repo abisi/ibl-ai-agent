@@ -361,6 +361,8 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
 
 
 def caption(SR, T, D):
+    PZ = pd.read_csv(m2.OUT / f"projection_zones_summary{ZTAG}.csv")
+    NEXP = ", ".join(f"{r.source} {r.n_experiments} experiments / {r.n_lines} lines" for r in PZ.itertuples())
     g = T[T.kind == "global"].iloc[0]
     Q = T[T.kind == "sub-region"].sort_values("id")
     sig = Q[Q.p_boot_holm < 0.05] if "p_boot_holm" in Q else Q.iloc[:0]
@@ -375,9 +377,9 @@ def caption(SR, T, D):
         f"to both whisker and auditory stimuli (excited or inhibited).",
         "",
         f"**a**, Projection zones on coronal 500-um slabs (right hemisphere; neurons folded onto it). Whisker zone (yellow): {ZONE_PCT} % "
-        "contour of the merged anterograde projection density of SSp-bfd and SSs (Allen Mouse Brain Connectivity Atlas; wild-type "
-        "and Emx1-IRES-Cre injections, 8 and 3 experiments, each normalised to its total); auditory zone (blue): same for AUDp "
-        "and AUDd/AUDv (6 and 3); purple: overlap of the two zones. Numbers: overlap sub-regions (the overlap volume cut by "
+        f"contour of the merged anterograde projection density of SSp-bfd and SSs (Allen Mouse Brain Connectivity Atlas; wild type "
+        f"and all projection-neuron Cre lines, interneuron lines excluded; each experiment normalised to its total, averaged within "
+        f"each line, then over lines; {NEXP}); auditory zone (blue): same for AUDp and AUDd/AUDv; purple: overlap of the two zones. Numbers: overlap sub-regions (the overlap volume cut by "
         f"Allen structure into connected 3-D pieces >= {MIN_VOL} mm^3, named by their position within the structure); only "
         f"sub-regions holding >= {MIN_REC} recorded neurons are shown and listed (structures without recorded neurons omitted).",
         "**b**, Sensory-responsive neurons in the same slabs (grey: one modality; purple: bimodal); line: overlap zone; grey "

@@ -245,9 +245,11 @@ mean $d$ over bins ending 5-50 ms. Areas: all 18 area groups and the 40 best-sam
 
 ## Projection anatomy
 
-Allen Mouse Brain Connectivity Atlas (wild-type and Emx1-IRES-Cre anterograde injections: """ +
-      ", ".join(f"{r.source} {r.n_experiments}" for r in PZ.itertuples()) + """). Per source,
-$\\bar D(v) = \\frac{1}{E}\\sum_e d_e(v) / \\sum_{v' \\in C} d_e(v')$, smoothed ($\\tilde D = G_{50\\,\\mu m} * \\bar D$); 70 % zone
+Allen Mouse Brain Connectivity Atlas: anterograde injections in wild-type mice and every Cre line labelling projection
+neurons (interneuron lines excluded; """ +
+      ", ".join(f"{r.source} {r.n_experiments} experiments in {r.n_lines} lines" for r in PZ.itertuples()) + """). Per source,
+experiments are normalised, averaged within each line $l$ and then over the $K$ lines (no line dominates):
+$\\bar D(v) = \\frac{1}{K}\\sum_l \\frac{1}{E_l}\\sum_{e \\in l} d_e(v) / \\sum_{v' \\in C} d_e(v')$, smoothed ($\\tilde D = G_{50\\,\\mu m} * \\bar D$); 70 % zone
 $Z = \\{v : \\tilde D(v) \\ge \\tau\\}$ with $\\sum_{Z} \\tilde D = 0.7 \\sum_C \\tilde D$; merged whisker (SSp-bfd + SSs) and auditory (AUDp + AUDd/v)
 zones; overlap $Z_w \\cap Z_a$. """ + f"""Overlap {OVS['overlap_mm3']:.1f} mm³; largest recorded pieces: """ +
       ", ".join(f"{r.structure} {r.overlap_mm3:.2f} mm³" for r in OV.head(8).itertuples()) + ".\n\n")

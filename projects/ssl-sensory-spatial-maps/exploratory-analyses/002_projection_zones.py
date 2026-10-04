@@ -1,15 +1,19 @@
 """002 -- Projection zones of whisker and auditory cortical areas (Allen Mouse Brain Connectivity Atlas).
 
-Experiments: anterograde AAV tracing with the primary injection in the source area, wild-type (C57BL/6J, pan-neuronal
-AAV) or Emx1-IRES-Cre (all cortical excitatory neurons) -- Cre lines restricted to one layer or cell type are not used.
+Experiments (user 2026-10-04, second version): all anterograde AAV tracing experiments with the primary injection in
+the source area, from wild-type mice and every Cre line that labels projection (excitatory) neurons -- layer- and
+class-specific lines included (e.g. Cux2, Scnn1a, Rbp4, Tlx3, Sim1, Ntsr1); interneuron lines (LINES_INTERNEURON: local
+axons only) are excluded. Line balance: experiments are averaged within each line, then the line means are averaged
+(wild type and Emx1-IRES-Cre count as one line each), so lines with many injections do not dominate.
+(First version: wild type + Emx1-IRES-Cre only.)
 Sources: SSp-bfd, SSs (whisker); AUDp, AUD-secondary (AUDd + AUDv) (auditory).
 Volume: projection_density (fraction of each voxel's volume with labelled axons), 50-um CCF grid, downloaded through the
 Allen API (grid_data/download_file). Injections in the left hemisphere are mirrored so that every injection is in the
 right hemisphere (the hemisphere the recorded units are folded onto); the ipsilateral (right) hemisphere is used.
 Per experiment the density is divided by its sum over the candidate voxels (shape of the projection, independent of the
-injection size), then averaged over experiments of the source.
+injection size), averaged within each line, then over lines.
 Candidate voxels: right hemisphere, inside the brain, excluding fibre tracts, ventricles and the source area itself
-(with its layers / barrels), and receiving signal (density > 0) in at least half of the source's experiments.
+(with its layers / barrels); for the top-10 % mask only, voxels receiving signal in at least half of the source's lines.
 Projection zone (user, 2026-10-04, third version): the mean density is smoothed (Gaussian, sigma 50 um) and the zone
 is the 70 % contour = the highest-density voxels that together hold 70 % of the source's projection (candidate voxels).
 The first version (top 10 % of candidate voxels, unsmoothed) is kept as mask_<source>.
@@ -35,7 +39,9 @@ OUT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/_sensory_
 RAW = OUT / "allen_projection_density_50um"
 ATLAS = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/Anatomy/allen_mouse_bluebrain_barrels_10um_v1.0")
 SOURCES = {"SSp-bfd": [329], "SSs": [378], "AUDp": [1002], "AUD-sec": [1011, 1018]}
-LINES_OK = {"", "Emx1-IRES-Cre"}
+# interneuron Cre lines (gene before the first "-"): local axons, no long-range projection -> excluded
+LINES_INTERNEURON = {"Sst", "Pvalb", "Vip", "Gad2", "Calb2", "Nos1", "Htr3a", "Crh", "Cort", "Npy", "Erbb4", "Ndnf", "Chat",
+                     "Penk", "Tac1", "Nkx2", "Lhx6", "Dlx5", "Slc32a1", "Gad1", "Cck"}
 ZONE_PCT = int(os.environ.get("ZONE_PCT", "70"))      # projection-zone contour level (user: 70, repeated with 90)
 ZTAG = "" if ZONE_PCT == 70 else f"_zone{ZONE_PCT}"
 RES_UM, MID_UM, TOP, MASS, SMOOTH_UM = 50, 5700, 0.10, ZONE_PCT / 100, 50.0
@@ -59,7 +65,7 @@ def experiments():
                 raise RuntimeError(f"Allen API error for structure {sid}: {d}")
             for e in d:
                 line = e.get("transgenic-line") or ""
-                if line in LINES_OK:
+                if line.split("-")[0] not in LINES_INTERNEURON:
                     rows.append(dict(source=src, experiment_id=e["id"], line=line or "wild type",
                                      structure=e["structure-abbrev"], injection_volume=e["injection-volume"],
                                      inj_ap=e["injection-coordinates"][0], inj_dv=e["injection-coordinates"][1],
@@ -67,14 +73,26 @@ def experiments():
     return pd.DataFrame(rows)
 
 
+def fetch(eid):
+    f = RAW / f"{eid}.nrrd"
+    for attempt in range(5):
+        if f.exists():
+            return f
+        try:
+            url = f"https://api.brain-map.org/grid_data/download_file/{eid}?image=projection_density&resolution={RES_UM}"
+            data = urllib.request.urlopen(url, timeout=600).read()
+            tmp = RAW / f"{eid}.{os.getpid()}.tmp"
+            tmp.write_bytes(data)
+            tmp.rename(f)
+        except Exception as err:                                  # transient API errors: retry
+            print("retry", eid, err, flush=True)
+            time.sleep(15)
+    raise RuntimeError(f"download failed: {eid}")
+
+
 def download(eid):
     import nrrd
-    f = RAW / f"{eid}.nrrd"
-    if not f.exists():
-        url = f"https://api.brain-map.org/grid_data/download_file/{eid}?image=projection_density&resolution={RES_UM}"
-        data = urllib.request.urlopen(url, timeout=600).read()
-        f.with_suffix(".tmp").write_bytes(data)
-        f.with_suffix(".tmp").rename(f)
+    f = fetch(eid)
     v, _ = nrrd.read(str(f))
     return v.astype(np.float32)                                   # (AP, DV, ML)
 
@@ -96,7 +114,10 @@ def main():
     (OUT / f"figures{ZTAG}").mkdir(parents=True, exist_ok=True)
     E = experiments()
     E.to_csv(OUT / "projection_experiments.csv", index=False)
-    print(E.groupby("source").agg(n=("experiment_id", "size"), lines=("line", lambda x: dict(x.value_counts()))).to_string())
+    print(E.groupby("source").agg(n=("experiment_id", "size"), n_lines=("line", "nunique")).to_string(), flush=True)
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(6) as pool:                            # fetch missing volumes in parallel (cached on the NAS)
+        list(pool.map(fetch, E.experiment_id.unique()))
     structs = json.load(open(ATLAS / "structures.json"))
     ann = atlas_50um()
     excl_common = descendants(structs, [1009, 73])                # fibre tracts, ventricular systems
@@ -114,13 +135,17 @@ def main():
     brain = (ann != 0) & ~np.isin(ann, list(excl_common)) & right
     out, summ = {}, []
     for src, ids in SOURCES.items():
-        ex = E[E.source == src].experiment_id.tolist()
+        Es = E[E.source == src]
+        ex = Es.experiment_id.tolist()
         cand = brain & ~np.isin(ann, list(descendants(structs, ids)))
-        V = np.stack([vol[i] for i in ex])
-        V = np.where(cand[None], V, 0)
-        V = V / V.sum(axis=(1, 2, 3), keepdims=True)
-        sig = (V > 0).mean(0) >= 0.5
-        m = V.mean(0)
+        L = []                                                     # line means of the normalised densities
+        for line, g in Es.groupby("line"):
+            V = np.stack([np.where(cand, vol[i], 0) for i in g.experiment_id])
+            V = V / V.sum(axis=(1, 2, 3), keepdims=True)
+            L.append(V.mean(0))
+        L = np.stack(L)
+        sig = (L > 0).mean(0) >= 0.5
+        m = L.mean(0)
         c = cand & sig
         thr = np.quantile(m[c], 1 - TOP)
         mask = c & (m >= thr)
@@ -135,7 +160,8 @@ def main():
         out[f"thr70_{src}"] = np.float32(thr70)
         out[f"source_{src}"] = np.isin(ann, list(descendants(structs, ids))) & right          # injected area (excluded)
         top_regions = pd.Series(ann[zone]).map({s["id"]: s["acronym"] for s in structs}).value_counts().head(12)
-        summ.append(dict(source=src, n_experiments=len(ex), n_candidate_voxels=int(c.sum()),
+        summ.append(dict(source=src, n_experiments=len(ex), n_lines=int(Es.line.nunique()),
+                         lines="; ".join(f"{k} {v}" for k, v in Es.line.value_counts().items()), n_candidate_voxels=int(c.sum()),
                          zone70_volume_mm3=float(zone.sum() * (RES_UM / 1000) ** 3),
                          top10_volume_mm3=float(mask.sum() * (RES_UM / 1000) ** 3), top_regions_zone70=top_regions.to_dict()))
         print(src, summ[-1], flush=True)
