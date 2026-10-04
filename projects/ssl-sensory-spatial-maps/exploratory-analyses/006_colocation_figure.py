@@ -332,7 +332,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     fig.legend(handles=hz, loc="upper left", bbox_to_anchor=(0.4 / W, 1 - 0.1 / H), ncol=5, frameon=False, fontsize=5.0,
                handlelength=1.2, columnspacing=1.0)
     c_bottom = 1 - 0.42 / H - top_frac
-    cax = fig.add_axes([0.45 / W, c_bottom - 0.16 / H, 1.5 / W, 0.05 / H])
+    cax = fig.add_axes([2.4 / W, c_bottom - 0.16 / H, 1.5 / W, 0.05 / H])
     cb = fig.colorbar(imd, cax=cax, orientation="horizontal")
     cb.set_label("Bimodal fraction of responsive neurons (3-D Gaussian, sigma 150 um)", fontsize=4.8, labelpad=1)
     cb.ax.tick_params(labelsize=4.4, length=1.2, width=0.4); cb.outline.set_linewidth(0.4)
