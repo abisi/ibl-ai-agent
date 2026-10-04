@@ -15,10 +15,14 @@ description: Use this skill whenever an SSL analysis selects trials (behaviour, 
    identification, decoding, single-cell. Passive trials (`context == 'passive'`) keep their own definition (see
    `skills/ssl-analyze/references/ssl_task_semantics.md`) and are not filtered on `perf`. User rule, 2026-10-01.
 2. **Context.** Active analyses use `context == 'active'` (sessions without recorded context store the string `'nan'`
-   and are all active). Passive trials are `perf == 6` with a fixed ITI (~3 s); in a session that mixes unlabelled
-   (`'nan'`) and labelled trials, unlabelled trials are active if `perf != 6` and passive if `perf == 6` (user,
-   2026-10-04; only MH062_20260113_125836, whose 377-trial training block is unlabelled). `roc_utils_new.process_nwb_tables`
-   applies this rule since 2026-10-04 (before, such trials became passive_pre / passive_post by position).
+   and are all active). Per-trial rule (user, 2026-10-04): a trial in a fixed ~3 s ITI sequence (gap to the previous or
+   next trial 3.0 +- 0.3 s) is passive whatever its label; otherwise the context column decides -- labelled passive
+   stays passive (AB116 / AB117 / AB119 passive blocks have a ~4.8 s ITI and perf != 6), labelled active and unlabelled
+   `'nan'` trials are active (MH062_20260113_125836: 377-trial training block unlabelled), and perf == 6 trials inside
+   active blocks remain excluded active trials (rule 1). Changes vs the labels: MH064_20260114 21 end-of-session
+   trials and AB128_20240829 2 trials -> passive; MH062_20260113 377 trials -> active. Implemented in
+   `roc_utils_new.process_nwb_tables` (patched 2026-10-04, backup `.bak_20261004`) and `resolve_context()` in
+   ssl-stimulus-arrival-decoding / ssl-sensory-spatial-maps.
 3. **Auditory warm-up block.** Drop the auditory-only block before the first whisker trial, but keep exactly one trial
    before the first whisker trial and never drop the first whisker trial
    (`skills/ssl-analyze/references/ssl_auditory_warmup_block.md`). The kept pre-whisker trial is usually the last warm-up

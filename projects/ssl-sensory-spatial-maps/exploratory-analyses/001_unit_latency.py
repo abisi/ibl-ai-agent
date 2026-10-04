@@ -45,13 +45,20 @@ PEAK_WIN = (0.005, 0.100)
 MEASURES = {"whisker": ("whisker_active", "whisker_trial"), "auditory": ("auditory_active", "auditory_trial")}
 
 
+def resolve_context(t):
+    """per-trial context (user, 2026-10-04): a trial in a fixed ~3 s ITI sequence (gap to the previous or next trial
+    3.0 +- 0.3 s) is passive; otherwise the context column decides (passive stays passive; active and unlabelled "nan"
+    are active; perf == 6 trials inside active blocks stay active and are dropped by the perf rule). t sorted by time."""
+    st = t["start_time"].to_numpy()
+    dp, dn = np.r_[np.inf, np.diff(st)], np.r_[np.diff(st), np.inf]
+    fixed = (np.abs(dp - 3.0) < 0.3) | (np.abs(dn - 3.0) < 0.3)
+    lab = t["context"].astype(str).to_numpy()
+    return pd.Series(np.where(fixed | (lab == "passive"), "passive", "active"), index=t.index)
+
+
 def stim_trials(trials):
     t = trials.sort_values("start_time").reset_index(drop=True)
-    ctx = t["context"].astype(str)
-    # unlabelled trials in a session with context labels (MH062_20260113_125836): passive trials are perf == 6 with a
-    # fixed ITI, every other trial is active (user, 2026-10-04)
-    if (ctx == "nan").any() and ctx.isin(["active", "passive"]).any():
-        ctx = ctx.where(ctx != "nan", np.where(t["perf"] == 6, "passive", "active"))
+    ctx = resolve_context(t)
     if (ctx == "active").any():
         t = t[ctx == "active"].reset_index(drop=True)
     if "perf" in t:
