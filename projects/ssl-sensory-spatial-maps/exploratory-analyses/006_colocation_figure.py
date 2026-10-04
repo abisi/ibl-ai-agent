@@ -11,11 +11,12 @@ structure, medial / lateral by its median ML; CP behind AP -1.0 mm from bregma =
 Tests (global, no session pairing; user 2026-10-04):
   pooled P inside vs outside the overlap (or a sub-region vs outside the whole overlap);
   Fisher's exact test (= unit-level label permutation), one-sided;
-  spatial-shift null: the region is translated by N_SHIFT random 3-D offsets (each axis uniform in +-2 mm, total shift
-  >= 0.75 mm); P in the shifted region (>= MIN_UNITS responsive neurons inside) -> p = fraction of shifts with P >= observed
-  (keeps the region's shape and the spatial structure / uneven sampling of the recordings);
-  95 % CI: hierarchical bootstrap (sessions with replacement, then neurons within sessions);
-  Holm across sub-regions; control: sub-region vs the rest of the same structure (outside the overlap), Fisher.
+  hierarchical bootstrap of the difference (main test): sessions resampled with replacement from all sessions, then
+  neurons within each session (binomial); pooled P inside and outside recomputed per resample; p = fraction of resampled
+  differences <= 0 (one-sided); keeps the clustering of neurons within sessions without pairing sessions
+  (the spatial-shift null was removed, user 2026-10-04);
+  95 % CI of each P: same hierarchical bootstrap;
+  Holm across sub-regions; control: sub-region vs the rest of the same structure (outside the overlap), same tests.
 Output: combined_results_ks4/_sensory_spatial_maps/colocation_{subregions,tests}.csv, figures/colocation_figure.{png,pdf,svg},
 colocation_figure_caption.md
 """
@@ -34,7 +35,7 @@ m3 = importlib.import_module("003_spatial_maps")
 m2 = importlib.import_module("002_projection_zones")
 S, OUT = m3.S, m3.OUT
 FIG, ZTAG, ZONE_PCT = m3.FIG, m3.ZTAG, m3.ZONE_PCT
-MIN_VOL, MIN_UNITS, N_SHIFT, N_BOOT = 0.04, 30, 2000, 2000
+MIN_VOL, MIN_UNITS, N_BOOT = 0.04, 30, 2000
 MIN_REC = 10                 # sub-regions shown / listed only with >= 10 recorded good + mua neurons inside
 GENERIC = {"MB", "TH", "HY", "CTX", "grey", "root", "STR", "PAL", "CB", "P", "MY"}
 R50 = 50.0
@@ -119,19 +120,21 @@ def boot_ci(D, sel, rng):
     return np.percentile(p, 2.5), np.percentile(p, 97.5)
 
 
-def shift_null(mask, ijk, ok, y, rng):
-    nv = np.round(2000 / R50)
-    vals = []
-    tries = 0
-    while len(vals) < N_SHIFT and tries < N_SHIFT * 20:
-        tries += 1
-        s = rng.integers(-nv, nv + 1, 3)
-        if np.linalg.norm(s) * R50 < 750:
-            continue
-        m = in_mask(mask, ijk, ok, s)
-        if m.sum() >= MIN_UNITS:
-            vals.append(y[m].mean())
-    return np.array(vals)
+def boot_diff(D, sel_in, sel_ref, rng):
+    """hierarchical bootstrap of P(in) - P(ref): sessions with replacement (all sessions contributing to either set), then
+    neurons within each session (binomial); returns the resampled differences"""
+    g = pd.DataFrame(dict(s=D.session_id.to_numpy(), y=D.bimodal.to_numpy(float), i=sel_in, r=sel_ref & ~sel_in))
+    g = g[g.i | g.r]
+    a = g[g.i].groupby("s").y.agg(["size", "sum"])
+    b = g[g.r].groupby("s").y.agg(["size", "sum"])
+    t = a.join(b, how="outer", lsuffix="_i", rsuffix="_r").fillna(0)
+    ni, ki, nr, kr = (t[c].to_numpy() for c in ("size_i", "sum_i", "size_r", "sum_r"))
+    idx = rng.integers(0, len(t), (N_BOOT, len(t)))
+    bi = rng.binomial(ni[idx].astype(int), np.divide(ki, ni, out=np.zeros_like(ki), where=ni > 0)[idx])
+    br = rng.binomial(nr[idx].astype(int), np.divide(kr, nr, out=np.zeros_like(kr), where=nr > 0)[idx])
+    Ni, Nr = ni[idx].sum(1), nr[idx].sum(1)
+    ok = (Ni > 0) & (Nr > 0)
+    return bi.sum(1)[ok] / Ni[ok] - br.sum(1)[ok] / Nr[ok]
 
 
 def test_region(D, ijk, ok, mask, ref_sel, rng, label):
@@ -145,10 +148,10 @@ def test_region(D, ijk, ok, mask, ref_sel, rng, label):
         return row, None
     row["diff"] = row["P_in"] - row["P_ref"]
     row["p_fisher"] = stats.fisher_exact([[a.sum(), len(a) - a.sum()], [b.sum(), len(b) - b.sum()]], alternative="greater")[1]
-    null = shift_null(mask, ijk, ok, y, rng)
-    row["n_shifts"] = len(null)
-    row["p_shift"] = (1 + np.sum(null >= row["P_in"])) / (1 + len(null))
-    row["shift_null_median"] = np.median(null) if len(null) else np.nan
+    null = boot_diff(D, ins, ref_sel, rng)
+    row["n_boot"] = len(null)
+    row["p_boot"] = (1 + np.sum(null <= 0)) / (1 + len(null))
+    row["diff_ci_lo"], row["diff_ci_hi"] = np.percentile(null, [2.5, 97.5])
     row["ci_lo"], row["ci_hi"] = boot_ci(D, ins, rng)
     row["ref_ci_lo"], row["ref_ci_hi"] = boot_ci(D, ref_sel & ~ins, rng)
     return row, null
@@ -204,14 +207,17 @@ def main():
                      p_fisher_vs_rest=stats.fisher_exact([[a.sum(), len(a) - a.sum()], [b.sum(), len(b) - b.sum()]],
                                                          alternative="greater")[1])
             r["rest_ci_lo"], r["rest_ci_hi"] = boot_ci(D, rest, rng)
+            bd = boot_diff(D, ins, rest, rng)
+            r["p_boot_vs_rest"] = (1 + np.sum(bd <= 0)) / (1 + len(bd))
         rows.append(r); nulls[sr.name] = nl
     T = pd.DataFrame(rows)
-    sub = (T.kind == "sub-region") & T.p_shift.notna()
-    T.loc[sub, "p_shift_holm"] = holm(T.loc[sub, "p_shift"])
+    sub = (T.kind == "sub-region") & T.p_boot.notna()
+    T.loc[sub, "p_boot_holm"] = holm(T.loc[sub, "p_boot"])
     T.loc[sub, "p_fisher_holm"] = holm(T.loc[sub, "p_fisher"])
-    if "p_fisher_vs_rest" in T:
-        sv = sub & T.p_fisher_vs_rest.notna()
-        T.loc[sv, "p_vs_rest_holm"] = holm(T.loc[sv, "p_fisher_vs_rest"])
+    if "p_boot_vs_rest" in T:
+        sv = sub & T.p_boot_vs_rest.notna()
+        T.loc[sv, "p_vs_rest_holm"] = holm(T.loc[sv, "p_boot_vs_rest"])
+        T.loc[sv, "p_fisher_vs_rest_holm"] = holm(T.loc[sv, "p_fisher_vs_rest"])
     SR.to_csv(OUT / f"colocation_subregions{ZTAG}.csv", index=False)
     T.to_csv(OUT / f"colocation_tests{ZTAG}.csv", index=False)
     print(SR.round(3).to_string())
@@ -247,7 +253,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     import matplotlib.patheffects as pe
     from matplotlib.colors import LinearSegmentedColormap, ListedColormap
     W = S.W_IN
-    slabs = pick_slabs(SR[SR.id.isin(T[T.kind == "sub-region"].dropna(subset=["p_shift"]).id)] if (T.kind == "sub-region").any() else SR)
+    slabs = pick_slabs(SR[SR.id.isin(T[T.kind == "sub-region"].dropna(subset=["p_boot"]).id)] if (T.kind == "sub-region").any() else SR)
     ncol = len(slabs)
     pw = (W - 0.45) / ncol
     ph = pw * 7.2 / 5.8
@@ -260,7 +266,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
                           width_ratios=[0.75, 1.0, 2.5, 1.15], wspace=0.75)
     cmap_b = LinearSegmentedColormap.from_list("white_bimodal", ["#ffffff", "#c2a5cf", "#7b3294", "#40004b"])
     ijk_all = None
-    tested = T[(T.kind == "sub-region") & T.p_shift.notna()]
+    tested = T[(T.kind == "sub-region") & T.p_boot.notna()]
     v_bim = np.where(D.bimodal, 1.0, 0.0)
     for c_i, c in enumerate(slabs):
         sec = A.section("cor", c)
@@ -297,7 +303,9 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
         # c: density of P
         ax = axs[2]
         m3.draw_section(ax, A, sec, (0, 5.7, 8.0, 0))
-        M, extd = m3.density(x[m], y[m], v_bim[m], (0, 5.8), (0, 8.0))
+        if "bim" not in m3._DCACHE:
+            m3._DCACHE["bim"] = m3.density_volumes(D, v_bim)
+        M, extd = m3.slab_ratio(*m3._DCACHE["bim"], "cor", c)
         _, inside = A.boundaries(sec)
         gy = ((np.arange(M.shape[0]) + 0.5) * 5).astype(int)
         gx = ((np.arange(M.shape[1]) + 0.5) * 5).astype(int)
@@ -327,7 +335,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     c_bottom = 1 - 0.42 / H - top_frac
     cax = fig.add_axes([0.45 / W, c_bottom - 0.16 / H, 1.5 / W, 0.05 / H])
     cb = fig.colorbar(imd, cax=cax, orientation="horizontal")
-    cb.set_label("Bimodal fraction of responsive neurons (550-um window)", fontsize=4.8, labelpad=1)
+    cb.set_label("Bimodal fraction of responsive neurons (3-D Gaussian, sigma 150 um)", fontsize=4.8, labelpad=1)
     cb.ax.tick_params(labelsize=4.4, length=1.2, width=0.4); cb.outline.set_linewidth(0.4)
     # bottom row
     axd, axe, axf, axg = [fig.add_subplot(gb[0, k]) for k in range(4)]
@@ -339,22 +347,23 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
     axd.set_ylabel("Bimodal neurons (% of responsive)")
     topd = 100 * max(g.ci_hi, g.ref_ci_hi)
     axd.plot([0, 0, 1, 1], [topd + 1.5, topd + 2.5, topd + 2.5, topd + 1.5], color="k", lw=0.5)
-    axd.text(0.5, topd + 3, f"shift {S.fmt_p(g.p_shift)}\nFisher {S.fmt_p(g.p_fisher)}", ha="center", va="bottom", fontsize=4.5)
+    axd.text(0.5, topd + 3, f"bootstrap {S.fmt_p(g.p_boot)}\nFisher {S.fmt_p(g.p_fisher)}", ha="center", va="bottom", fontsize=4.5)
     axd.set_ylim(0, topd + 13)
     for xx_, nn in ((0, g.n_resp_in), (1, g.n_resp_ref)):
         axd.text(xx_, 1.0, f"{nn}", ha="center", va="bottom", fontsize=4.3, color="white")
     axd.set_title("Whole overlap", fontsize=5.4, loc="left")
-    # e: shift null
+    # e: bootstrap distribution of the difference
     nl = nulls.get("whole overlap zone")
     if nl is not None and len(nl):
-        axe.hist(100 * nl, bins=40, color="0.7", lw=0, edgecolor="none")
-        axe.axvline(100 * g.P_in, color=PURPLE, lw=1.0)
-        axe.text(100 * g.P_in, axe.get_ylim()[1] * 0.97, " observed", color=PURPLE, fontsize=4.6, va="top")
-        axe.set_xlabel("Bimodal % in the shifted volume")
-        axe.set_ylabel("Random shifts")
-        axe.set_title(f"Spatial-shift null ({len(nl)} shifts)", fontsize=5.4, loc="left")
+        axe.hist(100 * nl, bins=40, color=PURPLE, alpha=0.55, lw=0, edgecolor="none")
+        axe.axvline(0, color="k", lw=0.6)
+        axe.axvline(100 * g["diff"], color=PURPLE, lw=1.0)
+        axe.text(100 * g["diff"], axe.get_ylim()[1] * 0.97, " observed", color=PURPLE, fontsize=4.6, va="top")
+        axe.set_xlabel("Inside minus all responsive\n(% points)")
+        axe.set_ylabel("Bootstrap resamples")
+        axe.set_title(f"Hierarchical bootstrap ({len(nl)})", fontsize=5.4, loc="left")
     # f: tested sub-regions
-    Q = T[(T.kind == "sub-region") & T.p_shift.notna()].sort_values("id").reset_index(drop=True)
+    Q = T[(T.kind == "sub-region") & T.p_boot.notna()].sort_values("id").reset_index(drop=True)
     axf.axvspan(100 * g.ref_ci_lo, 100 * g.ref_ci_hi, color="0.88", lw=0, edgecolor="none", zorder=0)
     axf.axvline(100 * g.P_ref, color="0.45", lw=0.6, ls="--", zorder=1)
     for i, q in Q.iterrows():
@@ -362,8 +371,8 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
                      color=PURPLE, lw=0.7, capsize=0, zorder=3)
         if np.isfinite(q.get("P_rest_structure", np.nan)):
             axf.plot(100 * q.P_rest_structure, i, marker="|", ms=5.5, color="0.2", mew=0.9, zorder=2)
-        axf.text(1.02, i, short_p(q.p_shift_holm), va="center", fontsize=4.3, transform=axf.get_yaxis_transform())
-    axf.text(1.02, -0.9, "shift p\n(Holm)", fontsize=4.3, va="bottom", transform=axf.get_yaxis_transform())
+        axf.text(1.02, i, short_p(q.p_boot_holm), va="center", fontsize=4.3, transform=axf.get_yaxis_transform())
+    axf.text(1.02, -0.9, "bootstrap p\n(Holm)", fontsize=4.3, va="bottom", transform=axf.get_yaxis_transform())
     axf.set_yticks(range(len(Q)), [f"{int(q.id)}  {q.region}  ({int(q.n_resp_in)} / {int(q.n_sessions_in)})"
                                    for q in Q.itertuples()], fontsize=4.6)
     axf.set_ylim(len(Q) - 0.4, -0.6)
@@ -378,7 +387,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
         d = 100 * (q.P_in - q.P_rest_structure)
         axg.barh(j, d, color=PURPLE if d > 0 else "0.6", height=0.62, lw=0)
         axg.text(1.02, j, short_p(q.p_vs_rest_holm), va="center", fontsize=4.3, transform=axg.get_yaxis_transform())
-    axg.text(1.02, -0.9, "Fisher p\n(Holm)", fontsize=4.3, va="bottom", transform=axg.get_yaxis_transform())
+    axg.text(1.02, -0.9, "bootstrap p\n(Holm)", fontsize=4.3, va="bottom", transform=axg.get_yaxis_transform())
     axg.axvline(0, color="k", lw=0.5)
     axg.set_yticks(range(len(Q)), [str(int(q.id)) for q in Q.itertuples()], fontsize=4.8)
     axg.set_ylim(len(Q) - 0.4, -0.6)
@@ -398,7 +407,7 @@ def figure(plt, A, U, D, SR, masks, T, nulls, Z):
 def caption(SR, T, D):
     g = T[T.kind == "global"].iloc[0]
     Q = T[T.kind == "sub-region"].sort_values("id")
-    sig = Q[Q.p_shift_holm < 0.05] if "p_shift_holm" in Q else Q.iloc[:0]
+    sig = Q[Q.p_boot_holm < 0.05] if "p_boot_holm" in Q else Q.iloc[:0]
     lines = [
         "# Bimodal neurons and the convergence of whisker- and auditory-cortex projections",
         "",
@@ -418,20 +427,22 @@ def caption(SR, T, D):
         f"white numbers: sub-regions with >= {MIN_UNITS} sensory-responsive neurons, tested.",
         "**b**, Sensory-responsive neurons in the same slabs (grey: one modality; purple: bimodal); line: overlap zone; grey "
         "number: responsive neurons in the slab.",
-        "**c**, Bimodal fraction: fraction of the responsive neurons that are bimodal within a 550 x 550-um window (50-um grid, "
-        "Gaussian smoothing sigma 50 um; shown where >= 5 neurons contribute).",
+        "**c**, Bimodal fraction: bimodal neurons and responsive neurons counted on the 50-um CCF grid, each smoothed with a "
+        "3-D Gaussian (sigma 150 um) and divided (bimodal density normalised by the density of recorded responsive neurons), "
+        "averaged over the 500-um slab; shown where >= 3 neurons fall within the kernel.",
         f"**d**, Pooled bimodal fraction inside the overlap zone ({g.n_resp_in} responsive neurons, {g.n_sessions_in} sessions, "
         f"{g.n_mice_in} mice) and among all responsive neurons ({g.n_resp_ref}): {100 * g.P_in:.1f} % vs {100 * g.P_ref:.1f} %; "
-        f"error bars: 95 % hierarchical-bootstrap CI (sessions, then neurons). p: spatial-shift test ({S.fmt_p(g.p_shift)}) and "
-        f"Fisher's exact test ({S.fmt_p(g.p_fisher)}, one-sided; equivalent to permuting inside/outside labels across neurons).",
-        f"**e**, Spatial-shift null: the overlap volume translated by {int(g.n_shifts)} random 3-D offsets (each axis uniform in "
-        f"+-2 mm, >= 0.75 mm in total; shifts containing >= {MIN_UNITS} responsive neurons); bimodal fraction in each shifted "
-        "volume. The shift test keeps the shape of the volume and the uneven, spatially clustered sampling of the recordings, "
-        "and is the main test; unlike a session-paired test it does not require the same sessions inside and outside.",
+        f"error bars: 95 % hierarchical-bootstrap CI (sessions, then neurons). p: hierarchical bootstrap of the difference "
+        f"({S.fmt_p(g.p_boot)}) and Fisher's exact test ({S.fmt_p(g.p_fisher)}, one-sided; neurons treated as independent).",
+        f"**e**, Hierarchical bootstrap of the difference (inside minus all responsive neurons; {int(g.n_boot)} resamples): "
+        "sessions resampled with replacement, then neurons within each session; p = fraction of resampled differences <= 0. "
+        "It keeps the clustering of neurons within sessions and does not require the same sessions inside and outside.",
         "**f**, Bimodal fraction per overlap sub-region (dots, 95 % bootstrap CI), the rest of the same structure outside the "
-        "overlap (vertical tick) and all responsive neurons (dashed line, grey band: 95 % CI). p: shift test per sub-region, "
-        f"Holm-corrected across the {Q.p_shift.notna().sum()} tested sub-regions; n: responsive neurons / sessions inside.",
-        "**g**, Sub-region minus the rest of its structure (percentage points); p: Fisher's exact test, Holm-corrected.",
+        "overlap (vertical tick) and all responsive neurons (dashed line, grey band: 95 % CI). p: hierarchical bootstrap of the "
+        f"difference to all responsive neurons outside the overlap, Holm-corrected across the {Q.p_boot.notna().sum()} tested "
+        "sub-regions; n: responsive neurons / sessions inside.",
+        "**g**, Sub-region minus the rest of its structure (percentage points); p: hierarchical bootstrap, Holm-corrected "
+        "(Fisher's exact test in colocation_tests.csv).",
         "",
         "Interpretation: co-location. The projection zones come from other mice (population-averaged tracing of excitatory "
         "cortical axons, including axons of passage), so overlap marks where whisker and auditory cortical inputs can converge; "
@@ -442,13 +453,13 @@ def caption(SR, T, D):
     ]
     vr = Q[Q.get("p_vs_rest_holm", pd.Series(np.nan, index=Q.index)) < 0.05] if "p_vs_rest_holm" in Q else Q.iloc[:0]
     res = (f"**Results.** Inside the overlap, {100 * g.P_in:.1f} % of responsive neurons were bimodal vs {100 * g.P_ref:.1f} % "
-           f"overall (Fisher {S.fmt_p(g.p_fisher)}), but random 3-D shifts of the same volume over the recorded tissue reached "
-           f"similar fractions (shift test {S.fmt_p(g.p_shift)}): the global enrichment does not exceed what the spatial "
-           f"structure of the recordings produces. {len(sig)} of {Q.p_shift.notna().sum()} tested sub-regions passed the shift "
-           f"test after Holm correction. Compared with the rest of their own structure, "
+           f"overall (difference {100 * g['diff']:+.1f} % points, 95 % CI {100 * g.diff_ci_lo:+.1f} to {100 * g.diff_ci_hi:+.1f}; "
+           f"bootstrap {S.fmt_p(g.p_boot)}, Fisher {S.fmt_p(g.p_fisher)}). {len(sig)} of {Q.p_boot.notna().sum()} tested "
+           "sub-regions had more bimodal neurons than all responsive neurons outside the overlap after Holm correction"
+           + (f" ({', '.join(sig.region)})" if len(sig) else "") + ". Compared with the rest of their own structure, "
            + (", ".join(f"{q.region} ({100 * q.P_in:.0f} % vs {100 * q.P_rest_structure:.0f} %, Holm {S.fmt_p(q.p_vs_rest_holm)})"
                         for q in vr.itertuples()) if len(vr) else "no sub-region")
-           + " had more bimodal neurons (Fisher, neurons treated as independent). Sub-regions with < "
+           + " had more bimodal neurons. Sub-regions with < "
            f"{MIN_UNITS} responsive neurons were not tested.")
     lines.insert(lines.index("Interpretation: co-location. The projection zones come from other mice (population-averaged tracing of excitatory "
                              "cortical axons, including axons of passage), so overlap marks where whisker and auditory cortical inputs can converge; "
@@ -457,10 +468,10 @@ def caption(SR, T, D):
     for sr in SR.itertuples():
         q = Q[Q.id == sr.id]
         extra = ""
-        if len(q) and np.isfinite(q.iloc[0].get("p_shift", np.nan)):
+        if len(q) and np.isfinite(q.iloc[0].get("p_boot", np.nan)):
             qq = q.iloc[0]
-            extra = (f"; bimodal {100 * qq.P_in:.1f} % (n = {qq.n_resp_in}, {qq.n_sessions_in} sessions), shift p (Holm) "
-                     f"{qq.p_shift_holm:.3g}")
+            extra = (f"; bimodal {100 * qq.P_in:.1f} % (n = {qq.n_resp_in}, {qq.n_sessions_in} sessions), bootstrap p (Holm) "
+                     f"{qq.p_boot_holm:.3g}")
         lines.append(f"- {sr.id}: {sr.name}, {sr.volume_mm3:.2f} mm^3, AP {sr.ap_bregma_mm:+.2f} mm{extra}")
     (OUT / f"colocation_figure_caption{ZTAG}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines[:4]))

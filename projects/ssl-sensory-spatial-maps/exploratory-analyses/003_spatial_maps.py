@@ -21,8 +21,9 @@ Panels per slab (one row): 1 schematic (sagittal section with Allen colours for 
 slabs; the slab drawn as a band); 2 all recorded neurons; 3 neurons coloured by the quantity, with the projection zones
 (002; whisker zone = 70 % contour of the merged SSp-bfd + SSs projection density, auditory zone = same for AUDp +
 AUDd/AUDv; union over the slab, contour lines lightly smoothed); structures holding most recorded neurons labelled in panel 2;
-4 density map: mean of the quantity over the neurons in a 550 x 550 um window (in-plane, 50-um grid, Gaussian smoothing
-sigma 50 um; shown where >= MIN_N neurons contribute); 5 significant neurons only (latency: responsive neurons).
+4 density map: sum of the quantity over neurons and number of neurons with a value, each on the 50-um CCF grid and
+smoothed with a 3-D Gaussian (sigma 150 um), divided (= normalised by the recorded-neuron density), averaged over the slab;
+shown where >= 3 neurons fall within the kernel; 5 significant neurons only (latency: responsive neurons).
 Output: combined_results_ks4/_sensory_spatial_maps/figures/<quantity>/<set>_p<k>.{png,pdf,svg} + slab_units.csv
 """
 import argparse
@@ -261,6 +262,41 @@ def in_slab(U, kind, c):
     return m.to_numpy(), U.ap_mm.to_numpy(), U.dv_mm.to_numpy()
 
 
+SIGMA3D, DENS_MIN = 150.0, 3.0      # um; minimum neurons within the kernel for a map value (user, 2026-10-04)
+VOL_SHAPE = (264, 160, 228)         # CCF on the 50-um grid (AP, DV, ML)
+_DCACHE = {}
+
+
+def density_volumes(U, v):
+    """numerator (sum of v over neurons with a value) and denominator (number of those neurons) on the 50-um CCF grid,
+    both smoothed with a 3-D Gaussian (sigma SIGMA3D); map = numerator / denominator (normalised by the recorded-neuron
+    density). ML folded onto the right hemisphere."""
+    v = np.asarray(v, float)
+    ok = np.isfinite(v)
+    xyz = np.c_[U.ccf_atlas_ap, U.ccf_atlas_dv, U.ml_f].astype(float)[ok]
+    ijk = np.floor(xyz / GRID).astype(int)
+    inb = np.isfinite(xyz).all(1) & (ijk >= 0).all(1) & (ijk < np.array(VOL_SHAPE)).all(1)
+    ijk, vv = ijk[inb], v[ok][inb]
+    num, den = np.zeros(VOL_SHAPE, np.float32), np.zeros(VOL_SHAPE, np.float32)
+    np.add.at(num, tuple(ijk.T), vv)
+    np.add.at(den, tuple(ijk.T), 1.0)
+    s = SIGMA3D / GRID
+    return ndimage.gaussian_filter(num, s), ndimage.gaussian_filter(den, s)
+
+
+def slab_ratio(num, den, kind, c):
+    """slab-averaged numerator / denominator (coronal: lateral x DV of the right hemisphere; sagittal: AP x DV); NaN where
+    fewer than DENS_MIN neurons fall within the kernel"""
+    half, i, mid = int(round(SLAB / 2 / GRID)), int(round(c / GRID)), int(MID / GRID)
+    if kind == "cor":
+        n, d = num[max(i - half, 0):i + half].mean(0)[:, mid:], den[max(i - half, 0):i + half].mean(0)[:, mid:]
+    else:
+        n, d = num[:, :, max(i - half, 0):i + half].mean(2).T, den[:, :, max(i - half, 0):i + half].mean(2).T
+    norm = (2 * np.pi) ** 1.5 * (SIGMA3D / GRID) ** 3            # smoothed count x norm = neurons within the kernel
+    M = np.where(d * norm >= DENS_MIN, n / np.maximum(d, 1e-12), np.nan)
+    return M, (0, M.shape[1] * GRID / 1000, M.shape[0] * GRID / 1000, 0)
+
+
 def density_range(q):
     """density colour range: half the neuron range for selectivities (means are smaller), same range for latencies"""
     if q["vmin"] < 0:
@@ -404,10 +440,12 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
         draw_zones(axs[2], A, kind, c, ext_sec)
         # 4 density
         draw_section(axs[3], A, sec, ext_sec)
-        M, ext = density(xs, ys, v, (xlim[0], xlim[1]), (0, 8.0))
+        if qk not in _DCACHE:
+            _DCACHE[qk] = density_volumes(U, v_all)
+        M, ext = slab_ratio(*_DCACHE[qk], kind, c)
         _, inside = A.boundaries(sec)
         gy = ((np.arange(M.shape[0]) + 0.5) * GRID / 10).astype(int)            # density grid -> 10-um section pixels
-        gx = ((np.arange(M.shape[1]) + 0.5) * GRID / 10 + xlim[0] * 100).astype(int)
+        gx = ((np.arange(M.shape[1]) + 0.5) * GRID / 10).astype(int)
         ok = (gy[:, None] < inside.shape[0]) & (gx[None, :] < inside.shape[1])
         inb = np.zeros(M.shape, bool)
         inb[ok] = inside[np.minimum(gy, inside.shape[0] - 1)[:, None].repeat(M.shape[1], 1)[ok],
@@ -433,16 +471,16 @@ def make_page(plt, A, U, qk, set_name, kind, slabs, page, n_pages, schem):
         if r == len(slabs) - 1:
             scalebar(axs[1], xlim[0] + 0.2, 7.25)
         if r == 0:
-            heads = ["Slab position", "All recorded neurons", "All neurons (coloured)", "Density, 550-um window",
+            heads = ["Slab position", "All recorded neurons", "All neurons (coloured)", "Density (3-D, sigma 150 um)",
                      "Significant neurons" if "atype" in q else "Bimodal neurons" if q.get("categorical") else "Responsive neurons"]
             for ax, t in zip(axs, heads):
                 ax.set_title(t, fontsize=6.2, pad=3)
         rows.append(dict(quantity=qk, set=set_name, slab=lab, centre_um=c, n_units=int(m.sum()),
                          n_with_value=int(np.isfinite(v).sum()), n_significant=int(sig.sum()),
                          n_sessions=int(U.session_id[m].nunique())))
-    bars = [(0.1, im, q["cbar"].replace(" (", "\n(") + ", neurons"), (0.4, imd, "Density: mean over\nthe 550-um window")]
+    bars = [(0.1, im, q["cbar"].replace(" (", "\n(") + ", neurons"), (0.4, imd, "Density: smoothed sum / smoothed\nrecorded-neuron density (sigma 150 um)")]
     if q.get("categorical"):
-        bars = [(0.4, imd, "Density: fraction of responsive\nneurons that are bimodal (550-um window)")]
+        bars = [(0.4, imd, "Density: bimodal / responsive neurons\n(3-D Gaussian, sigma 150 um)")]
         hc = [plt.Line2D([], [], marker="o", ls="", ms=3, color=CAT_COL[k_], label=CAT_NAME[k_]) for k_ in (1, 2, 3)]
         hc.append(plt.Line2D([], [], marker="o", ls="", ms=2, color=CAT_COL[0], label="not responsive"))
         fig.legend(handles=hc, loc="lower left", bbox_to_anchor=(0.08, 0.0), ncol=2, frameon=False, fontsize=5.0,
