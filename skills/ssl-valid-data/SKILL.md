@@ -39,6 +39,12 @@ Three nested sets; every analysis states which one it uses.
 3. **Good units**: `quality_label == 'good'` AND stable. Always intersect with the stable set: `quality_label` tables built
    without the drift merge (e.g. `reports/ssl_analysis/derived/unit_area_labels.parquet`, from `compute_ssl_quality_label.py`)
    carry no drift check.
+   Why the intersection, checked 2026-10-05: `classify_units_quality` (DEFAULT_METRIC_THRESHOLDS; exclude = Lratio,
+   isolationDistance, presenceRatio, maxDriftEstimate) labels a unit good only if nSpikes >= 300, spikes missing <= 20 %,
+   fractionRPVs <= 0.1, presence_ratio >= 0.5, coverage_ratio >= 0.9 and the drift joint check pass -- so good implies
+   stable when the drift results were merged (v2 table: 43114 / 43114 good units stable). But (a) a NaN metric counts as a
+   pass, so a unit without a drift result can be labelled good, and (b) label tables built without the drift merge skip the
+   drift check silently (`unit_area_labels.parquet`: 745 good units fail the drift test).
 Tracked analyses add a per-analysis rate criterion (e.g. >= 0.5 Hz in every analysed epoch) on top of the set.
 Implementation: `projects/ssl-whisker-hitmiss-timeresolved-decoding/exploratory-analyses/137_stable_units.py` ->
 `combined_results_ks4/ssl-whisker-hitmiss-timeresolved-decoding/tables/137_stable_units.parquet` (columns `unit_set_all`,
