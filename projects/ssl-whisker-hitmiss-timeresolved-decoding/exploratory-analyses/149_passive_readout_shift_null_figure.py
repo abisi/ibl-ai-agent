@@ -10,7 +10,8 @@ Per response (rows: epochbase = main, trialbase = per-trial baseline removed, ba
   b  excess, whisker (real - null mean)
   c  excess, auditory
   d  excess, whisker - auditory
-Sessions: shift_n >= MIN_SHIFT usable shifts (each needs >= 3 hits and misses after truncation); n per cohort on the panels.
+Sessions: all 146 sessions (>= 3 active whisker hits and >= 3 misses; user 2026-10-05); shifts are drawn among those keeping
+>= 3 hits and misses; n per cohort on the panels.
 Tests: within cohort Wilcoxon | t (excess vs 0; real vs null paired); R+ vs R- Mann-Whitney | Welch. Session = unit; uncorrected.
 Outputs: figures/publication/149_passive_readout_shift_null_<scope>.{png,pdf,svg}; 149_stats.csv (scope column)
 Run (haas, repo root): python .../149_passive_readout_shift_null_figure.py
@@ -33,7 +34,7 @@ EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA))
 H = importlib.import_module("143_lt_split_windows_figures")
 COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
-MIN_SHIFT = 20
+MIN_SHIFT = 1                  # every session with >= 3 hits and misses has a null (146 draws only valid shifts)
 RESP = [("epochbase", "5-35 ms, epoch baseline (main)"), ("trialbase", "5-35 ms, per-trial baseline"),
         ("baseline", "baseline window alone (state)")]
 
@@ -85,7 +86,7 @@ def figure(D, scope, rows):
         for j, l in enumerate("abcd"):
             fig.text(axes[r, j].get_position().x0 - 0.05, axes[r, j].get_position().y1 + 0.035, f"{l}{r + 1}", fontsize=8, weight="bold")
     fig.suptitle(f"Passive pre -> post change of the active choice-decoder readout beyond the linear-shift null\n"
-                 f"(whole brain, shared tracked stable units, {scope}; sessions with >= {MIN_SHIFT} usable shifts)", fontsize=7)
+                 f"(whole brain, shared tracked stable units, {scope}; sessions with >= 3 hits and >= 3 misses)", fontsize=7)
     FIGDIR.mkdir(parents=True, exist_ok=True)
     for ext in ("png", "pdf", "svg"):
         fig.savefig(FIGDIR / f"149_passive_readout_shift_null_{scope}.{ext}", dpi=300)

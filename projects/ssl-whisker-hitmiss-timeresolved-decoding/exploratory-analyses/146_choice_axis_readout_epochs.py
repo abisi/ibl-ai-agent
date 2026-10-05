@@ -23,7 +23,8 @@ over all trials (pooled epochs) for the decoder; evoked patterns = baseline-subt
   (+1 = like an active hit, -1 = like an active miss); readout (standardised): (score - midpoint) / SD of the held-out active
   whisker scores. Null: the same with the hit / miss labels shuffled before training (standardised readout only).
   Linear-shift null (whole brain, 2026-10-05): labels shifted against the time-ordered active whisker trials by 10-50 % of
-  the trials (non-wrapping, random direction; N_SHIFT shifts x N_REP_SHIFT repetitions), readout scale anchored on the trials'
+  the trials (non-wrapping; N_SHIFT shifts x N_REP_SHIFT repetitions, drawn without replacement from the (lag, direction) pairs
+  that keep >= MIN_CLASS hits and misses, so every included session has a null), readout scale anchored on the trials'
   true labels; per shift the passive post - pre readout change (W, A, W - A). Stored: null mean / SD, excess = real - null
   mean, one-sided percentile. It keeps slow drift in labels and activity, so a decoder that learned session time is in the null.
 2 decomposition with the mean-difference choice axis CD = mean(hits) - mean(misses) from a random half A of the balanced
@@ -250,14 +251,18 @@ def process(args):
             if area == "whole_brain" and uset == "stable":
                 n = len(lick_w); lo, hi = max(1, int(0.1 * n)), max(1, int(0.5 * n))
                 dnull = {kk: [] for kk in ("W", "A", "WA")}
-                for _ in range(N_SHIFT):
-                    kk_ = int(rng.integers(lo, hi + 1))
-                    if rng.random() < 0.5:
-                        y_s, Zs, anc = lick_w[kk_:], Zw[: n - kk_], lick_w[: n - kk_]
-                    else:
-                        y_s, Zs, anc = lick_w[: n - kk_], Zw[kk_:], lick_w[kk_:]
-                    if min(y_s.sum(), (~y_s).sum()) < MIN_CLASS or min(anc.sum(), (~anc).sum()) < 1:
-                        continue
+                # every session with >= MIN_CLASS hits and misses gets a null (user 2026-10-05 "use at least 3 hits to include
+                # the session"): shifts are drawn from the (lag, direction) pairs whose shifted labels keep >= MIN_CLASS hits
+                # and misses (and the anchored trials both classes), so low-hit sessions are not lost to truncation
+                def _cut(kk_, dr):
+                    return (lick_w[kk_:], Zw[: n - kk_], lick_w[: n - kk_]) if dr else (lick_w[: n - kk_], Zw[kk_:], lick_w[kk_:])
+                valid = [(kk_, dr) for kk_ in range(lo, hi + 1) for dr in (0, 1)
+                         if min(_cut(kk_, dr)[0].sum(), (~_cut(kk_, dr)[0]).sum()) >= MIN_CLASS
+                         and min(_cut(kk_, dr)[2].sum(), (~_cut(kk_, dr)[2]).sum()) >= 1]
+                row["shift_n_valid"] = len(valid)
+                pick = rng.permutation(len(valid))[:N_SHIFT] if valid else []
+                for j in pick:
+                    y_s, Zs, anc = _cut(*valid[j])
                     _, o_s, _ = decoder_readout(Zs, y_s, {e: others[e] for e in ("passive_pre", "passive_post")}, C, rng, T,
                                                 anchor=anc, n_rep=N_REP_SHIFT)
                     if not len(o_s["passive_pre"]["std"]):
