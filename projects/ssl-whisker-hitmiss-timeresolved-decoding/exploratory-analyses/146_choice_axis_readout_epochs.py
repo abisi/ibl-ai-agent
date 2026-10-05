@@ -63,7 +63,10 @@ EP4 = ["passive_pre", "active_1", "active_2", "passive_post"]
 UNIT_SETS = ["stable", "good"]
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "24"))
 PILOT = [s for s in os.environ.get("SSL_146_SESSIONS", "").split(",") if s]
-OUT_PATH = OUT / ("146_choice_axis_readout_pilot.parquet" if PILOT else "146_choice_axis_readout.parquet")
+# 2026-10-05: SSL_STAGE=expert runs the same analysis on expert sessions (control); outputs carry the suffix _expert
+STAGE = os.environ.get("SSL_STAGE", "learning")
+STAGE_SFX = "" if STAGE == "learning" else f"_{STAGE}"
+OUT_PATH = OUT / ("146_choice_axis_readout_pilot.parquet" if PILOT else f"146_choice_axis_readout{STAGE_SFX}.parquet")
 
 
 def _init():
@@ -349,7 +352,7 @@ def main():
     S = importlib.import_module("tracked_units").load_table()
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
-    sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]
+    sess = sess[(sess.day_stage == STAGE) & sess.reward_group.isin(["R+", "R-"])]
     if PILOT:
         sess = sess[sess.session_id.isin(PILOT)]
     done = set(pd.read_parquet(OUT_PATH, columns=["session_id"]).session_id) if OUT_PATH.exists() else set()

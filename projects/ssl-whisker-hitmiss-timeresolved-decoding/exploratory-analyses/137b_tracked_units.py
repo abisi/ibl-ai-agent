@@ -53,7 +53,7 @@ def main():
     S = pd.read_parquet(TU.table_path().with_name("137_stable_units.parquet"))
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
-    sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]
+    sess = sess[(sess.day_stage == TU.STAGE) & sess.reward_group.isin(["R+", "R-"])]
     S = S[S.session_id.isin(sess.session_id) & S.stable]
     args = [(sid, g.cluster_id.to_numpy()) for sid, g in S.groupby("session_id")]
     print(f"[137b] {len(args)} sessions", flush=True)

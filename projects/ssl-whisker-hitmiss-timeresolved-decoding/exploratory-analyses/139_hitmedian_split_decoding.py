@@ -45,7 +45,10 @@ N_REP_SINGLE = 5
 N_SHIFT, N_SUB_SHIFT = 20, 3
 MIN_SHIFT_FRAC, MAX_SHIFT_FRAC = 0.1, 0.5
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "40"))
-OUT_PATH = OUT_DIR / "139_hitmedian_split_whole_brain.parquet"
+# 2026-10-05: SSL_STAGE=expert runs the same analysis on expert sessions (control); outputs carry the suffix _expert
+STAGE = os.environ.get("SSL_STAGE", "learning")
+STAGE_SFX = "" if STAGE == "learning" else f"_{STAGE}"
+OUT_PATH = OUT_DIR / f"139_hitmedian_split_whole_brain{STAGE_SFX}.parquet"
 
 
 def _init():
@@ -230,7 +233,7 @@ def main():
     import ssl_timeresolved_decoding as T
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
-    sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]
+    sess = sess[(sess.day_stage == STAGE) & sess.reward_group.isin(["R+", "R-"])]
     lim = int(os.environ.get("SSL_139_LIMIT", "0"))
     if lim:
         sess = pd.concat([sess[sess.reward_group == c].head(lim) for c in ("R+", "R-")])

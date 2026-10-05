@@ -54,7 +54,10 @@ TAG = "" if MIN_CLASS == 5 else f"_min{MIN_CLASS}"
 # SSL_135_UNITSET=tracked: the shared Part III tracked stable units (tracked_units.py / 137b), no further rate filter.
 UNITSET = os.environ.get("SSL_135_UNITSET", "")
 TAG = TAG + (f"_{UNITSET}" if UNITSET else "")
-OUT_PATH = OUT / f"135_alignment_epochs{TAG}.parquet"
+# 2026-10-05: SSL_STAGE=expert runs the same analysis on expert sessions (control); outputs carry the suffix _expert
+STAGE = os.environ.get("SSL_STAGE", "learning")
+STAGE_SFX = "" if STAGE == "learning" else f"_{STAGE}"
+OUT_PATH = OUT / f"135_alignment_epochs{TAG}{STAGE_SFX}.parquet"
 SET_IDS = {}
 
 
@@ -282,7 +285,7 @@ def run():
     import ssl_timeresolved_decoding as T
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
-    sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]
+    sess = sess[(sess.day_stage == STAGE) & sess.reward_group.isin(["R+", "R-"])]
     done = set(pd.read_parquet(OUT_PATH, columns=["session_id"]).session_id) if OUT_PATH.exists() else set()
     if UNITSET == "tracked":
         sys.path.insert(0, SCRIPTS)

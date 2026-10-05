@@ -14,10 +14,15 @@ Table: combined_results_ks4/<slug>/tables/137b_tracked_units.parquet (built by 1
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 MIN_RATE = 0.5
-TABLE_NAME = "137b_tracked_units.parquet"
+# SSL_STAGE=expert: the same list for expert sessions (137b_tracked_units_expert.parquet), read by the scripts run with that stage
+STAGE = os.environ.get("SSL_STAGE", "learning")
+STAGE_SFX = "" if STAGE == "learning" else f"_{STAGE}"
+TABLE_NAME = f"137b_tracked_units{STAGE_SFX}.parquet"
 
 
 def table_path():

@@ -53,7 +53,10 @@ WIN, BASE, DZ = (0.005, 0.035), (-0.055, -0.020), (-0.010, 0.005)
 MIN_RATE, MIN_UNITS, MIN_CLASS = 0.5, 20, 4          # MIN_CLASS per class per half after matching (split into A/B of >= 2)
 N_SPLIT, K_PC = 50, 10
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "30"))
-OUT_PATH = OUT / "140_coding_direction_noise.parquet"
+# 2026-10-05: SSL_STAGE=expert runs the same analysis on expert sessions (control); outputs carry the suffix _expert
+STAGE = os.environ.get("SSL_STAGE", "learning")
+STAGE_SFX = "" if STAGE == "learning" else f"_{STAGE}"
+OUT_PATH = OUT / f"140_coding_direction_noise{STAGE_SFX}.parquet"
 
 
 def _init():
@@ -317,7 +320,7 @@ def main():
     stable_by_sid = importlib.import_module("tracked_units").load("stable")
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
-    sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]
+    sess = sess[(sess.day_stage == STAGE) & sess.reward_group.isin(["R+", "R-"])]
     done = set(pd.read_parquet(OUT_PATH, columns=["session_id"]).session_id) if OUT_PATH.exists() else set()
     args = [(r.session_id, r.subject_id, r.reward_group, {r.session_id: stable_by_sid.get(r.session_id, np.array([]))})
             for r in sess.itertuples() if r.session_id not in done]
