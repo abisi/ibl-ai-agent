@@ -1,7 +1,7 @@
 """154 -- COSYNE figure, positive results only (user 2026-10-05: "for cosyne, only positive results ... link it to the within-day-sl
 results"): within the learning session, the reward contingency remaps the whisker sensorimotor chain in opposite directions.
   a  schematic: session (passive pre -> active -> passive post), the two windows and the two axes
-  b  pre-lick (ssl-within-day-remapping 002, SL reference): whisker-hit (WH) minus spontaneous-lick (SL) projection on the session's
+  b  pre-lick (ssl-within-day-remapping 002 with SSL_MIN_WH=4, SL reference): whisker-hit (WH) minus spontaneous-lick (SL) projection on the session's
      reward-lick coding direction (SL = 0, auditory hit AH = 1), five bins of day-0 session time; expert sessions at the right
   c  pre-lick: per-session day-0 drift of WH relative to SL along that direction (slope WH - slope SL)
   d  stimulus onset (135, this project): raw cosine of the passive / active whisker-evoked pattern (5-35 ms) with the active lick axis
@@ -40,6 +40,8 @@ from axel_bisi_paths import axel_bisi_root  # noqa: E402
 COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
 WC, AC = "#f7b519", "#2c2cdb"
 WD = axel_bisi_root() / "combined_results_ks4" / "_within_day_sl"
+# within-day trial-level results with >= 4 whisker hits per session (user 2026-10-05; AH and SL keep >= 8; env override)
+WD_SLOPES = __import__("os").environ.get("SSL_154_WD_SLOPES", "slopes_wh4")
 EPL = ["passive\npre", "active\n1st", "active\n2nd", "passive\npost"]
 
 
@@ -192,8 +194,8 @@ def panel_f(ax, D, R):
 def main():
     scope = sys.argv[1] if len(sys.argv) > 1 else "all"
     H.setup()
-    TR = scope_filter(pd.read_csv(WD / "slopes" / "trial_slopes_trajectories.csv"), scope)
-    D2 = scope_filter(pd.read_csv(WD / "slopes" / "trial_slopes_sessions.csv"), scope)
+    TR = scope_filter(pd.read_csv(WD / WD_SLOPES / "trial_slopes_trajectories.csv"), scope)
+    D2 = scope_filter(pd.read_csv(WD / WD_SLOPES / "trial_slopes_sessions.csv"), scope)
     A = pd.read_parquet(EA / "135_alignment_epochs_tracked.parquet"); A = scope_filter(A[(A.area == "All units") & A.skipped_reason.isna()], scope)
     D = pd.read_parquet(EA / "146_choice_axis_readout.parquet")
     D = scope_filter(D[D.skipped_reason.isna() & (D.area == "whole_brain") & (D.unit_set == "stable") & (D.response == "epochbase")], scope)
@@ -233,7 +235,7 @@ def main():
            f"along their own pattern. R- mice receive more whisker and auditory trials in the same proportion; trial counts scale the "
            f"shrinkage but not the choice-axis change, which persists with counts as covariates and is absent for auditory responses. "
            f"Mean +- s.e.m. over sessions (one learning session per mouse); p: Mann-Whitney | Welch (cohorts), Wilcoxon | t (vs 0); "
-           f"uncorrected; {'all mice' if scope == 'all' else 'learners only'}. b, c: KS4 good + mua units; d-f: tracked, drift-checked units.")
+           f"uncorrected; {'all mice' if scope == 'all' else 'learners only'}. b, c: KS4 good + mua units, sessions with >= 4 whisker hits and >= 8 auditory hits and spontaneous licks; d-f: tracked, drift-checked units.")
     (EA / f"154_caption_{scope}.md").write_text(cap, encoding="utf-8")
     pd.set_option("display.width", 220)
     print(S.round(4).to_string(index=False)); print(cap)
