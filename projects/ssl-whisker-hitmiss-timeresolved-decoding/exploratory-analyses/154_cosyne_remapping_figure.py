@@ -102,7 +102,7 @@ def panel_b(ax, TR, R):
         ax.errorbar(1.14, e.mean(), e.sem(), fmt="o", ms=3.2, color=COL[c], capsize=0, lw=0.9, clip_on=False)
         R.append(dict(panel="b", measure="WH - SL on reward-lick CD", cohort=c, n=g.session_id.nunique(), mean_a=q["mean"].iloc[0],
                       mean_b=q["mean"].iloc[-1], p_nonparam=np.nan, p_param=np.nan, note=f"expert {e.mean():.3f} (n = {len(e)})"))
-    ax.text(1.14, 1.0, "expert", transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=4.6)
+    ax.text(1.14, -0.035, "expert", transform=ax.get_xaxis_transform(), ha="center", va="top", fontsize=4.6)
     ax.axhline(0, color="0.6", lw=0.4, ls=(0, (2, 2)))
     ax.set_xlim(0, 1.22); ax.set_xticks([0, 0.5, 1]); ax.set_xlabel("time in the learning session")
     ax.set_ylabel("WH - SL on reward-lick\ndirection (SL = 0, AH = 1)"); ax.legend(frameon=False, fontsize=4.6, loc="lower left")

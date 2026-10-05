@@ -1,5 +1,5 @@
 """Article-style report of the within-session (split) decoding work (skills/project-report).
-Reads the result tables, writes numbers.json and report.md (single source: Pandoc Markdown with LaTeX math), copies every
+Reads the result tables, writes numbers.json and report_full.md (single source: Pandoc Markdown with LaTeX math), copies every
 figure used into the self-contained report folder combined_results_ks4/<slug>/report/, and writes build.sh there.
 No number in the text is typed by hand: every quoted value comes from a table through num().
 Run (haas, repo root):  python projects/ssl-whisker-hitmiss-timeresolved-decoding/report/build_report.py
@@ -1653,14 +1653,17 @@ def sec_appendix() -> str:
 
 def build_sh() -> str:
     return """#!/usr/bin/env bash
-# Rebuild report.tex / report.pdf / report.html from report.md (needs Quarto with TinyTeX).
+# Rebuild the reports from Markdown (needs Quarto with TinyTeX): report_full (build_report.py) and report (main results, 155_deck_pptx.py).
 set -euo pipefail
 cd "$(dirname "$0")"
-quarto pandoc report.md -s -o report.tex
-latexmk -pdf -interaction=nonstopmode -quiet report.tex
-latexmk -c report.tex >/dev/null 2>&1 || true
-quarto pandoc report.md -s --embed-resources --mathjax -c report.css -o report.html --metadata pagetitle="Split decoding report"
-echo "built: report.pdf report.html"
+for r in report_full report; do
+  [ -f "$r.md" ] || continue
+  quarto pandoc "$r.md" -s -o "$r.tex"
+  latexmk -pdf -interaction=nonstopmode -quiet "$r.tex"
+  latexmk -c "$r.tex" >/dev/null 2>&1 || true
+  quarto pandoc "$r.md" -s --embed-resources --mathjax -c report.css -o "$r.html" --metadata pagetitle="Split decoding: $r"
+  echo "built: $r.pdf $r.html"
+done
 """
 
 
@@ -1681,7 +1684,7 @@ def main():
         if pdf.exists():
             shutil.copyfile(pdf, OUT / "figures" / pdf.name)
     md = md.replace("= < 0.001", "< 0.001")
-    (OUT / "report.md").write_text(md, encoding="utf-8")
+    (OUT / "report_full.md").write_text(md, encoding="utf-8")
     (OUT / "numbers.json").write_text(json.dumps(NUM, indent=1), encoding="utf-8")
     (OUT / "build.sh").write_text(build_sh(), encoding="utf-8", newline="\n")
     (OUT / "report.css").write_text(CSS, encoding="utf-8")
