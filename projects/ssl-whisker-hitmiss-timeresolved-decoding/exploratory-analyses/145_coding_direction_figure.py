@@ -122,6 +122,22 @@ def main():
     FIGDIR.mkdir(parents=True, exist_ok=True)
     for ext in ("png", "pdf", "svg"):
         fig.savefig(FIGDIR / f"145_coding_direction_{scope}.{ext}", dpi=300)
+    # supplementary: whisker- and auditory-evoked patterns vs the second-half coding direction, passive pre vs post
+    if "cosnorm_evokedW_passive_pre_2" in D:
+        fig2, axes = plt.subplots(2, 2, figsize=(4.6, 4.2))
+        fig2.subplots_adjust(left=0.16, right=0.98, top=0.86, bottom=0.1, hspace=0.6, wspace=0.45)
+        for i, (s, sl) in enumerate(SPLITS):
+            d = D[D.split == s]
+            for j, (key, kl) in enumerate((("W", "whisker-evoked"), ("A", "auditory-evoked"))):
+                ax = axes[i, j]
+                pair_panel(ax, d, f"cosnorm_evoked{key}_passive_pre_2", f"cosnorm_evoked{key}_passive_post_2", "pre", "post", rows,
+                           f"{kl} pattern vs CD half 2", s)
+                ax.set_title(f"{sl}: {kl}", fontsize=6, y=1.35)
+                if j == 0:
+                    ax.set_ylabel("alignment with the coding\ndirection (normalised cosine)")
+        fig2.suptitle("Passive evoked patterns vs the active hit / miss coding direction (2nd half); auditory = control", fontsize=6)
+        for ext in ("png", "pdf", "svg"):
+            fig2.savefig(FIGDIR / f"145_evoked_alignment_{scope}.{ext}", dpi=300)
     R = pd.DataFrame(rows); R.insert(0, "scope", scope)
     R.to_csv(EA / f"145_stats_{scope}.csv", index=False)
     pd.set_option("display.width", 220)

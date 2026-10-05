@@ -6,6 +6,12 @@ Sessions / trials: learning stage with passive trials before AND after the activ
 prep_modality_trials from the first whisker trial, perf != 6, A1-trimmed; passive = labelled passive whisker / auditory
 trials). Active trials with a lick before 35 ms are excluded. Epochs: passive_pre, active_1 / active_2 (chronological halves of
 the active trials), passive_post.
+Session selection (documented 2026-10-05): learning-stage sessions (one per mouse, R+ / R- from the mouse sheet) with passive
+trials before AND after the active block, >= 3 active whisker hits and >= 3 misses (after excluding licks before 35 ms; was 6),
+and >= 20 tracked units in the unit set (per area: >= 20). Skipped sessions and the reason are kept in the output.
+Response variants (whole brain): epochbase (rate minus the epoch-mean baseline, main), trialbase (minus the trial's own
+baseline), baseline (the -55..-20 ms baseline window alone: state without the sensory response).
+Controls stored per session: epoch durations, gaps between epochs, clock time, rewards collected, mean baseline rate per epoch.
 Units (skills/ssl-valid-data "Unit sets", 137 table): `stable` and `good` (= good AND stable), each restricted to units firing
 >= 0.5 Hz over the span of every epoch (tracked).
 Responses: rate (Hz) 5-35 ms after stimulus onset minus the unit's mean -55..-20 ms baseline within its epoch; z-scored per unit
@@ -44,7 +50,8 @@ SCRIPTS = str(OUT.parents[2] / "scripts")
 sys.path.insert(0, SCRIPTS)
 sys.path.insert(0, str(OUT))
 WIN, BASE, DZ = (0.005, 0.035), (-0.055, -0.020), (-0.010, 0.005)
-MIN_RATE, MIN_UNITS, MIN_CLASS = 0.5, 20, 6
+MIN_RATE, MIN_UNITS, MIN_CLASS = 0.5, 20, 3     # MIN_CLASS: >= 3 active whisker hits and >= 3 misses (user 2026-10-05; was 6)
+RESPONSES = ["epochbase", "trialbase", "baseline"]
 N_REP, K_FOLD, N_NULL = 20, 5, 20
 EP4 = ["passive_pre", "active_1", "active_2", "passive_post"]
 UNIT_SETS = ["stable", "good"]
@@ -156,97 +163,128 @@ def process(args):
                n_whisker_active=int(isw_a.sum()), n_hits=int(wl.sum()), n_misses=int((~wl).sum()),
                n_pre_w=int((pre.trial_type == "whisker_trial").sum()), n_pre_a=int((pre.trial_type == "auditory_trial").sum()),
                n_post_w=int((post.trial_type == "whisker_trial").sum()), n_post_a=int((post.trial_type == "auditory_trial").sum()))
+    # engagement / timing controls (session level)
+    act_all = trs["active"]
+    is_rew = lambda d: (d.lick_flag == 1) & ((d.trial_type == "auditory_trial") | ((d.trial_type == "whisker_trial") & (rg == "R+")))
+    ts = tt[tt.session_id == sid]
+    ts_act = ts[(ts.context.astype(str) != "passive") & (ts.perf != 6)]
+    srow = st[st.session_id == sid].iloc[0]
+    try:
+        t0c = pd.to_datetime(srow.session_start_time); clock_h = t0c.hour + t0c.minute / 60
+    except Exception:  # noqa: BLE001
+        clock_h = np.nan
+    a0, a1 = act_all.start_time.min(), act_all.start_time.max()
+    eng = dict(active_dur_min=(a1 - a0) / 60, pre_dur_min=(pre.start_time.max() - pre.start_time.min()) / 60,
+               post_dur_min=(post.start_time.max() - post.start_time.min()) / 60,
+               gap_pre_active_min=(a0 - pre.start_time.max()) / 60, gap_active_post_min=(post.start_time.min() - a1) / 60,
+               pre_to_post_min=(post.start_time.min() - pre.start_time.max()) / 60,
+               post_from_session_start_min=(post.start_time.min() - ts.start_time.min()) / 60, clock_start_h=clock_h,
+               n_rewards_active=int(is_rew(act_all).sum()), reward_rate_active_per_min=float(is_rew(act_all).sum() / max((a1 - a0) / 60, 1e-6)),
+               n_rewards_session=int(is_rew(ts_act).sum()),
+               n_rewards_whisker_active=int(((act_all.trial_type == "whisker_trial") & (act_all.lick_flag == 1) & (rg == "R+")).sum()),
+               n_rewards_auditory_active=int(((act_all.trial_type == "auditory_trial") & (act_all.lick_flag == 1)).sum()))
     rows = []
     for (uset, area), cands in sets.items():
         units = tracked(cands, spikes, segs)
-        row = dict(base, unit_set=uset, area=area, n_units=len(units), **beh)
+        row0 = dict(base, unit_set=uset, area=area, n_units=len(units), **beh, **eng)
         if len(units) < MIN_UNITS:
-            rows.append(dict(row, skipped_reason="too few tracked units")); continue
-        X = {}
+            rows.append(dict(row0, skipped_reason="too few tracked units")); continue
+        RB = {}
         for e, d in (("passive_pre", pre), ("active", act), ("passive_post", post)):
             t0 = d.start_time.to_numpy()
-            r, b = T.sliding_bin_population_matrices(spikes, units, t0, np.ones(len(t0), bool), [WIN, BASE], dead_zone=DZ)
-            X[e] = r - np.nanmean(b, 0, keepdims=True)
-        ok_u = np.all([~np.isnan(v).any(0) for v in X.values()], axis=0)
-        P = np.vstack([v[:, ok_u] for v in X.values()]); mu, sd = P.mean(0), P.std(0); keep = sd > 0
-        if keep.sum() < MIN_UNITS:
-            rows.append(dict(row, skipped_reason="too few units after cleaning")); continue
-        Z = {e: (v[:, ok_u][:, keep] - mu[keep]) / sd[keep] for e, v in X.items()}
-        E = {e: v[:, ok_u][:, keep] / sd[keep] for e, v in X.items()}
-        row["n_units"] = int(keep.sum())
-        rng = np.random.default_rng(zlib.crc32(f"146|{sid}|{uset}|{area}".encode()))
-        Zw, lick_w = Z["active"][isw_a], wl
-        C = T.select_fixed_c_pooled(Zw, lick_w, rng, n_folds=5)
-        others = {"passive_pre": Z["passive_pre"], "passive_post": Z["passive_post"], "active_aud": Z["active"][~isw_a]}
-        act_r, oth_r, bal = decoder_readout(Zw, lick_w, others, C, rng, T)
-        _, oth_n, _ = decoder_readout(Zw, lick_w, others, C, rng, T, shuffle=True)
-        row.update(decoder_bal_acc=bal, C=C)
-        # drift control: decoder trained on the FIRST active half only (cannot learn a late-session state); the second
-        # active half is scored as an unseen block like the passive epochs
-        h2w_ = half2[isw_a]
-        if min(lick_w[~h2w_].sum(), (~lick_w[~h2w_]).sum()) >= MIN_CLASS:
-            oth1 = dict(others, active_2W=Zw[h2w_])
-            _, o1, bal1 = decoder_readout(Zw[~h2w_], lick_w[~h2w_], oth1, C, rng, T)
-            row["decoder1_bal_acc"] = bal1
-            for e in ("passive_pre", "passive_post"):
-                w_ = (pre if e == "passive_pre" else post).trial_type.eq("whisker_trial").to_numpy()
-                row[f"ro_h1dec_{e}_W"] = float(np.nanmean(o1[e]["std"][w_]))
-                row[f"ro_h1dec_{e}_A"] = float(np.nanmean(o1[e]["std"][~w_]))
-            row["ro_h1dec_active_2_W"] = float(np.nanmean(o1["active_2W"]["std"]))
-        wi = {"passive_pre": (pre.trial_type == "whisker_trial").to_numpy(), "passive_post": (post.trial_type == "whisker_trial").to_numpy()}
-        h2w = half2[isw_a]; h2a = half2[~isw_a]
-        for key in ("anch", "std"):
-            for e in ("passive_pre", "passive_post"):
-                row[f"ro_{key}_{e}_W"] = float(np.nanmean(oth_r[e][key][wi[e]]))
-                row[f"ro_{key}_{e}_A"] = float(np.nanmean(oth_r[e][key][~wi[e]]))
-                if key == "std":
-                    row[f"null_std_{e}_W"] = float(np.nanmean(oth_n[e][key][wi[e]]))
-                    row[f"null_std_{e}_A"] = float(np.nanmean(oth_n[e][key][~wi[e]]))
-            for h, m in ((1, ~h2w), (2, h2w)):
-                row[f"ro_{key}_active_{h}_W"] = float(np.nanmean(act_r[key][m]))
-                row[f"ro_{key}_active_{h}_hit"] = float(np.nanmean(act_r[key][m & lick_w]))
-                row[f"ro_{key}_active_{h}_miss"] = float(np.nanmean(act_r[key][m & ~lick_w]))
-            for h, m in ((1, ~h2a), (2, h2a)):
-                row[f"ro_{key}_active_{h}_A"] = float(np.nanmean(oth_r["active_aud"][key][m]))
-        # 2 decomposition with the mean-difference axis
-        hits, miss = np.where(lick_w)[0], np.where(~lick_w)[0]
-        k = min(len(hits), len(miss))
-        Ew = E["active"][isw_a]; Ea = E["active"][~isw_a]
-        acc = {}
-        rel = []
-        for _ in range(N_REP):
-            ph, pm = rng.permutation(hits)[:k], rng.permutation(miss)[:k]
-            A_h, B_h, A_m, B_m = ph[: k // 2], ph[k // 2:], pm[: k // 2], pm[k // 2:]
-            cdA = Zw[A_h].mean(0) - Zw[A_m].mean(0); cdB = Zw[B_h].mean(0) - Zw[B_m].mean(0)
-            rel.append(cos(cdA, cdB)); u = unit(cdA)
-            notA = np.setdiff1d(np.arange(len(lick_w)), np.r_[A_h, A_m])
-            pats = {}
-            for e, d in (("passive_pre", pre), ("passive_post", post)):
-                pats[(e, "W")] = E[e][wi[e]].mean(0); pats[(e, "A")] = E[e][~wi[e]].mean(0)
+            RB[e] = T.sliding_bin_population_matrices(spikes, units, t0, np.ones(len(t0), bool), [WIN, BASE], dead_zone=DZ)
+        # state: mean baseline rate (Hz, -55..-20 ms) over units per epoch (active split in halves)
+        bm = {"passive_pre": np.nanmean(RB["passive_pre"][1]), "active_1": np.nanmean(RB["active"][1][~half2]),
+              "active_2": np.nanmean(RB["active"][1][half2]), "passive_post": np.nanmean(RB["passive_post"][1])}
+        row0.update({f"base_rate_{k}": float(v) for k, v in bm.items()})
+        for resp in (RESPONSES if area == "whole_brain" else RESPONSES[:1]):
+            row = dict(row0, response=resp)
+            if resp == "epochbase":      # 5-35 ms rate minus the unit's mean baseline rate in that epoch
+                X = {e: r - np.nanmean(b, 0, keepdims=True) for e, (r, b) in RB.items()}
+            elif resp == "trialbase":    # minus the same trial's own baseline rate
+                X = {e: r - b for e, (r, b) in RB.items()}
+            else:                        # baseline window alone (-55..-20 ms): state, no sensory response
+                X = {e: b.copy() for e, (r, b) in RB.items()}
+            ok_u = np.all([~np.isnan(v).any(0) for v in X.values()], axis=0)
+            P = np.vstack([v[:, ok_u] for v in X.values()]); mu, sd = P.mean(0), P.std(0); keep = sd > 0
+            if keep.sum() < MIN_UNITS:
+                rows.append(dict(row, skipped_reason="too few units after cleaning")); continue
+            Z = {e: (v[:, ok_u][:, keep] - mu[keep]) / sd[keep] for e, v in X.items()}
+            E = {e: (v[:, ok_u][:, keep] - (mu[keep] if resp == "baseline" else 0)) / sd[keep] for e, v in X.items()}
+            row["n_units"] = int(keep.sum())
+            rng = np.random.default_rng(zlib.crc32(f"146|{sid}|{uset}|{area}|{resp}".encode()))
+            Zw, lick_w = Z["active"][isw_a], wl
+            C = T.select_fixed_c_pooled(Zw, lick_w, rng, n_folds=5)
+            others = {"passive_pre": Z["passive_pre"], "passive_post": Z["passive_post"], "active_aud": Z["active"][~isw_a]}
+            act_r, oth_r, bal = decoder_readout(Zw, lick_w, others, C, rng, T)
+            _, oth_n, _ = decoder_readout(Zw, lick_w, others, C, rng, T, shuffle=True)
+            row.update(decoder_bal_acc=bal, C=C)
+            # drift control: decoder trained on the FIRST active half only (cannot learn a late-session state); the second
+            # active half is scored as an unseen block like the passive epochs
+            h2w_ = half2[isw_a]
+            if min(lick_w[~h2w_].sum(), (~lick_w[~h2w_]).sum()) >= MIN_CLASS:
+                oth1 = dict(others, active_2W=Zw[h2w_])
+                _, o1, bal1 = decoder_readout(Zw[~h2w_], lick_w[~h2w_], oth1, C, rng, T)
+                row["decoder1_bal_acc"] = bal1
+                for e in ("passive_pre", "passive_post"):
+                    w_ = (pre if e == "passive_pre" else post).trial_type.eq("whisker_trial").to_numpy()
+                    row[f"ro_h1dec_{e}_W"] = float(np.nanmean(o1[e]["std"][w_]))
+                    row[f"ro_h1dec_{e}_A"] = float(np.nanmean(o1[e]["std"][~w_]))
+                row["ro_h1dec_active_2_W"] = float(np.nanmean(o1["active_2W"]["std"]))
+            wi = {"passive_pre": (pre.trial_type == "whisker_trial").to_numpy(), "passive_post": (post.trial_type == "whisker_trial").to_numpy()}
+            h2w = half2[isw_a]; h2a = half2[~isw_a]
+            for key in ("anch", "std"):
+                for e in ("passive_pre", "passive_post"):
+                    row[f"ro_{key}_{e}_W"] = float(np.nanmean(oth_r[e][key][wi[e]]))
+                    row[f"ro_{key}_{e}_A"] = float(np.nanmean(oth_r[e][key][~wi[e]]))
+                    if key == "std":
+                        row[f"null_std_{e}_W"] = float(np.nanmean(oth_n[e][key][wi[e]]))
+                        row[f"null_std_{e}_A"] = float(np.nanmean(oth_n[e][key][~wi[e]]))
+                for h, m in ((1, ~h2w), (2, h2w)):
+                    row[f"ro_{key}_active_{h}_W"] = float(np.nanmean(act_r[key][m]))
+                    row[f"ro_{key}_active_{h}_hit"] = float(np.nanmean(act_r[key][m & lick_w]))
+                    row[f"ro_{key}_active_{h}_miss"] = float(np.nanmean(act_r[key][m & ~lick_w]))
+                for h, m in ((1, ~h2a), (2, h2a)):
+                    row[f"ro_{key}_active_{h}_A"] = float(np.nanmean(oth_r["active_aud"][key][m]))
+            # 2 decomposition with the mean-difference axis
+            hits, miss = np.where(lick_w)[0], np.where(~lick_w)[0]
+            k = min(len(hits), len(miss))
+            Ew = E["active"][isw_a]; Ea = E["active"][~isw_a]
+            acc = {}
+            rel = []
+            for _ in range(N_REP):
+                ph, pm = rng.permutation(hits)[:k], rng.permutation(miss)[:k]
+                A_h, B_h, A_m, B_m = ph[: k // 2], ph[k // 2:], pm[: k // 2], pm[k // 2:]
+                cdA = Zw[A_h].mean(0) - Zw[A_m].mean(0); cdB = Zw[B_h].mean(0) - Zw[B_m].mean(0)
+                rel.append(cos(cdA, cdB)); u = unit(cdA)
+                notA = np.setdiff1d(np.arange(len(lick_w)), np.r_[A_h, A_m])
+                pats = {}
+                for e, d in (("passive_pre", pre), ("passive_post", post)):
+                    pats[(e, "W")] = E[e][wi[e]].mean(0); pats[(e, "A")] = E[e][~wi[e]].mean(0)
+                for h, mW, mA in ((1, ~h2w, ~h2a), (2, h2w, h2a)):
+                    nw = notA[mW[notA]]
+                    pats[(f"active_{h}", "W")] = Ew[nw].mean(0) if len(nw) else np.full(Ew.shape[1], np.nan)
+                    pats[(f"active_{h}", "A")] = Ea[mA].mean(0) if mA.any() else np.full(Ea.shape[1], np.nan)
+                for (e, s), p in pats.items():
+                    for name, val in (("size", np.linalg.norm(p) / np.sqrt(len(p))), ("cos", cos(p, cdA)), ("proj", float(p @ u))):
+                        acc.setdefault(f"{name}_{e}_{s}", []).append(val)
+            row["cd_reliability"] = float(np.nanmean(rel))
+            for kk, v in acc.items():
+                row[kk] = float(np.nanmean(v))
+            # 3 state space: plane of unit(CD all) and passive-pre whisker pattern orthogonalised
+            u1 = unit(Zw[lick_w].mean(0) - Zw[~lick_w].mean(0))
+            w0 = E["passive_pre"][wi["passive_pre"]].mean(0); w0 = w0 - (w0 @ u1) * u1; u2 = unit(w0)
+            # variant y-axis: passive-pre whisker - auditory axis (stimulus identity), orthogonalised to the choice axis
+            v0 = E["passive_pre"][wi["passive_pre"]].mean(0) - E["passive_pre"][~wi["passive_pre"]].mean(0)
+            v0 = v0 - (v0 @ u1) * u1; u3 = unit(v0)
+            conds = {"pre_W": E["passive_pre"][wi["passive_pre"]], "pre_A": E["passive_pre"][~wi["passive_pre"]],
+                     "post_W": E["passive_post"][wi["passive_post"]], "post_A": E["passive_post"][~wi["passive_post"]]}
             for h, mW, mA in ((1, ~h2w, ~h2a), (2, h2w, h2a)):
-                nw = notA[mW[notA]]
-                pats[(f"active_{h}", "W")] = Ew[nw].mean(0) if len(nw) else np.full(Ew.shape[1], np.nan)
-                pats[(f"active_{h}", "A")] = Ea[mA].mean(0) if mA.any() else np.full(Ea.shape[1], np.nan)
-            for (e, s), p in pats.items():
-                for name, val in (("size", np.linalg.norm(p) / np.sqrt(len(p))), ("cos", cos(p, cdA)), ("proj", float(p @ u))):
-                    acc.setdefault(f"{name}_{e}_{s}", []).append(val)
-        row["cd_reliability"] = float(np.nanmean(rel))
-        for kk, v in acc.items():
-            row[kk] = float(np.nanmean(v))
-        # 3 state space: plane of unit(CD all) and passive-pre whisker pattern orthogonalised
-        u1 = unit(Zw[lick_w].mean(0) - Zw[~lick_w].mean(0))
-        w0 = E["passive_pre"][wi["passive_pre"]].mean(0); w0 = w0 - (w0 @ u1) * u1; u2 = unit(w0)
-        # variant y-axis: passive-pre whisker - auditory axis (stimulus identity), orthogonalised to the choice axis
-        v0 = E["passive_pre"][wi["passive_pre"]].mean(0) - E["passive_pre"][~wi["passive_pre"]].mean(0)
-        v0 = v0 - (v0 @ u1) * u1; u3 = unit(v0)
-        conds = {"pre_W": E["passive_pre"][wi["passive_pre"]], "pre_A": E["passive_pre"][~wi["passive_pre"]],
-                 "post_W": E["passive_post"][wi["passive_post"]], "post_A": E["passive_post"][~wi["passive_post"]]}
-        for h, mW, mA in ((1, ~h2w, ~h2a), (2, h2w, h2a)):
-            conds[f"act{h}_hit"] = Ew[mW & lick_w]; conds[f"act{h}_miss"] = Ew[mW & ~lick_w]; conds[f"act{h}_A"] = Ea[mA]
-        for cname, M in conds.items():
-            m = M.mean(0) if len(M) else np.full(len(u1), np.nan)
-            row[f"ss_{cname}_x"], row[f"ss_{cname}_y"], row[f"ss2_{cname}_y"] = float(m @ u1), float(m @ u2), float(m @ u3)
-        rows.append(dict(row, skipped_reason=None))
+                conds[f"act{h}_hit"] = Ew[mW & lick_w]; conds[f"act{h}_miss"] = Ew[mW & ~lick_w]; conds[f"act{h}_A"] = Ea[mA]
+            for cname, M in conds.items():
+                m = M.mean(0) if len(M) else np.full(len(u1), np.nan)
+                row[f"ss_{cname}_x"], row[f"ss_{cname}_y"], row[f"ss2_{cname}_y"] = float(m @ u1), float(m @ u2), float(m @ u3)
+            rows.append(dict(row, skipped_reason=None))
     return rows
 
 

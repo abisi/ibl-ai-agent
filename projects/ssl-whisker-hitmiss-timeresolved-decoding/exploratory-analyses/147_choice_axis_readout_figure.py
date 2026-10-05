@@ -59,17 +59,128 @@ def epoch_lines(ax, d, cols, ls="-", marker="o", faint=True, rows=None, tag=""):
     return None
 
 
+def strip_panel(ax, d, col, label, rows, tag):
+    v = {}
+    for k, c in enumerate(COH):
+        v[c] = d[d.reward_group == c][col].to_numpy(float)
+        x = k + np.random.default_rng(k).uniform(-0.12, 0.12, len(v[c]))
+        ax.plot(x, v[c], "o", ms=1.8, color=COL[c], alpha=0.35, mew=0)
+        ax.errorbar(k, np.nanmean(v[c]), H.sem(v[c]), fmt="o", ms=3.6, color=COL[c], lw=1.1, capsize=0)
+    mw, we = H.unpaired(v["R+"], v["R-"])
+    rows.append(dict(measure=tag, test="R+ vs R- (Mann-Whitney | Welch)", cohort="R+ vs R-", n=sum(np.isfinite(x_).sum() for x_ in v.values()),
+                     mean_a=np.nanmean(v["R+"]), mean_b=np.nanmean(v["R-"]), p_nonparam=mw, p_param=we))
+    ax.set_xticks([0, 1]); ax.set_xticklabels(["R+", "R-"]); ax.set_xlim(-0.6, 1.6)
+    ax.set_ylabel(label, fontsize=5.5); ax.set_title(f"{H.pnum(mw)} | {H.pnum(we)}", fontsize=5.5)
+
+
+def controls_figure(dv):
+    """state / engagement controls (stable units, whole brain): timing, rewards, baseline rate, response variants,
+    behaviour link and a covariate model of the post - pre whisker readout change"""
+    import statsmodels.formula.api as smf
+    rows = []
+    e = dv[dv.response == "epochbase"].copy()
+    fig = plt.figure(figsize=(7.4, 8.4))
+    W, Hh = fig.get_size_inches()
+    eng = [("active_dur_min", "active epoch (min)"), ("pre_to_post_min", "passive pre -> post (min)"),
+           ("gap_pre_active_min", "gap pre -> active (min)"), ("gap_active_post_min", "gap active -> post (min)"),
+           ("clock_start_h", "session start (h of day)"), ("n_rewards_active", "rewards, active epoch"),
+           ("reward_rate_active_per_min", "rewards per min (active)"), ("n_rewards_session", "rewards, whole session")]
+    for i, (col, lab) in enumerate(eng):
+        ax = fig.add_axes([0.07 + i * 0.12, 0.8, 0.075, 0.13])
+        strip_panel(ax, e, col, lab, rows, col)
+    fig.text(0.07 - 0.4 / W, 0.96, "a  timing and rewards (one point per session)", fontsize=7, weight="bold")
+    # b baseline rate per epoch, post - pre
+    ax = fig.add_axes([0.07, 0.56, 0.2, 0.15])
+    bc = ["base_rate_passive_pre", "base_rate_active_1", "base_rate_active_2", "base_rate_passive_post"]
+    mb = epoch_lines(ax, e, bc, rows=rows, tag="mean baseline rate (Hz)")
+    ax.set_xticks(range(4)); ax.set_xticklabels(EPL, fontsize=5); ax.set_ylabel("mean baseline rate (Hz)\n(-55 to -20 ms, tracked units)")
+    ax.set_title(f"b  baseline rate; post - pre R+ vs R-: {H.pnum(mb[0])} | {H.pnum(mb[1])}", fontsize=5.5)
+    # c-e readout of whisker / auditory per response variant
+    for j, (resp, lab) in enumerate((("epochbase", "c  5-35 ms, epoch baseline (main)"), ("trialbase", "d  5-35 ms, per-trial baseline"),
+                                     ("baseline", "e  baseline window alone (-55 to -20 ms)"))):
+        ax = fig.add_axes([0.35 + j * 0.22, 0.56, 0.17, 0.15])
+        g = dv[dv.response == resp]
+        if not len(g):
+            continue
+        m_ = epoch_lines(ax, g, [f"ro_std_{x}_W" for x in EP], rows=rows, tag=f"readout whisker [{resp}]")
+        epoch_lines(ax, g, [f"ro_std_{x}_A" for x in EP], "--", faint=False, rows=rows, tag=f"readout auditory [{resp}]")
+        for x in EP:
+            g = g.assign(**{f"wa_{x}": g[f"ro_std_{x}_W"] - g[f"ro_std_{x}_A"]})
+        wa = {c: (g[g.reward_group == c]["wa_passive_post"] - g[g.reward_group == c]["wa_passive_pre"]).to_numpy(float) for c in COH}
+        mwa, wea = H.unpaired(wa["R+"], wa["R-"])
+        rows.append(dict(measure=f"readout whisker - auditory [{resp}]", test="post - pre, R+ vs R- (Mann-Whitney | Welch)", cohort="R+ vs R-",
+                         n=np.nan, mean_a=np.nanmean(wa["R+"]), mean_b=np.nanmean(wa["R-"]), p_nonparam=mwa, p_param=wea))
+        ax.axhline(0, color="0.5", lw=0.5, ls=(0, (2, 2)))
+        ax.set_xticks(range(4)); ax.set_xticklabels(EPL, fontsize=4.8)
+        ax.set_title(f"{lab}\nwhisker: {H.pnum(m_[0])} | {H.pnum(m_[1])}; W - A: {H.pnum(mwa)} | {H.pnum(wea)}", fontsize=5.2)
+        if j == 0:
+            ax.set_ylabel("choice readout (SD units)")
+    # f-h behaviour link and covariates: post - pre whisker readout change vs hit-rate change, baseline-rate change, pre -> post time
+    e["d_ro"] = e.ro_std_passive_post_W - e.ro_std_passive_pre_W
+    e["d_hit"] = e.hit_rate_2 - e.hit_rate_1
+    e["d_base"] = e.base_rate_passive_post - e.base_rate_passive_pre
+    for j, (col, lab) in enumerate((("d_hit", "whisker hit rate, 2nd - 1st active half"), ("d_base", "baseline rate change, post - pre (Hz)"),
+                                    ("pre_to_post_min", "passive pre -> post (min)"))):
+        ax = fig.add_axes([0.07 + j * 0.33, 0.3, 0.24, 0.17])
+        for c in COH:
+            g = e[e.reward_group == c].dropna(subset=[col, "d_ro"])
+            x, y = g[col].to_numpy(float), g.d_ro.to_numpy(float)
+            ax.plot(x, y, "o", ms=2.6, color=COL[c], alpha=0.7, mew=0)
+            if len(x) > 3:
+                from scipy import stats
+                lr = stats.linregress(x, y); rs = stats.spearmanr(x, y)
+                xx = np.linspace(np.nanmin(x), np.nanmax(x), 50); yy = lr.intercept + lr.slope * xx
+                n = len(x); res = y - (lr.intercept + lr.slope * x); s = np.sqrt(np.sum(res ** 2) / (n - 2))
+                se = s * np.sqrt(1 / n + (xx - x.mean()) ** 2 / np.sum((x - x.mean()) ** 2)); tq = stats.t.ppf(0.975, n - 2)
+                ax.fill_between(xx, yy - tq * se, yy + tq * se, color=COL[c], alpha=0.15, lw=0, edgecolor="none")
+                ax.plot(xx, yy, color=COL[c], lw=1, ls="-" if lr.pvalue < 0.05 else "--")
+                rows.append(dict(measure=f"whisker readout change vs {col}", test="Pearson | Spearman", cohort=c, n=n, mean_a=lr.rvalue,
+                                 mean_b=rs.correlation, p_nonparam=rs.pvalue, p_param=lr.pvalue))
+                ax.text(0.02, 0.97 - 0.09 * COH.index(c), f"{c}: r = {lr.rvalue:+.2f} (p {H.pnum(lr.pvalue)}), rho = {rs.correlation:+.2f} (p {H.pnum(rs.pvalue)})",
+                        transform=ax.transAxes, fontsize=4.8, color=COL[c], va="top")
+        ax.axhline(0, color="0.7", lw=0.4); ax.set_xlabel(lab)
+        if j == 0:
+            ax.set_ylabel("whisker choice readout\npost - pre (SD units)")
+    fig.text(0.07 - 0.4 / W, 0.49, "f-h  behaviour link and covariates (line solid if p < 0.05; 95 % CI band)", fontsize=6.5, weight="bold")
+    # covariate model
+    m = e.dropna(subset=["d_ro", "d_base", "pre_to_post_min", "reward_rate_active_per_min"]).copy()
+    m["R_minus"] = (m.reward_group == "R-").astype(float)
+    txt = []
+    for form in ("d_ro ~ R_minus", "d_ro ~ R_minus + d_base + pre_to_post_min", "d_ro ~ R_minus + d_base + pre_to_post_min + reward_rate_active_per_min"):
+        fit = smf.ols(form, data=m).fit()
+        rows.append(dict(measure="whisker readout change, OLS", test=form, cohort="R- coefficient", n=int(fit.nobs), mean_a=fit.params["R_minus"],
+                         mean_b=np.nan, p_nonparam=np.nan, p_param=fit.pvalues["R_minus"]))
+        txt.append(f"{form}:  R- coefficient {fit.params['R_minus']:+.3f}, p = {fit.pvalues['R_minus']:.3f} (n = {int(fit.nobs)})")
+    ax = fig.add_axes([0.07, 0.05, 0.9, 0.15]); ax.axis("off")
+    ax.text(0, 1, "i  covariate models of the post - pre whisker readout change (OLS; d_base = baseline-rate change, Hz):\n" + "\n".join(txt),
+            va="top", fontsize=6, transform=ax.transAxes, family="monospace")
+    fig.suptitle("State and engagement controls for the choice-axis readout (stable units, whole brain, all mice)", fontsize=6.8, y=0.995)
+    for ext in ("png", "pdf", "svg"):
+        fig.savefig(FIGDIR / f"147_controls.{ext}", dpi=300)
+    plt.close(fig)
+    R = pd.DataFrame(rows); R.insert(0, "unit_set", "stable"); R.insert(0, "scope", "all controls")
+    return R
+
+
 def main():
     pilot = len(sys.argv) > 1 and sys.argv[1] == "pilot"
     H.setup()
     D = pd.read_parquet(EA / ("146_choice_axis_readout_pilot.parquet" if pilot else "146_choice_axis_readout.parquet"))
     D = D[D.skipped_reason.isna()]
     DA = D.copy()
+    if "response" in DA:
+        DA = DA[DA.response == "epochbase"]
     if "area" in D:
         D = D[D.area == "whole_brain"]
+    DV = D.copy()                                   # whole brain, every response variant (controls figure)
+    if "response" in D:
+        D = D[D.response == "epochbase"]
+    L = H.learners()
     allrows = []
-    for uset in ("stable", "good"):
+    for scope, uset in [(s, u) for s in ("all", "learners") for u in ("stable", "good")]:
         d = D[D.unit_set == uset].copy()
+        if scope == "learners":
+            d = d[d.mouse_id.isin(L) | H.mouse_of(d).isin(L)]
         rows = []
         fig = plt.figure(figsize=(7.4, 6.4))
         W, Hh = fig.get_size_inches()
@@ -157,13 +268,13 @@ def main():
         ax.set_xticks([0, 1]); ax.set_xticklabels(["decoder\nbal. acc.", "axis\nreliability"], fontsize=5); ax.set_xlim(-0.5, 1.5)
         ax.axhline(0.5, color="0.7", lw=0.4); ax.set_title("decoder quality", fontsize=5.5)
         fig.text(0.07 - 0.4 / W, 0.95, "a", fontsize=9, weight="bold")
-        fig.suptitle(f"Choice-axis readout of 5-35 ms sensory responses, {uset} units{' (PILOT, n small)' if pilot else ''}", fontsize=6.5, y=0.995)
-        name = f"147_choice_axis_readout_{uset}{'_pilot' if pilot else ''}"
+        fig.suptitle(f"Choice-axis readout of 5-35 ms sensory responses, {uset} units, {'learners only' if scope == 'learners' else 'all mice'}{' (PILOT, n small)' if pilot else ''}", fontsize=6.5, y=0.995)
+        name = f"147_choice_axis_readout_{uset}{'_learners' if scope == 'learners' else ''}{'_pilot' if pilot else ''}"
         FIGDIR.mkdir(parents=True, exist_ok=True)
         for ext in ("png", "pdf", "svg"):
             fig.savefig(FIGDIR / f"{name}.{ext}", dpi=300)
         plt.close(fig)
-        R = pd.DataFrame(rows); R.insert(0, "unit_set", uset); allrows.append(R)
+        R = pd.DataFrame(rows); R.insert(0, "unit_set", uset); R.insert(0, "scope", scope); allrows.append(R)
     # area groups: post - pre change of the whisker readout and of whisker - auditory, per cohort (stable units)
     if "area" in DA and DA.area.nunique() > 1:
         a = DA[(DA.unit_set == "stable") & (DA.area != "whole_brain")].copy()
@@ -218,6 +329,8 @@ def main():
         for ext in ("png", "pdf", "svg"):
             fig.savefig(FIGDIR / f"147_state_space_whisker_auditory_axis{'_pilot' if pilot else ''}.{ext}", dpi=300)
         plt.close(fig)
+    if "response" in DV and not pilot:
+        allrows.append(controls_figure(DV[DV.unit_set == "stable"].copy()))
     S = pd.concat(allrows)
     S.to_csv(EA / f"147_stats{'_pilot' if pilot else ''}.csv", index=False)
     pd.set_option("display.width", 220)

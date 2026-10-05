@@ -280,14 +280,15 @@ def key_new() -> str:
                    f"cohort difference p = {pv('k9_c', c.p_nonparam)} | {pv('k9_cw', c.p_param)}.")
     p = EA / "147_stats.csv"
     if p.exists():
-        d = pd.read_csv(p); x = d[d.unit_set == "stable"]
+        d = pd.read_csv(p); x = d[(d.unit_set == "stable") & (d.scope == "all")] if "scope" in d else d[d.unit_set == "stable"]
         r = _r(x, measure="readout whisker", cohort="R-"); c = _r(x, measure="readout whisker", cohort="R+ vs R-")
         cs = _r(x, measure="cos whisker", cohort="R+ vs R-"); h1 = _r(x, measure="readout whisker, decoder from active half 1", cohort="R+ vs R-")
         out.append(f"10. **After the task, R- passive whisker responses read out as miss-like on the active choice decoder.** Stable "
                    f"units: R- {num('k10_a', r.mean_a, '{:+.2f}')} -> {num('k10_b', r.mean_b, '{:+.2f}')} SD from passive pre to post "
                    f"(p = {pv('k10_pw', r.p_nonparam)} | {pv('k10_pt', r.p_param)}), R+ vs R- p = {pv('k10_mw', c.p_nonparam)} | {pv('k10_w', c.p_param)}; "
-                   f"driven by a lower cosine with the choice axis (cohort p = {pv('k10_cs', cs.p_nonparam)} | {pv('k10_csw', cs.p_param)}) and "
-                   f"preserved with a decoder trained on the first active half (p = {pv('k10_h1', h1.p_nonparam)} | {pv('k10_h1w', h1.p_param)}).")
+                   f"with a lower cosine with the choice axis (cohort p = {pv('k10_cs', cs.p_nonparam)} | {pv('k10_csw', cs.p_param)}) and "
+                   f"weaker with a decoder trained on the first active half (p = {pv('k10_h1', h1.p_nonparam)} | {pv('k10_h1w', h1.p_param)}); "
+                   f"part of the change is pre-stimulus state (III.4).")
     return "\n".join(out)
 
 
@@ -555,7 +556,10 @@ for $T$ trials per class and $N = 10$ dimensions: $\mathrm{FI} = \Delta\mu^\top 
 
 ## Choice-axis readout of sensory responses (146)
 
-Sessions with passive trials before and after the active block; tracked stable (or good) units, whole brain and area groups
+Session selection: learning-stage sessions (one per mouse; cohort from the mouse sheet) with passive trials before AND after
+the active block, at least 3 active whisker hits and 3 misses after excluding licks before 35 ms (lowered from 6 on 2026-10-05),
+and at least 20 tracked units; every skipped session is listed with its reason in the output table. Tracked stable (or good)
+units, whole brain and area groups
 ($\geq 20$ units); responses 5-35 ms as above; epochs passive pre, active 1st and 2nd half (chronological), passive post; active
 trials with a lick before 35 ms excluded. A hit vs miss decoder (L2 logistic regression) is trained on active whisker trials
 (20 repetitions of a balanced subsample, 5-fold cross-validation); every trial is scored only by models that never trained on
@@ -565,6 +569,16 @@ a decoder trained on the first active half only (cannot learn the late-session s
 Decomposition with the mean-difference coding direction (unit length, from a random half of the balanced hits / misses, the
 evoked patterns from other trials): size = $\lVert p \rVert / \sqrt{n}$, cosine $\cos(p, \mathrm{CD})$ and projection per unit
 $p \cdot \widehat{\mathrm{CD}} / \sqrt{n}$ (= size $\times$ cosine).
+
+*State and engagement controls.* The whole analysis is repeated with three response definitions: the 5-35 ms rate minus the
+unit's mean baseline in that epoch (main), minus the same trial's own baseline (removes trial-to-trial pre-stimulus state),
+and the -55 to -20 ms baseline window alone (state without any sensory response; it is identical for whisker and auditory
+trials up to noise, so a state effect shows up for both stimuli and not in their difference). Per session, the active-epoch
+duration, the gaps between epochs, the clock time of the session start, the rewards collected (count and rate) and the mean
+baseline firing rate per epoch are compared between cohorts, and the post - pre change of the whisker readout is regressed on
+cohort with the baseline-rate change, the pre -> post time and the reward rate as covariates (OLS). Behaviour link: the readout
+change against the change in whisker hit rate between the active halves.
+
 ## Statistics
 
 Unit of analysis: mouse (one learning session per mouse). Within cohort: Wilcoxon signed-rank and one-sample $t$ test
@@ -929,7 +943,7 @@ def txt147() -> str:
     d = pd.read_csv(p)
     out = []
     for us in ("stable", "good"):
-        x = d[d.unit_set == us]
+        x = d[(d.unit_set == us) & (d.scope == "all")] if "scope" in d else d[d.unit_set == us]
         g = lambda m, c: _r(x, measure=m, cohort=c)
         rw = {c: g("readout whisker", c) for c in ("R+", "R-")}; rwc = g("readout whisker", "R+ vs R-")
         wa = g("readout whisker - auditory", "R+ vs R-")
@@ -952,9 +966,67 @@ def txt147() -> str:
             f"({num(f'o147_{k}_csp_a', cs['R+'].mean_a, '{:.2f}')} -> {num(f'o147_{k}_csp_b', cs['R+'].mean_b, '{:.2f}')}); cohort p = {pv(f'o147_{k}_csc_mw', csc.p_nonparam)} | "
             f"{pv(f'o147_{k}_csc_w', csc.p_param)}; projection p = {pv(f'o147_{k}_pj_mw', pj.p_nonparam)} | {pv(f'o147_{k}_pj_w', pj.p_param)}; response size "
             f"p = {pv(f'o147_{k}_sz_mw', sz.p_nonparam)} | {pv(f'o147_{k}_sz_w', sz.p_param)}.")
-    return (" ".join(out) + " After the task, the R- passive whisker response therefore reads out as miss-like on the choice decoder and "
-            "points away from the choice axis, with little change in its size; this does not happen in R+, is not shared by the "
-            "auditory response, survives a decoder that never saw the late session, and is absent with shuffled labels.")
+    return (" ".join(out) + " The cosine with the choice axis carries the most robust cohort difference; the plain readout and the "
+            "first-half decoder are weaker, and part of the readout change is pre-stimulus state (III.4). Shuffled labels give "
+            "readouts near 0.")
+
+
+def txt147c() -> str:
+    p = EA / "147_stats.csv"
+    if not p.exists():
+        return ""
+    d = pd.read_csv(p)
+    c = d[d.scope == "all controls"] if "scope" in d else d.iloc[:0]
+    if not len(c):
+        return ""
+    g = lambda m, coh="R+ vs R-": _r(c, measure=m, cohort=coh)
+    ad, pp, rw = g("active_dur_min"), g("pre_to_post_min"), g("n_rewards_active")
+    bw = {k: g(f"readout whisker [{k}]") for k in ("epochbase", "trialbase", "baseline")}
+    wa = {k: g(f"readout whisker - auditory [{k}]") for k in ("epochbase", "trialbase", "baseline")}
+    ba = g("readout auditory [baseline]"); br = g("mean baseline rate (Hz)")
+    hit = _r(c, measure="whisker readout change vs d_hit", cohort="R-"); hitp = _r(c, measure="whisker readout change vs d_hit", cohort="R+")
+    ols = c[c.measure == "whisker readout change, OLS"].reset_index(drop=True)
+    L = d[(d.scope == "learners") & (d.unit_set == "stable") & (d.cohort == "R+ vs R-")] if "scope" in d else d.iloc[:0]
+    lc = _r(L, measure="cos whisker") if len(L) else None
+    s = (f"Timing and rewards differ between cohorts: R- active epochs were longer ({num('o147c_ad_rp', ad.mean_a, '{:.0f}')} vs "
+         f"{num('o147c_ad_rm', ad.mean_b, '{:.0f}')} min in R+ and R-, p = {pv('o147c_ad_p', ad.p_nonparam)} | {pv('o147c_ad_w', ad.p_param)}), so "
+         f"passive post came later after passive pre ({num('o147c_pp_rp', pp.mean_a, '{:.0f}')} vs {num('o147c_pp_rm', pp.mean_b, '{:.0f}')} min, "
+         f"p = {pv('o147c_pp_p', pp.p_nonparam)} | {pv('o147c_pp_w', pp.p_param)}), and R- mice collected fewer rewards in the active epoch "
+         f"({num('o147c_rw_rp', rw.mean_a, '{:.0f}')} vs {num('o147c_rw_rm', rw.mean_b, '{:.0f}')}, p = {pv('o147c_rw_p', rw.p_nonparam)}), as the task "
+         f"design implies (R- licks are rewarded only on auditory trials). The mean baseline firing rate rose from passive pre to "
+         f"post in both cohorts, by the same amount (cohort p = {pv('o147c_br_p', br.p_nonparam)} | {pv('o147c_br_w', br.p_param)}). "
+         f"A decoder trained on the baseline window alone (-55 to -20 ms) also read passive post as miss-like, more in R- than R+ "
+         f"(whisker trials p = {pv('o147c_bw_p', bw['baseline'].p_nonparam)} | {pv('o147c_bw_w', bw['baseline'].p_param)}, auditory trials "
+         f"p = {pv('o147c_ba_p', ba.p_nonparam)} | {pv('o147c_ba_w', ba.p_param)}), but equally for both stimuli (whisker - auditory p = "
+         f"{pv('o147c_wab_p', wa['baseline'].p_nonparam)} | {pv('o147c_wab_w', wa['baseline'].p_param)}): part of the readout change is a "
+         f"pre-stimulus state shift, larger in R-. The whisker-specific part remained with per-trial baseline subtraction (whisker "
+         f"p = {pv('o147c_bwt_p', bw['trialbase'].p_nonparam)} | {pv('o147c_bwt_w', bw['trialbase'].p_param)}; whisker - auditory p = "
+         f"{pv('o147c_wat_p', wa['trialbase'].p_nonparam)} | {pv('o147c_wat_w', wa['trialbase'].p_param)}) and with the epoch baseline (whisker - "
+         f"auditory p = {pv('o147c_wae_p', wa['epochbase'].p_nonparam)} | {pv('o147c_wae_w', wa['epochbase'].p_param)}). In R-, the readout change "
+         f"tracked the behavioural change: sessions whose whisker hit rate fell more between the active halves shifted more "
+         f"(Pearson r = {num('o147c_hit_r', hit.mean_a, '{:+.2f}')}, p = {pv('o147c_hit_p', hit.p_param)}; Spearman rho = "
+         f"{num('o147c_hit_rho', hit.mean_b, '{:+.2f}')}, p = {pv('o147c_hit_ps', hit.p_nonparam)}; R+ r = {num('o147c_hitp_r', hitp.mean_a, '{:+.2f}')}, "
+         f"p = {pv('o147c_hitp_p', hitp.p_param)}). In OLS models of the readout change the R- coefficient was "
+         f"{num('o147c_o0', ols.mean_a[0], '{:+.2f}')} (p = {pv('o147c_o0p', ols.p_param[0])}) alone, {num('o147c_o1', ols.mean_a[1], '{:+.2f}')} "
+         f"(p = {pv('o147c_o1p', ols.p_param[1])}) with the baseline-rate change and the pre -> post time, and {num('o147c_o2', ols.mean_a[2], '{:+.2f}')} "
+         f"(p = {pv('o147c_o2p', ols.p_param[2])}) with the reward rate added; the coefficient is stable, its uncertainty grows because the "
+         f"reward rate nearly separates the cohorts by design.")
+    if lc is not None:
+        s += (f" In learners only, the cosine result held (cohort p = {pv('o147c_lc_p', lc.p_nonparam)} | {pv('o147c_lc_w', lc.p_param)}).")
+    return s
+
+
+def sec_part3d() -> str:
+    s = "\n### III.4 State and engagement controls\n\n" + txt147c() + "\n"
+    s += fig_if(PUB / "147_controls.png", "Figure 16", "State and engagement controls (stable units, whole brain). a timing and rewards per "
+                "session, R+ vs R- (Mann-Whitney | Welch); b mean baseline rate (-55 to -20 ms) per epoch; c-e choice readout with the "
+                "epoch-mean baseline (main), the per-trial baseline, and the baseline window alone (whisker solid, auditory dashed); "
+                "titles: R+ vs R- on post - pre for whisker and whisker - auditory; f-h post - pre whisker readout change vs the change "
+                "in whisker hit rate, the baseline-rate change and the pre -> post time (OLS line, 95 % CI, solid if p < 0.05); "
+                "i covariate models.")
+    s += stats_md(EA / "147_stats.csv", ["measure", "test", "cohort", "n", "mean_a", "mean_b", "p_nonparam", "p_param"],
+                  "Table 18. Statistics of Figure 16 (state and engagement controls).", query=lambda d: d.scope == "all controls")
+    return s
 
 
 def sec_part3c() -> str:
@@ -968,8 +1040,9 @@ def sec_part3c() -> str:
                 "active half only; h shuffled-label null; e-g whisker response size (norm / sqrt(units)), cosine with the coding "
                 "direction and projection per unit (= size x cosine); last panel: decoder balanced accuracy and coding-direction "
                 "reliability. Mean +- s.e.m. over sessions; thin lines = sessions; titles: R+ vs R- on post - pre (Mann-Whitney | Welch).")
-    s += stats_md(EA / "147_stats.csv", ["unit_set", "measure", "test", "cohort", "n", "mean_a", "mean_b", "p_nonparam", "p_param"],
-                  "Table 17. Statistics of Figure 15 and its good-unit version (post vs pre, and R+ vs R- on post - pre).")
+    s += stats_md(EA / "147_stats.csv", ["scope", "unit_set", "measure", "test", "cohort", "n", "mean_a", "mean_b", "p_nonparam", "p_param"],
+                  "Table 17. Statistics of Figure 15, its good-unit and learners-only versions (post vs pre, and R+ vs R- on post - pre).",
+                  query=lambda d: d.scope.isin(["all", "learners"]) if "scope" in d else d.index >= 0)
     return s
 
 
@@ -998,6 +1071,14 @@ session, and it cannot come from unequal numbers of hits. Over the session, the 
 both cohorts without a gain in separation, so information is re-expressed along a moving axis rather than amplified. The
 pre-lick modality signal declines in R+ only, and the clearest cohort difference in population geometry is in how the passive
 whisker response relates to the active hit/miss direction: after the task, it points away from it in R- only.
+
+The choice-axis readout adds two qualifications. First, part of the post-task shift is pre-stimulus state: a decoder trained on
+the baseline window alone also reads passive post as miss-like, more so in R- than R+ and equally for whisker and auditory
+trials, consistent with R- mice ending the session less engaged (they also have longer sessions and collect fewer rewards).
+Second, beyond this state shift, the R- whisker-evoked response itself turns away from the choice axis: the effect remains
+relative to the auditory response and after removing each trial's own baseline, it is absent from the baseline window, and its
+size follows how much each R- mouse reduced its whisker hit rate. Reward intake and the R- contingency are confounded by design
+and cannot be separated in these data.
 
 Across the whole learning session, whole-brain activity carries as much early choice information in R- as in R+, and
 equal pre-lick modality information; the cohorts differ late after the stimulus, when the licks themselves differ, and in
@@ -1046,6 +1127,9 @@ def sec_caveats() -> str:
   (10-21 sessions per group and cohort); the R- non-learner group without a change point is empty.
 * Hit vs miss is a lick vs no-lick decoding with the same label in both cohorts; a cohort difference can reflect the
   meaning of the action (trained response in R+, error in R-) or motor differences, not only coding.
+* Choice-axis readout (146 / 147): R- sessions are longer (pre -> post) and R- mice collect fewer rewards; part of the post-task
+  readout change is pre-stimulus state; the reward rate cannot be separated from the cohort; sessions need passive epochs on both
+  sides and >= 3 hits and misses, which keeps R- mice that still licked.
 * Choice is decodable before the stimulus (baseline window), so post-stimulus hit/miss decoding mixes evoked and state
   (engagement) information; the shift null removes slow drift but not trial-to-trial state.
 * The learning-trial definition is not locked; the L5 effect is one of several definitions tested.
@@ -1095,6 +1179,9 @@ def sec_supp() -> str:
 {fig_if(PUB / '147_choice_axis_readout_area_groups.png', 'Figure S18', 'Post - pre change of the passive whisker choice readout and of whisker - auditory per area group (stable units; areas with >= 3 sessions per cohort).')}
 {fig_if(FIG / '135b_alignment_no_bad_rplus_stable.png', 'Figure S19', 'Figure 9 (135b) recomputed with tracked stable units.')}
 {fig_if(FIG / '135b_alignment_no_bad_rplus_good.png', 'Figure S20', 'Figure 9 (135b) recomputed with tracked good units (good AND stable).')}
+{fig_if(PUB / '147_choice_axis_readout_stable_learners.png', 'Figure S21', 'As Figure 15, learners only (stable units).')}
+{fig_if(PUB / '147_choice_axis_readout_good_learners.png', 'Figure S22', 'As Figure 15, learners only, good units.')}
+{fig_if(PUB / '145_evoked_alignment_all.png', 'Figure S23', 'Passive whisker- and auditory-evoked patterns vs the second-half hit / miss coding direction (140 / 145; normalised cosine, passive pre vs post), hit-median and midpoint splits; auditory = control.')}
 """
 
 
@@ -1145,7 +1232,7 @@ th{background:#f4f4f4}figcaption,caption{font-size:.9em;text-align:left}"""
 
 
 def main():
-    res = sec_results().replace("## Part III. ", sec_overnight() + "\n## Part III. ", 1) + sec_part3b() + sec_part3c()
+    res = sec_results().replace("## Part III. ", sec_overnight() + "\n## Part III. ", 1) + sec_part3b() + sec_part3c() + sec_part3d()
     md = sec_front() + sec_intro() + sec_methods() + sec_part1() + res + sec_discussion() + sec_caveats() + sec_supp() + sec_appendix()
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "figures").mkdir(exist_ok=True)

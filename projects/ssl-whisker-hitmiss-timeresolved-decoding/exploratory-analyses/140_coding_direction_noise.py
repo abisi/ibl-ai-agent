@@ -168,7 +168,7 @@ def process(args):
         acc = {k: [] for k in ("rel_1", "rel_2", "between", "own_1", "own_2", "cross_1", "cross_2", "nr_1", "nr_2", "fi_1", "fi_2")}
         for e in ("passive_pre", "passive_post"):
             for h in (1, 2):
-                for k in ("frac", "cpas", "rpas", "evokedW"):
+                for k in ("frac", "cpas", "rpas", "evokedW", "cW", "rW", "cA", "rA"):
                     acc[f"{k}_{e}_{h}"] = []
         for _ in range(N_SPLIT):
             sub = {}
@@ -200,6 +200,12 @@ def process(args):
                     acc[f"cpas_{e}_{h}"].append(cos(Z[e][w1].mean(0) - Z[e][a1_].mean(0), cd[(h, 1)]))
                     acc[f"rpas_{e}_{h}"].append(cos(Z[e][w1].mean(0) - Z[e][a1_].mean(0), Z[e][w2].mean(0) - Z[e][a2_].mean(0)))
                     acc[f"evokedW_{e}_{h}"].append(float(E[e][w].mean(0) @ u_own) / sep if sep != 0 else np.nan)
+                    # evoked patterns (baseline-subtracted, not centred) of each stimulus vs the coding direction (subset B,
+                    # disjoint from the trials of the passive pattern halves), with split-half reliabilities: auditory = control
+                    for key, idx_ in (("W", w), ("A", a)):
+                        q = rng.permutation(idx_); q1, q2 = q[: len(q) // 2], q[len(q) // 2:]
+                        acc[f"c{key}_{e}_{h}"].append(cos(E[e][q1].mean(0), cd[(h, 1)]))
+                        acc[f"r{key}_{e}_{h}"].append(cos(E[e][q1].mean(0), E[e][q2].mean(0)))
         m = {k: float(np.nanmean(v)) if len(v) else np.nan for k, v in acc.items()}
         r1, r2 = max(m["rel_1"], 0.05), max(m["rel_2"], 0.05)
         row.update(rel_cd_1=m["rel_1"], rel_cd_2=m["rel_2"], cos_between=m["between"],
@@ -213,6 +219,10 @@ def process(args):
                 row[f"frac_{e}_{h}"] = m[f"frac_{e}_{h}"]
                 row[f"evokedW_frac_{e}_{h}"] = m[f"evokedW_{e}_{h}"]
                 row[f"cosnorm_{e}_{h}"] = float(np.clip(m[f"cpas_{e}_{h}"] / np.sqrt(rr * rc), -1.5, 1.5)) if np.isfinite(rr) else np.nan
+                for key in ("W", "A"):
+                    rk = max(m[f"r{key}_{e}_{h}"], 0.05) if np.isfinite(m[f"r{key}_{e}_{h}"]) else np.nan
+                    row[f"cosnorm_evoked{key}_{e}_{h}"] = (float(np.clip(m[f"c{key}_{e}_{h}"] / np.sqrt(rk * rc), -1.5, 1.5))
+                                                           if np.isfinite(rk) else np.nan)
         rows.append(dict(row, skipped_reason=None))
     return rows
 
