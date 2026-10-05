@@ -108,6 +108,22 @@ def change_panel(ax, d, cols, labels, title, ylab, ref0=True, ls_cols=None, lege
     return dict(within=win, cohort=(mw, we), change={c: np.nanmean(v) for c, v in out.items()})
 
 
+def excess_panel(ax, d, col, title, ylab="excess change\n(real - shift null)"):
+    """per-session excess of the passive post - pre change over the linear-shift null, mean +- s.e.m. and dots per cohort"""
+    v = {}
+    for i, c in enumerate(COH):
+        v[c] = d[d.reward_group == c][col].to_numpy(float); v[c] = v[c][np.isfinite(v[c])]
+        x = i + np.random.default_rng(i).uniform(-0.13, 0.13, len(v[c]))
+        ax.plot(x, v[c], "o", ms=3.5, color=COL[c], alpha=0.35, mew=0)
+        ax.errorbar(i, np.mean(v[c]), H.sem(v[c]), fmt="o", ms=8, color=COL[c], lw=2.4, capsize=0, zorder=5)
+    ax.axhline(0, color="0.6", lw=1, ls=(0, (3, 3)))
+    ax.set_xticks([0, 1]); ax.set_xticklabels([f"R+\n{len(v['R+'])}", f"R-\n{len(v['R-'])}"]); ax.set_xlim(-0.6, 1.6)
+    ax.set_title(title, fontsize=11.5); ax.set_ylabel(ylab, fontsize=10.5)
+    o = {c: H.one_sample(v[c]) for c in COH}; mw, we = H.unpaired(v["R+"], v["R-"])
+    ax.text(0, -0.2, f"vs 0 (Wilcoxon | t):\nR+ {pfmt(o['R+'][0], o['R+'][1])}\nR- {pfmt(o['R-'][0], o['R-'][1])}\nR+ vs R- (MW | Welch):\n{pfmt(mw, we)}",
+            transform=ax.transAxes, fontsize=9.5, color="0.25", va="top")
+
+
 def neural_space(ax, title=""):
     ax.set_xlim(-0.2, 1.25); ax.set_ylim(-0.2, 1.15); ax.set_aspect("equal"); ax.axis("off")
     if title:
@@ -120,11 +136,11 @@ def s_title(pdf, k):
     fig.text(0.06, 0.72, "Part III: does the early whisker response stay\nlinked to the choice readout?", fontsize=30, weight="bold", va="center")
     fig.text(0.06, 0.55, "Stimulus-onset (5-35 ms) population geometry across passive pre, active and passive post epochs,\n"
              "learning session, R+ vs R- cohorts (ssl-whisker-hitmiss-timeresolved-decoding)", fontsize=15, color="0.3", va="center")
-    steps = ["Question, data and tools", "1  Is stimulus identity kept? (133)", "2  Whisker-specific gain (134)",
-             "3  Alignment with the lick axis (135)", "4  Coding direction across halves (140)", "5  Choice decoder on passive trials (146)",
-             "6  Controls: state, timing, behaviour", "Synthesis and caveats"]
+    steps = ["Question, data and tools", "Null: session time (linear shift)", "1  Is stimulus identity kept? (133)",
+             "2  Whisker-specific gain (134)", "3  Alignment with the lick axis (135)", "4  Coding direction across halves (140)",
+             "5  Choice decoder on passive trials (146)", "6  Controls: state, timing, behaviour", "Synthesis and caveats"]
     for i, s in enumerate(steps):
-        fig.text(0.06 + (i // 4) * 0.45, 0.36 - (i % 4) * 0.06, s, fontsize=15)
+        fig.text(0.06 + (i // 5) * 0.45, 0.38 - (i % 5) * 0.055, s, fontsize=15)
     save(pdf, fig, k)
 
 
@@ -172,7 +188,9 @@ def s_data(pdf, k, D146):
                              f"Units: the same tracked stable units in every step (coverage, presence, drift test; >= 0.5 Hz in pre, post and both active halves); median "
                              f"{int(nu.get('R+', 0))} (R+) / {int(nu.get('R-', 0))} (R-) per session",
                              "Response = rate 5-35 ms minus the unit's baseline in that epoch, z-scored per unit",
-                             "Trials: invalid trials removed, warm-up block cut, disengaged tail trimmed (rule A1)"], size=12, dy=0.075)
+                             "Trials: invalid trials removed, warm-up block cut, disengaged tail trimmed (rule A1)",
+                             "Inference: passive pre -> post change, as excess over a linear-shift null; active epoch defines the axes"],
+            size=12, dy=0.07)
     save(pdf, fig, k)
 
 
@@ -201,6 +219,40 @@ def s_tools(pdf, k):
     ax3.set_yticks([]); ax3.set_xlabel("decoder score (SD units of active scores)\n- miss-like       + hit-like")
     ax3.set_title("choice-decoder readout", fontsize=13, pad=26)
     ax3.spines["left"].set_visible(False)
+    save(pdf, fig, k)
+
+
+def s_null(pdf, k):
+    fig = slide("Session time is a confound: the linear-shift null",
+                "Hit rate drifts during the session, so any axis built from hits vs misses can partly encode 'early vs late'")
+    ax = fig.add_axes([0.04, 0.42, 0.55, 0.38]); ax.set_xlim(-2, 102); ax.set_ylim(-0.5, 4.3); ax.axis("off")
+    rng = np.random.default_rng(3); n = 60
+    p_hit = np.linspace(0.75, 0.15, n)                          # R-: hits early, misses late
+    y = rng.random(n) < p_hit
+    xs = np.linspace(0, 70, n)
+    ax.text(-2, 3.75, "active whisker trials (R- example)", fontsize=11, color="0.3")
+    ax.scatter(xs, np.full(n, 3.2), c=["0.15" if h else "0.75" for h in y], s=26, marker="s")
+    ax.text(71.5, 3.2, "real labels: hit (dark) / miss (light)", va="center", fontsize=10.5)
+    ax.scatter(xs, np.full(n, 2.3), c="#9ecae1", s=26, marker="s"); ax.text(71.5, 2.3, "neural trials", va="center", fontsize=10.5)
+    k_ = 18
+    ax.scatter(xs[: n - k_], np.full(n - k_, 1.1), c=["0.15" if h else "0.75" for h in y[k_:]], s=26, marker="s")
+    ax.scatter(xs[: n - k_], np.full(n - k_, 0.3), c="#9ecae1", s=26, marker="s")
+    ax.text(71.5, 0.7, "null: labels shifted by k trials\n(10-50 %), no wrap-around;\nhits still mostly early", va="center", fontsize=10.5)
+    ax.annotate("", xy=(xs[0], 1.45), xytext=(xs[k_], 2.75), arrowprops=dict(arrowstyle="->", color=AC, lw=1.5))
+    ax.text(xs[k_ // 2] - 2, 2.0, "shift", color=AC, fontsize=10.5)
+    bullets(fig, 0.04, 0.33, ["An axis or decoder fitted to drifting labels can learn session time; passive post, later still, then reads "
+                              "miss-like in R- (hits early) or hit-like in R+ (hits late), with no sensory change.",
+                              "Null: rebuild the axis / decoder from labels shifted against the neural trials (50 shifts per session); it keeps the slow "
+                              "drift of both series. Report the excess = real post - pre change minus the mean null change.",
+                              "Every session with >= 3 hits and >= 3 misses gets a null (only shifts keeping enough hits are drawn). Conservative: "
+                              "real learning is time-correlated too."], size=12, dy=0.085, width=150)
+    ax2 = fig.add_axes([0.64, 0.42, 0.33, 0.38]); ax2.axis("off")
+    ax2.text(0, 0.95, "Why not the alternatives?", fontsize=12, weight="bold", va="top")
+    ax2.text(0, 0.8, textwrap.fill("Shuffled labels destroy trial order: a time-learning decoder is not in that null.", 52) + "\n\n" +
+             textwrap.fill("A circular shift turns the trend into a sawtooth (hits land late in half the shifts): the null centres "
+                           "near 0 and is too lenient.", 52) + "\n\n" +
+             textwrap.fill("Whisker - auditory removes a shared drift only for linear measures (projections), not for cosines.", 52),
+             fontsize=11, va="top")
     save(pdf, fig, k)
 
 
@@ -236,7 +288,7 @@ def s_step2(pdf, k, D134):
                               "Lick-axis alignment (active only): cos(whisker axis, licked - unlicked), noise-corrected",
                               "Shown for the 5-35 ms window (sliding windows in the backup figure)"], size=12, dy=0.1, width=46)
     takehome(fig, "Response gains change little and alike in both cohorts; what differs is the relation to licking: in the active epoch the "
-             "whisker axis is near zero alignment with the lick axis in R+ and anti-aligned in R-.")
+             "whisker axis is weakly aligned with the lick axis in R+ and anti-aligned in R- (active epoch, descriptive).")
     d = D134[(D134.area == "All units") & (D134.win_start == 5) & D134.skipped_reason.isna()]
     for j, (col, lab) in enumerate((("spec_state", "whisker - auditory gain change,\nactive vs pre (z)"), ("spec_plast", "whisker - auditory gain change,\npost vs pre (z)"),
                                      ("lick_cosnorm", "whisker axis vs lick axis,\nactive (normalised cosine)"))):
@@ -262,12 +314,13 @@ def s_step3(pdf, k, D135):
     ax.text(0.0, -0.05, "lick axis and evoked patterns from disjoint\ntrials (50 random splits), noise-corrected", fontsize=10.5, color="0.3", transform=ax.transAxes)
     d = D135[(D135.area == "All units") & D135.skipped_reason.isna()]
     ep = ["passive_pre", "active_1", "active_2", "passive_post"]
-    a1 = fig.add_axes([0.36, 0.34, 0.27, 0.44])
-    change_panel(a1, d, [f"evokedW_cosnorm_{e}" for e in ep], EPL4, "whisker-evoked pattern vs lick axis", "normalised cosine")
-    a2 = fig.add_axes([0.7, 0.34, 0.27, 0.44])
-    change_panel(a2, d, [f"evokedA_cosnorm_{e}" for e in ep], EPL4, "auditory-evoked pattern (control)", "normalised cosine", legend="lower left")
-    takehome(fig, "In R- the whisker-evoked pattern loses its alignment with the lick axis from the 2nd half of the task on and stays "
-             "unaligned in passive post; R+ keeps it. The auditory control shows no cohort difference at post.")
+    a1 = fig.add_axes([0.35, 0.34, 0.25, 0.44])
+    change_panel(a1, d, [f"evokedW_cosnorm_{e}" for e in ep], EPL4, "whisker-evoked vs lick axis\n(descriptive, noise-corrected)", "noise-corrected cosine")
+    for x0, col, t in ((0.69, "shift_excess_dWR", "whisker-evoked\nraw cos"), (0.86, "shift_excess_dWAP", "whisker - auditory\nprojection")):
+        excess_panel(fig.add_axes([x0, 0.34, 0.11, 0.44]), d, col, t, "excess post - pre\n(real - shift null)" if x0 < 0.8 else "")
+    fig.text(0.69, 0.84, "passive pre -> post, beyond session time", fontsize=11.5, weight="bold")
+    takehome(fig, "Beyond session time (linear-shift null), the passive whisker-evoked pattern moves away from the lick axis after the "
+             "task in R-, also relative to auditory (linear contrast); R+ does not. Active halves are descriptive (trial composition).")
     save(pdf, fig, k)
 
 
@@ -287,15 +340,13 @@ def s_step4(pdf, k, D140):
         a1.errorbar(i, np.nanmean(v[c]), H.sem(v[c]), fmt="o", ms=9, color=COL[c], lw=2.4, capsize=0)
     a1.axhline(1, color="0.6", lw=1, ls=(0, (3, 3))); a1.set_xticks([0, 1]); a1.set_xticklabels(["R+", "R-"]); a1.set_xlim(-0.6, 1.6)
     a1.set_title("CD half 1 vs half 2\n(1 = same direction)", fontsize=11.5)
-    a2 = fig.add_axes([0.57, 0.34, 0.16, 0.44])
-    change_panel(a2, d, ["cosnorm_passive_pre_2", "cosnorm_passive_post_2"], ["passive\npre", "passive\npost"], "passive whisker axis vs CD half 2",
-                 "normalised cosine")
-    if "cosnorm_evokedA_passive_pre_2" in d:
-        a3 = fig.add_axes([0.81, 0.34, 0.15, 0.44])
-        change_panel(a3, d, ["cosnorm_evokedA_passive_pre_2", "cosnorm_evokedA_passive_post_2"], ["passive\npre", "passive\npost"],
-                     "auditory-evoked vs\nCD half 2 (control)", "normalised cosine", legend="lower right")
-    takehome(fig, "The hit / miss direction is partly re-drawn between halves in both cohorts. Against the late direction, the passive "
-             "whisker axis turns away after the task in R- only; the auditory-evoked pattern does not.")
+    a1.set_title("CD half 1 vs half 2\n(1 = same; descriptive)", fontsize=11.5)
+    for x0, col, t in ((0.57, "shift_excess_daxisR", "passive whisker axis\nraw cos"), (0.72, "shift_excess_dWAP", "whisker - auditory\nprojection"),
+                       (0.87, "shift_excess_dAR", "auditory-evoked\nraw cos (control)")):
+        excess_panel(fig.add_axes([x0, 0.34, 0.1, 0.44]), d, col, t, "excess post - pre\n(real - shift null)" if x0 < 0.6 else "")
+    fig.text(0.57, 0.84, "passive pre -> post vs CD half 2, beyond session time", fontsize=11.5, weight="bold")
+    takehome(fig, "The hit / miss direction is partly re-drawn between halves. Beyond session time, the passive whisker axis turns away "
+             "from the late coding direction after the task in R-, also relative to auditory; R+ does not, auditory alone does not.")
     save(pdf, fig, k)
 
 
@@ -311,13 +362,15 @@ def s_step5(pdf, k, D146):
     ax.text(0.0, 0.05, "readout in SD units of the held-out active scores\n(+ hit-like, - miss-like); 20 balanced repetitions", fontsize=10.5, color="0.3")
     d = D146[(D146.area == "whole_brain") & (D146.response == "epochbase") & (D146.unit_set == "stable") & D146.skipped_reason.isna()].copy()
     ep = ["passive_pre", "active_1", "active_2", "passive_post"]
-    a1 = fig.add_axes([0.38, 0.34, 0.26, 0.44])
-    change_panel(a1, d, [f"ro_std_{e}_W" for e in ep], EPL4, "choice readout (whisker solid, auditory dashed)", "readout (SD units)",
+    a1 = fig.add_axes([0.37, 0.34, 0.25, 0.44])
+    change_panel(a1, d, [f"ro_std_{e}_W" for e in ep], EPL4, "readout, whisker solid / auditory\ndashed (descriptive)", "readout (SD units)",
                  ls_cols=[f"ro_std_{e}_A" for e in ep])
-    a2 = fig.add_axes([0.72, 0.34, 0.25, 0.44])
-    change_panel(a2, d, [f"cos_{e}_W" for e in ep], EPL4, "cosine of whisker response\nwith the coding direction", "cosine", legend="lower left")
-    takehome(fig, "After the task, passive whisker trials read as more miss-like in R- than in R+, and the whisker response points less along "
-             "the decoder's coding direction (R- from the 2nd active half on).")
+    tb = D146[(D146.area == "whole_brain") & (D146.response == "trialbase") & (D146.unit_set == "stable") & D146.skipped_reason.isna()]
+    for x0, dd, col, t in ((0.71, d, "shift_excess_dW", "whisker readout\n(main)"), (0.86, tb, "shift_excess_dWA", "whisker - auditory\nper-trial baseline")):
+        excess_panel(fig.add_axes([x0, 0.34, 0.11, 0.44]), dd, col, t, "excess post - pre\n(real - shift null)" if x0 < 0.8 else "")
+    fig.text(0.71, 0.84, "passive pre -> post, beyond session time", fontsize=11.5, weight="bold")
+    takehome(fig, "Session time explains part of the readout shift. Beyond it, R- passive whisker trials still move miss-ward, but the "
+             "cohort difference holds only for whisker relative to auditory (per-trial baseline), not for the whisker readout alone.")
     save(pdf, fig, k)
 
 
@@ -333,9 +386,8 @@ def s_step6(pdf, k, D146, S147):
         change_panel(a, g, ["ro_std_passive_pre_W", "ro_std_passive_post_W"], ["passive\npre", "passive\npost"], lab, "readout (SD units)",
                      ls_cols=["ro_std_passive_pre_A", "ro_std_passive_post_A"], legend="upper right" if j == 0 else None)
     e = v[v.response == "epochbase"]
-    a = fig.add_axes([0.54, 0.36, 0.16, 0.42])
-    change_panel(a, v[v.response == "trialbase"], ["wa_passive_pre", "wa_passive_post"], ["passive\npre", "passive\npost"],
-                 "whisker - auditory,\nper-trial baseline", "readout difference", legend=None)
+    a = fig.add_axes([0.57, 0.36, 0.13, 0.42])
+    excess_panel(a, v[v.response == "baseline"], "shift_excess_dW", "state readout, whisker\nbeyond session time", "excess post - pre\n(real - shift null)")
     a = fig.add_axes([0.79, 0.36, 0.18, 0.42])
     g = e[e.reward_group == "R-"].copy(); g["d_ro"] = g.ro_std_passive_post_W - g.ro_std_passive_pre_W; g["d_hit"] = g.hit_rate_2 - g.hit_rate_1
     a.plot(g.d_hit, g.d_ro, "o", color=COL["R-"], ms=6, alpha=0.75)
@@ -355,7 +407,8 @@ def s_step6(pdf, k, D146, S147):
 
 
 def s_synthesis(pdf, k, rows):
-    fig = slide("Synthesis", "One consistent picture across analyses, with a state component to keep in mind")
+    fig = slide("Synthesis", "Beyond session time: R- whisker responses move away from the hit / miss axes after the task (relative to auditory), "
+                "plus an R- state shift")
     ax = fig.add_axes([0.03, 0.12, 0.3, 0.68]); neural_space(ax)
     arrow(ax, (0, 0), (1.05, 0), "0.15"); ax.text(0.9, -0.06, "choice axis", fontsize=11, ha="center", va="top")
     arrow(ax, (0, 0), (0.75, 0.55), WC, lw=2.5, label="whisker pre\n(both cohorts)", lpos=1.28, fs=10)
@@ -365,9 +418,9 @@ def s_synthesis(pdf, k, rows):
     ax.text(0.05, -0.2, "+ a shared state shift (both stimuli, larger in R-)", fontsize=10, color="0.4")
     tab = fig.add_axes([0.36, 0.1, 0.61, 0.72]); tab.axis("off")
     cell = [[r[0], r[1], r[2], r[3]] for r in rows]
-    t = tab.table(cellText=cell, colLabels=["analysis / measure", "R+ change", "R- change", "R+ vs R- (MW | Welch)"], loc="upper left",
-                  colWidths=[0.52, 0.14, 0.14, 0.2], cellLoc="left")
-    t.auto_set_font_size(False); t.set_fontsize(11); t.scale(1, 1.75)
+    t = tab.table(cellText=cell, colLabels=["passive pre -> post; excess over the shift null unless noted", "R+", "R-", "R+ vs R- (MW | Welch)"],
+                  loc="upper left", colWidths=[0.55, 0.12, 0.12, 0.21], cellLoc="left")
+    t.auto_set_font_size(False); t.set_fontsize(10.5); t.scale(1, 1.6)
     for (i, j), c_ in t.get_celld().items():
         c_.set_edgecolor("0.85")
         if i == 0:
@@ -377,14 +430,17 @@ def s_synthesis(pdf, k, rows):
 
 def s_caveats(pdf, k):
     fig = slide("Caveats and next steps")
-    bullets(fig, 0.05, 0.8, ["Part of the post-task shift is pre-stimulus state (baseline-window decoder), larger in R-; the whisker-specific "
-                             "part survives per-trial baseline removal and the auditory comparison.",
-                             "R- sessions are longer and R- mice collect fewer rewards: reward intake and the R- contingency are confounded by design.",
-                             "Coding directions at 5-35 ms are noisy: raw cosines are small, hence the noise-corrected cosine; comparisons are within session.",
-                             "Selection: passive epochs on both sides and >= 3 hits and misses keeps R- mice that still licked.",
-                             "All six steps use the same tracked stable units per session (137b); sessions differ only by each analysis's trial criteria.",
-                             "Exploratory and uncorrected. Next: fix window, measures and selection, then confirm on held-out mice or expert sessions."],
-            size=14, dy=0.11)
+    bullets(fig, 0.05, 0.8, ["Session time: hit / miss labels drift, so axes and decoders partly encode it; inference is on the excess over a "
+                             "linear-shift null (conservative: real learning is time-correlated too). Time explains part, not most, of the R- changes.",
+                             "State: the pre-stimulus window alone shifts miss-ward after the task in R- beyond time, equally for whisker and auditory; "
+                             "the whisker-specific claim rests on whisker - auditory contrasts.",
+                             "Exposure: R- mice get more whisker stimuli and longer sessions, and collect fewer rewards (by design); stimulus-specific "
+                             "adaptation is not covered by the shift null or by the auditory contrast.",
+                             "Noise: hit / miss axes at 5-35 ms have low split-half reliability; most shifted axes fall below the 0.05 floor, "
+                             "so raw cosines and projections carry the null tests, noise-corrected cosines are a sensitivity check.",
+                             "Same tracked stable units in every step (137b); sessions differ only by each analysis's hit / miss minimums.",
+                             "Exploratory, uncorrected. Next: exposure covariate, time-matched decoder, then held-out mice / expert sessions."],
+            size=13, dy=0.11, width=150)
     save(pdf, fig, k)
 
 
@@ -414,24 +470,24 @@ def summary_rows(D133, D135, D140, D146):
         ch = {c: (d[d.reward_group == c][b] - d[d.reward_group == c][a]).to_numpy(float) for c in COH}
         mw, we = H.unpaired(ch["R+"], ch["R-"])
         rows.append([name, f"{np.nanmean(ch['R+']):+.2f}", f"{np.nanmean(ch['R-']):+.2f}", pfmt(mw, we)])
+    def add_ex(name, d, col):
+        x = {c: d[d.reward_group == c][col].to_numpy(float) for c in COH}
+        mw, we = H.unpaired(x["R+"], x["R-"])
+        rows.append([name, f"{np.nanmean(x['R+']):+.3f}", f"{np.nanmean(x['R-']):+.3f}", pfmt(mw, we)])
     d = D133[(D133.area == "All units") & D133.skipped_reason.isna()]
-    add("1  W vs A decoding, passive pre -> post", d, "within_passive_pre_corr", "within_passive_post_corr")
+    add("1  W vs A decoding (raw change; no hit / miss axis)", d, "within_passive_pre_corr", "within_passive_post_corr")
     d = D135[(D135.area == "All units") & D135.skipped_reason.isna()]
-    add("3  whisker-evoked vs lick axis, pre -> active 2nd half", d, "evokedW_cosnorm_passive_pre", "evokedW_cosnorm_active_2")
-    add("3  whisker-evoked vs lick axis, pre -> post", d, "evokedW_cosnorm_passive_pre", "evokedW_cosnorm_passive_post")
-    add("3  auditory-evoked vs lick axis, pre -> post (control)", d, "evokedA_cosnorm_passive_pre", "evokedA_cosnorm_passive_post")
+    add_ex("3  whisker-evoked vs lick axis, raw cos", d, "shift_excess_dWR")
+    add_ex("3  auditory-evoked vs lick axis, raw cos (control)", d, "shift_excess_dAR")
+    add_ex("3  whisker - auditory on lick axis, projection", d, "shift_excess_dWAP")
     d = D140[(D140.split == "hitmedian") & D140.skipped_reason.isna()]
-    add("4  passive whisker axis vs CD half 2, pre -> post", d, "cosnorm_passive_pre_2", "cosnorm_passive_post_2")
+    add_ex("4  passive whisker axis vs CD half 2, raw cos", d, "shift_excess_daxisR")
+    add_ex("4  whisker - auditory on CD half 2, projection", d, "shift_excess_dWAP")
     v = D146[(D146.area == "whole_brain") & (D146.unit_set == "stable") & D146.skipped_reason.isna()].copy()
-    e = v[v.response == "epochbase"]
-    add("5  choice readout, whisker, pre -> post", e, "ro_std_passive_pre_W", "ro_std_passive_post_W")
-    add("5  cosine whisker vs coding direction, pre -> post", e, "cos_passive_pre_W", "cos_passive_post_W")
-    b = v[v.response == "baseline"]
-    add("6  baseline-window readout, whisker (state)", b, "ro_std_passive_pre_W", "ro_std_passive_post_W")
-    t = v[v.response == "trialbase"].copy()
-    for x in ("passive_pre", "passive_post"):
-        t[f"wa_{x}"] = t[f"ro_std_{x}_W"] - t[f"ro_std_{x}_A"]
-    add("6  whisker - auditory readout, per-trial baseline", t, "wa_passive_pre", "wa_passive_post")
+    add_ex("5  decoder readout, whisker (main)", v[v.response == "epochbase"], "shift_excess_dW")
+    add_ex("5  decoder readout, whisker - auditory, per-trial baseline", v[v.response == "trialbase"], "shift_excess_dWA")
+    add_ex("6  baseline-window (state) readout, whisker", v[v.response == "baseline"], "shift_excess_dW")
+    add_ex("6  baseline-window (state) readout, whisker - auditory", v[v.response == "baseline"], "shift_excess_dWA")
     return rows
 
 
@@ -445,10 +501,12 @@ def main():
     S147 = pd.read_csv(EA / "147_stats.csv")
     OUT_PDF.parent.mkdir(parents=True, exist_ok=True)
     with PdfPages(OUT_PDF) as pdf:
-        s_title(pdf, 0); s_question(pdf, 0); s_data(pdf, 0, D146); s_tools(pdf, 0)
+        s_title(pdf, 0); s_question(pdf, 0); s_data(pdf, 0, D146); s_tools(pdf, 0); s_null(pdf, 0)
         s_step1(pdf, 0, D133); s_step2(pdf, 0, D134); s_step3(pdf, 0, D135); s_step4(pdf, 0, D140); s_step5(pdf, 0, D146)
         s_step6(pdf, 0, D146, S147); s_synthesis(pdf, 0, summary_rows(D133, D135, D140, D146)); s_caveats(pdf, 0)
-        for p, t in ((FIG / "133_whole_brain_tracked.png", "133 whisker vs auditory across epochs"), (FIG / "134_whole_brain_tracked.png", "134 gain changes, sliding windows"),
+        for p, t in ((PUB / "150_axis_alignment_shift_null_all.png", "150 lick axis / coding direction vs the shift null"),
+                     (PUB / "149_passive_readout_shift_null_all.png", "149 decoder readout vs the shift null"),
+                     (FIG / "133_whole_brain_tracked.png", "133 whisker vs auditory across epochs"), (FIG / "134_whole_brain_tracked.png", "134 gain changes, sliding windows"),
                      (FIG / "134c_illustration_tracked.png", "134 illustration of the measures"), (FIG / "135b_alignment_no_bad_rplus_tracked.png", "135b lick-axis alignment"),
                      (PUB / "145_coding_direction_all.png", "145 coding direction"), (PUB / "145_evoked_alignment_all.png", "145 evoked patterns vs CD"),
                      (PUB / "147_choice_axis_readout_stable.png", "147 choice-axis readout"), (PUB / "147_state_space_whisker_auditory_axis.png", "147 state space"),
