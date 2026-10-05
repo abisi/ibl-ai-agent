@@ -26,7 +26,30 @@ description: Use this skill for Axel Bisi's canonical unit-quality (quality_labe
 6. Shared-area filtering (cross-cohort comparisons only): `data_utils.keep_shared_areas(unit_table, nomenclature='area_acronym_custom' | 'area_group', n_min_units=5, n_min_mice=3)` — keeps only areas present in **both** reward groups with ≥`n_min_units` QC-passing (`quality_label` in {good, mua}) units **and** ≥`n_min_mice` distinct mice, checked **separately per reward group** (not pooled). Requires `reward_group` encoded as `1`/`0`, not the `"R+"`/`"R-"` strings used elsewhere in this dataset.
 7. Before adopting any new area_group/area_acronym_custom value set project-wide, list the actual distinct values present (dataset-wide and per-session) and confirm with the user rather than assuming coverage — allen_utils' custom-group scheme has changed at least once already (Somatosensory split into whisker/orofacial/body, Cortical subplate activated, etc.), so a value list from months ago may be stale.
 
+## Unit sets (user definition, 2026-10-05)
+Three nested sets; every analysis states which one it uses.
+1. **All units**: `quality_label` in {good, mua} (bombcell `non-soma` excluded).
+2. **Stable units** (good or mua): pass exactly the three stability criteria of `unit_metrics_utils.classify_units_quality`
+   (`DEFAULT_METRIC_THRESHOLDS`): `coverage_ratio` >= 0.9, `presence_ratio` >= 0.5, and independence from probe drift --
+   the DREDge drift-shift joint test (Harris 2021 shift test, `unit_fr_motion_shift_test_harris.py`) fails only when the
+   rate-motion correlation is both large and significant (`drift_abs_r` > 0.5 AND `drift_shift_test_pval` < 0.01). No other
+   criterion enters stability (spike count, amplitude cut-off, refractory violations and isolation are not stability).
+   A unit without a drift result is NOT stable (independence cannot be shown); the test is undefined for units with no spikes
+   in its central segment (all but the first / last 500 s), i.e. units that appear or disappear during the session.
+3. **Good units**: `quality_label == 'good'` AND stable. Always intersect with the stable set: `quality_label` tables built
+   without the drift merge (e.g. `reports/ssl_analysis/derived/unit_area_labels.parquet`, from `compute_ssl_quality_label.py`)
+   carry no drift check.
+Tracked analyses add a per-analysis rate criterion (e.g. >= 0.5 Hz in every analysed epoch) on top of the set.
+Implementation: `projects/ssl-whisker-hitmiss-timeresolved-decoding/exploratory-analyses/137_stable_units.py` ->
+`combined_results_ks4/ssl-whisker-hitmiss-timeresolved-decoding/tables/137_stable_units.parquet` (columns `unit_set_all`,
+`stable`, `good`; join keys mouse_id, session_id, electrode_group, cluster_id; dataset cluster_id = probe index * 1e6 + NWB
+cluster id). Drift results: per-session CSVs in `combined_results_ks4/<mouse>/<behaviour>_<day>/single_neuron_motion_shift_test/`
+plus units tested later in `combined_results_ks4/_drift_rerun_20261005/`; the test needs an env with spikeinterface
+(haas: `~/code/unit_spikes_analysis/.venv`).
+
 ## Quality gates
+- Reject a "good" or "stable" unit set that does not apply all three stability criteria (coverage, presence, drift joint test),
+  that adds other criteria under the name "stable", or that admits units without a drift result.
 - Reject using raw `bc_label` as the sole quality filter in any analysis that could instead run this pipeline and use `quality_label` — they disagree for a nontrivial number of units.
 - Reject calling `keep_shared_areas` with `reward_group` as `"R+"`/`"R-"` strings — expects `1`/`0`, fails silently (wrong or empty shared-area set) otherwise.
 - Reject skipping the drift-shift QC merge (step 3) silently — `classify_units_quality`'s joint drift check no-ops with only a warning when `drift_abs_r`/`drift_shift_test_pval` are absent, quietly loosening the classification; state explicitly whether the drift check ran.

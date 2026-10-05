@@ -1,9 +1,12 @@
-"""137 -- Stable-unit table for tracked, drift-robust population analyses (user decisions 2026-10-05).
-"Stable" = tracked and drift-robust, not necessarily single units (MUA allowed):
-  not bombcell non-soma; nSpikes >= 300; percentageSpikesMissing_gaussian <= 20 %; coverage_ratio >= 0.9;
-  presence_ratio >= 0.5; DREDge drift-shift joint test passed (fail = |r| > 0.5 AND p < 0.01); NO refractory-violation
-  (isolation) criterion. Units without a drift result: stable only if quality_label == 'good' (user rule, until the missing
-  drift tests are run). The >= 0.5 Hz in every analysed epoch criterion is analysis-specific and applied by each analysis.
+"""137 -- Unit-set table (skills/ssl-valid-data "Unit sets", user definition 2026-10-05):
+  unit_set_all  quality_label in {good, mua} (bombcell non-soma excluded);
+  stable        good or mua passing exactly the three stability criteria: coverage_ratio >= 0.9, presence_ratio >= 0.5 and
+                independence from probe drift (DREDge drift-shift joint test: fail = |r| > 0.5 AND p < 0.01); a unit without a
+                drift result is not stable;
+  good          quality_label == 'good' AND stable (the label table has no drift check, hence the intersection).
+  stable_v1     the first version used by 140 on 2026-10-05 (kept for provenance): also required nSpikes >= 300 and spikes
+                missing <= 20 %, and admitted units without a drift result if quality_label == 'good' (none did).
+The >= 0.5 Hz in every analysed epoch criterion is analysis-specific and applied by each analysis.
 Sources: ssl_ephys 1.0.0 units.parquet (bombcell metrics; cluster_id = probe index * 1e6 + NWB cluster id),
 reports/ssl_analysis/derived/unit_area_labels.parquet (presence / coverage, area_group, quality_label), DREDge drift-shift
 CSVs read directly for every NWB file (load_motion_dredge_shift_test_results), so units outside the v2 table's shared-area
@@ -75,24 +78,32 @@ def main():
 
     has_drift = U.drift_abs_r.notna() & U.drift_shift_test_pval.notna()
     drift_fail = (U.drift_abs_r > THR["drift_r_max"]) & (U.drift_shift_test_pval < THR["drift_p_min"])
-    base = ((U.bc_label != "non-soma") & (U.nSpikes >= THR["nSpikes"])
-            & (U.percentageSpikesMissing_gaussian.fillna(0) <= THR["missing_max"])
-            & (U.coverage_ratio >= THR["coverage_min"]) & (U.presence_ratio >= THR["presence_min"]))
+    somatic = (U.bc_label != "non-soma") & U.quality_label.isin(["good", "mua"])
     U["has_drift_test"] = has_drift
     U["drift_fail"] = has_drift & drift_fail
-    U["stable"] = np.where(has_drift, base & ~drift_fail, (U.quality_label == "good"))
-    U["stable_rule"] = np.where(has_drift, "stability criteria + drift test", "no drift result: quality_label good")
+    U["unit_set_all"] = somatic
+    U["stable"] = somatic & (U.coverage_ratio >= THR["coverage_min"]) & (U.presence_ratio >= THR["presence_min"]) & has_drift & ~drift_fail
+    U["good"] = U.stable & (U.quality_label == "good")
+    base_v1 = ((U.bc_label != "non-soma") & (U.nSpikes >= THR["nSpikes"]) & (U.percentageSpikesMissing_gaussian.fillna(0) <= THR["missing_max"])
+               & (U.coverage_ratio >= THR["coverage_min"]) & (U.presence_ratio >= THR["presence_min"]))
+    U["stable_v1"] = np.where(has_drift, base_v1 & ~drift_fail, (U.quality_label == "good"))
     out = U[["mouse_id", "session_id", "electrode_group", "cluster_id", "nwb_cluster_id", "area_group", "bc_label", "quality_label",
              "nSpikes", "percentageSpikesMissing_gaussian", "fractionRPVs_estimatedTauR", "firing_rate", "presence_ratio",
-             "coverage_ratio", "drift_abs_r", "drift_shift_test_pval", "has_drift_test", "drift_fail", "stable", "stable_rule"]]
+             "coverage_ratio", "drift_abs_r", "drift_shift_test_pval", "has_drift_test", "drift_fail", "unit_set_all", "stable", "good",
+             "stable_v1"]]
     TAB.mkdir(parents=True, exist_ok=True)
     tmp = TAB / "137_stable_units.partial.parquet"
     out.to_parquet(tmp, index=False)
     os.replace(tmp, TAB / "137_stable_units.parquet")
-    per = out.groupby("session_id").agg(n=("stable", "size"), stable=("stable", "sum"), good=("quality_label", lambda x: (x == "good").sum()),
-                                        no_drift=("has_drift_test", lambda x: int((~x).sum())), drift_fail=("drift_fail", "sum"))
-    prov = dict(script=pathlib.Path(__file__).name, created=time.strftime("%Y-%m-%d %H:%M"), thresholds=THR,
-                n_units=int(len(out)), n_stable=int(out.stable.sum()), n_good=int((out.quality_label == "good").sum()),
+    per = out.groupby("session_id").agg(n=("stable", "size"), all=("unit_set_all", "sum"), stable=("stable", "sum"), good=("good", "sum"),
+                                        stable_v1=("stable_v1", "sum"), no_drift=("has_drift_test", lambda x: int((~x).sum())),
+                                        drift_fail=("drift_fail", "sum"))
+    prov = dict(script=pathlib.Path(__file__).name, created=time.strftime("%Y-%m-%d %H:%M"),
+                thresholds=dict(coverage_min=THR["coverage_min"], presence_min=THR["presence_min"], drift_r_max=THR["drift_r_max"],
+                                drift_p_min=THR["drift_p_min"]),
+                n_units=int(len(out)), n_all=int(out.unit_set_all.sum()), n_stable=int(out.stable.sum()), n_good=int(out.good.sum()),
+                n_stable_v1=int(out.stable_v1.sum()), n_stable_v1_not_stable=int((out.stable_v1 & ~out.stable).sum()),
+                n_stable_not_v1=int((out.stable & ~out.stable_v1).sum()),
                 n_without_drift=int((~out.has_drift_test).sum()), n_drift_fail=int(out.drift_fail.sum()),
                 sessions_without_any_drift=sorted(per.index[per.no_drift == per.n].tolist()),
                 per_session_median=per.median().round(1).to_dict(), sources=[str(UNITS), str(LABELS), "DREDge CSVs via load_helpers"],
