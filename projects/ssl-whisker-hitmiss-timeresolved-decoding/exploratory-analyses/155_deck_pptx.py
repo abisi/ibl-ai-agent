@@ -377,6 +377,64 @@ def fig_bridge():
     return savefig(fig, "bridge")
 
 
+def fig_dec_train():
+    """schematic: decoder trained on active hit / miss, applied to passive trials it never saw"""
+    fig, ax = plt.subplots(figsize=(3.0, 1.7)); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.text(0.17, 0.8, "active whisker trials\nhit | miss (5-35 ms)", ha="center", va="center", fontsize=6.3)
+    ax.annotate("", xy=(0.56, 0.8), xytext=(0.36, 0.8), arrowprops=dict(arrowstyle="->", lw=1.1))
+    ax.text(0.46, 0.88, "train", ha="center", fontsize=5.5)
+    ax.text(0.78, 0.8, "choice decoder\n(L2 logistic, CV)", ha="center", va="center", fontsize=6.3)
+    ax.annotate("", xy=(0.78, 0.45), xytext=(0.78, 0.65), arrowprops=dict(arrowstyle="->", lw=1.1))
+    ax.text(0.81, 0.55, "apply", fontsize=5.5)
+    ax.text(0.78, 0.3, "passive pre / post trials\n(never used to train)", ha="center", va="center", fontsize=6.3)
+    ax.annotate("", xy=(0.12, 0.12), xytext=(0.52, 0.12), arrowprops=dict(arrowstyle="<->", lw=0.9))
+    ax.text(0.05, 0.12, "miss", ha="center", va="center", fontsize=5.8); ax.text(0.6, 0.12, "hit", ha="center", va="center", fontsize=5.8)
+    ax.text(0.32, 0.2, "readout (SD units)", ha="center", fontsize=5.5)
+    return savefig(fig, "dec_train")
+
+
+def fig_dec_readout(R, VE):
+    """passive whisker (and auditory) readout, pre vs post, per cohort (146, epoch baseline)"""
+    fig, axes = plt.subplots(1, 2, figsize=(3.9, 1.9), gridspec_kw=dict(wspace=0.75))
+    for ax, (s, t) in zip(axes, (("W", "whisker trials"), ("A", "auditory trials"))):
+        a = {c: VE[VE.reward_group == c][f"ro_std_passive_pre_{s}"].to_numpy(float) for c in COH}
+        b = {c: VE[VE.reward_group == c][f"ro_std_passive_post_{s}"].to_numpy(float) for c in COH}
+        pair_panel(ax, a, b, ["pre", "post"], "decoder readout\n(+ hit-like, - miss-like; SD)" if s == "W" else "", t, R, f"dro_{s}")
+        ax.axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
+    return savefig(fig, "dec_readout")
+
+
+def fig_dec_null(R, VE, VB):
+    """what the decoder change is made of: shifted-label decoders, the baseline window alone, state covariates (146 / 147)"""
+    import statsmodels.formula.api as smf
+    fig, axes = plt.subplots(1, 3, figsize=(5.6, 1.9), gridspec_kw=dict(width_ratios=[1, 1, 1.15], wspace=0.8))
+    dW = lambda d: (d.ro_std_passive_post_W - d.ro_std_passive_pre_W).to_numpy(float)
+    a = {c: VE[VE.reward_group == c].shift_null_dW_mean.to_numpy(float) for c in COH}
+    b = {c: dW(VE[VE.reward_group == c]) for c in COH}
+    pair_panel(axes[0], a, b, ["shifted", "real"], "whisker readout\npost - pre (SD)", "shifted-label vs real\ndecoder", R, "dnull")
+    axes[0].axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
+    a = {c: VB[VB.reward_group == c].ro_std_passive_pre_W.to_numpy(float) for c in COH}
+    b = {c: VB[VB.reward_group == c].ro_std_passive_post_W.to_numpy(float) for c in COH}
+    pair_panel(axes[1], a, b, ["pre", "post"], "readout (SD)", "baseline window alone\n(-55 to -20 ms, state)", R, "dbase")
+    axes[1].axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
+    ax = axes[2]
+    d = VE.assign(d_ro=dW(VE), d_base=VE.base_rate_passive_post - VE.base_rate_passive_pre, R_minus=(VE.reward_group == "R-").astype(int))
+    sd = d.d_ro.std(); models = []
+    for k, (form, lab) in enumerate((("d_ro ~ R_minus", "cohort only"), ("d_ro ~ R_minus + d_base + pre_to_post_min", "+ baseline rate,\npre -> post gap"),
+                                     ("d_ro ~ R_minus + d_base + pre_to_post_min + reward_rate_active_per_min", "+ reward rate"))):
+        g = d.dropna(subset=["d_ro", "d_base", "pre_to_post_min", "reward_rate_active_per_min"])
+        f = smf.ols(form, g).fit(); ci = f.conf_int().loc["R_minus"]
+        ax.errorbar(f.params.R_minus / sd, k, xerr=[[(f.params.R_minus - ci[0]) / sd], [(ci[1] - f.params.R_minus) / sd]], fmt="o", ms=3.5,
+                    color="black", lw=1, capsize=0)
+        ax.text(1.03, k, f"p = {H.pnum(f.pvalues.R_minus)}", transform=ax.get_yaxis_transform(), va="center", fontsize=5)
+        models.append((lab.replace("\n", " "), f.params.R_minus / sd, f.pvalues.R_minus, len(g)))
+    R["dcov"] = models
+    ax.axvline(0, color="0.6", lw=0.5, ls=(0, (2, 2))); ax.set_yticks(range(3)); ax.set_yticklabels([m[0] for m in models], fontsize=5)
+    ax.set_yticklabels(["cohort only", "+ baseline rate,\npre -> post gap", "+ reward rate"], fontsize=5)
+    ax.invert_yaxis(); ax.set_xlabel("R- coefficient (SD, 95 % CI)"); ax.set_title("whisker readout change\nwith state covariates", pad=8)
+    return savefig(fig, "dec_null")
+
+
 def fig_synthesis():
     fig, axes = plt.subplots(1, 2, figsize=(4.8, 2.0))
     for ax, (title, lab_axis, a0, a_rp, a_rm, labs) in zip(axes, (
@@ -496,15 +554,17 @@ def main():
     V = pd.read_parquet(EA / "146_choice_axis_readout.parquet")
     V = V[(V.area == "whole_brain") & (V.unit_set == "stable") & V.skipped_reason.isna()]
     VD = V[V.response == "epochbase"].copy(); VD["dx_W"] = VD.ss_post_W_x - VD.ss_pre_W_x
+    VE, VB, VT = (V[V.response == r] for r in ("epochbase", "baseline", "trialbase"))
     WD2 = pd.read_csv(F154.WD / F154.WD_SLOPES / "trial_slopes_sessions.csv")
     L = H.learners(); AL = A[H.mouse_of(A).isin(L)]
     figs = dict(task=fig_task(), timeline=fig_timeline(), dec=fig_decode_schematic(), splits=fig_splits(R), lt=fig_lt(R), ltr=fig_lt_robust(R),
                 wd=fig_wd(R), pa=fig_pattern_axis(), null=fig_null(), epochs=fig_lick_epochs(R),
                 b4=excess_fig("b4", [(A, "shift_excess_dWR", "whisker\ncosine"), (A, "shift_excess_dAR", "auditory\ncosine"),
-                                     (A, "shift_excess_dWAP", "whisker - auditory\nprojection")], R),
+                                     (A, "shift_excess_dWAP", "whisker - auditory\nprojection"),
+                                     (VT, "shift_excess_dWA", "decoder: whisker -\nauditory readout")], R, w=6.9),
                 b5=excess_fig("b5", [(AL, "shift_excess_dWR", "learners:\nwhisker cosine"), (AL, "shift_excess_dWAP", "learners:\nW - A projection"),
                                      (C, "shift_excess_daxisR", "late CD: passive\naxis cosine"), (C, "shift_excess_dWAP", "late CD:\nW - A projection")], R, w=7.6),
-                state=fig_state(R), expo=fig_exposure(R), bridge=fig_bridge(), forest=fig_forest(R, A, C, V[V.response == "trialbase"], VD, WD2), syn=fig_synthesis())
+                state=fig_state(R), expo=fig_exposure(R), dtrain=fig_dec_train(), dro=fig_dec_readout(R, VE), dnull=fig_dec_null(R, VE, VB), bridge=fig_bridge(), forest=fig_forest(R, A, C, V[V.response == "trialbase"], VD, WD2), syn=fig_synthesis())
     E = dict(
         dec=eq("dec", [r"$\Delta\mathrm{acc} = \mathrm{acc}_{\mathrm{real}} - \langle \mathrm{acc}^{(k)}_{\mathrm{shift}} \rangle_k$"]),
         split=eq("split", [r"midpoint: $t_{n/2}$;   hit-median: hit $\lfloor H/2 \rfloor + 1$"]),
@@ -523,6 +583,7 @@ def main():
                      r"$\Delta x = (\mathbf{p}^{\mathrm{post}} - \mathbf{p}^{\mathrm{pre}})\cdot\hat{\mathbf{x}}$"]),
         bridge=eq("bridge", [r"$\Delta\mathbf{p} = \Delta x\,\hat{\mathbf{x}} + \Delta y\,\hat{\mathbf{y}} + \mathbf{r}$",
                              r"$\hat{\mathbf{x}} = \mathbf{L}/\|\mathbf{L}\|$ (lick axis),  $\hat{\mathbf{y}}$: pre whisker pattern $\perp\,\hat{\mathbf{x}}$ (own axis)"]),
+        ro=eq("ro", [r"$\mathrm{readout} = \dfrac{s - \frac{1}{2}(\bar{s}_{\mathrm{hit}} + \bar{s}_{\mathrm{miss}})}{\mathrm{SD}(s_{\mathrm{active}})}$"]),
         expo=eq("expo", [r"$\Delta M = \beta_0 + \beta_{R-}\,\mathbb{1}_{R-} + \beta_W z(n_W) + \beta_A z(n_A) + \epsilon$"]))
 
     prs = Presentation(); prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
@@ -619,6 +680,32 @@ def main():
                                     "Auditory pattern (dashed): no cohort difference.",
                                     "Active halves are descriptive (they average hits and misses); inference uses passive pre -> post."], size=14)
     takehome(s, 8.6, 5.2, 4.4, 1.5, "R- whisker responses decouple from the lick axis during the task and stay decoupled.")
+    # 2026-10-05 user: present the choice-decoder readout (146) as the intuitive readout that motivates the session-time null
+    dro = R["dro_W"]; droA = R["dro_A"]
+    m_ = lambda d, c, col: float(np.nanmean(d[d.reward_group == c][col]))
+    s = new_slide(prs, "A choice decoder reads the R- whisker response as a no-lick trial",
+                  "Decoder trained on active hit vs miss (5-35 ms), applied to passive trials it never saw (146)")
+    picture(s, figs["dtrain"], 0.4, 1.35, w=4.6)
+    picture(s, figs["dro"], 5.6, 1.3, w=7.4, h=3.3)
+    eqbox(s, 0.5, 4.2, 4.5, [("score s of a trial; > 0 hit side, < 0 miss side (SD of held-out active scores)", E["ro"])])
+    bullets(s, 5.6, 4.7, 7.4, 1.1, [
+        f"Whisker trials: R- {m_(VE, 'R-', 'ro_std_passive_pre_W'):+.2f} -> {m_(VE, 'R-', 'ro_std_passive_post_W'):+.2f} SD "
+        f"(p = {P(dro['R-'][1], dro['R-'][2])}); R+ {m_(VE, 'R+', 'ro_std_passive_pre_W'):+.2f} -> {m_(VE, 'R+', 'ro_std_passive_post_W'):+.2f} "
+        f"(p = {P(dro['R+'][1], dro['R+'][2])}); R+ vs R- p = {P(*dro['cohort'])}.",
+        f"Auditory trials: R+ vs R- p = {P(*droA['cohort'])}."], size=12)
+    takehome(s, 0.5, 5.85, 12.4, 0.95, "After the task, the decoder reads the R- whisker response as a no-lick trial: the same direction as the lick axis.")
+    dbs, dcov = R["dbase"], R["dcov"]
+    VEd = VE.assign(d=VE.ro_std_passive_post_W - VE.ro_std_passive_pre_W)
+    s = new_slide(prs, "But a decoder trained on time-shifted labels does it too",
+                  "Shifted labels keep the session's drift and destroy the trial-by-trial hit / miss match; the baseline window carries no sensory response")
+    picture(s, figs["dnull"], 0.3, 1.3, w=8.9)
+    bullets(s, 9.4, 1.4, 3.6, 3.9, [
+        f"R- change: real {m_(VEd, 'R-', 'd'):+.2f} SD, shifted-label decoders {m_(VE, 'R-', 'shift_null_dW_mean'):+.2f}: "
+        "much of it needs no hit / miss information.",
+        f"Baseline window alone: R- change {dbs['R-'][0]:+.2f} (p = {P(dbs['R-'][1], dbs['R-'][2])}); R+ vs R- p = {P(*dbs['cohort'])}.",
+        f"R- coefficient: p = {H.pnum(dcov[0][2])} alone, {H.pnum(dcov[1][2])} with baseline rate and gap, {H.pnum(dcov[2][2])} with reward rate."],
+        size=12)
+    takehome(s, 9.4, 5.3, 3.6, 1.6, "R- hits are early and misses late: a decoder can read session time and state. We need a null that keeps the drift.")
     s = new_slide(prs, "Session time is a confound, and a linear-shift null removes it", "Hit / miss labels drift (R- hits early, misses late); any hit / miss axis can partly encode early vs late")
     picture(s, figs["null"], 0.5, 1.5, w=7.8)
     eqbox(s, 8.7, 1.3, 4.3, [("change of a metric, and excess over K = 50 axes rebuilt from shifted labels", E["excess"])])
@@ -626,13 +713,15 @@ def main():
                                    "A circular shift turns the trend into a sawtooth and centres the null near 0: too lenient.",
                                    "The linear shift keeps the drift of both series; conservative, since real learning is time-correlated too."], size=14)
     b4 = R["b4"]; g4 = lambda m: b4[(b4.measure == m) & (b4.cohort == "R+ vs R-")].iloc[0]
-    s = new_slide(prs, "The R- decoupling survives session time and the auditory control", "Passive pre -> post change minus the change produced by lick axes rebuilt from shifted labels (135)")
+    s = new_slide(prs, "The R- decoupling survives session time and the auditory control", "Passive pre -> post change minus the change produced by lick axes (135) or decoders (146) rebuilt from shifted labels")
     picture(s, figs["b4"], 0.3, 1.3, w=8.6)
     eqbox(s, 9.2, 1.3, 3.8, [("linear contrast", E["contrast"])])
     bullets(s, 9.2, 2.5, 3.8, 3.0, [f"Whisker cosine R+ vs R- p = {P(g4('shift_excess_dWR').p_nonparam, g4('shift_excess_dWR').p_param)}.",
                                     f"Auditory cosine p = {P(g4('shift_excess_dAR').p_nonparam, g4('shift_excess_dAR').p_param)}.",
-                                    f"Whisker - auditory projection p = {P(g4('shift_excess_dWAP').p_nonparam, g4('shift_excess_dWAP').p_param)}."], size=13)
-    takehome(s, 9.2, 5.4, 3.8, 1.5, "Beyond session time, only the R- whisker response moves away from the lick axis.")
+                                    f"Whisker - auditory projection p = {P(g4('shift_excess_dWAP').p_nonparam, g4('shift_excess_dWAP').p_param)}.",
+                                    f"Decoder: whisker alone p = {P(*H.unpaired(VE[VE.reward_group == 'R+'].shift_excess_dW, VE[VE.reward_group == 'R-'].shift_excess_dW))} "
+                                    f"(not significant); whisker - auditory p = {P(g4('shift_excess_dWA').p_nonparam, g4('shift_excess_dWA').p_param)}."], size=12)
+    takehome(s, 9.2, 5.4, 3.8, 1.5, "Beyond session time, the lick axis shows the R- whisker decoupling directly; the decoder only relative to auditory.")
     b5 = R["b5"]; g5 = lambda i: b5[b5.cohort == "R+ vs R-"].iloc[i]
     s = new_slide(prs, "Robust in learners only and with a second axis", "Learners only (lick axis); late hit / miss coding direction of a hit-median split (140)")
     picture(s, figs["b5"], 0.3, 1.3, w=9.4)
