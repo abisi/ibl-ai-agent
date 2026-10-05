@@ -1,6 +1,6 @@
 """Cross-type summaries of the multi-ROC learning-stage analysis (inputs: 045 / 047; good units; no correction).
 
-Figures -> combined_results_ks4/_roc_stage_analysis/figures/summary/
+Figures -> combined_results_ks4/ssl-roc-learning-stages/figures/summary/
   S1_overview_heatmap      measures x comparisons: change in % significant and in mean |sel| (pooled), stars = perm. p
   S1b / S1c                same per sign: % positive / % negative units; mean positive / |negative| selectivity part
   S2*_area_group_heatmaps  measures x area groups: expert - learning per cohort for % sig. (S2), |sel| (S2b) and per

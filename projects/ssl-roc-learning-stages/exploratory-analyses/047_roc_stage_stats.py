@@ -21,7 +21,7 @@ Also: two-way weighted ANOVA (frac ~ group x region, session x region rows, weig
 for the group main effect; focality across regions (Gini; entropy focality 1 - H(p)/ln R) with bootstrap CI and
 permutation p of the change; selectivity-distribution shift (Wasserstein distance of signed selectivity, permutation
 of session labels); matched mice (both stages): paired sign-flip test of the pooled per-mouse fraction.
-Output: combined_results_ks4/_roc_stage_analysis/stats/
+Output: combined_results_ks4/ssl-roc-learning-stages/stats/
 """
 import argparse
 import itertools
@@ -35,7 +35,7 @@ import pandas as pd
 from scipy import stats
 
 warnings.filterwarnings("ignore")
-BASE = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/_roc_stage_analysis")
+BASE = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-roc-learning-stages")
 OUT = BASE / "stats"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 MIN_UNITS, MIN_SESS = 10, 3
@@ -439,6 +439,6 @@ if __name__ == "__main__":
     ap.add_argument("--measures", nargs="*", default=None)
     ap.add_argument("--skip-anova", action="store_true")
     ap.add_argument("--roc-long", default=None, help="alternative unit x analysis_type table (default: 045 roc_long)")
-    ap.add_argument("--out", default=None, help="output directory (default: _roc_stage_analysis/stats)")
+    ap.add_argument("--out", default=None, help="output directory (default: ssl-roc-learning-stages/stats)")
     ap.add_argument("--quality", default="good", choices=["good", "all"])
     main(ap.parse_args())

@@ -13,7 +13,7 @@ Conventions
   selectivity sign unified to "positive = second-named condition higher" with interpretable labels; the choice
   types (spikes_1 = lick, spikes_2 = no-lick) are FLIPPED so that positive = lick / hit > no-lick / miss.
   Passive analyses are absent (NaN) for sessions without passive blocks -> excluded from those denominators.
-Outputs (combined_results_ks4/_roc_stage_analysis/)
+Outputs (combined_results_ks4/ssl-roc-learning-stages/)
   units.parquet     one row per unit (keys, stage, cohort, day, area_acronym_custom, area_group, ccf_atlas_*, labels)
   roc_long.parquet  one row per unit x analysis_type (sel, abs_sel, sig, pos, neg)
   provenance.json
@@ -29,9 +29,9 @@ import numpy as np
 import pandas as pd
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-CACHE = RES / "rastermap_variants" / "_cache" / "tables_all_days.pkl"
+CACHE = RES / "rastermap_variants" / "_cache" / "tables_all_days_v2.pkl"   # v2 (2026-10-03): data_prep/build_unit_table_all_days.py
 MOUSE_INFO = "/mnt/share_internal/Axel_Bisi_Share/dataset_info/joint_mouse_reference_weight.xlsx"
-OUT = RES / "_roc_stage_analysis"
+OUT = RES / "ssl-roc-learning-stages"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 FLIP = {"choice", "whisker_choice", "auditory_choice", "baseline_choice", "baseline_whisker_choice",
         "baseline_auditory_choice"}
@@ -56,7 +56,7 @@ def main():
     OUT.mkdir(exist_ok=True)
     sys.path.insert(0, str(pathlib.Path.home() / "code/unit_spikes_analysis"))
     import ephys_utilities.allen_utils.allen_utils as au
-    uinfo = OUT / "unit_info_all_days.parquet"
+    uinfo = OUT / "unit_info_all_days_v2.parquet"
     if uinfo.exists():
         ut = pd.read_parquet(uinfo)
     else:

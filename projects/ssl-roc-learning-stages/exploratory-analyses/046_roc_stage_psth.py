@@ -9,7 +9,7 @@ Conditions (5 ms bins; stimulus-aligned -0.2..0.4 s, lick-aligned -0.4..0.4 s):
   SPONT                          spontaneous licks (roc_utils_new.get_filtered_lick_times, as the ROC), lick-aligned
 Per unit: firing rate (Hz) per bin and condition, number of events, baseline mean / SD of the pre-stimulus rate
 ([-0.2, -0.01] s over all active stimulus and catch trials).
-Output: combined_results_ks4/_roc_stage_analysis/psth/<session_id>.npz
+Output: combined_results_ks4/ssl-roc-learning-stages/psth/<session_id>.npz
 """
 import argparse
 import pathlib
@@ -27,7 +27,7 @@ from roc_analysis import roc_utils_new as ru                     # noqa: E402
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 NWB = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/NWB_ks4")
-OUT = RES / "_roc_stage_analysis" / "psth"
+OUT = RES / "ssl-roc-learning-stages" / "psth"
 BW = 0.005
 STIM_BINS = np.round(np.arange(-0.2, 0.4 + 1e-9, BW), 4)
 LICK_BINS = np.round(np.arange(-0.4, 0.4 + 1e-9, BW), 4)
@@ -90,7 +90,7 @@ def worker(args):
 
 def main(a):
     OUT.mkdir(parents=True, exist_ok=True)
-    U = pd.read_parquet(RES / "_roc_stage_analysis" / "units.parquet")
+    U = pd.read_parquet(RES / "ssl-roc-learning-stages" / "units.parquet")
     U = U[U.quality_label == "good"]
     jobs = [(sid, g[["electrode_group", "cluster_id"]].drop_duplicates()) for sid, g in U.groupby("session_id")]
     print(len(jobs), "sessions", flush=True)

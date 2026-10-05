@@ -1,7 +1,7 @@
 """Per-ROC-type (and per tuning category) publication summary of learning-stage effects (good units).
 
 Inputs: 045 (units / roc_long), 047 (stats/*.csv), 046 (psth/*.npz).
-One page per measure -> combined_results_ks4/_roc_stage_analysis/figures/types/<measure>.{png,pdf}
+One page per measure -> combined_results_ks4/ssl-roc-learning-stages/figures/types/<measure>.{png,pdf}
   a  pooled fraction significant, stacked positive (solid) + negative (hatched) = total, per cohort x stage; session
      dots; permutation p: stage within cohort (stage labels across sessions), cohort within stage (labels across
      mice); stars = total, +/- = per-sign component

@@ -9,7 +9,7 @@ smoothed count of units with a selectivity (mean_abs_sel / mean_sel_pos / mean_s
 tested-unit density >= DENS_MIN (~3 nearby units); dots = recorded (tested) unit positions. Rows: R+ learning, R+
 expert, R- learning, R- expert (single-hue white -> cohort colour, shared scale), then expert - learning (R+, R-) on a
 diverging scale. Categories: frac_sig only.
-Output: combined_results_ks4/_roc_stage_analysis/figures/ccf/<metric>/<measure>.{png,pdf} (density, trimmed to the brain)
+Output: combined_results_ks4/ssl-roc-learning-stages/figures/ccf/<metric>/<measure>.{png,pdf} (density, trimmed to the brain)
 Other styles (--styles): regions -> figures/ccf_regions/<metric>/: choropleth of the 047 area-level statistics
 (area_acronym_custom; each layer-merged atlas region takes the majority custom label of the units inside it; light grey =
 sampled but below the >= 10 units / >= 3 sessions threshold; Δ rows outline areas with stage perm. p < .05);
