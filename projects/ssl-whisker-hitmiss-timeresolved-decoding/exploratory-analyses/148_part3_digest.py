@@ -37,7 +37,8 @@ from axel_bisi_paths import axel_bisi_root  # noqa: E402
 COL, COH = H.COL, H.COH
 WC, AC = "#f7b519", "#2c2cdb"
 FIG, PUB = EA / "figures", EA / "figures" / "publication"
-OUT_PDF = axel_bisi_root() / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "report" / "part3_digest.pdf"
+OUT_PDF = (axel_bisi_root() / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "report"
+           / __import__("os").environ.get("SSL_148_OUT", "part3_digest.pdf"))   # override when the PDF is open in a viewer
 SLIDES = FIG / "digest"
 W_IN, H_IN = 13.33, 7.5
 EPL4 = ["passive\npre", "active\n1st half", "active\n2nd half", "passive\npost"]
@@ -108,7 +109,7 @@ def change_panel(ax, d, cols, labels, title, ylab, ref0=True, ls_cols=None, lege
     return dict(within=win, cohort=(mw, we), change={c: np.nanmean(v) for c, v in out.items()})
 
 
-def excess_panel(ax, d, col, title, ylab="excess change\n(real - shift null)"):
+def excess_panel(ax, d, col, title, ylab="excess change\n(real - shift null)", fs=9.5):
     """per-session excess of the passive post - pre change over the linear-shift null, mean +- s.e.m. and dots per cohort"""
     v = {}
     for i, c in enumerate(COH):
@@ -121,7 +122,7 @@ def excess_panel(ax, d, col, title, ylab="excess change\n(real - shift null)"):
     ax.set_title(title, fontsize=11.5); ax.set_ylabel(ylab, fontsize=10.5)
     o = {c: H.one_sample(v[c]) for c in COH}; mw, we = H.unpaired(v["R+"], v["R-"])
     ax.text(0, -0.2, f"vs 0 (Wilcoxon | t):\nR+ {pfmt(o['R+'][0], o['R+'][1])}\nR- {pfmt(o['R-'][0], o['R-'][1])}\nR+ vs R- (MW | Welch):\n{pfmt(mw, we)}",
-            transform=ax.transAxes, fontsize=9.5, color="0.25", va="top")
+            transform=ax.transAxes, fontsize=fs, color="0.25", va="top")
 
 
 def neural_space(ax, title=""):
@@ -374,6 +375,57 @@ def s_step5(pdf, k, D146):
     save(pdf, fig, k)
 
 
+SS_ROWS = []
+
+
+def s_statespace(pdf, k, D146):
+    """2-D state space (146): x = unit choice axis (hit - miss, all active whisker trials), y = passive-pre whisker - auditory
+    axis orthogonalised to x; condition means (evoked 5-35 ms) averaged over sessions; passive pre -> post changes tested."""
+    fig = slide("Step 5b (146): the state space - where do passive responses move?",
+                "x = choice axis (hit - miss, unit length); y = stimulus-identity axis (passive-pre whisker - auditory, orthogonalised to x)")
+    d = D146[(D146.area == "whole_brain") & (D146.response == "epochbase") & (D146.unit_set == "stable") & D146.skipped_reason.isna()].copy()
+    for i, c in enumerate(COH):
+        ax = fig.add_axes([0.075 + i * 0.235, 0.4, 0.18, 0.36])
+        g = d[d.reward_group == c]
+        P = {cn: (g[f"ss_{cn}_x"].mean(), g[f"ss2_{cn}_y"].mean()) for cn in
+             ["pre_W", "pre_A", "post_W", "post_A", "act1_hit", "act1_miss", "act2_hit", "act2_miss", "act1_A", "act2_A"]}
+        for cn, (x, y) in P.items():
+            col = WC if cn.endswith("W") else AC if cn.endswith("A") else ("0.15" if "hit" in cn else "0.6")
+            mk = "^" if "hit" in cn else "v" if "miss" in cn else "o" if cn.startswith("pre") else "s" if cn.startswith("post") else "D"
+            ax.plot(x, y, mk, color=col, ms=9 if cn[:3] in ("pre", "pos") else 7, mfc="white" if cn.startswith("pre") else col, mew=1.6)
+        for s_, col in (("W", WC), ("A", AC)):
+            ax.annotate("", xy=P[f"post_{s_}"], xytext=P[f"pre_{s_}"], arrowprops=dict(arrowstyle="->", color=col, lw=2))
+        ax.axhline(0, color="0.85", lw=0.8); ax.axvline(0, color="0.85", lw=0.8)
+        ax.set_xlabel("choice axis (hit - miss)"); ax.set_ylabel("whisker - auditory axis\n(orthogonalised)" if i == 0 else "")
+        ax.set_title(f"{c} (n = {len(g)})", color=COL[c], fontsize=13)
+    fig.text(0.05, 0.3, "o passive pre, ■ passive post (whisker yellow, auditory blue);\n▲ active hits, ▼ misses (1st, 2nd half), "
+             "◆ active auditory; mean over sessions, z units", fontsize=10, color="0.3", va="top")
+    for cn in ("W", "A"):
+        d[f"dx_{cn}"] = d[f"ss_post_{cn}_x"] - d[f"ss_pre_{cn}_x"]
+        d[f"dy_{cn}"] = d[f"ss2_post_{cn}_y"] - d[f"ss2_pre_{cn}_y"]
+    d["dx_WA"] = d.dx_W - d.dx_A
+    for j, (col, t) in enumerate((("dx_W", "whisker,\nalong choice axis"), ("dx_A", "auditory,\nalong choice axis"),
+                                  ("dx_WA", "whisker - auditory,\nalong choice axis"), ("dy_W", "whisker, along\nidentity axis"))):
+        excess_panel(fig.add_axes([0.575 + j * 0.105, 0.4, 0.065, 0.36]), d, col, t, "post - pre (z)" if j == 0 else "", fs=8)
+        for c in COH + ("R+ vs R-",):
+            v = {cc: d[d.reward_group == cc][col].dropna().to_numpy(float) for cc in COH}
+            if c == "R+ vs R-":
+                mw, we = H.unpaired(v["R+"], v["R-"]); SS_ROWS.append(dict(measure=col, cohort=c, n=np.nan, mean_a=v["R+"].mean(), mean_b=v["R-"].mean(), p_nonparam=mw, p_param=we))
+            else:
+                pw, pt, n = H.one_sample(v[c]); SS_ROWS.append(dict(measure=col, cohort=c, n=n, mean_a=v[c].mean(), mean_b=np.nan, p_nonparam=pw, p_param=pt))
+    for cn in ("dy_A",):
+        for c in COH:
+            v = d[d.reward_group == c][cn].dropna().to_numpy(float); pw, pt, n = H.one_sample(v)
+            SS_ROWS.append(dict(measure=cn, cohort=c, n=n, mean_a=v.mean(), mean_b=np.nan, p_nonparam=pw, p_param=pt))
+        v = {cc: d[d.reward_group == cc][cn].dropna().to_numpy(float) for cc in COH}; mw, we = H.unpaired(v["R+"], v["R-"])
+        SS_ROWS.append(dict(measure=cn, cohort="R+ vs R-", n=np.nan, mean_a=v["R+"].mean(), mean_b=v["R-"].mean(), p_nonparam=mw, p_param=we))
+    fig.text(0.56, 0.835, "passive pre -> post displacement (raw; not against the shift null)", fontsize=11.5, weight="bold")
+    takehome(fig, "After the task, whisker and auditory responses both shrink toward each other along the identity axis, in both "
+             "cohorts (shared). The R- whisker response also slides along the choice axis to the level of active misses; auditory "
+             "moves little (slightly in R+). Descriptive geometry; tested against session time in steps 3-5.", x=0.05, y=0.03, w=0.45, h=0.2)
+    save(pdf, fig, k)
+
+
 def s_step6(pdf, k, D146, S147):
     fig = slide("Step 6: controls for state, timing and behaviour",
                 "A decoder trained on the pre-stimulus baseline tests state; whisker - auditory removes what both stimuli share")
@@ -502,7 +554,7 @@ def main():
     OUT_PDF.parent.mkdir(parents=True, exist_ok=True)
     with PdfPages(OUT_PDF) as pdf:
         s_title(pdf, 0); s_question(pdf, 0); s_data(pdf, 0, D146); s_tools(pdf, 0); s_null(pdf, 0)
-        s_step1(pdf, 0, D133); s_step2(pdf, 0, D134); s_step3(pdf, 0, D135); s_step4(pdf, 0, D140); s_step5(pdf, 0, D146)
+        s_step1(pdf, 0, D133); s_step2(pdf, 0, D134); s_step3(pdf, 0, D135); s_step4(pdf, 0, D140); s_step5(pdf, 0, D146); s_statespace(pdf, 0, D146)
         s_step6(pdf, 0, D146, S147); s_synthesis(pdf, 0, summary_rows(D133, D135, D140, D146)); s_caveats(pdf, 0)
         for p, t in ((PUB / "150_axis_alignment_shift_null_all.png", "150 lick axis / coding direction vs the shift null"),
                      (PUB / "149_passive_readout_shift_null_all.png", "149 decoder readout vs the shift null"),
@@ -512,6 +564,7 @@ def main():
                      (PUB / "147_choice_axis_readout_stable.png", "147 choice-axis readout"), (PUB / "147_state_space_whisker_auditory_axis.png", "147 state space"),
                      (PUB / "147_controls.png", "147 controls"), (PUB / "147_choice_axis_readout_area_groups.png", "147 area groups")):
             s_backup(pdf, 0, p, t)
+    pd.DataFrame(SS_ROWS).to_csv(EA / "148_state_space_stats.csv", index=False)   # read by the report (III.6)
     print(OUT_PDF, _K[0], "slides")
 
 
