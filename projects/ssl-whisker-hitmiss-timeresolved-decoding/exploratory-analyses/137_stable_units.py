@@ -56,7 +56,15 @@ def main():
     sessions = set(U.session_id)
     nwb_files = sorted(str(NWB_DIR / f) for f in os.listdir(NWB_DIR) if f.endswith(".nwb") and f[:-4] in sessions)
     D = load_helpers.load_motion_dredge_shift_test_results(nwb_files, day_to_analyze="all", max_workers=N_WORKERS)
-    D = D[["session_id", "electrode_group", "cluster_id", "p_conservative", "r"]].rename(columns={"p_conservative": "drift_shift_test_pval"})
+    D = D[["session_id", "electrode_group", "cluster_id", "p_conservative", "r"]]
+    # units tested later by 142 (missing from the original files): appended after the originals (originals win on duplicates)
+    rr = sorted((axel_bisi_root() / "combined_results_ks4" / "_drift_rerun_20261005").glob("*/*/single_neuron_motion_shift_test/*_results.csv"))
+    if rr:
+        R = pd.concat([pd.read_csv(f, usecols=["session_id", "electrode_group", "cluster_id", "p_conservative", "r"]) for f in rr])
+        D = pd.concat([D.assign(_src=0), R.assign(_src=1)], ignore_index=True)
+        D = D.sort_values("_src").drop(columns="_src")
+        D = D[pd.to_numeric(D.r, errors="coerce").notna() | ~D.duplicated(["session_id", "electrode_group", "cluster_id"], keep=False)]
+    D = D.rename(columns={"p_conservative": "drift_shift_test_pval"})
     D["drift_abs_r"] = pd.to_numeric(D.r, errors="coerce").abs()
     D["drift_shift_test_pval"] = pd.to_numeric(D.drift_shift_test_pval, errors="coerce")
     D["nwb_cluster_id"] = D.cluster_id.astype(np.int64)

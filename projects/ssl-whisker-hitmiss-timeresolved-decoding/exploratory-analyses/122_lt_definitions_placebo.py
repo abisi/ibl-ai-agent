@@ -134,7 +134,7 @@ def main():
     if OUT_PATH.exists():
         d = pd.read_parquet(OUT_PATH, columns=["session_id", "decoding"])
         done = set(zip(d.session_id, d.decoding))
-    args = [(r.session_id, r.subject_id, r.reward_group, dec) for dec in ("modality_lick", "hitmiss")
+    args = [(r.session_id, r.subject_id, r.reward_group, dec) for dec in M118.DECODINGS
             for r in sess.itertuples() if (r.session_id, dec) not in done]
     print(f"[122] {len(args)} session x decoding tasks, STEP {STEP}, N_SUBSAMPLE {N_SUBSAMPLE}, {N_WORKERS} workers",
           flush=True)

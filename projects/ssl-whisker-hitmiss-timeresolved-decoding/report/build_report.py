@@ -246,6 +246,41 @@ d' (Pearson r = {num('p1_pd_r', pd_.r_pearson, '{:+.2f}')}, p = {pv('p1_pd_p', p
 """
 
 
+def key_new() -> str:
+    """key results of the 2026-10-05 analyses, numbers from their stats tables"""
+    out = []
+    p = EA / "143_stats_L5_all.csv"
+    if p.exists():
+        d = pd.read_csv(p); x = d[d.window == "5-100ms"]
+        rp = _r(x, panel="real vs placebo", group="R+"); ex = _r(x, panel="excess", test="R+ vs R- (Mann-Whitney | Welch)")
+        pm = x[x.test.str.contains("permutation")].iloc[0]
+        g = pd.read_csv(EA / "143_step_vs_gradual_stats_all.csv")
+        sg = _r(g, window="5-50ms", measure="exc", group="step vs gradual", cohort="R+")
+        out.append(f"7. **Step learners carry the change-point effect.** At the L5 change point (5-100 ms), R+ hit/miss decoding rose "
+                   f"beyond placebo ({num('k7_real', rp.mean_b, '{:+.3f}')} vs {num('k7_pl', rp.mean_a, '{:+.3f}')}, p = {pv('k7_pw', rp.p_nonparam)} | "
+                   f"{pv('k7_pt', rp.p_param)}, n = {num('k7_n', int(rp.n))}); R+ vs R- p = {pv('k7_mw', ex.p_nonparam)} | {pv('k7_w', ex.p_param)}, "
+                   f"permutation p = {pv('k7_perm', pm.p_nonparam)}; R+ step vs gradual learners (5-50 ms) p = {pv('k7_sg', sg.p_nonparam)} | "
+                   f"{pv('k7_sgw', sg.p_param)}.")
+    p = EA / "144_stats_all.csv"
+    if p.exists():
+        d = pd.read_csv(p)
+        a = _r(d, row="sep", window="modality_lick -100-0ms", split="hitmedian", cohort="R+")
+        c = _r(d, row="sep", window="modality_lick -100-0ms", split="hitmedian", cohort="R+ vs R-")
+        out.append(f"8. **Hit-median split: no hit/miss change, R+ pre-lick modality declines.** With equal numbers of hits before and "
+                   f"after, hit/miss decoding did not change in any window; pre-lick modality decoding fell in R+ ({num('k8_a', a.mean_a, '{:.3f}')} -> "
+                   f"{num('k8_b', a.mean_b, '{:.3f}')}, p = {pv('k8_pw', a.p_nonparam)} | {pv('k8_pt', a.p_param)}), more than in R- (p = "
+                   f"{pv('k8_c', c.p_nonparam)} | {pv('k8_cw', c.p_param)}).")
+    p = EA / "145_stats_all.csv"
+    if p.exists():
+        d = pd.read_csv(p); x = d[d.split == "hitmedian"]
+        r = _r(x, panel="passive axis vs CD half 2", cohort="R-"); c = _r(x, panel="passive axis vs CD half 2", cohort="R+ vs R-")
+        out.append(f"9. **Coding direction rotates in both cohorts; R- passive responses turn away from it.** In tracked, drift-checked "
+                   f"units the R- passive whisker axis lost its alignment with the active hit/miss direction from passive pre to post "
+                   f"({num('k9_a', r.mean_a, '{:+.2f}')} -> {num('k9_b', r.mean_b, '{:+.2f}')}, p = {pv('k9_pw', r.p_nonparam)} | {pv('k9_pt', r.p_param)}); "
+                   f"cohort difference p = {pv('k9_c', c.p_nonparam)} | {pv('k9_cw', c.p_param)}.")
+    return "\n".join(out)
+
+
 def sec_front() -> str:
     h = row(T117, cohort="R+", mode="matched"), row(T117, cohort="R-", mode="matched")
     l5 = row(T126, decoding="hitmiss", window="5-100ms", variant="L5 whisker CP", cohort="R+")
@@ -325,6 +360,7 @@ p-values are uncorrected and all analyses are exploratory.
    to {num('k_135r_a2', a['mean_R+_active_2'], '{:+.2f}')}; cohort difference of the change p = {pv('k_135_mw', a.pMW_change_active_2)}
    (Mann-Whitney), {pv('k_135_welch', a.pWelch_change_active_2)} (Welch); n = {num('k_135_nrp', int(a['n_R+']))} R+ (bad learners
    removed), {num('k_135_nrm', int(a['n_R-']))} R-.
+{key_new()}
 """
 
 
@@ -456,6 +492,42 @@ reliabilities:
 $$\cos_\text{norm}(u, v) = \frac{\cos(u^{(1)}, v^{(2)})}{\sqrt{\rho_u \rho_v}}, \qquad \rho_u = \cos(u^{(1)}, u^{(2)}),$$
 with reliabilities floored at 0.05 and 50 splits; it can exceed $\pm 1$ when reliabilities are low, so it is not converted
 to an angle. 135b splits the active epoch into halves and removes R+ mice with `learning_category == 'bad'`.
+
+## Hit-median split (139)
+
+Whisker trials in time order after the trial exclusions; with $H$ hits (lick on a whisker trial, the same label in both
+cohorts), the split falls at the $(\lfloor H/2 \rfloor + 1)$-th hit, so the first half of the hits lies before it (the
+end-of-session trim removes only trailing misses and does not move it). The midpoint split (median of the decoded trials) is
+the reference. Per half: **separate decoders** count-matched across halves (each class subsampled to the smaller half's count,
+30 subsamples), with cross-half generalisation (train on one half's subsample, test on the other's); a **single decoder**
+trained on all trials whose held-out predictions are scored per half. One $C$ per session and window from all trials;
+$\geq 3$ trials per class per half. Chance: labels shifted against the neural trials *within each half* (non-wrapping, 10-50 %
+of that half's trials, 20 shifts); values are accuracy minus that null. Windows: hit vs miss baseline -200 to -10 ms, 5-35,
+5-50 and 5-100 ms; whisker vs auditory -100 to 0 ms before the first lick.
+
+## L5 change point and step vs gradual learners (143)
+
+The 118 / 122 / 126 pipeline (separate size-matched decoders before / after a split, session-wide linear-shift null; every
+whisker trial as a placebo split) was rerun with a 5-35 ms window. **Step** sessions have an L5 change point (Bayesian change
+point of the whisker hit sequence) and are split there; **gradual** learners are learners (good / moderate) without an L5 change
+point, split at the midpoint; non-learners without a change point (midpoint) are a reference.
+
+## Coding direction, passive projection and noise (140)
+
+Units: tracked **stable** units (not non-soma, $\geq 300$ spikes, spikes missing $\leq 20$ %, coverage $\geq 0.9$, presence
+$\geq 0.5$, DREDge drift-shift test passed, i.e. not $|r| > 0.5$ with $p < 0.01$; multi-unit activity allowed) firing
+$\geq 0.5$ Hz in passive pre, passive post and every active segment of both splits. Responses 5-35 ms after stimulus onset,
+epoch-specific baseline -55 to -20 ms, z-scored per unit; active whisker trials with a lick before 35 ms excluded. Per half
+$h$ of the hit-median or midpoint split (hits and misses count-matched across halves, 50 repetitions, each splitting a half's
+trials into disjoint subsets A / B), the coding direction is $\mathrm{CD}_h = \bar r_\text{hit} - \bar r_\text{miss}$.
+Rotation: $\cos_\text{norm}(\mathrm{CD}_1, \mathrm{CD}_2)$ from disjoint subsets, normalised by split-half reliabilities.
+Gain: $d'$ of hits vs misses projected on an axis estimated on subset A and evaluated on subset B, along the half's own axis and
+along the other half's axis. Passive projection: the passive whisker - auditory difference projected on $\mathrm{CD}_h$, as a
+fraction of the active hit - miss difference on the same axis, and the normalised cosine between the passive whisker axis and
+$\mathrm{CD}_h$. Noise: within-class residual variance along $\mathrm{CD}_h$ divided by the mean variance per unit; linear
+Fisher information of hits vs misses in the top 10 principal components of the active within-class residuals, bias-corrected
+for $T$ trials per class and $N = 10$ dimensions: $\mathrm{FI} = \Delta\mu^\top \Sigma^{-1} \Delta\mu \, \frac{2T - N - 3}{2T - 2}
+- \frac{2N}{T}$.
 
 ## Statistics
 
@@ -609,9 +681,236 @@ so the effect is not a general reward-expectation signal carried by the auditory
 """
 
 
+PUB = FIG / "publication"
+NEW_TEXT: dict[str, str] = {}      # interpretation paragraphs per new section (filled from the results, see NEW_TEXT below)
+
+
+def stats_md(path: Path, keep: list[str], caption: str, query=None, rename=None) -> str:
+    if not path.exists():
+        return f"\n*[{path.name} missing]*\n"
+    d = pd.read_csv(path)
+    if query is not None:
+        d = d[query(d)]
+    d = d[keep].rename(columns=rename or {})
+    P = [c for c in d.columns if c.startswith("p_")]
+    S = [c for c in d.columns if c.startswith("mean")]
+    return mdtable(d, caption, P, S, ("n",))
+
+
+def fig_if(path: Path, label: str, caption: str) -> str:
+    return figure(path, label, caption) if path.exists() else f"\n*[{path.name} missing]*\n"
+
+
+def _r(df, **kw):
+    m = np.ones(len(df), bool)
+    for k, v in kw.items():
+        m &= (df[k] == v).to_numpy()
+    return df[m].iloc[0] if m.any() else None
+
+
+def txt138() -> str:
+    out = []
+    for scope in ("all", "learners"):
+        p = EA / f"138_stats_{scope}.csv"
+        if not p.exists():
+            continue
+        d = pd.read_csv(p)
+        b = _r(d, panel="b", cohort="R+ vs R-"); c = _r(d, panel="c", cohort="R+"); e = _r(d, panel="d", test="excess R+ vs R- (Mann-Whitney | Welch)")
+        pm = d[(d.panel == "d") & d.test.str.contains("permutation")].iloc[0]
+        nrp, nrm = int(_r(d, panel="b", cohort="R+").n), int(_r(d, panel="b", cohort="R-").n)
+        out.append(f"{'All mice' if scope == 'all' else 'Learners'} (R+ n = {num(f'o138_{scope}_nrp', nrp)}, R- n = {num(f'o138_{scope}_nrm', nrm)}): "
+                   f"the change at the stored learning trial differed between cohorts above the shift null (R+ "
+                   f"{num(f'o138_{scope}_chg_rp', b.mean_a, '{:+.3f}')}, R- {num(f'o138_{scope}_chg_rm', b.mean_b, '{:+.3f}')}; Mann-Whitney p = "
+                   f"{pv(f'o138_{scope}_chg_mw', b.p_nonparam)}, Welch p = {pv(f'o138_{scope}_chg_w', b.p_param)}); in R+ the change exceeded "
+                   f"the placebo splits ({num(f'o138_{scope}_rp_real', c.mean_b, '{:+.3f}')} vs {num(f'o138_{scope}_rp_pl', c.mean_a, '{:+.3f}')}, "
+                   f"p = {pv(f'o138_{scope}_rp_pw', c.p_nonparam)} | {pv(f'o138_{scope}_rp_pt', c.p_param)}), and the change beyond placebo "
+                   f"differed between cohorts (Mann-Whitney p = {pv(f'o138_{scope}_exc_mw', e.p_nonparam)}, Welch p = {pv(f'o138_{scope}_exc_w', e.p_param)}, "
+                   f"cohort-label permutation p = {pv(f'o138_{scope}_exc_perm', pm.p_nonparam)}).")
+    return " ".join(out) + (" The profile over split positions (panel e) has no sharp peak at the learning trial: the R+ change is "
+                            "positive at most positions and the R- change most negative for splits just after it, so the cohort "
+                            "difference reflects where the split falls in the session as much as the learning trial itself.")
+
+
+def txt144() -> str:
+    p = EA / "144_stats_all.csv"
+    if not p.exists():
+        return ""
+    d = pd.read_csv(p)
+    hm = d[(d.window.str.startswith("hitmiss")) & d.row.isin(["sep", "sgl"]) & (d.test != "description") & (d.split == "hitmedian")]
+    pmin = np.nanmin(hm[["p_nonparam", "p_param"]].min(axis=1)) if len(hm) else np.nan
+    mb = _r(d, row="sgl", window="hitmiss baseline", split="mid", cohort="R-")
+    m50 = _r(d, row="sgl", window="hitmiss 5-50ms", split="mid", cohort="R-")
+    a = _r(d, row="sep", window="modality_lick -100-0ms", split="hitmedian", cohort="R+")
+    b = _r(d, row="sep", window="modality_lick -100-0ms", split="hitmedian", cohort="R-")
+    c = _r(d, row="sep", window="modality_lick -100-0ms", split="hitmedian", cohort="R+ vs R-")
+    s = _r(d, row="sgl", window="modality_lick -100-0ms", split="hitmedian", cohort="R+ vs R-")
+    m = _r(d, row="sep", window="modality_lick -100-0ms", split="mid", cohort="R+ vs R-")
+    D = pd.read_parquet(EA / "139_hitmedian_split_whole_brain.parquet")
+    D = D[D.skipped_reason.isna() & (D.decoding == "hitmiss") & (D.window == "5-50ms") & (D.split == "hitmedian")]
+    fr = D.groupby("reward_group").split_frac_whisker.mean()
+    hr = D.groupby("reward_group")[["hit_rate_1", "hit_rate_2"]].mean()
+    return (f"With the hit-median split, the first half of each session's whisker hits came before {num('o144_frac_rp', fr['R+'], '{:.2f}')} "
+            f"of the whisker trials in R+ and {num('o144_frac_rm', fr['R-'], '{:.2f}')} in R- (whisker hit rate before / after: R+ "
+            f"{num('o144_hr1_rp', hr.loc['R+', 'hit_rate_1'], '{:.2f}')} / {num('o144_hr2_rp', hr.loc['R+', 'hit_rate_2'], '{:.2f}')}, R- "
+            f"{num('o144_hr1_rm', hr.loc['R-', 'hit_rate_1'], '{:.2f}')} / {num('o144_hr2_rm', hr.loc['R-', 'hit_rate_2'], '{:.2f}')}). "
+            f"With the hit-median split, hit vs miss decoding did not change between the halves in any window, with either decoder "
+            f"type, and the cohorts did not differ in that change (smallest p over these tests {pv('o144_hm_pmin', pmin)}, uncorrected). "
+            f"With the midpoint split, the second half carries fewer R- hits and the single-decoder R- accuracy fell in the baseline "
+            f"window ({num('o144_mid_b_a', mb.mean_a, '{:.3f}')} -> {num('o144_mid_b_b', mb.mean_b, '{:.3f}')}, p = "
+            f"{pv('o144_mid_b_pw', mb.p_nonparam)} | {pv('o144_mid_b_pt', mb.p_param)}) and at 5-50 ms ({num('o144_mid_50_a', m50.mean_a, '{:.3f}')} "
+            f"-> {num('o144_mid_50_b', m50.mean_b, '{:.3f}')}, p = {pv('o144_mid_50_pw', m50.p_nonparam)} | {pv('o144_mid_50_pt', m50.p_param)}); "
+            f"equalising the hits removes these declines. Pre-lick "
+            f"modality decoding fell in R+ ({num('o144_mod_rp_a', a.mean_a, '{:.3f}')} -> {num('o144_mod_rp_b', a.mean_b, '{:.3f}')}, "
+            f"paired Wilcoxon p = {pv('o144_mod_rp_pw', a.p_nonparam)}, paired t p = {pv('o144_mod_rp_pt', a.p_param)}) but not in R- "
+            f"(p = {pv('o144_mod_rm_pw', b.p_nonparam)} | {pv('o144_mod_rm_pt', b.p_param)}); the cohort difference in that change was "
+            f"p = {pv('o144_mod_c_mw', c.p_nonparam)} | {pv('o144_mod_c_w', c.p_param)} with separate decoders, "
+            f"{pv('o144_mod_cs_mw', s.p_nonparam)} | {pv('o144_mod_cs_w', s.p_param)} with the single decoder and "
+            f"{pv('o144_mod_cm_mw', m.p_nonparam)} | {pv('o144_mod_cm_w', m.p_param)} with the midpoint split. Decoders trained on one "
+            f"half generalised worse to the other half in every window and both cohorts (cross minus within below 0), so the "
+            f"hit / miss axis changes within the session even where the accuracy does not.")
+
+
+def txt143() -> str:
+    p, q = EA / "143_stats_L5_all.csv", EA / "143_step_vs_gradual_stats_all.csv"
+    if not p.exists():
+        return ""
+    d = pd.read_csv(p)
+    parts = []
+    for w in ("5-35ms", "5-50ms", "5-100ms"):
+        x = d[d.window == w]
+        if not len(x):
+            continue
+        rp = _r(x, panel="real vs placebo", group="R+"); rm = _r(x, panel="real vs placebo", group="R-")
+        ex = _r(x, panel="excess", test="R+ vs R- (Mann-Whitney | Welch)"); pm = x[x.test.str.contains("permutation")].iloc[0]
+        k = w.replace("-", "_")
+        parts.append(f"{w.replace('ms', ' ms')}: R+ change at the change point {num(f'o143_{k}_rp_real', rp.mean_b, '{:+.3f}')} vs placebo "
+                     f"{num(f'o143_{k}_rp_pl', rp.mean_a, '{:+.3f}')} (p = {pv(f'o143_{k}_rp_pw', rp.p_nonparam)} | {pv(f'o143_{k}_rp_pt', rp.p_param)}, "
+                     f"n = {num(f'o143_{k}_rp_n', int(rp.n))}), R- {num(f'o143_{k}_rm_real', rm.mean_b, '{:+.3f}')} vs {num(f'o143_{k}_rm_pl', rm.mean_a, '{:+.3f}')} "
+                     f"(p = {pv(f'o143_{k}_rm_pw', rm.p_nonparam)} | {pv(f'o143_{k}_rm_pt', rm.p_param)}, n = {num(f'o143_{k}_rm_n', int(rm.n))}); "
+                     f"R+ vs R- beyond placebo p = {pv(f'o143_{k}_ex_mw', ex.p_nonparam)} | {pv(f'o143_{k}_ex_w', ex.p_param)}, permutation "
+                     f"p = {pv(f'o143_{k}_ex_perm', pm.p_nonparam)}")
+    s = "At the L5 change point, per window: " + "; ".join(parts) + "."
+    if q.exists():
+        g = pd.read_csv(q)
+        sg = []
+        for w in ("5-35ms", "5-50ms", "5-100ms"):
+            for c in ("R+", "R-"):
+                r = _r(g, window=w, measure="exc", group="step vs gradual", cohort=c)
+                if r is not None:
+                    k = f"{w}_{c}".replace("-", "_").replace("+", "p")
+                    sg.append(f"{c} {w.replace('ms', ' ms')} p = {pv(f'o143sg_{k}_mw', r.p_nonparam)} | {pv(f'o143sg_{k}_w', r.p_param)}")
+        ns = g[(g.window == "5-50ms") & (g.measure == "exc") & g.cohort.isin(["R+", "R-"]) & (g.test.str.startswith("vs 0"))]
+        cnt = ", ".join(f"{r.group} {r.cohort} n = {int(r.n)}" for r in ns.itertuples())
+        s += (f" Step vs gradual learners, change beyond placebo (Mann-Whitney | Welch): " + "; ".join(sg) + f". Group sizes (5-50 ms): {cnt}.")
+    return s + (" The R+ gain at the change point is thus carried by the step learners: R+ learners without a change point show no "
+                "change at their midpoint, and step and gradual R+ learners differ, whereas in R- neither group changes. The 5-35 ms "
+                "window gives the same picture with weaker cohort contrasts than 5-100 ms.")
+
+
+def txt145() -> str:
+    p = EA / "145_stats_all.csv"
+    if not p.exists():
+        return ""
+    d = pd.read_csv(p)
+    out = []
+    for s, sl in (("hitmedian", "hit-median"), ("mid", "midpoint")):
+        x = d[d.split == s]
+        rot = {c: _r(x, panel="rotation", cohort=c) for c in ("R+", "R-")}
+        rc = _r(x, panel="rotation", cohort="R+ vs R-")
+        g = {c: _r(x, panel="gain (own axis)", cohort=c) for c in ("R+", "R-")}
+        pa = {c: _r(x, panel="passive axis vs CD half 2", cohort=c) for c in ("R+", "R-")}
+        pac = _r(x, panel="passive axis vs CD half 2", cohort="R+ vs R-")
+        nz = {c: _r(x, panel="noise along CD", cohort=c) for c in ("R+", "R-")}
+        fi = {c: _r(x, panel="Fisher information", cohort=c) for c in ("R+", "R-")}
+        k = s
+        out.append(
+            f"{sl.capitalize()} split (R+ n = {num(f'o145_{k}_n_rp', int(rot['R+'].n))}, R- n = {num(f'o145_{k}_n_rm', int(rot['R-'].n))}): "
+            f"coding-direction similarity between halves R+ {num(f'o145_{k}_rot_rp', rot['R+'].mean_a, '{:.2f}')}, R- "
+            f"{num(f'o145_{k}_rot_rm', rot['R-'].mean_a, '{:.2f}')} (vs 1: p = {pv(f'o145_{k}_rot_rp_p', rot['R+'].p_nonparam)} | "
+            f"{pv(f'o145_{k}_rot_rp_pt', rot['R+'].p_param)} and {pv(f'o145_{k}_rot_rm_p', rot['R-'].p_nonparam)} | {pv(f'o145_{k}_rot_rm_pt', rot['R-'].p_param)}; "
+            f"R+ vs R- p = {pv(f'o145_{k}_rot_c', rc.p_nonparam)} | {pv(f'o145_{k}_rot_cw', rc.p_param)}); separation along the own axis, "
+            f"half 1 -> 2, R+ {num(f'o145_{k}_g_rp_a', g['R+'].mean_a, '{:.2f}')} -> {num(f'o145_{k}_g_rp_b', g['R+'].mean_b, '{:.2f}')} "
+            f"(p = {pv(f'o145_{k}_g_rp_p', g['R+'].p_nonparam)} | {pv(f'o145_{k}_g_rp_pt', g['R+'].p_param)}), R- {num(f'o145_{k}_g_rm_a', g['R-'].mean_a, '{:.2f}')} -> "
+            f"{num(f'o145_{k}_g_rm_b', g['R-'].mean_b, '{:.2f}')} (p = {pv(f'o145_{k}_g_rm_p', g['R-'].p_nonparam)} | {pv(f'o145_{k}_g_rm_pt', g['R-'].p_param)}); "
+            f"alignment of the passive whisker axis with the second-half coding direction (normalised cosine), pre -> post, R+ {num(f'o145_{k}_pa_rp_a', pa['R+'].mean_a, '{:.2f}')} -> "
+            f"{num(f'o145_{k}_pa_rp_b', pa['R+'].mean_b, '{:.2f}')}, R- {num(f'o145_{k}_pa_rm_a', pa['R-'].mean_a, '{:.2f}')} -> "
+            f"{num(f'o145_{k}_pa_rm_b', pa['R-'].mean_b, '{:.2f}')} (cohort difference of the change p = {pv(f'o145_{k}_pa_c', pac.p_nonparam)} | "
+            f"{pv(f'o145_{k}_pa_cw', pac.p_param)}); noise along the coding direction R+ {num(f'o145_{k}_nz_rp_a', nz['R+'].mean_a, '{:.1f}')} -> "
+            f"{num(f'o145_{k}_nz_rp_b', nz['R+'].mean_b, '{:.1f}')}, R- {num(f'o145_{k}_nz_rm_a', nz['R-'].mean_a, '{:.1f}')} -> "
+            f"{num(f'o145_{k}_nz_rm_b', nz['R-'].mean_b, '{:.1f}')} times the average unit; Fisher information R+ "
+            f"{num(f'o145_{k}_fi_rp_a', fi['R+'].mean_a, '{:.2f}')} -> {num(f'o145_{k}_fi_rp_b', fi['R+'].mean_b, '{:.2f}')} (p = "
+            f"{pv(f'o145_{k}_fi_rp_p', fi['R+'].p_nonparam)} | {pv(f'o145_{k}_fi_rp_pt', fi['R+'].p_param)}), R- {num(f'o145_{k}_fi_rm_a', fi['R-'].mean_a, '{:.2f}')} -> "
+            f"{num(f'o145_{k}_fi_rm_b', fi['R-'].mean_b, '{:.2f}')} (p = {pv(f'o145_{k}_fi_rm_p', fi['R-'].p_nonparam)} | {pv(f'o145_{k}_fi_rm_pt', fi['R-'].p_param)}).")
+    return " ".join(out) + (" The hit / miss coding direction thus partly rotates between the halves in both cohorts, without a gain "
+                            "in separation and without a change in the noise along it (which is several times larger than along an "
+                            "average direction). The cohort-specific change is in how the passive whisker response relates to it: after "
+                            "the task, the R- passive whisker axis points away from the active hit / miss direction, in tracked, "
+                            "drift-checked units, consistent with Part III.1. The projection fractions (panel c) divide by a small "
+                            "active hit - miss separation and are too unstable to interpret.")
+
+
+def sec_overnight() -> str:
+    NEW_TEXT.update({"138": txt138(), "144": txt144(), "143": txt143(), "145": txt145()})
+    t138 = EA / "138_stats_all.csv"
+    k = ["panel", "test", "cohort", "n", "mean_a", "mean_b", "p_nonparam", "p_param"]
+    s = "\n### II.6 Stored learning trial vs placebo splits (abstract figure)\n\n" + NEW_TEXT.get("138", "") + "\n"
+    s += fig_if(PUB / "138_cosyne_lt_placebo_all.png", "Figure 10", "Hit vs miss decoding (5-100 ms) at the stored learning trial "
+                "vs the session's linear-shift null and placebo splits (138, all mice). a schematic; b accuracy minus shift null before / "
+                "after; c change at the learning trial vs mean placebo change; d change beyond placebo, R+ vs R- with cohort-label "
+                "permutation; e change at every split position relative to the learning trial. Mean +- s.e.m. over sessions; p values "
+                "non-parametric | parametric.")
+    s += stats_md(t138, k, "Table 11. Statistics of Figure 10 (all mice).")
+    s += stats_md(EA / "138_stats_learners.csv", k, "Table 12. Statistics of Figure 10, learners only.")
+    s += "\n### II.7 L5 change point across windows, and step vs gradual learners\n\n" + NEW_TEXT.get("143", "") + "\n"
+    s += fig_if(PUB / "143_lt_split_L5_windows_all.png", "Figure 11", "Hit vs miss decoding split at the L5 change point (Bayesian "
+                "change point of the whisker hit sequence; sessions without one drop out), one row per window (5-35, 5-50, 5-100 ms): "
+                "before vs after above the shift null, real vs placebo change, change beyond placebo (R+ vs R- and cohort-label "
+                "permutation), change at every split position relative to the change point. Mean +- s.e.m. over sessions.")
+    s += stats_md(EA / "143_stats_L5_all.csv", ["window", "panel", "test", "group", "n", "mean_a", "mean_b", "p_nonparam", "p_param"],
+                  "Table 13. Statistics of Figure 11.")
+    s += fig_if(PUB / "143_step_vs_gradual_all.png", "Figure 12", "Step learners (sessions with an L5 change point, split there) vs "
+                "gradual learners (learners without an L5 change point, split at the midpoint) and non-learners without a change point "
+                "(midpoint): change above the shift null and change beyond placebo per window. Filled = step; numbers under the axis = "
+                "sessions; brackets: R+ vs R- per group (black) and step vs gradual per cohort (colour); Mann-Whitney | Welch.")
+    s += stats_md(EA / "143_step_vs_gradual_stats_all.csv", ["window", "measure", "group", "cohort", "test", "n", "mean", "p_nonparam", "p_param"],
+                  "Table 14. Statistics of Figure 12.")
+    s += "\n### II.8 Hit-median split: equal numbers of hits before and after\n\n" + NEW_TEXT.get("144", "") + "\n"
+    s += fig_if(PUB / "144_hitmedian_split_all.png", "Figure 13", "Hit-median split (first half of the session's whisker hits before "
+                "the split) vs midpoint split (139). a split position; b whisker hit rate before (open) and after (filled); c separate "
+                "count-matched decoders and d a single whole-session decoder, accuracy minus the within-half shift null in each half "
+                "(circles / solid = hit-median, squares / dashed = midpoint) for hit vs miss (baseline, 5-35, 5-50, 5-100 ms) and "
+                "whisker vs auditory pre-lick; e cross-half generalisation. Brackets: paired Wilcoxon | paired t per cohort, change "
+                "R+ vs R- (Mann-Whitney | Welch).")
+    s += stats_md(EA / "144_stats_all.csv", ["row", "window", "split", "cohort", "test", "n", "mean_a", "mean_b", "p_nonparam", "p_param"],
+                  "Table 15. Statistics of Figure 13.", query=lambda d: d.test != "description")
+    return s
+
+
+def sec_part3b() -> str:
+    s = "\n### III.2 Coding direction across halves and epochs, and noise along it\n\n" + NEW_TEXT.get("145", "") + "\n"
+    s += fig_if(PUB / "145_coding_direction_all.png", "Figure 14", "Hit vs miss coding direction (5-35 ms, tracked stable units; 140), "
+                "rows = hit-median and midpoint split. a similarity of the two halves' coding directions (reliability-normalised cosine; "
+                "1 = same); b hit vs miss separation along each half's own axis (o) and the other half's axis (x); c passive whisker - "
+                "auditory difference projected on the second half's coding direction (fraction of the active hit - miss difference), "
+                "passive pre vs post; d normalised cosine between the passive whisker axis and that coding direction; e noise variance "
+                "along the coding direction relative to an average unit; f bias-corrected linear Fisher information (top 10 PCs).")
+    s += stats_md(EA / "145_stats_all.csv", ["split", "panel", "test", "cohort", "n", "mean_a", "mean_b", "p_nonparam", "p_param"],
+                  "Table 16. Statistics of Figure 14.")
+    return s
+
+
 def sec_discussion() -> str:
     return """
 # Discussion
+
+The analyses of 2026-10-05 sharpen this. The R+ gain in hit/miss decoding at the behavioural change point is carried by the
+step learners: R+ learners whose hit rate rises gradually (no L5 change point) show no change at their midpoint, and splitting
+every session so that the hits are equal before and after (hit-median split) shows no change in hit/miss decoding in either
+cohort. The change-point effect is therefore tied to abrupt behavioural transitions, not to a gradual reorganisation over the
+session, and it cannot come from unequal numbers of hits. Over the session, the hit/miss coding direction rotates partly in
+both cohorts without a gain in separation, so information is re-expressed along a moving axis rather than amplified. The
+pre-lick modality signal declines in R+ only, and the clearest cohort difference in population geometry is in how the passive
+whisker response relates to the active hit/miss direction: after the task, it points away from it in R- only.
 
 Across the whole learning session, whole-brain activity carries as much early choice information in R- as in R+, and
 equal pre-lick modality information; the cohorts differ late after the stimulus, when the licks themselves differ, and in
@@ -652,6 +951,10 @@ def sec_caveats() -> str:
 * The session-wide sweep (Part I; 024 -> 110 / 113) was also run before the `perf == 6` exclusion (13 sessions: six at day 0,
   seven expert); expert-stage area-group results mix redone and older sessions; `area_acronym_custom` results are no longer
   maintained. Reruns are deferred.
+* The 2026-10-05 analyses (139, 140, 143) use the current trial exclusions (invalid trials removed, rule A1). 140 uses tracked
+  stable units; after rerunning the drift test for units missing it, 893 somatic units still have no drift result and enter
+  only if their quality label is good. Step and gradual groups come from one change-point definition (L5) and are small
+  (10-21 sessions per group and cohort); the R- non-learner group without a change point is empty.
 * Hit vs miss is a lick vs no-lick decoding with the same label in both cohorts; a cohort difference can reflect the
   meaning of the action (trained response in R+, error in R-) or motor differences, not only coding.
 * Choice is decodable before the stimulus (baseline window), so post-stimulus hit/miss decoding mixes evoked and state
@@ -748,7 +1051,8 @@ th{background:#f4f4f4}figcaption,caption{font-size:.9em;text-align:left}"""
 
 
 def main():
-    md = sec_front() + sec_intro() + sec_methods() + sec_part1() + sec_results() + sec_discussion() + sec_caveats() + sec_supp() + sec_appendix()
+    res = sec_results().replace("## Part III. ", sec_overnight() + "\n## Part III. ", 1) + sec_part3b()
+    md = sec_front() + sec_intro() + sec_methods() + sec_part1() + res + sec_discussion() + sec_caveats() + sec_supp() + sec_appendix()
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "figures").mkdir(exist_ok=True)
     for f in FIGS:

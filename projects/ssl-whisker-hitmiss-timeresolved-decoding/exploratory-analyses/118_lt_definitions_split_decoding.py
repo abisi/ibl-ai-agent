@@ -49,6 +49,11 @@ DEFS = ["L0 stored", "L1 stored rule, exact", "L2 stored rule, smooth", "L3 sust
         "lenient cascade + clean gate", "half"]
 WINDOWS = {"hitmiss": {"5-50ms": (0.005, 0.050), "5-100ms": (0.005, 0.100)},
            "modality_lick": {"-100-0ms": (-0.100, 0.0)}}
+# 2026-10-05: SSL_HM_WINDOWS="5-35" (comma list of "a-b" ms) replaces the hit/miss windows (e.g. the 5-35 ms rerun);
+# SSL_DECODINGS="hitmiss" restricts the decodings run (118 and 122, which reads these windows).
+if os.environ.get("SSL_HM_WINDOWS"):
+    WINDOWS["hitmiss"] = {f"{w}ms": tuple(float(v) / 1000 for v in w.split("-")) for w in os.environ["SSL_HM_WINDOWS"].split(",")}
+DECODINGS = tuple(os.environ.get("SSL_DECODINGS", "modality_lick,hitmiss").split(","))
 DZ = (-0.010, 0.005)
 MIN_TRIALS_PER_CLASS_EPOCH = 2
 MAX_FOLDS = 5
@@ -209,7 +214,7 @@ def main():
         d = pd.read_parquet(OUT_PATH, columns=["session_id", "decoding"])
         done = set(zip(d.session_id, d.decoding))
     # lick-aligned tasks first (fewer trials, faster), then hit/miss
-    args = [(r.session_id, r.subject_id, r.reward_group, dec) for dec in ("modality_lick", "hitmiss")
+    args = [(r.session_id, r.subject_id, r.reward_group, dec) for dec in DECODINGS
             for r in sess.itertuples() if (r.session_id, dec) not in done]
     print(f"[118] {len(args)} session x decoding tasks, {len(DEFS)} definitions, N_SUBSAMPLE {N_SUBSAMPLE}, "
           f"N_SHIFT {N_SHIFT}, {N_WORKERS} workers", flush=True)
