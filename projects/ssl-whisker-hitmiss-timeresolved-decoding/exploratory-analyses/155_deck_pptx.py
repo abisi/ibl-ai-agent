@@ -57,11 +57,12 @@ OUTF = FIG / "deck_pptx"
 RDIR = axel_bisi_root() / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "report"
 PPTX = RDIR / "main_results.pptx"
 DPI, SCALE = 600, 2.2
-INK, SOFT = RGBColor(0x1D, 0x24, 0x33), RGBColor(0x5C, 0x67, 0x7D)
+# 2026-10-05 user: "plain style, just black text on white, boxes for take-home and that is it"
+INK = SOFT = RGBColor(0, 0, 0)
 SEC = {"intro": RGBColor(0x5C, 0x67, 0x7D), "A": RGBColor(0x2A, 0x9D, 0x8F), "B": RGBColor(0xE0, 0x7A, 0x3F),
        "C": RGBColor(0x7B, 0x5E, 0xA7), "bk": RGBColor(0x8D, 0x99, 0xAE)}
-SEC_TAG = {"intro": "", "A": "A · ACTIVE TRIALS: DOES CHOICE DECODING CHANGE?", "B": "B · PASSIVE VS ACTIVE: ONE METHOD, MADE ROBUST",
-           "C": "C · ACROSS METHODS", "bk": "BACKUP"}
+SEC_TAG = {"intro": "", "A": "A. Active trials: does choice decoding change?", "B": "B. Passive vs active: one method, made robust",
+           "C": "C. Across methods", "bk": "Backup"}
 CUR = {"sec": "intro", "n": 0}
 
 
@@ -88,7 +89,7 @@ def eq(name, lines, fs=13):
     """mathtext equation lines -> transparent PNG (placed at scale 1)"""
     fig = plt.figure(figsize=(6, 0.5 * len(lines)))
     for i, t in enumerate(lines):
-        fig.text(0.0, 1 - (i + 0.5) / len(lines), t, fontsize=fs, va="center", color="#1d2433")
+        fig.text(0.0, 1 - (i + 0.5) / len(lines), t, fontsize=fs, va="center", color="black")
     OUTF.mkdir(parents=True, exist_ok=True)
     p = OUTF / f"eq_{name}.png"
     fig.savefig(p, dpi=DPI, bbox_inches="tight", pad_inches=0.04, transparent=True)
@@ -137,11 +138,9 @@ def dots_panel(ax, v, ylab, title, R, key, perm=False):
 def fig_task():
     fig, ax = plt.subplots(figsize=(3.2, 2.2)); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     for i, (c, t) in enumerate((("R+", "whisker  ->  lick  ->  reward"), ("R-", "whisker  ->  lick  ->  no reward"))):
-        ax.add_patch(FancyBboxPatch((0.02, 0.62 - i * 0.36), 0.96, 0.26, boxstyle="round,pad=0.01,rounding_size=0.04",
-                                    facecolor="white", edgecolor=COL[c], lw=1.6))
-        ax.text(0.08, 0.75 - i * 0.36, c, color=COL[c], fontsize=10, weight="bold", va="center")
-        ax.text(0.25, 0.75 - i * 0.36, t, fontsize=7, va="center")
-    ax.text(0.5, 0.07, "auditory  ->  lick  ->  reward  (both cohorts)", color=AC, fontsize=6.5, ha="center")
+        ax.text(0.08, 0.75 - i * 0.3, c, color=COL[c], fontsize=10, weight="bold", va="center")
+        ax.text(0.25, 0.75 - i * 0.3, t, fontsize=7, va="center")
+    ax.text(0.25, 0.15, "auditory  ->  lick  ->  reward  (both cohorts)", fontsize=7, va="center")
     return savefig(fig, "task")
 
 
@@ -149,22 +148,21 @@ def fig_timeline():
     fig, ax = plt.subplots(figsize=(4.2, 1.1)); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     for x0, x1, t, c in ((0, 0.18, "passive pre", "0.88"), (0.2, 0.8, "active: whisker, auditory, catch trials", "#d6ece6"),
                          (0.82, 1, "passive post", "0.88")):
-        ax.add_patch(FancyBboxPatch((x0, 0.45), x1 - x0, 0.4, boxstyle="round,pad=0.005,rounding_size=0.03", color=c, lw=0))
-        ax.text((x0 + x1) / 2, 0.65, t, ha="center", va="center", fontsize=6.5)
-    ax.annotate("", xy=(1, 0.25), xytext=(0, 0.25), arrowprops=dict(arrowstyle="->", color="0.4", lw=0.8))
-    ax.text(0.5, 0.05, "learning session (whisker day 0), one per mouse", ha="center", fontsize=5.8, color="0.35")
+        ax.plot([x0 + 0.005, x1 - 0.005], [0.45, 0.45], color="black", lw=2.5, solid_capstyle="butt")
+        ax.text((x0 + x1) / 2, 0.62, t, ha="center", va="center", fontsize=6.5)
+    ax.annotate("", xy=(1, 0.25), xytext=(0, 0.25), arrowprops=dict(arrowstyle="->", color="black", lw=0.8))
+    ax.text(0.5, 0.05, "learning session (whisker day 0), one per mouse", ha="center", fontsize=5.8, color="black")
     return savefig(fig, "timeline")
 
 
 def fig_decode_schematic():
     fig, ax = plt.subplots(figsize=(3.0, 1.6)); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-    ax.add_patch(FancyBboxPatch((0, 0.55), 0.36, 0.32, boxstyle="round,pad=0.01,rounding_size=0.04", color="#d6ece6", lw=0))
     ax.text(0.18, 0.71, "active whisker trials\nhit | miss", ha="center", va="center", fontsize=6.5)
     ax.annotate("", xy=(0.55, 0.71), xytext=(0.38, 0.71), arrowprops=dict(arrowstyle="->", lw=1.2))
     ax.text(0.77, 0.71, "cross-validated\nlinear decoder", ha="center", va="center", fontsize=6.5)
     ax.annotate("", xy=(0.77, 0.32), xytext=(0.77, 0.53), arrowprops=dict(arrowstyle="->", lw=1.2))
     ax.text(0.77, 0.2, "accuracy minus\nlinear-shift null", ha="center", va="center", fontsize=6.5, weight="bold")
-    ax.text(0.0, 0.2, "labels shifted 10-50 %\nagainst the trials (no wrap)", fontsize=5.5, color="0.35", va="center")
+    ax.text(0.0, 0.2, "labels shifted 10-50 %\nagainst the trials (no wrap)", fontsize=5.5, color="black", va="center")
     return savefig(fig, "decode_schematic")
 
 
@@ -422,13 +420,11 @@ def picture(slide, path, x, y, w=None, h=None, scale=SCALE, center=False):
 
 
 def takehome(slide, x, y, w, h, s):
-    col = SEC[CUR["sec"]]
-    b = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(y), Inches(w), Inches(h))
-    b.fill.solid(); b.fill.fore_color.rgb = RGBColor(0xFF, 0xFA, 0xF0); b.line.color.rgb = col; b.line.width = Pt(1.5); b.shadow.inherit = False
-    b.adjustments[0] = 0.08
+    b = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x), Inches(y), Inches(w), Inches(h))
+    b.fill.solid(); b.fill.fore_color.rgb = RGBColor(0xFF, 0xFF, 0xFF); b.line.color.rgb = INK; b.line.width = Pt(1); b.shadow.inherit = False
     tf = b.text_frame; tf.word_wrap = True; tf.vertical_anchor = MSO_ANCHOR.TOP
     tf.margin_left = tf.margin_right = Inches(0.18); tf.margin_top = Inches(0.12)
-    p = tf.paragraphs[0]; p.alignment = PP_ALIGN.LEFT; r = p.add_run(); r.text = "TAKE-HOME"; r.font.size = Pt(10); r.font.bold = True; r.font.color.rgb = col
+    p = tf.paragraphs[0]; p.alignment = PP_ALIGN.LEFT; r = p.add_run(); r.text = "Take-home"; r.font.size = Pt(11); r.font.bold = True; r.font.color.rgb = INK; r.font.name = "Calibri"
     p = tf.add_paragraph(); p.alignment = PP_ALIGN.LEFT; p.space_before = Pt(4); r = p.add_run(); r.text = pfix(s); r.font.size = Pt(13); r.font.color.rgb = INK; r.font.name = "Calibri"
 
 
@@ -438,12 +434,8 @@ def eqbox(slide, x, y, w, items, title="DEFINITIONS"):
     for lab, png in items:
         im = Image.open(png); hs.append(im.size[1] / DPI)
     lh = [0.07 + 0.2 * int(np.ceil(len(lab) / (12.5 * (w - 0.2)))) for lab, _ in items]  # ~12.5 characters per inch at 10 pt
-    h = 0.35 + sum(l + hh for l, hh in zip(lh, hs)) + 0.05
-    b = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(y), Inches(w), Inches(h))
-    b.fill.solid(); b.fill.fore_color.rgb = RGBColor(0xF7, 0xF8, 0xFB); b.line.color.rgb = RGBColor(0xC9, 0xD1, 0xDC); b.shadow.inherit = False
-    b.adjustments[0] = 0.05
-    text(slide, x + 0.12, y + 0.05, w - 0.2, 0.3, title, size=9, color=SOFT, bold=True)
-    yy = y + 0.33
+    h = sum(l + hh for l, hh in zip(lh, hs)) + 0.05
+    yy = y
     for (lab, png), hh, l in zip(items, hs, lh):
         text(slide, x + 0.12, yy, w - 0.2, l, lab, size=10, color=SOFT)
         picture(slide, png, x + 0.15, yy + l - 0.02, w=w - 0.3, scale=1.0)
@@ -454,26 +446,20 @@ def eqbox(slide, x, y, w, items, title="DEFINITIONS"):
 def new_slide(prs, title, sub=None):
     CUR["n"] += 1
     s = prs.slides.add_slide(prs.slide_layouts[6])
-    col = SEC[CUR["sec"]]
-    rect(s, 0, 0, 13.333, 1.05, RGBColor(0xF4, 0xF6, 0xF9))
-    rect(s, 0, 0, 0.12, 1.05, col)
     if SEC_TAG[CUR["sec"]]:
-        text(s, 0.35, 0.05, 10, 0.3, SEC_TAG[CUR["sec"]], size=10, color=col, bold=True)
+        text(s, 0.35, 0.05, 10, 0.3, SEC_TAG[CUR["sec"]], size=10)
     text(s, 0.35, 0.28, 12.6, 0.5, title, size=24, bold=True)
     if sub:
         text(s, 0.35, 0.7, 12.6, 0.35, sub, size=13, color=SOFT)
-    text(s, 0.35, 7.12, 9, 0.3, "Single-session whisker learning  |  within-session coding changes", size=9, color=RGBColor(0x8D, 0x99, 0xAE))
-    text(s, 12.4, 7.12, 0.6, 0.3, str(CUR["n"]), size=9, color=RGBColor(0x8D, 0x99, 0xAE), align=PP_ALIGN.RIGHT)
+    text(s, 12.4, 7.12, 0.6, 0.3, str(CUR["n"]), size=9, align=PP_ALIGN.RIGHT)
     return s
 
 
 def section_slide(prs, key, title, sub):
     CUR["sec"] = key; CUR["n"] += 1
     s = prs.slides.add_slide(prs.slide_layouts[6])
-    rect(s, 0, 0, 4.6, 7.5, SEC[key])
-    text(s, 0, 2.6, 4.6, 2, key, size=120, color=RGBColor(0xFF, 0xFF, 0xFF), bold=True, align=PP_ALIGN.CENTER)
-    text(s, 5.2, 2.5, 7.6, 1.6, title, size=30, bold=True)
-    text(s, 5.2, 4.2, 7.6, 1.2, sub, size=16, color=SOFT)
+    text(s, 0.9, 2.6, 11.5, 1.2, f"{key}.  {title}", size=32, bold=True)
+    text(s, 0.9, 3.9, 11.5, 1.2, sub, size=18)
 
 
 # ------------------------------------------------------------------------------------------------------------- main
@@ -518,17 +504,14 @@ def main():
     # ---- title
     CUR["sec"] = "intro"; CUR["n"] += 1
     s = prs.slides.add_slide(prs.slide_layouts[6])
-    rect(s, 0, 0, 13.333, 3.2, INK)
-    text(s, 0.7, 0.8, 12, 1.6, "Within one learning session, the reward contingency remaps the whisker sensorimotor chain", size=32, bold=True,
-         color=RGBColor(0xFF, 0xFF, 0xFF))
+    text(s, 0.7, 0.8, 12, 1.6, "Within one learning session, the reward contingency remaps the whisker sensorimotor chain", size=32, bold=True)
     text(s, 0.7, 2.45, 12, 0.5, "Whole-brain Neuropixels during single-session whisker learning; R+ (whisker licks rewarded) vs R- (not rewarded)",
-         size=16, color=RGBColor(0xC9, 0xD1, 0xDC))
+         size=16)
     for i, (k, t) in enumerate((("A", "Active trials: is choice decoding stable within the session? Where does it change?"),
                                 ("B", "Passive vs active: does the early whisker response move relative to the lick axis? One method, made robust"),
                                 ("C", "Across methods: summary, synthesis, caveats"))):
-        b = rect(s, 0.7, 3.8 + i * 1.0, 0.75, 0.75, SEC[k])
-        text(s, 0.7, 3.88 + i * 1.0, 0.75, 0.6, k, size=28, bold=True, color=RGBColor(0xFF, 0xFF, 0xFF), align=PP_ALIGN.CENTER)
-        text(s, 1.7, 3.98 + i * 1.0, 11, 0.5, t, size=18)
+        text(s, 0.7, 3.9 + i * 1.0, 0.75, 0.6, k, size=24, bold=True)
+        text(s, 1.4, 3.95 + i * 1.0, 11.3, 0.8, t, size=18)
     # ---- task
     s = new_slide(prs, "Same stimuli, same action, different contingency", "Learning session (whisker day 0), one per mouse")
     picture(s, figs["task"], 0.5, 1.4, w=6.2); picture(s, figs["timeline"], 0.5, 5.3, w=6.2)
