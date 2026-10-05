@@ -317,6 +317,14 @@ def key_new() -> str:
                    f"{pv('k11_y', yw.p_nonparam)} | {pv('k11_yw', yw.p_param)}), while along the choice axis the whisker response moves "
                    f"{num('k11_rp', xw.mean_a, '{:+.2f}')} (R+) vs {num('k11_rm', xw.mean_b, '{:+.2f}')} (R-), p = {pv('k11_x', xw.p_nonparam)} | "
                    f"{pv('k11_xw', xw.p_param)} (raw displacement; III.6).")
+    p = EA / "153_stats.csv"
+    if p.exists():
+        e = pd.read_csv(p)
+        y0 = _r(e, panel="covariate model", measure="dyW", x="+ nW, nA"); l1 = _r(e, panel="covariate model", measure="lick_WR", x="+ nW, nA")
+        out.append(f"12. **Exposure shapes the sensory axes, not the choice axis.** R- mice receive more whisker and auditory trials (same "
+                   f"proportion). Trial counts predict how much each passive response shrinks along its own pattern (whisker trials "
+                   f"p = {pv('k12_y', y0.p_nW)}) but not the lick-axis change, whose cohort effect survives the counts as covariates "
+                   f"(p = {pv('k12_l', l1.p_param)}; III.8).")
     return "\n".join(out)
 
 
@@ -693,6 +701,15 @@ and whisker - auditory; the whisker - auditory projection is linear, so a drift 
 shifted axes have split-half reliability below the 0.05 floor of the noise-corrected cosine, so that metric is reported only as
 a sensitivity check. The null is conservative: real learning is time-correlated too. Code: `shift_null.py`, 135, 140, 146;
 figures 149, 150.
+
+## Stimulus exposure (153)
+
+Per session, the numbers of active whisker ($n_W$) and auditory ($n_A$) trials in the analysed active epoch. Sensory-axis
+change: the state-space displacement of each passive response along its own passive-pre pattern ($\Delta y$ of whisker on the
+whisker-pattern axis, of auditory on the auditory-pattern axis). Choice-axis change: $\Delta x$ of whisker and of whisker -
+auditory, and the lick-axis excess over the linear-shift null. Within cohort, each change is correlated with $n_W$ and $n_A$
+(Spearman, Pearson); across cohorts, $\Delta M = \beta_0 + \beta_{R-} \mathbb{1}_{R-} + \beta_W z(n_W) + \beta_A z(n_A) + \epsilon$
+(OLS), and $\beta_{R-}$ is compared with the model without the counts.
 
 ## Statistics
 
@@ -1348,6 +1365,72 @@ def sec_part3g() -> str:
     return s
 
 
+def txt_expo() -> str:
+    """III.8: stimulus exposure (153_stats)"""
+    p = EA / "153_stats.csv"
+    if not p.exists():
+        return ""
+    d = pd.read_csv(p)
+    cnt = lambda m: _r(d, panel="counts", measure=m)
+    cor = lambda m, c, x="nW": _r(d, measure=m, cohort=c, x=x)
+    ols = lambda m, k: _r(d, panel="covariate model", measure=m, x=k)
+    nW, nA, fW = cnt("nW"), cnt("nA"), cnt("fracW")
+    P = lambda key, r: f"{pv(key, r.p_nonparam)} | {pv(key + 'w', r.p_param)}"
+    s = (f"R- sessions are longer, so R- mice received more active whisker trials (median {num('e_nw_rp', nW.median_rp, '{:.0f}')} vs "
+         f"{num('e_nw_rm', nW.median_rm, '{:.0f}')}) and more auditory trials ({num('e_na_rp', nA.median_rp, '{:.0f}')} vs "
+         f"{num('e_na_rm', nA.median_rm, '{:.0f}')}; both p < 0.001), in the same proportion (whisker fraction "
+         f"{num('e_fw_rp', fW.mean_rp, '{:.2f}')} vs {num('e_fw_rm', fW.mean_rm, '{:.2f}')}, p = {P('e_fw', fW)}). Exposure, e.g. stimulus "
+         "adaptation, is therefore a candidate explanation of the post-task changes, and it makes two predictions: the changes should "
+         "scale with the number of trials within each cohort, and they should affect the auditory response as well, since R- mice "
+         "also hear the tone more often (Figure 24, Table 24).\n\n")
+    yw, ya = cor("dyW", "R-"), cor("dyA", "R-")
+    yw0, ya0 = ols("dyW", "+ nW, nA"), ols("dyA", "+ nW, nA")
+    s += (f"*Sensory axes: exposure scales the shrinkage.* The post-task shrinkage of each passive response along its own pre-task "
+          f"pattern (III.6) was larger in R- sessions with more whisker trials (whisker on the whisker axis: Spearman "
+          f"{num('e_yw_r', yw.spearman, '{:+.2f}')}, p = {P('e_yw', yw)}; auditory on the auditory axis: {num('e_ya_r', ya.spearman, '{:+.2f}')}, "
+          f"p = {P('e_ya', ya)}), and in the pooled model the trial counts predicted the whisker shrinkage (whisker trials p = "
+          f"{pv('e_yw_nw', yw0.p_nW)}, auditory trials p = {pv('e_yw_na', yw0.p_nA)}) while the cohort did not (p = {pv('e_yw_coh', yw0.p_param)}). "
+          f"Since R+ and R- shrink by the same amount overall (III.6), exposure accounts for a shared, adaptation-like loss of the "
+          f"evoked response, not for the cohort difference.\n\n")
+    out = []
+    for m, lab in (("dx_W", "whisker along the choice axis"), ("dx_WA", "whisker - auditory along the choice axis"),
+                   ("lick_WR", "lick-axis whisker raw cosine (excess)"), ("lick_WAP", "lick-axis whisker - auditory projection (excess)")):
+        a0, a1 = ols(m, "cohort only"), ols(m, "+ nW, nA")
+        out.append(f"{lab}: R- coefficient {num('e_' + m + '_c0', a0.spearman, '{:+.3f}')} (p = {pv('e_' + m + '_p0', a0.p_param)}) -> "
+                   f"{num('e_' + m + '_c1', a1.spearman, '{:+.3f}')} (p = {pv('e_' + m + '_p1', a1.p_param)}), trial counts p = "
+                   f"{pv('e_' + m + '_nw', a1.p_nW)} / {pv('e_' + m + '_na', a1.p_nA)}")
+    lw, lwp = cor("lick_WR", "R-"), cor("lick_WAP", "R-")
+    s += ("*Choice axis: exposure does not explain the cohort difference.* The auditory response, presented "
+          f"{num('e_na_ratio', nA.mean_rm / nA.mean_rp, '{:.1f}')} times more often in R- as well, did not move beyond session time in R- and did not differ between cohorts (III.5). Within R-, the lick-axis "
+          f"measures were not related to the number of whisker trials (whisker raw cosine: Spearman {num('e_lw_r', lw.spearman, '{:+.2f}')}, "
+          f"p = {P('e_lw', lw)}; whisker - auditory projection: {num('e_lwp_r', lwp.spearman, '{:+.2f}')}, p = {P('e_lwp', lwp)}). Adding "
+          "whisker and auditory trial counts to a cohort model left the cohort effect on every choice-axis measure in place, with the "
+          "counts themselves not significant: " + "; ".join(out) + ". The one choice-axis measure related to exposure within R- is "
+          "the raw whisker displacement along the choice axis (more trials, larger miss-ward slide), which cannot be separated from the "
+          "behavioural change that comes with longer sessions (R- mice that withhold more licks run longer), and which also follows "
+          "the drop in hit rate (III.4).\n\n"
+          "Exposure thus has a clear signature, but on the sensory axes: more stimuli, more shrinkage of the response along its own "
+          "pattern, for both stimuli and in both cohorts. The cohort-specific change is on the choice axis, where exposure has no "
+          "detectable effect. The covariate model is limited by the collinearity of trial counts and cohort (every R- session has "
+          "more trials), which lowers its power without changing its estimates.")
+    return s
+
+
+def sec_part3h() -> str:
+    s = "\n### III.8 Stimulus exposure shapes the sensory axes, not the choice axis\n\n" + txt_expo() + "\n"
+    s += fig_if(PUB / "153_exposure_control.png", "Figure 24", "Stimulus exposure (153; whole brain, stable units; dots = sessions). "
+                "a active whisker and auditory trials per session (R- more of both, same proportion). b shrinkage of each passive "
+                "response along its own passive-pre pattern (state-space y; post - pre) vs the number of active whisker trials. c "
+                "choice-axis changes vs the same counts: whisker and whisker - auditory displacement along the choice axis, and the "
+                "lick-axis excess over the linear-shift null (whisker raw cosine, whisker - auditory projection). b, c: OLS line and "
+                "95 % CI per cohort, solid if Pearson p < 0.05; titles: Spearman rho (p Spearman | Pearson). d R- minus R+ effect "
+                "(in SD of each measure, 95 % CI) from OLS without (grey) and with (black) whisker and auditory trial counts.")
+    s += stats_md(EA / "153_stats.csv", ["panel", "measure", "cohort", "x", "n", "spearman", "p_nonparam", "p_param"],
+                  "Table 24. Statistics of Figure 24 (counts: R+ vs R- Mann-Whitney | Welch; correlations: Spearman | Pearson; "
+                  "covariate model: the R- coefficient in 'spearman', its OLS p in 'p_param').")
+    return s
+
+
 def sec_part3d() -> str:
     s = "\n### III.4 State and engagement controls\n\n" + txt147c() + "\n"
     s += fig_if(PUB / "147_controls.png", "Figure 16", "State and engagement controls (stable units, whole brain). a timing and rewards per "
@@ -1413,8 +1496,11 @@ state: a decoder trained on the baseline window alone reads passive post as miss
 R+, equally for whisker and auditory trials, consistent with R- mice ending the session less engaged (they also have longer
 sessions and collect fewer rewards). The whisker-specific claim therefore rests on whisker - auditory contrasts; it holds for
 all three axes, and in R- the raw readout change follows how much each mouse reduced its whisker hit rate. Reward intake and the R-
-contingency are confounded by design, and stimulus-specific adaptation (R- mice receive more whisker stimuli) is controlled
-neither by the shift null nor by the auditory contrast.
+contingency are confounded by design. Stimulus exposure (R- mice receive more whisker and auditory trials, in the same
+proportion) has a clear but different signature: it scales how much each passive response shrinks along its own sensory
+pattern, in both cohorts and for both stimuli, but it does not predict the movement along the choice axis, where the cohorts
+differ (III.8). Adaptation-like shrinkage and contingency-specific re-mapping are thus separable components of the post-task
+change.
 
 Across the whole learning session, whole-brain activity carries as much early choice information in R- as in R+, and
 equal pre-lick modality information; the cohorts differ late after the stimulus, when the licks themselves differ, and in
@@ -1467,9 +1553,10 @@ def sec_caveats() -> str:
   (III.5), which is conservative (real learning is time-correlated too). Part of every post-task change is time; for the
   decoder's whisker readout, the cohort difference does not survive it.
 * Part III, state and exposure: part of the post-task change is pre-stimulus state, larger in R-, so the whisker-specific claim
-  rests on whisker - auditory contrasts; R- sessions are longer, R- mice receive more whisker stimuli and collect fewer
-  rewards, and stimulus-specific adaptation is covered neither by the shift null nor by the auditory contrast; the reward rate
-  cannot be separated from the cohort.
+  rests on whisker - auditory contrasts. R- mice receive more whisker and auditory trials (same proportion): exposure scales the
+  shrinkage along the sensory axes but not the choice-axis changes (III.8); trial counts and cohort are collinear, so the
+  covariate model is weak, and a whisker-specific adaptation that rotates rather than shrinks the response cannot be excluded.
+  R- mice collect fewer rewards (by design): the reward rate cannot be separated from the cohort.
 * Part III, noise and selection: hit / miss axes at 5-35 ms have low split-half reliability (shifted axes mostly below the
   0.05 floor), so the null tests use raw cosines and projections; active-half values are descriptive (trial composition);
   sessions need passive epochs on both sides and enough hits and misses (146: >= 3; 135 and 140 more, to split them), which
@@ -1584,7 +1671,7 @@ th{background:#f4f4f4}figcaption,caption{font-size:.9em;text-align:left}"""
 
 def main():
     res = (sec_results().replace("## Part III. ", sec_overnight() + "\n## Part III. ", 1) + sec_part3b() + sec_part3c() + sec_part3d()
-           + sec_part3e() + sec_part3f() + sec_part3g())
+           + sec_part3e() + sec_part3f() + sec_part3g() + sec_part3h())
     md = sec_front() + sec_intro() + sec_methods() + sec_part1() + res + sec_discussion() + sec_caveats() + sec_supp() + sec_appendix()
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "figures").mkdir(exist_ok=True)
