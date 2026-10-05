@@ -12,6 +12,9 @@ import pandas as pd
 
 PUB, REF, POP = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 HTML = os.environ.get("ARTICLE_FMT", "typst") == "html"     # html: shareable report (no author line, markdown captions)
+MD = os.environ.get("ARTICLE_FMT", "typst") == "md"         # md: Pandoc Markdown for the LaTeX report (skills/project-report)
+MD_OUT = Path(os.environ.get("ARTICLE_OUT", PUB / f"prelick_convergence_{REF}_{POP}.md"))
+MD_FIGPREFIX = os.environ.get("ARTICLE_FIGPREFIX", "")    # figure file prefix inside report/figures/
 S = pd.read_csv(PUB / f"stats_{POP}.csv")
 CAP = (PUB / f"captions_{POP}.md").read_text(encoding="utf-8")
 G = {"RpL": "R+ learning", "RpE": "R+ expert", "RmL": "R− learning", "RmE": "R− expert"}
@@ -129,6 +132,9 @@ def typst_escape(t):
 def fig(file, header, width=None):
     """image (no float, sized to fit one page) followed by the full caption as a small-font paragraph (can break)"""
     w = width or FIGW.get(file, 100)
+    if MD:                                                   # image, then the caption as a paragraph (long captions break across pages)
+        return (f"![](figures/{MD_FIGPREFIX}{file.replace('.png', '.jpg')}){{width={w}%}}" + chr(10) + chr(10) +
+                f"**{NUM[header]}.** {caption(header)}" + chr(10))
     if HTML:
         return (f"![]({file}){{width={w}%}}" + chr(10) + chr(10) + "::: {style=\"font-size: 0.82em; color: #333\"}" + chr(10) +
                 f"**{NUM[header]}.** {caption(header)}" + chr(10) + ":::" + chr(10))
@@ -145,7 +151,7 @@ def f2f(c, k, f=2):
     return "n/a" if r is None else f"{r[k]:.{f}f}".replace("-", "−")
 
 
-HEADER = ("""date: 2026-10-03
+HEADER = (f"""date: {pd.Timestamp.now():%Y-%m-%d}""" if MD else """date: 2026-10-03
 format:
   html:
     toc: true
@@ -402,6 +408,6 @@ if HTML:
 - Reporting: generate report text from the saved statistics tables rather than typing numbers, so that reruns update
   every sentence consistently.
 """
-out = PUB / (f"prelick_convergence_{REF}_{POP}" + ("_html" if HTML else "") + ".qmd")
+out = MD_OUT if MD else PUB / (f"prelick_convergence_{REF}_{POP}" + ("_html" if HTML else "") + ".qmd")
 out.write_text(txt, encoding="utf-8")
 print("wrote", out)
