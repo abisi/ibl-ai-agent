@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import re
 import sys
 import textwrap
@@ -55,13 +56,15 @@ WC, AC = "#f7b519", "#2c2cdb"
 FIG, PUB = EA / "figures", EA / "figures" / "publication"
 OUTF = FIG / "deck_pptx"
 RDIR = axel_bisi_root() / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "report"
-PPTX = RDIR / "main_results.pptx"
+# SSL_155_FULL=1: the exhaustive deck results_full.pptx (main deck + every report figure and its text, deck_full.py)
+FULL = bool(os.environ.get("SSL_155_FULL"))
+PPTX = RDIR / ("results_full.pptx" if FULL else "main_results.pptx")
 DPI, SCALE = 600, 2.2
 # 2026-10-05 user: "plain style, just black text on white, boxes for take-home and that is it"
 INK = SOFT = RGBColor(0, 0, 0)
 SEC = {"intro": RGBColor(0x5C, 0x67, 0x7D), "A": RGBColor(0x2A, 0x9D, 0x8F), "B": RGBColor(0xE0, 0x7A, 0x3F),
        "C": RGBColor(0x7B, 0x5E, 0xA7), "bk": RGBColor(0x8D, 0x99, 0xAE)}
-SEC_TAG = {"intro": "", "A": "A. Active trials: does choice decoding change?", "B": "B. Passive vs active: one method, made robust",
+SEC_TAG = {"intro": "", "I": "Session-wide decoding", "A": "A. Active trials: does choice decoding change?", "B": "B. Passive vs active: one method, made robust",
            "C": "C. Across methods", "bk": "Backup"}
 CUR = {"sec": "intro", "n": 0}
 
@@ -354,6 +357,26 @@ def fig_forest(R, A, C, V, D, WD2):
     return savefig(fig, "forest")
 
 
+def fig_bridge():
+    """gain (scaling along the response's own direction) vs re-mapping (rotation relative to the lick axis)"""
+    fig, axes = plt.subplots(1, 2, figsize=(4.4, 1.9))
+    for ax, (title, post_ang, post_len) in zip(axes, (("gain: same direction, other size", 40, 0.55), ("re-mapping: other direction", 75, 0.85))):
+        ax.axis("off"); ax.set_xlim(-0.15, 1.25); ax.set_ylim(-0.3, 1.05); ax.set_aspect("equal")
+        ax.add_patch(FancyArrowPatch((0, 0), (1.15, 0), arrowstyle="-|>", mutation_scale=8, color="black", lw=1.3))
+        ax.text(1.0, -0.17, "lick axis L (active hits - misses)", ha="center", fontsize=5.3)
+        r = np.deg2rad(40); e = (0.85 * np.cos(r), 0.85 * np.sin(r))
+        ax.add_patch(FancyArrowPatch((0, 0), e, arrowstyle="-|>", mutation_scale=8, color="black", lw=1.3))
+        ax.text(e[0] + 0.04, e[1] + 0.02, "whisker, pre", fontsize=5.3)
+        r2 = np.deg2rad(post_ang); e2 = (post_len * np.cos(r2), post_len * np.sin(r2))
+        ax.add_patch(FancyArrowPatch((0, 0), e2, arrowstyle="-|>", mutation_scale=8, color="0.45", lw=1.3, linestyle=(0, (3, 2))))
+        if post_ang > 60:
+            ax.text(e2[0] - 0.05, e2[1] + 0.05, "whisker, post", fontsize=5.3, color="0.3", ha="right")
+        else:
+            ax.text(e2[0] + 0.08, e2[1] - 0.12, "whisker, post", fontsize=5.3, color="0.3")
+        ax.set_title(title, fontsize=6.2)
+    return savefig(fig, "bridge")
+
+
 def fig_synthesis():
     fig, axes = plt.subplots(1, 2, figsize=(4.8, 2.0))
     for ax, (title, lab_axis, a0, a_rp, a_rm, labs) in zip(axes, (
@@ -448,7 +471,7 @@ def new_slide(prs, title, sub=None):
     s = prs.slides.add_slide(prs.slide_layouts[6])
     if SEC_TAG[CUR["sec"]]:
         text(s, 0.35, 0.05, 10, 0.3, SEC_TAG[CUR["sec"]], size=10)
-    text(s, 0.35, 0.28, 12.6, 0.5, title, size=24, bold=True)
+    text(s, 0.35, 0.28, 12.6, 0.5, title, size=24 if len(title) <= 75 else 20 if len(title) <= 92 else 17, bold=True)
     if sub:
         text(s, 0.35, 0.7, 12.6, 0.35, sub, size=13, color=SOFT)
     text(s, 12.4, 7.12, 0.6, 0.3, str(CUR["n"]), size=9, align=PP_ALIGN.RIGHT)
@@ -481,7 +504,7 @@ def main():
                                      (A, "shift_excess_dWAP", "whisker - auditory\nprojection")], R),
                 b5=excess_fig("b5", [(AL, "shift_excess_dWR", "learners:\nwhisker cosine"), (AL, "shift_excess_dWAP", "learners:\nW - A projection"),
                                      (C, "shift_excess_daxisR", "late CD: passive\naxis cosine"), (C, "shift_excess_dWAP", "late CD:\nW - A projection")], R, w=7.6),
-                state=fig_state(R), expo=fig_exposure(R), forest=fig_forest(R, A, C, V[V.response == "trialbase"], VD, WD2), syn=fig_synthesis())
+                state=fig_state(R), expo=fig_exposure(R), bridge=fig_bridge(), forest=fig_forest(R, A, C, V[V.response == "trialbase"], VD, WD2), syn=fig_synthesis())
     E = dict(
         dec=eq("dec", [r"$\Delta\mathrm{acc} = \mathrm{acc}_{\mathrm{real}} - \langle \mathrm{acc}^{(k)}_{\mathrm{shift}} \rangle_k$"]),
         split=eq("split", [r"midpoint: $t_{n/2}$;   hit-median: hit $\lfloor H/2 \rfloor + 1$"]),
@@ -498,6 +521,8 @@ def main():
         cd2=eq("cd2", [r"$\mathbf{CD}_2 = \bar{\mathbf{z}}_{\mathrm{hit},2} - \bar{\mathbf{z}}_{\mathrm{miss},2}$"]),
         ss=eq("ss", [r"$\hat{\mathbf{x}} = \mathbf{L}/\|\mathbf{L}\|,\quad \hat{\mathbf{y}} \propto \mathbf{p}^{\mathrm{pre}}_W - (\mathbf{p}^{\mathrm{pre}}_W\cdot\hat{\mathbf{x}})\,\hat{\mathbf{x}}$",
                      r"$\Delta x = (\mathbf{p}^{\mathrm{post}} - \mathbf{p}^{\mathrm{pre}})\cdot\hat{\mathbf{x}}$"]),
+        bridge=eq("bridge", [r"$\Delta\mathbf{p} = \Delta x\,\hat{\mathbf{x}} + \Delta y\,\hat{\mathbf{y}} + \mathbf{r}$",
+                             r"$\hat{\mathbf{x}} = \mathbf{L}/\|\mathbf{L}\|$ (lick axis),  $\hat{\mathbf{y}}$: pre whisker pattern $\perp\,\hat{\mathbf{x}}$ (own axis)"]),
         expo=eq("expo", [r"$\Delta M = \beta_0 + \beta_{R-}\,\mathbb{1}_{R-} + \beta_W z(n_W) + \beta_A z(n_A) + \epsilon$"]))
 
     prs = Presentation(); prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
@@ -519,6 +544,12 @@ def main():
                                     "H1: choice information grows when R+ mice learn; H2: not in R-.",
                                     "H3: the early whisker response is re-mapped relative to the lick representation, depending on the contingency.",
                                     "Statistics: session = unit (one per mouse); a non-parametric and a parametric test (shown as p | p); uncorrected."], size=15)
+    if FULL:
+        import deck_full as X
+        RF = X.load(RDIR / "report_full.md")
+        X.overview(sys.modules[__name__], prs, RF)
+        section_slide(prs, "I", "Session-wide decoding", "Choice, modality and performance state over the whole learning session (full report, Part I)")
+        X.part(sys.modules[__name__], prs, RF, "I")
     # ---- A
     section_slide(prs, "A", "Active trials: is choice decoding stable within the session?", "One method throughout: hit / miss decoding against a linear-shift null")
     s = new_slide(prs, "Choice is decodable early after the whisker, equally in both cohorts", "Method A: decode hit vs miss from the 5-50 ms response; subtract a time-preserving null")
@@ -559,8 +590,22 @@ def main():
     bullets(s, 9.2, 3.95, 3.8, 1.6, [f"Drift R+ {cp_.mean_a:+.2f} (p = {P(cp_.p_nonparam, cp_.p_param)}), R- {cm_.mean_a:+.2f} (p = {P(cm_.p_nonparam, cm_.p_param)}).",
                                      f"R+ vs R- p = {P(c_.p_nonparam, c_.p_param)}; {c_.note}. Sessions with >= 4 whisker hits."], size=12)
     takehome(s, 9.2, 5.6, 3.8, 1.3, "Decodability is stable, but the pre-lick signal moves in opposite directions.")
+    if FULL:
+        new_slide(prs, "Part A in detail", "Every figure of the full report's Part II follows, with its results text")
+        X.part(sys.modules[__name__], prs, RF, "II")
     # ---- B
     section_slide(prs, "B", "Passive vs active: one method, made robust", "Does the earliest (5-35 ms) whisker response move relative to the active lick axis, before vs after the task?")
+    s = new_slide(prs, "From sensory gain to the lick axis", "Gain says how much the whisker response changes; the active trials give a reference for the direction")
+    picture(s, figs["bridge"], 0.4, 1.3, w=7.2)
+    eqbox(s, 7.9, 1.3, 5.1, [("the passive pre -> post change, split along two axes", E["bridge"])])
+    bullets(s, 0.5, 4.75, 7.1, 2.3, ["A gain change scales the whisker response along its own direction.",
+                                     "The active trials define the direction of licking: the lick axis L = whisker hits - whisker misses.",
+                                     "Question: beyond gain, does the passive whisker response move toward or away from L? Passive trials are "
+                                     "measured without the task, so a shift along L is a change in the sensory representation itself."], size=13)
+    bullets(s, 7.9, 3.0, 5.1, 2.2, ["In these data (tracked stable units, 5-35 ms), shrinkage along the response's own pattern is shared by both "
+                                    "cohorts and scales with the number of trials; the cohort-specific part is the shift along L (state space and "
+                                    "exposure slides)."], size=12)
+    takehome(s, 7.9, 5.4, 5.1, 1.4, "Part B asks whether, after the task, the whisker response looks more or less like a lick trial.")
     s = new_slide(prs, "One pattern, one axis", "Passive whisker pattern p (before or after the task) against the active lick axis L")
     picture(s, figs["pa"], 0.6, 1.4, w=4.6); picture(s, figs["timeline"], 0.4, 5.4, w=5.6)
     eqbox(s, 6.4, 1.3, 6.6, [("response of unit i on trial t (5-35 ms minus the epoch's baseline), evoked scaling", E["resp"]),
@@ -613,6 +658,10 @@ def main():
     bullets(s, 9.5, 2.45, 3.5, 3.0, [f"Whisker shrinkage: trial counts p = {H.pnum(ew[2])} (whisker), {H.pnum(ew[3])} (auditory); cohort p = {H.pnum(ew[1])}.",
                                      f"Lick-axis change: cohort p = {H.pnum(el[1])} with counts; counts p = {H.pnum(el[2])}, {H.pnum(el[3])}."], size=12)
     takehome(s, 9.5, 5.3, 3.5, 1.5, "Adaptation-like shrinkage and contingency-specific re-mapping are separable.")
+    if FULL:
+        new_slide(prs, "Part B in detail", "Every figure of the full report's Part III follows, with its results text; then the expert-session control")
+        X.part(sys.modules[__name__], prs, RF, "III")
+        X.expert_slide(sys.modules[__name__], prs)
     # ---- C
     section_slide(prs, "C", "Across methods", "Summary, synthesis, caveats")
     s = new_slide(prs, "The same direction across methods and windows", "Standardised R- minus R+ difference; teal: pre-lick (within-day), orange: stimulus onset beyond session time")
@@ -634,9 +683,13 @@ def main():
                                      "Noise: 5-35 ms hit / miss axes are unreliable; tests use raw cosines and projections.",
                                      "Units differ between the pre-lick (good + mua) and stimulus-onset (tracked stable) analyses.",
                                      "Exploratory, uncorrected. Next: held-out mice or expert sessions; time-matched decoder; area-resolved state space."], size=16)
+    if FULL:
+        X.ending(sys.modules[__name__], prs, RF)
     # ---- backup
     CUR["sec"] = "bk"
-    for path, t in ((PUB / "138_cosyne_lt_placebo_all.png", "Learning trial vs placebo, full figure (138)"),
+    if FULL:
+        X.supplementary(sys.modules[__name__], prs, RF)
+    for path, t in () if FULL else ((PUB / "138_cosyne_lt_placebo_all.png", "Learning trial vs placebo, full figure (138)"),
                     (PUB / "143_lt_split_L5_windows_all.png", "L5 change point across windows (143)"),
                     (PUB / "143_step_vs_gradual_all.png", "Step vs gradual learners (143)"),
                     (PUB / "144_hitmedian_split_all.png", "Hit-median vs midpoint split, all windows (144)"),
@@ -652,7 +705,8 @@ def main():
     PPTX.parent.mkdir(parents=True, exist_ok=True)
     prs.save(PPTX)
     print(PPTX, CUR["n"], "slides")
-    write_report(R, N, figs)
+    if not FULL:
+        write_report(R, N, figs)
 
 
 # ------------------------------------------------------------------------------------------------------------- slim report
