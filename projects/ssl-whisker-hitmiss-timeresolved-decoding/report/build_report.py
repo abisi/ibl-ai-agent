@@ -1268,11 +1268,16 @@ def sec_part3f() -> str:
     s += fig_if(PUB / "151_state_space_variants_all.png", "Figure 20", "State space with three y axes (151; whole brain, stable units, "
                 "all mice): passive-pre whisker pattern (top), whisker - auditory difference (middle), auditory pattern (bottom), each "
                 "orthogonalised to the choice axis x; symbols as Figure 19.")
-    s += fig_if(PUB / "151_state_space_heatmap_all.png", "Figure 21", "Passive pre -> post displacement in the state space as a matrix "
+    s += fig_if(PUB / "151_state_space_centered_all.png", "Figure 21", "Passive pre -> post displacement centred on passive pre "
+                "(151; whole brain, stable units, all mice): columns whisker | auditory with both cohorts overlaid, rows the three y "
+                "axes; dots = sessions, arrow + cross = cohort mean +- s.e.m.; dashed verticals = active miss (thin) and hit (thick) "
+                "level on the choice axis relative to passive pre, per cohort; above each panel: tests of dx and dy (within cohort vs "
+                "0, Wilcoxon | t; R+ vs R-, Mann-Whitney | Welch).")
+    s += fig_if(PUB / "151_state_space_heatmap_all.png", "Figure 22", "Passive pre -> post displacement in the state space as a matrix "
                 "(151): rows whisker, auditory, whisker - auditory; columns the choice axis and the three y axes; panels R+ mean, R- "
                 "mean, R- minus R+ (z units); stars: * one test, ** both tests p < 0.05.")
     s += stats_md(EA / "151_stats.csv", ["measure", "cohort", "n", "mean", "p_nonparam", "p_param"],
-                  "Table 22. Statistics of Figure 21 (whole brain, all mice; dx = choice axis; dssy, dss2y, dss3y = whisker, whisker - "
+                  "Table 22. Statistics of Figures 21-22 (whole brain, all mice; dx = choice axis; dssy, dss2y, dss3y = whisker, whisker - "
                   "auditory and auditory y axes; _W, _A, _WA = stimulus).",
                   query=lambda d: (d.scope == "all") & (d.panel == "whole-brain state space"))
     return s
@@ -1288,7 +1293,7 @@ def txt_ss2() -> str:
     f = lambda key, m, c, fmt="{:+.2f}": num(key, g(m, c)["mean"], fmt)
     P = lambda key, m, c: f"{pv(key + '_p', g(m, c).p_nonparam)} | {pv(key + '_pt', g(m, c).p_param)}"
     return (
-        "Changing the y axis shows which part of each passive response shrinks (Figures 20-21, Table 22). Along the passive-pre "
+        "Changing the y axis shows which part of each passive response shrinks (Figures 20-22, Table 22). Figure 21 shows the same displacements centred on passive pre: every arrow starts at the origin, dots are sessions, the cross is the cohort mean +- s.e.m., and dashed lines mark where the active misses (thin) and hits (thick) sit on the choice axis relative to passive pre, so one can read whether a passive response moves to the miss level. Along the passive-pre "
         f"whisker pattern, the whisker response shrinks in both cohorts (R+ {f('s2_wy_rp', 'dssy_W', 'R+')}, R- {f('s2_wy_rm', 'dssy_W', 'R-')}; "
         f"R- minus R+ p = {P('s2_wy_c', 'dssy_W', 'R- minus R+')}), and along the passive-pre auditory pattern the auditory response "
         f"shrinks (R+ {f('s2_ay_rp', 'dss3y_A', 'R+')}, R- {f('s2_ay_rm', 'dss3y_A', 'R-')}; p = {P('s2_ay_c', 'dss3y_A', 'R- minus R+')}); each "
@@ -1322,7 +1327,7 @@ def txt_area() -> str:
     frac = (neg["mean"] < 0).mean() if len(neg) else np.nan
     return (
         f"Area groups sampled with at least 3 sessions in each cohort and at least 20 tracked units ({len(areas)} groups: "
-        f"{', '.join(sorted(areas))}) were analysed like the whole brain, each with its own axes (Figure 22, Table 23). Cohort "
+        f"{', '.join(sorted(areas))}) were analysed like the whole brain, each with its own axes (Figure 23, Table 23). Cohort "
         f"differences with both tests p < 0.05: {lst(both)}. With one test only: {lst(one)}. Across area groups, the R- minus R+ "
         f"difference of the whisker displacement along the choice axis and of the lick-axis measures had the R- sign (negative) in "
         f"{num('a_frac', frac * 100, '{:.0f}')} % of the area x measure cells. Area groups have fewer units and sessions than the whole "
@@ -1332,14 +1337,14 @@ def txt_area() -> str:
 
 def sec_part3g() -> str:
     s = "\n### III.7 Area groups\n\n" + txt_area() + "\n"
-    s += fig_if(PUB / "151_area_heatmap_all.png", "Figure 22", "Passive pre -> post changes per area group (151; stable units; rows: "
+    s += fig_if(PUB / "151_area_heatmap_all.png", "Figure 23", "Passive pre -> post changes per area group (151; stable units; rows: "
                 "whole brain and area groups with >= 3 sessions per cohort and >= 20 units, sessions R+ | R- in brackets). Columns: "
                 "state-space displacement along the choice axis (whisker, auditory, whisker - auditory; raw), excess over the "
                 "linear-shift null of the decoder readout (whisker, whisker - auditory; 146) and of the lick-axis alignment (whisker "
                 "raw cosine, whisker - auditory projection; 135). Panels: R+ mean, R- mean, R- minus R+; colour scaled per column; "
                 "stars: * one test, ** both tests p < 0.05 (within cohort vs 0; R- minus R+: Mann-Whitney | Welch).")
     s += stats_md(EA / "151_stats.csv", ["area", "measure", "cohort", "n", "mean", "p_nonparam", "p_param"],
-                  "Table 23. Statistics of Figure 22 (all mice).", query=lambda d: (d.scope == "all") & (d.panel == "area groups"))
+                  "Table 23. Statistics of Figure 23 (all mice).", query=lambda d: (d.scope == "all") & (d.panel == "area groups"))
     return s
 
 

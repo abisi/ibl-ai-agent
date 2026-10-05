@@ -557,9 +557,11 @@ def main():
         s_step1(pdf, 0, D133); s_step2(pdf, 0, D134); s_step3(pdf, 0, D135); s_step4(pdf, 0, D140); s_step5(pdf, 0, D146); s_statespace(pdf, 0, D146)
         s_backup(pdf, 0, PUB / "151_state_space_variants_all.png", "Step 5c: the state space with three y axes", prefix="",
                  sub="y = passive-pre whisker pattern / whisker - auditory / auditory pattern, each orthogonal to the choice axis")
-        s_backup(pdf, 0, PUB / "151_state_space_heatmap_all.png", "Step 5d: all displacements at a glance", prefix="",
+        s_backup(pdf, 0, PUB / "151_state_space_centered_all.png", "Step 5d: displacements from the same starting point", prefix="",
+                 sub="passive pre at the origin; both cohorts overlaid; dashed = active miss / hit level; tests above each panel")
+        s_backup(pdf, 0, PUB / "151_state_space_heatmap_all.png", "Step 5e: all displacements at a glance", prefix="",
                  sub="rows: stimulus; columns: axis; R+, R-, R- minus R+ (stars: * one, ** both tests p < 0.05)")
-        s_backup(pdf, 0, PUB / "151_area_heatmap_all.png", "Step 5e: area groups", prefix="",
+        s_backup(pdf, 0, PUB / "151_area_heatmap_all.png", "Step 5f: area groups", prefix="",
                  sub="areas with >= 3 sessions per cohort; state-space and shift-null measures; colour scaled per column")
         s_step6(pdf, 0, D146, S147); s_synthesis(pdf, 0, summary_rows(D133, D135, D140, D146)); s_caveats(pdf, 0)
         for p, t in ((PUB / "150_axis_alignment_shift_null_all.png", "150 lick axis / coding direction vs the shift null"),

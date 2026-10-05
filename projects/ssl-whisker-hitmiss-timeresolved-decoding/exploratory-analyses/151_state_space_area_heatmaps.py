@@ -123,6 +123,51 @@ def fig_variants(d, scope):
     plt.close(fig)
 
 
+def fig_centered(d, scope, rows):
+    """Displacement view: passive pre at the origin, both cohorts overlaid per modality (columns whisker | auditory), one row per
+    y axis. Faint dots = sessions' (dx, dy); arrow + cross = cohort mean +- s.e.m.; dashed verticals = active miss / hit level on
+    the choice axis relative to that session's passive-pre position (cohort colour, thin = miss, thick = hit); tests in the box."""
+    fig, axes = plt.subplots(3, 2, figsize=(6.4, 8.2))
+    fig.subplots_adjust(left=0.12, right=0.98, top=0.875, bottom=0.06, hspace=0.62, wspace=0.32)
+    for s_i, (s, sl, sc) in enumerate((("W", "whisker", WC), ("A", "auditory", AC))):
+        for r, (pre, lab) in enumerate(YVAR):
+            ax = axes[r, s_i]
+            dx, dy = f"dx_{s}", f"d{pre}y_{s}"
+            for c in COH:
+                g = d[d.reward_group == c]
+                x, y = g[dx].to_numpy(float), g[dy].to_numpy(float)
+                ax.plot(x, y, "o", ms=2.2, color=COL[c], alpha=0.3, mew=0)
+                mx, my = np.nanmean(x), np.nanmean(y)
+                ax.annotate("", xy=(mx, my), xytext=(0, 0), arrowprops=dict(arrowstyle="-|>", color=COL[c], lw=1.4, mutation_scale=8))
+                ax.errorbar(mx, my, xerr=H.sem(x), yerr=H.sem(y), color=COL[c], lw=0.9, capsize=0)
+                mis = np.nanmean(((g.ss_act1_miss_x + g.ss_act2_miss_x) / 2 - g[f"ss_pre_{s}_x"]).to_numpy(float))
+                hit = np.nanmean(((g.ss_act1_hit_x + g.ss_act2_hit_x) / 2 - g[f"ss_pre_{s}_x"]).to_numpy(float))
+                ax.axvline(mis, color=COL[c], lw=0.6, ls=(0, (3, 2)), alpha=0.8)
+                ax.axvline(hit, color=COL[c], lw=1.3, ls=(0, (3, 2)), alpha=0.5)
+            ax.plot(0, 0, "o", ms=4, mfc="white", mec="k", mew=0.8, zorder=6)
+            ax.axhline(0, color="0.85", lw=0.4); ax.axvline(0, color="0.85", lw=0.4)
+            ax.set_xlabel("Δ choice axis (post - pre)", fontsize=6)
+            if s_i == 0:
+                ax.set_ylabel(f"Δ y: passive-pre {lab}", fontsize=6)
+            if r == 0:
+                ax.set_title(f"{sl} (passive pre at the origin)", color=sc, fontsize=7, pad=20)
+            txt = []
+            for key, col in (("Δx", dx), ("Δy", dy)):
+                o = test_col(d, col, "whole_brain", rows)
+                for rr in rows[-3:]:
+                    rr["panel"] = "centered state space"
+                p_ = {rr["cohort"]: (rr["p_nonparam"], rr["p_param"]) for rr in rows[-3:]}
+                txt.append(f"{key}: R+ {H.pnum(p_['R+'][0])}|{H.pnum(p_['R+'][1])}  R- {H.pnum(p_['R-'][0])}|{H.pnum(p_['R-'][1])}  "
+                           f"R+vsR- {H.pnum(p_['R- minus R+'][0])}|{H.pnum(p_['R- minus R+'][1])}")
+            ax.text(0.0, 1.02, "\n".join(txt), transform=ax.transAxes, fontsize=4.6, va="bottom", color="0.2")
+    fig.suptitle(f"Passive pre -> post displacement in the state space (whole brain, stable units, {scope}): dots = sessions, arrow + "
+                 "cross = mean +- s.e.m.,\ndashed = active miss (thin) / hit (thick) level on the choice axis relative to passive pre; "
+                 "R+ green, R- magenta; p: Wilcoxon | t vs 0, Mann-Whitney | Welch", fontsize=5.6, y=0.995)
+    for ext in ("png", "pdf", "svg"):
+        fig.savefig(FIGDIR / f"151_state_space_centered_{scope}.{ext}", dpi=300)
+    plt.close(fig)
+
+
 def fig_wb_heat(d, scope, rows):
     rl = ["whisker", "auditory", "whisker - auditory"]
     cl = ["x: choice axis", "y: whisker pattern", "y: whisker - auditory", "y: auditory pattern"]
@@ -196,6 +241,7 @@ def main():
         wb = add_disp(d[d.area == "whole_brain"])
         fig_variants(wb, scope)
         r0 = len(rows)
+        fig_centered(wb, scope, [])            # its tests duplicate the heatmap rows, not stored twice
         fig_wb_heat(wb, scope, rows)
         for r in rows[r0:]:
             r["panel"] = "whole-brain state space"
