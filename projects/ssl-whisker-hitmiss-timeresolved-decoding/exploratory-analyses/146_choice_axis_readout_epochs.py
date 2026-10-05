@@ -157,9 +157,9 @@ def process(args):
                n_pre_w=int((pre.trial_type == "whisker_trial").sum()), n_pre_a=int((pre.trial_type == "auditory_trial").sum()),
                n_post_w=int((post.trial_type == "whisker_trial").sum()), n_post_a=int((post.trial_type == "auditory_trial").sum()))
     rows = []
-    for uset in UNIT_SETS:
-        units = tracked(sets[uset], spikes, segs)
-        row = dict(base, unit_set=uset, n_units=len(units), **beh)
+    for (uset, area), cands in sets.items():
+        units = tracked(cands, spikes, segs)
+        row = dict(base, unit_set=uset, area=area, n_units=len(units), **beh)
         if len(units) < MIN_UNITS:
             rows.append(dict(row, skipped_reason="too few tracked units")); continue
         X = {}
@@ -174,7 +174,7 @@ def process(args):
         Z = {e: (v[:, ok_u][:, keep] - mu[keep]) / sd[keep] for e, v in X.items()}
         E = {e: v[:, ok_u][:, keep] / sd[keep] for e, v in X.items()}
         row["n_units"] = int(keep.sum())
-        rng = np.random.default_rng(zlib.crc32(f"146|{sid}|{uset}".encode()))
+        rng = np.random.default_rng(zlib.crc32(f"146|{sid}|{uset}|{area}".encode()))
         Zw, lick_w = Z["active"][isw_a], wl
         C = T.select_fixed_c_pooled(Zw, lick_w, rng, n_folds=5)
         others = {"passive_pre": Z["passive_pre"], "passive_post": Z["passive_post"], "active_aud": Z["active"][~isw_a]}
@@ -236,13 +236,16 @@ def process(args):
         # 3 state space: plane of unit(CD all) and passive-pre whisker pattern orthogonalised
         u1 = unit(Zw[lick_w].mean(0) - Zw[~lick_w].mean(0))
         w0 = E["passive_pre"][wi["passive_pre"]].mean(0); w0 = w0 - (w0 @ u1) * u1; u2 = unit(w0)
+        # variant y-axis: passive-pre whisker - auditory axis (stimulus identity), orthogonalised to the choice axis
+        v0 = E["passive_pre"][wi["passive_pre"]].mean(0) - E["passive_pre"][~wi["passive_pre"]].mean(0)
+        v0 = v0 - (v0 @ u1) * u1; u3 = unit(v0)
         conds = {"pre_W": E["passive_pre"][wi["passive_pre"]], "pre_A": E["passive_pre"][~wi["passive_pre"]],
                  "post_W": E["passive_post"][wi["passive_post"]], "post_A": E["passive_post"][~wi["passive_post"]]}
         for h, mW, mA in ((1, ~h2w, ~h2a), (2, h2w, h2a)):
             conds[f"act{h}_hit"] = Ew[mW & lick_w]; conds[f"act{h}_miss"] = Ew[mW & ~lick_w]; conds[f"act{h}_A"] = Ea[mA]
         for cname, M in conds.items():
             m = M.mean(0) if len(M) else np.full(len(u1), np.nan)
-            row[f"ss_{cname}_x"], row[f"ss_{cname}_y"] = float(m @ u1), float(m @ u2)
+            row[f"ss_{cname}_x"], row[f"ss_{cname}_y"], row[f"ss2_{cname}_y"] = float(m @ u1), float(m @ u2), float(m @ u3)
         rows.append(dict(row, skipped_reason=None))
     return rows
 
@@ -264,7 +267,14 @@ def main():
         if r.session_id in done:
             continue
         s = S[S.session_id == r.session_id]
-        args.append((r.session_id, r.subject_id, r.reward_group, {u: s[s[u]].cluster_id.to_numpy() for u in UNIT_SETS}))
+        sets = {}
+        for u in UNIT_SETS:
+            su = s[s[u]]
+            sets[(u, "whole_brain")] = su.cluster_id.to_numpy()
+            for ag, g in su.groupby("area_group"):
+                if len(g) >= MIN_UNITS:
+                    sets[(u, ag)] = g.cluster_id.to_numpy()
+        args.append((r.session_id, r.subject_id, r.reward_group, sets))
     print(f"[146] {len(args)} sessions, {N_WORKERS} workers -> {OUT_PATH.name}", flush=True)
     t0 = time.time()
     with ProcessPoolExecutor(min(N_WORKERS, max(1, len(args))), initializer=_init) as ex:

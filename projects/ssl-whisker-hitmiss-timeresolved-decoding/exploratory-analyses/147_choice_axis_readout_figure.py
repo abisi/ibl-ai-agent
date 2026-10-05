@@ -6,7 +6,8 @@ Per unit set (stable, good) one figure 147_choice_axis_readout_<unitset>[_pilot]
      models that never saw them): whisker solid, auditory dashed; active hits (^) and misses (v) for reference
   c  whisker - auditory readout per epoch (removes shifts common to both stimuli, e.g. slow drift)
   d  drift control: readout from a decoder trained on the first active half only
-  e-g  whisker response along the mean-difference choice axis: size, cosine, projection
+  e-g  whisker response along the mean-difference choice axis (unit length): size (norm / sqrt(units)), cosine, projection /
+       sqrt(units) (= size x cosine)
   h  null: readout from decoders trained on shuffled hit / miss labels
 Mean +- s.e.m. over sessions per cohort; faint lines = sessions. Stats: within cohort post - pre (Wilcoxon | paired t), cohort
 difference of post - pre (Mann-Whitney | Welch). Uncorrected. Style: skills/ssl-figure-style.
@@ -63,6 +64,9 @@ def main():
     H.setup()
     D = pd.read_parquet(EA / ("146_choice_axis_readout_pilot.parquet" if pilot else "146_choice_axis_readout.parquet"))
     D = D[D.skipped_reason.isna()]
+    DA = D.copy()
+    if "area" in D:
+        D = D[D.area == "whole_brain"]
     allrows = []
     for uset in ("stable", "good"):
         d = D[D.unit_set == uset].copy()
@@ -92,7 +96,7 @@ def main():
         for i, (mk, c_, f_, t) in enumerate(leg):
             axl.plot(0.02, 0.92 - i * 0.13, mk, color=c_, mfc=f_, ms=4.5, mew=1, transform=axl.transAxes)
             axl.text(0.07, 0.92 - i * 0.13, t, va="center", fontsize=5.5, transform=axl.transAxes)
-        axl.text(0.55, 0.92, "mean over sessions of the condition means\n(evoked 5-35 ms, z units); arrows: pre -> post",
+        axl.text(0.55, 0.92, "mean over sessions of the\ncondition means (evoked\n5-35 ms, z units);\narrows: pre -> post",
                  va="top", fontsize=5.5, transform=axl.transAxes)
         # b readout W / A + active hit / miss
         ax = fig.add_axes([0.07, 0.36, 0.19, 0.2])
@@ -113,6 +117,8 @@ def main():
             d[f"wa_{e}"] = d[f"ro_std_{e}_W"] - d[f"ro_std_{e}_A"]
         m2 = epoch_lines(ax, d, [f"wa_{e}" for e in EP], rows=rows, tag="readout whisker - auditory")
         ax.axhline(0, color="0.5", lw=0.5, ls=(0, (2, 2)))
+        lo, hi = np.nanpercentile(d[[f"wa_{e}" for e in EP]].to_numpy(float), [2, 98])
+        ax.set_ylim(lo - 0.15 * (hi - lo), hi + 0.15 * (hi - lo))          # axis range from the 2-98 % of session values
         ax.set_xticks(range(4)); ax.set_xticklabels(EPL, fontsize=5); ax.set_ylabel("whisker - auditory readout")
         ax.set_title(f"c  whisker - auditory\npost - pre, R+ vs R-: {H.pnum(m2[0])} | {H.pnum(m2[1])}", fontsize=5.5)
         # d first-half decoder
@@ -131,9 +137,12 @@ def main():
         ax.axhline(0, color="0.5", lw=0.5, ls=(0, (2, 2)))
         ax.set_xticks([0, 1]); ax.set_xticklabels(["passive\npre", "passive\npost"], fontsize=5); ax.set_xlim(-0.4, 1.4)
         ax.set_ylabel("readout, shuffled labels"); ax.set_title("h  null (shuffled hit / miss)", fontsize=5.5)
-        # e-g decomposition
+        # e-g decomposition; the projection is divided by sqrt(n units) like the size, so projection = size x cosine
+        for e in EP:
+            for s_ in ("W", "A"):
+                d[f"projn_{e}_{s_}"] = d[f"proj_{e}_{s_}"] / np.sqrt(d.n_units)
         for j, (name, lab) in enumerate((("size", "size of whisker response\n(norm / sqrt(units))"), ("cos", "cosine of whisker response\nwith choice axis"),
-                                          ("proj", "projection on choice axis\n(z units)"))):
+                                          ("projn", "projection on choice axis\n(per unit; = size x cosine)"))):
             ax = fig.add_axes([0.07 + j * 0.25, 0.07, 0.19, 0.2])
             m4 = epoch_lines(ax, d, [f"{name}_{e}_W" for e in EP], rows=rows, tag=f"{name} whisker")
             epoch_lines(ax, d, [f"{name}_{e}_A" for e in EP], "--", faint=False)
@@ -155,6 +164,60 @@ def main():
             fig.savefig(FIGDIR / f"{name}.{ext}", dpi=300)
         plt.close(fig)
         R = pd.DataFrame(rows); R.insert(0, "unit_set", uset); allrows.append(R)
+    # area groups: post - pre change of the whisker readout and of whisker - auditory, per cohort (stable units)
+    if "area" in DA and DA.area.nunique() > 1:
+        a = DA[(DA.unit_set == "stable") & (DA.area != "whole_brain")].copy()
+        a["dW"] = a.ro_std_passive_post_W - a.ro_std_passive_pre_W
+        a["dWA"] = (a.ro_std_passive_post_W - a.ro_std_passive_post_A) - (a.ro_std_passive_pre_W - a.ro_std_passive_pre_A)
+        areas = [x for x, g in a.groupby("area") if min((g.reward_group == "R+").sum(), (g.reward_group == "R-").sum()) >= 3]
+        fig, axes = plt.subplots(2, 1, figsize=(7.4, 4.6), sharex=True)
+        fig.subplots_adjust(left=0.1, right=0.99, top=0.92, bottom=0.25, hspace=0.35)
+        arows = []
+        for ax, (col, lab) in zip(axes, (("dW", "whisker readout\npost - pre (SD units)"), ("dWA", "whisker - auditory readout\npost - pre"))):
+            for i, ar in enumerate(areas):
+                v = {}
+                for k, c in enumerate(COH):
+                    v[c] = a[(a.area == ar) & (a.reward_group == c)][col].to_numpy(float)
+                    ax.errorbar(i + (k - 0.5) * 0.3, np.nanmean(v[c]), H.sem(v[c]), fmt="o", ms=3.2, color=COL[c], lw=1, capsize=0)
+                mw, we = H.unpaired(v["R+"], v["R-"])
+                arows.append(dict(measure=col, area=ar, n_rplus=len(v["R+"]), n_rminus=len(v["R-"]), mean_rplus=np.nanmean(v["R+"]),
+                                  mean_rminus=np.nanmean(v["R-"]), p_nonparam=mw, p_param=we))
+                if np.isfinite(mw) and min(mw, we) < 0.05:
+                    ax.text(i, 1.0, f"{H.pnum(mw)}|{H.pnum(we)}", ha="center", fontsize=4.5, transform=ax.get_xaxis_transform())
+            ax.axhline(0, color="0.5", lw=0.5, ls=(0, (2, 2))); ax.set_ylabel(lab)
+        axes[1].set_xticks(range(len(areas))); axes[1].set_xticklabels(areas, rotation=60, ha="right", fontsize=5)
+        fig.suptitle("Choice readout of passive whisker responses, post - pre, per area group (stable units; mean +- s.e.m. over "
+                     "sessions; p shown where Mann-Whitney or Welch < 0.05, uncorrected)", fontsize=5.8)
+        for ext in ("png", "pdf", "svg"):
+            fig.savefig(FIGDIR / f"147_choice_axis_readout_area_groups.{ext}", dpi=300)
+        plt.close(fig)
+        pd.DataFrame(arows).to_csv(EA / "147_stats_area_groups.csv", index=False)
+    # state space with the whisker - auditory (stimulus identity) axis as y, both unit sets, whole brain
+    if "ss2_pre_W_y" in D:
+        fig, axes = plt.subplots(2, 2, figsize=(5.0, 4.6))
+        fig.subplots_adjust(left=0.12, right=0.98, top=0.9, bottom=0.1, hspace=0.45, wspace=0.3)
+        for i, uset in enumerate(("stable", "good")):
+            d = D[D.unit_set == uset]
+            for k, c in enumerate(COH):
+                ax = axes[i, k]; g = d[d.reward_group == c]
+                pts = {cn: (g[f"ss_{cn}_x"].mean(), g[f"ss2_{cn}_y"].mean()) for cn in
+                       ["pre_W", "pre_A", "act1_hit", "act1_miss", "act1_A", "act2_hit", "act2_miss", "act2_A", "post_W", "post_A"]}
+                for cn, (x, y) in pts.items():
+                    col = "#f7b519" if cn.endswith("W") else "#2c2cdb" if cn.endswith("A") else ("0.15" if "hit" in cn else "0.6")
+                    mk = "^" if "hit" in cn else "v" if "miss" in cn else "o" if cn.startswith("pre") else "s" if cn.startswith("post") else "D"
+                    ax.plot(x, y, mk, color=col, ms=4, mfc=col if not cn.startswith("pre") else "white", mew=1)
+                ax.annotate("", xy=pts["post_W"], xytext=pts["pre_W"], arrowprops=dict(arrowstyle="->", color="#f7b519", lw=1))
+                ax.annotate("", xy=pts["post_A"], xytext=pts["pre_A"], arrowprops=dict(arrowstyle="->", color="#2c2cdb", lw=0.8))
+                ax.axhline(0, color="0.85", lw=0.5); ax.axvline(0, color="0.85", lw=0.5)
+                ax.set_title(f"{c}, {uset} units (n = {len(g)})", color=COL[c], fontsize=6)
+                ax.set_xlabel("choice axis (hit - miss)")
+                if k == 0:
+                    ax.set_ylabel("whisker - auditory axis\n(passive pre, orthogonalised)")
+        fig.suptitle("State space with the stimulus-identity axis: o passive pre, s passive post (whisker yellow, auditory blue), "
+                     "^ hit, v miss, D active auditory", fontsize=5.5)
+        for ext in ("png", "pdf", "svg"):
+            fig.savefig(FIGDIR / f"147_state_space_whisker_auditory_axis{'_pilot' if pilot else ''}.{ext}", dpi=300)
+        plt.close(fig)
     S = pd.concat(allrows)
     S.to_csv(EA / f"147_stats{'_pilot' if pilot else ''}.csv", index=False)
     pd.set_option("display.width", 220)

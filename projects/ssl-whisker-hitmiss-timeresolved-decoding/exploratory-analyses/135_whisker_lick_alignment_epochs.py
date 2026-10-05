@@ -45,7 +45,12 @@ MIN_UNITS, N_SPLIT = 5, 50
 MIN_CLASS = int(os.environ.get("SSL_MIN_CLASS", "5"))     # per class PER HALF -> >= 2 * MIN_CLASS licked and unlicked trials
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "40"))
 TAG = "" if MIN_CLASS == 5 else f"_min{MIN_CLASS}"
+# 2026-10-05: SSL_135_UNITSET=good|stable uses the 137 unit sets (skills/ssl-valid-data "Unit sets": good = good AND stable)
+# instead of the label-table quality_label (no drift check); outputs carry the suffix _<unitset>.
+UNITSET = os.environ.get("SSL_135_UNITSET", "")
+TAG = TAG + (f"_{UNITSET}" if UNITSET else "")
 OUT_PATH = OUT / f"135_alignment_epochs{TAG}.parquet"
+SET_IDS = {}
 
 
 def _init():
@@ -98,8 +103,13 @@ def process(args):
     areas = [("whole_brain", "All units")] + [("area_group", a) for a in sorted(sl["area_group"].dropna().unique())]
     rows = []
     for area_col, area in areas:
-        units = M134.tracked_good(sid, T.area_units(sid, area_col, area, labels), labels, spikes,
-                                  {e: trs[e] for e in ("passive_pre", "active", "passive_post")})
+        if UNITSET:
+            au = np.intersect1d(T.area_units(sid, area_col, area, labels), SET_IDS.get(sid, np.array([], dtype=np.int64)))
+            lab = labels.assign(quality_label=np.where(labels.cluster_id.isin(au) & (labels.session_id == sid), "good", "mua"))
+            units = M134.tracked_good(sid, au, lab, spikes, {e: trs[e] for e in ("passive_pre", "active", "passive_post")})
+        else:
+            units = M134.tracked_good(sid, T.area_units(sid, area_col, area, labels), labels, spikes,
+                                      {e: trs[e] for e in ("passive_pre", "active", "passive_post")})
         if len(units) < MIN_UNITS:
             continue
         X = {}
@@ -189,6 +199,12 @@ def run():
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
     sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]
     done = set(pd.read_parquet(OUT_PATH, columns=["session_id"]).session_id) if OUT_PATH.exists() else set()
+    if UNITSET:                                   # filled before the worker pool forks, so workers inherit it
+        sys.path.insert(0, SCRIPTS)
+        from axel_bisi_paths import axel_bisi_root
+        U = pd.read_parquet(axel_bisi_root() / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "tables" / "137_stable_units.parquet",
+                            columns=["session_id", "cluster_id", UNITSET])
+        SET_IDS.update({s: g.cluster_id.to_numpy() for s, g in U[U[UNITSET]].groupby("session_id")})
     args = [(r.session_id, r.subject_id, r.reward_group) for r in sess.itertuples() if r.session_id not in done]
     print(f"[135] {len(args)} sessions", flush=True)
     t0 = time.time()
@@ -253,7 +269,7 @@ def plot():
                     r[f"pWelch_change_{e}"] = stats.ttest_ind(da, db, equal_var=False).pvalue
         rows.append(r)
     S = pd.DataFrame(rows)
-    S.to_csv(OUT / "135_stats.csv", index=False)
+    S.to_csv(OUT / f"135_stats{TAG}.csv", index=False)
     plt.rcParams.update({"font.family": "Arial", "pdf.fonttype": 42, "svg.fonttype": "none", "axes.spines.top": False,
                          "axes.spines.right": False, "font.size": 6.5})
     key = ["All units", "Somatosensory-whisker", "Motor areas", "Frontal areas", "Striatum", "Thalamus", "Midbrain", "Hippocampus"]
@@ -291,7 +307,7 @@ def plot():
                  "Within cohort: Friedman (F) / RM-ANOVA (RM). Uncorrected.", fontsize=6.5)
     (OUT / "figures").mkdir(exist_ok=True)
     for ext in ("pdf", "png", "svg"):
-        fig.savefig(OUT / "figures" / f"135_alignment_epochs.{ext}", dpi=250)
+        fig.savefig(OUT / "figures" / f"135_alignment_epochs{TAG}.{ext}", dpi=250)
     plt.close(fig)
     pd.set_option("display.width", 250)
     print(S[S.area == "All units"].T.to_string())

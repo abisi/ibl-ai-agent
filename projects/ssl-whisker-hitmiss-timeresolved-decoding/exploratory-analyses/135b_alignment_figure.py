@@ -16,6 +16,7 @@ Run (haas): python 135b_alignment_figure.py
 
 from __future__ import annotations
 
+import os
 import pickle
 from pathlib import Path
 
@@ -91,7 +92,9 @@ def main():
                          "axes.spines.right": False, "font.size": FS})
     per = pickle.load(open(LTP / "024_avg_curves_per_mouse.pkl", "rb"))["sessions"]
     cat = {p["session_id"]: p["learning_category"] for p in per}
-    d5, d3 = load("", cat), load("_min3", cat)
+    U_ = os.environ.get("SSL_135_UNITSET", ""); US = f"_{U_}" if U_ else ""
+    d5 = load(US, cat)
+    d3 = load(f"_min3{US}", cat) if (OUT / f"135_alignment_epochs_min3{US}.parquet").exists() else d5
     rows = []
     fig, axes = plt.subplots(2, 4, figsize=(8.27, 5.6))
     fig.subplots_adjust(left=0.07, right=0.98, top=0.86, bottom=0.1, wspace=0.42, hspace=0.85)
@@ -114,10 +117,10 @@ def main():
                  "baseline, z-scored; within cohort: Friedman (F) / RM-ANOVA (RM); uncorrected.", fontsize=FS + 0.5)
     (OUT / "figures").mkdir(exist_ok=True)
     for ext in ("pdf", "png", "svg"):
-        fig.savefig(OUT / "figures" / f"135b_alignment_no_bad_rplus.{ext}", dpi=250)
+        fig.savefig(OUT / "figures" / f"135b_alignment_no_bad_rplus{US}.{ext}", dpi=250)
     plt.close(fig)
     S = pd.DataFrame(rows)
-    S.to_csv(OUT / "135b_stats.csv", index=False)
+    S.to_csv(OUT / f"135b_stats{US}.csv", index=False)
     pd.set_option("display.width", 300)
     print(S.round(3).T.to_string())
 

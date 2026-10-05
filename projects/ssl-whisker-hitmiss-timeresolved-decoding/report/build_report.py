@@ -278,6 +278,16 @@ def key_new() -> str:
                    f"units the R- passive whisker axis lost its alignment with the active hit/miss direction from passive pre to post "
                    f"({num('k9_a', r.mean_a, '{:+.2f}')} -> {num('k9_b', r.mean_b, '{:+.2f}')}, p = {pv('k9_pw', r.p_nonparam)} | {pv('k9_pt', r.p_param)}); "
                    f"cohort difference p = {pv('k9_c', c.p_nonparam)} | {pv('k9_cw', c.p_param)}.")
+    p = EA / "147_stats.csv"
+    if p.exists():
+        d = pd.read_csv(p); x = d[d.unit_set == "stable"]
+        r = _r(x, measure="readout whisker", cohort="R-"); c = _r(x, measure="readout whisker", cohort="R+ vs R-")
+        cs = _r(x, measure="cos whisker", cohort="R+ vs R-"); h1 = _r(x, measure="readout whisker, decoder from active half 1", cohort="R+ vs R-")
+        out.append(f"10. **After the task, R- passive whisker responses read out as miss-like on the active choice decoder.** Stable "
+                   f"units: R- {num('k10_a', r.mean_a, '{:+.2f}')} -> {num('k10_b', r.mean_b, '{:+.2f}')} SD from passive pre to post "
+                   f"(p = {pv('k10_pw', r.p_nonparam)} | {pv('k10_pt', r.p_param)}), R+ vs R- p = {pv('k10_mw', c.p_nonparam)} | {pv('k10_w', c.p_param)}; "
+                   f"driven by a lower cosine with the choice axis (cohort p = {pv('k10_cs', cs.p_nonparam)} | {pv('k10_csw', cs.p_param)}) and "
+                   f"preserved with a decoder trained on the first active half (p = {pv('k10_h1', h1.p_nonparam)} | {pv('k10_h1w', h1.p_param)}).")
     return "\n".join(out)
 
 
@@ -542,6 +552,19 @@ Fisher information of hits vs misses in the top 10 principal components of the a
 for $T$ trials per class and $N = 10$ dimensions: $\mathrm{FI} = \Delta\mu^\top \Sigma^{-1} \Delta\mu \, \frac{2T - N - 3}{2T - 2}
 - \frac{2N}{T}$.
 
+
+## Choice-axis readout of sensory responses (146)
+
+Sessions with passive trials before and after the active block; tracked stable (or good) units, whole brain and area groups
+($\geq 20$ units); responses 5-35 ms as above; epochs passive pre, active 1st and 2nd half (chronological), passive post; active
+trials with a lick before 35 ms excluded. A hit vs miss decoder (L2 logistic regression) is trained on active whisker trials
+(20 repetitions of a balanced subsample, 5-fold cross-validation); every trial is scored only by models that never trained on
+it (held-out active whisker trials; all active auditory and passive trials, averaged over models). Readout = (score - midpoint
+of the held-out hit and miss means) / SD of the held-out scores (+ hit-like, - miss-like). Controls: whisker - auditory readout;
+a decoder trained on the first active half only (cannot learn the late-session state); decoders trained on shuffled labels.
+Decomposition with the mean-difference coding direction (unit length, from a random half of the balanced hits / misses, the
+evoked patterns from other trials): size = $\lVert p \rVert / \sqrt{n}$, cosine $\cos(p, \mathrm{CD})$ and projection per unit
+$p \cdot \widehat{\mathrm{CD}} / \sqrt{n}$ (= size $\times$ cosine).
 ## Statistics
 
 Unit of analysis: mouse (one learning session per mouse). Within cohort: Wilcoxon signed-rank and one-sample $t$ test
@@ -899,6 +922,57 @@ def sec_overnight() -> str:
     return s
 
 
+def txt147() -> str:
+    p = EA / "147_stats.csv"
+    if not p.exists():
+        return ""
+    d = pd.read_csv(p)
+    out = []
+    for us in ("stable", "good"):
+        x = d[d.unit_set == us]
+        g = lambda m, c: _r(x, measure=m, cohort=c)
+        rw = {c: g("readout whisker", c) for c in ("R+", "R-")}; rwc = g("readout whisker", "R+ vs R-")
+        wa = g("readout whisker - auditory", "R+ vs R-")
+        h1 = {c: g("readout whisker, decoder from active half 1", c) for c in ("R+", "R-")}
+        h1c = g("readout whisker, decoder from active half 1", "R+ vs R-")
+        cs = {c: g("cos whisker", c) for c in ("R+", "R-")}; csc = g("cos whisker", "R+ vs R-")
+        sz = g("size whisker", "R+ vs R-"); pj = g("projn whisker", "R+ vs R-")
+        k = us
+        out.append(
+            f"{'Stable' if us == 'stable' else 'Good'} units (R+ n = {num(f'o147_{k}_nrp', int(rw['R+'].n))}, R- n = {num(f'o147_{k}_nrm', int(rw['R-'].n))}): "
+            f"the choice readout of passive whisker trials went from {num(f'o147_{k}_rm_a', rw['R-'].mean_a, '{:+.2f}')} to "
+            f"{num(f'o147_{k}_rm_b', rw['R-'].mean_b, '{:+.2f}')} SD in R- (p = {pv(f'o147_{k}_rm_pw', rw['R-'].p_nonparam)} | {pv(f'o147_{k}_rm_pt', rw['R-'].p_param)}) "
+            f"and from {num(f'o147_{k}_rp_a', rw['R+'].mean_a, '{:+.2f}')} to {num(f'o147_{k}_rp_b', rw['R+'].mean_b, '{:+.2f}')} in R+ "
+            f"(p = {pv(f'o147_{k}_rp_pw', rw['R+'].p_nonparam)} | {pv(f'o147_{k}_rp_pt', rw['R+'].p_param)}); cohort difference of the change "
+            f"p = {pv(f'o147_{k}_rc_mw', rwc.p_nonparam)} | {pv(f'o147_{k}_rc_w', rwc.p_param)}; whisker - auditory p = {pv(f'o147_{k}_wa_mw', wa.p_nonparam)} | "
+            f"{pv(f'o147_{k}_wa_w', wa.p_param)}; with a decoder trained on the first active half only, R- {num(f'o147_{k}_h1_a', h1['R-'].mean_a, '{:+.2f}')} -> "
+            f"{num(f'o147_{k}_h1_b', h1['R-'].mean_b, '{:+.2f}')} (p = {pv(f'o147_{k}_h1_pw', h1['R-'].p_nonparam)} | {pv(f'o147_{k}_h1_pt', h1['R-'].p_param)}), cohort "
+            f"p = {pv(f'o147_{k}_h1c_mw', h1c.p_nonparam)} | {pv(f'o147_{k}_h1c_w', h1c.p_param)}. The cosine of the whisker response with the "
+            f"choice axis fell in R- ({num(f'o147_{k}_cs_a', cs['R-'].mean_a, '{:.2f}')} -> {num(f'o147_{k}_cs_b', cs['R-'].mean_b, '{:.2f}')}) but not R+ "
+            f"({num(f'o147_{k}_csp_a', cs['R+'].mean_a, '{:.2f}')} -> {num(f'o147_{k}_csp_b', cs['R+'].mean_b, '{:.2f}')}); cohort p = {pv(f'o147_{k}_csc_mw', csc.p_nonparam)} | "
+            f"{pv(f'o147_{k}_csc_w', csc.p_param)}; projection p = {pv(f'o147_{k}_pj_mw', pj.p_nonparam)} | {pv(f'o147_{k}_pj_w', pj.p_param)}; response size "
+            f"p = {pv(f'o147_{k}_sz_mw', sz.p_nonparam)} | {pv(f'o147_{k}_sz_w', sz.p_param)}.")
+    return (" ".join(out) + " After the task, the R- passive whisker response therefore reads out as miss-like on the choice decoder and "
+            "points away from the choice axis, with little change in its size; this does not happen in R+, is not shared by the "
+            "auditory response, survives a decoder that never saw the late session, and is absent with shuffled labels.")
+
+
+def sec_part3c() -> str:
+    s = "\n### III.3 Choice-axis readout of sensory responses across passive pre, active and passive post\n\n" + txt147() + "\n"
+    s += fig_if(PUB / "147_choice_axis_readout_stable.png", "Figure 15", "Choice-axis readout of 5-35 ms responses (146 / 147, tracked "
+                "stable units, whole brain). a state space: condition means on the hit - miss coding direction (x, unit length) and the "
+                "passive-pre whisker response orthogonalised to it (y); arrows passive pre -> post (whisker yellow, auditory blue); "
+                "active hits / misses use the trials that define x. b choice readout (decoder trained on active whisker trials; "
+                "passive and auditory trials scored by models that never trained on them; SD units, + hit-like), whisker solid, "
+                "auditory dashed, active hits / misses as triangles; c whisker - auditory readout; d decoder trained on the first "
+                "active half only; h shuffled-label null; e-g whisker response size (norm / sqrt(units)), cosine with the coding "
+                "direction and projection per unit (= size x cosine); last panel: decoder balanced accuracy and coding-direction "
+                "reliability. Mean +- s.e.m. over sessions; thin lines = sessions; titles: R+ vs R- on post - pre (Mann-Whitney | Welch).")
+    s += stats_md(EA / "147_stats.csv", ["unit_set", "measure", "test", "cohort", "n", "mean_a", "mean_b", "p_nonparam", "p_param"],
+                  "Table 17. Statistics of Figure 15 and its good-unit version (post vs pre, and R+ vs R- on post - pre).")
+    return s
+
+
 def sec_part3b() -> str:
     s = "\n### III.2 Coding direction across halves and epochs, and noise along it\n\n" + NEW_TEXT.get("145", "") + "\n"
     s += fig_if(PUB / "145_coding_direction_all.png", "Figure 14", "Hit vs miss coding direction (5-35 ms, tracked stable units; 140), "
@@ -1016,6 +1090,11 @@ def sec_supp() -> str:
 {figure(FIG / 'publication' / '113_hitmiss_set2_within_session.png', 'Figure S13', 'Hit vs miss decoding in the first vs second half of the session from the session-wide sweep (113 set 2): whole-brain curves per half with paired-difference clusters, window values, change over time, cross-half generalisation, area x time heatmaps of the change and per-area tests. Separate decoders per half, not count-matched (compare Figure 4A).')}
 {figure(FIG / 'whole_brain' / 'learning_vs_expert' / '041_learning_vs_expert_whole_brain_comparison.png', 'Figure S14', 'Learning vs expert stage, whole brain, window values per decoding (041): rows hit/miss, performance state, modality at stimulus, modality pre-lick; columns R+, R-, pooled; Mann-Whitney, Welch and mouse-block permutation (mice contribute several expert sessions). Pre-dates the perf == 6 exclusion and the -100 ms pre-lick window.')}
 {figure(FIG / 'publication' / '115_cosyne_halves_figure_024_5-100.png', 'Figure S15', 'Abstract figure: session-half hit/miss decoding 5-100 ms, R+ vs R- (115, from the 024 sweep halves).')}
+{fig_if(PUB / '147_choice_axis_readout_good.png', 'Figure S16', 'As Figure 15, good units (good AND stable).')}
+{fig_if(PUB / '147_state_space_whisker_auditory_axis.png', 'Figure S17', 'State space with the passive-pre whisker - auditory axis (orthogonalised to the coding direction) as y, stable and good units.')}
+{fig_if(PUB / '147_choice_axis_readout_area_groups.png', 'Figure S18', 'Post - pre change of the passive whisker choice readout and of whisker - auditory per area group (stable units; areas with >= 3 sessions per cohort).')}
+{fig_if(FIG / '135b_alignment_no_bad_rplus_stable.png', 'Figure S19', 'Figure 9 (135b) recomputed with tracked stable units.')}
+{fig_if(FIG / '135b_alignment_no_bad_rplus_good.png', 'Figure S20', 'Figure 9 (135b) recomputed with tracked good units (good AND stable).')}
 """
 
 
@@ -1066,7 +1145,7 @@ th{background:#f4f4f4}figcaption,caption{font-size:.9em;text-align:left}"""
 
 
 def main():
-    res = sec_results().replace("## Part III. ", sec_overnight() + "\n## Part III. ", 1) + sec_part3b()
+    res = sec_results().replace("## Part III. ", sec_overnight() + "\n## Part III. ", 1) + sec_part3b() + sec_part3c()
     md = sec_front() + sec_intro() + sec_methods() + sec_part1() + res + sec_discussion() + sec_caveats() + sec_supp() + sec_appendix()
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "figures").mkdir(exist_ok=True)
