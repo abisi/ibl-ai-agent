@@ -25,6 +25,10 @@ each splitting every half's trials into disjoint subsets A / B.
              information of hits vs misses in the top K principal components of all active residuals (shared subspace),
              bias-corrected for finite trials (Kanitscheider et al. 2015, two classes of T trials, N = K dimensions):
              FI = d' Sigma^-1 d (2T - N - 3) / (2T - 2) - 2N / T.
+  shift null (hitmedian split; 2026-10-05, shift_null.py): CD_2 rebuilt from labels shifted against the time-ordered whisker
+             trials (10-50 %, non-wrapping; N_SHIFT shifts among those keeping >= MIN_CLASS matched hits and misses after the
+             hit-median split of the shifted labels; N_SPLIT_SHIFT splits); passive pre -> post change of noise-corrected cos
+             (passive axis, W, A, W - A), raw cos and projections (W, A, W - A): shift_real / _null / _excess / _pct columns.
 Output: 140_coding_direction_noise.parquet (session x split). Run (haas, repo root): python .../140_coding_direction_noise.py
 """
 
@@ -85,6 +89,77 @@ def fisher_bc(Zh, Zm):
     except np.linalg.LinAlgError:
         return np.nan
     return fi * (2 * T - N - 3) / (2 * T - 2) - 2 * N / T
+
+
+N_SHIFT, N_SPLIT_SHIFT = 50, 10
+PAS = ("passive_pre", "passive_post")
+
+
+def shift_null(Za, Z, E, isw, lick, m, rng):
+    """Linear-shift null (shift_null.py) of the passive pre -> post change of the alignment with the half-2 coding direction
+    (hit-median split, whole brain). Per shift: hit-median split of the SHIFTED labels (in the truncated, time-ordered trials),
+    count matching across halves (>= MIN_CLASS hits and misses), CD_2 from subset B (cos metrics) / subset A (projection) and its
+    reliability cos(CD_2^A, CD_2^B), as the real one; passive patterns and their reliabilities are the real ones. Metrics:
+    noise-corrected cos (axis = passive whisker - auditory axis, W, A evoked, W - A), raw cos (axis, W, A, W - A), projection of
+    the evoked patterns on unit CD_2 / sqrt(n) (W, A, W - A)."""
+    SN = importlib.import_module("shift_null")
+    n_u = Za.shape[1]
+
+    def halves(ys):
+        hp = np.flatnonzero(ys)
+        if len(hp) < 2:
+            return None
+        h1 = np.arange(len(ys)) < hp[len(hp) // 2]
+        idx = {(h, c): np.where((h1 if h == 1 else ~h1) & (ys if c else ~ys))[0] for h in (1, 2) for c in (True, False)}
+        tp = min(len(idx[(1, True)]), len(idx[(2, True)])); tn = min(len(idx[(1, False)]), len(idx[(2, False)]))
+        return (idx, tp, tn) if min(tp, tn) >= MIN_CLASS else None
+
+    valid = SN.valid_shifts(lick, lambda ys, pos: halves(ys) is not None)
+    pats, rel = {}, {}
+    for e in PAS:
+        w, a = np.where(isw[e])[0], np.where(~isw[e])[0]
+        pats[e] = (w, a)
+        rel[e] = {k: max(m[f"{r}_{e}_2"], 0.05) for k, r in (("axis", "rpas"), ("W", "rW"), ("A", "rA"))}
+
+    def metrics(c, p, rc):
+        v = {}
+        for e in PAS:
+            for k in ("axis", "W", "A"):
+                v[(e, f"{k}N")] = float(np.clip(c[(e, k)] / np.sqrt(rel[e][k] * max(rc, 0.05)), -1.5, 1.5))
+                v[(e, f"{k}R")] = c[(e, k)]
+            v[(e, "WAN")] = v[(e, "WN")] - v[(e, "AN")]; v[(e, "WAR")] = c[(e, "W")] - c[(e, "A")]
+            v[(e, "WP")], v[(e, "AP")] = p[(e, "W")], p[(e, "A")]; v[(e, "WAP")] = p[(e, "W")] - p[(e, "A")]
+        return {mm: v[("passive_post", mm)] - v[("passive_pre", mm)] for mm in {k for _, k in v}}
+
+    c_r = {(e, k): m[f"{key}_{e}_2"] for e in PAS for k, key in (("axis", "cpas"), ("W", "cW"), ("A", "cA"))}
+    p_r = {(e, k): m[f"p{k}_{e}_2"] for e in PAS for k in ("W", "A")}
+    real = metrics(c_r, p_r, m["rel_2"])
+    null, n_floor = {mm: [] for mm in real}, 0
+    for j in rng.permutation(len(valid))[:N_SHIFT]:
+        ys, pos, _ = SN.cut(lick, *valid[j])
+        idx, tp, tn = halves(ys)
+        c, p, rcs = {}, {}, []
+        for _ in range(N_SPLIT_SHIFT):
+            s_h = rng.choice(idx[(2, True)], tp, replace=False); s_m = rng.choice(idx[(2, False)], tn, replace=False)
+            A_ = pos[np.r_[s_h[: tp // 2]]], pos[np.r_[s_m[: tn // 2]]]
+            B_ = pos[np.r_[s_h[tp // 2:]]], pos[np.r_[s_m[tn // 2:]]]
+            cdA = Za[A_[0]].mean(0) - Za[A_[1]].mean(0); cdB = Za[B_[0]].mean(0) - Za[B_[1]].mean(0)
+            rcs.append(cos(cdA, cdB)); uA = unit(cdA)
+            for e in PAS:
+                w, a = pats[e]
+                pw, pa = rng.permutation(w), rng.permutation(a)
+                c.setdefault((e, "axis"), []).append(cos(Z[e][pw[: len(w) // 2]].mean(0) - Z[e][pa[: len(a) // 2]].mean(0), cdB))
+                for k, idx_ in (("W", w), ("A", a)):
+                    q = rng.permutation(idx_)
+                    c.setdefault((e, k), []).append(cos(E[e][q[: len(q) // 2]].mean(0), cdB))
+                    p.setdefault((e, k), []).append(float(E[e][idx_].mean(0) @ uA) / np.sqrt(n_u))
+        rc = float(np.nanmean(rcs)); n_floor += rc < 0.05
+        d = metrics({kk: np.nanmean(v) for kk, v in c.items()}, {kk: np.nanmean(v) for kk, v in p.items()}, rc)
+        for mm, v in d.items():
+            null[mm].append(v)
+    out = SN.summarize(real, null)
+    out.update(shift_n_valid=len(valid), shift_n=len(null["WN"]), shift_frac_rel_floor=n_floor / max(len(null["WN"]), 1))
+    return out
 
 
 def tracked_stable(sid, stable, spikes, segments):
@@ -168,7 +243,7 @@ def process(args):
         acc = {k: [] for k in ("rel_1", "rel_2", "between", "own_1", "own_2", "cross_1", "cross_2", "nr_1", "nr_2", "fi_1", "fi_2")}
         for e in ("passive_pre", "passive_post"):
             for h in (1, 2):
-                for k in ("frac", "cpas", "rpas", "evokedW", "cW", "rW", "cA", "rA"):
+                for k in ("frac", "cpas", "rpas", "evokedW", "cW", "rW", "cA", "rA", "pW", "pA"):
                     acc[f"{k}_{e}_{h}"] = []
         for _ in range(N_SPLIT):
             sub = {}
@@ -206,6 +281,7 @@ def process(args):
                         q = rng.permutation(idx_); q1, q2 = q[: len(q) // 2], q[len(q) // 2:]
                         acc[f"c{key}_{e}_{h}"].append(cos(E[e][q1].mean(0), cd[(h, 1)]))
                         acc[f"r{key}_{e}_{h}"].append(cos(E[e][q1].mean(0), E[e][q2].mean(0)))
+                        acc[f"p{key}_{e}_{h}"].append(float(E[e][idx_].mean(0) @ u_own) / np.sqrt(len(u_own)))
         m = {k: float(np.nanmean(v)) if len(v) else np.nan for k, v in acc.items()}
         r1, r2 = max(m["rel_1"], 0.05), max(m["rel_2"], 0.05)
         row.update(rel_cd_1=m["rel_1"], rel_cd_2=m["rel_2"], cos_between=m["between"],
@@ -223,6 +299,10 @@ def process(args):
                     rk = max(m[f"r{key}_{e}_{h}"], 0.05) if np.isfinite(m[f"r{key}_{e}_{h}"]) else np.nan
                     row[f"cosnorm_evoked{key}_{e}_{h}"] = (float(np.clip(m[f"c{key}_{e}_{h}"] / np.sqrt(rk * rc), -1.5, 1.5))
                                                            if np.isfinite(rk) else np.nan)
+                    row[f"cos_evoked{key}_{e}_{h}"] = m[f"c{key}_{e}_{h}"]
+                    row[f"proj_evoked{key}_{e}_{h}"] = m[f"p{key}_{e}_{h}"]
+        if sname == "hitmedian":
+            row.update(shift_null(Za, Z, E, isw, lick, m, rng))
         rows.append(dict(row, skipped_reason=None))
     return rows
 

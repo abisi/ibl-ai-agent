@@ -15,6 +15,10 @@ the active baseline shared by both active halves); z-scored per unit over all tr
 before 35 ms excluded; trials from skills/ssl-trial-exclusion.
 Stats (mouse = unit; uncorrected): per cohort, epoch effect (Friedman AND RM-ANOVA); vs 0 per epoch (Wilcoxon AND t);
 R+ vs R- per epoch and on the changes from passive_pre (Mann-Whitney AND Welch).
+Linear-shift null (whole brain, 2026-10-05; shift_null.py): lick axis rebuilt from labels shifted against the time-ordered
+active whisker trials (10-50 %, non-wrapping, N_SHIFT shifts among those keeping >= 2 MIN_CLASS licked and unlicked trials,
+N_SPLIT_SHIFT splits each); passive pre -> post change of noise-corrected cos (whisker - auditory axis, W, A, W - A), raw cos and
+projection on the unit lick axis / sqrt(n); columns shift_real_d<m>, shift_null_d<m>_mean / _sd, shift_excess_d<m>, shift_pct_d<m>.
 Outputs: 135_alignment_epochs.parquet, 135_stats.csv, figures/135_alignment_epochs.{pdf,png,svg}
 Run (haas, repo root): python .../135_whisker_lick_alignment_epochs.py   |   python ... plot
 """
@@ -72,6 +76,79 @@ def halve(idx, rng):
 
 def wvec(Z, w, a):
     return Z[w].mean(0) - Z[a].mean(0)
+
+
+def unit(v):
+    n = np.linalg.norm(v)
+    return v / n if n > 0 else v * np.nan
+
+
+N_SHIFT, N_SPLIT_SHIFT = 50, 10
+PAS = ("passive_pre", "passive_post")
+
+
+def shift_null(Z, E, isw, licked, act, acc, rng):
+    """Linear-shift null (shift_null.py) of the passive pre -> post change of the alignment with the lick axis (whole brain):
+    the lick axis is rebuilt from shifted labels exactly as the real one (a random half of the licked / unlicked trials, its
+    reliability from halving that half); passive patterns and their reliabilities are the real ones. Metrics: noise-corrected
+    cos (axis = whisker - auditory axis, W, A evoked, W - A), raw cos (W, A, W - A), projection on the unit lick axis / sqrt(n)
+    (W, A, W - A)."""
+    SN = importlib.import_module("shift_null")
+    Za, n_u = Z["active"], Z["active"].shape[1]
+    wpos = np.where(isw["active"])[0]
+    widx = wpos[np.argsort(act.start_time.to_numpy()[wpos], kind="stable")]
+    y = licked[widx]
+    need = 2 * MIN_CLASS
+    valid = SN.valid_shifts(y, lambda ys, pos: min(ys.sum(), (~ys).sum()) >= need)
+    pats, rel = {}, {}
+    for e in PAS:
+        w, a = np.where(isw[e])[0], np.where(~isw[e])[0]
+        pats[e] = {"axis": wvec(Z[e], w, a), "W": E[e][w].mean(0), "A": E[e][a].mean(0)}
+        rel[e] = {"axis": max(np.nanmean(acc[e]["rw"]), 0.05), "W": max(np.nanmean(acc[e]["rW"]), 0.05),
+                  "A": max(np.nanmean(acc[e]["rA"]), 0.05)}
+
+    def metrics(c, p, rl):
+        """c[(e, k)] mean raw cos, p[(e, k)] mean projection, rl lick-axis reliability -> per-epoch metric dict"""
+        v = {}
+        for e in PAS:
+            for k in ("axis", "W", "A"):
+                v[(e, f"{k}N")] = float(np.clip(c[(e, k)] / np.sqrt(rel[e][k] * max(rl, 0.05)), -1.5, 1.5))
+            v[(e, "WAN")] = v[(e, "WN")] - v[(e, "AN")]
+            v[(e, "WR")], v[(e, "AR")] = c[(e, "W")], c[(e, "A")]
+            v[(e, "WAR")] = c[(e, "W")] - c[(e, "A")]
+            v[(e, "WP")], v[(e, "AP")] = p[(e, "W")], p[(e, "A")]
+            v[(e, "WAP")] = p[(e, "W")] - p[(e, "A")]
+        return {m: v[("passive_post", m)] - v[("passive_pre", m)] for m in {k for _, k in v}}
+
+    # real changes from the real accumulators (same formulas)
+    rl_real = np.nanmean(acc["passive_pre"]["rl"])
+    c_r = {(e, k): np.nanmean(acc[e][key]) for e in PAS for k, key in (("axis", "cab"), ("W", "cW"), ("A", "cA"))}
+    p_r = {(e, k): np.nanmean(acc[e][f"p{k}"]) for e in PAS for k in ("W", "A")}
+    real = metrics(c_r, p_r, rl_real)
+    null, n_floor = {m: [] for m in real}, 0
+    for j in rng.permutation(len(valid))[:N_SHIFT]:
+        ys, pos, _ = SN.cut(y, *valid[j])
+        tr = widx[pos]
+        hit, mis = tr[ys], tr[~ys]
+        c, p, rls = {}, {}, []
+        for _ in range(N_SPLIT_SHIFT):
+            Lh, _x = halve(hit, rng); Lm, _x = halve(mis, rng)
+            lh1, lh2 = halve(Lh, rng); lm1, lm2 = halve(Lm, rng)
+            rls.append(cos(Za[lh1].mean(0) - Za[lm1].mean(0), Za[lh2].mean(0) - Za[lm2].mean(0)))
+            lick = Za[Lh].mean(0) - Za[Lm].mean(0); u = unit(lick)
+            for e in PAS:
+                for k in ("axis", "W", "A"):
+                    c.setdefault((e, k), []).append(cos(pats[e][k], lick))
+                for k in ("W", "A"):
+                    p.setdefault((e, k), []).append(float(pats[e][k] @ u) / np.sqrt(n_u))
+        rl = float(np.nanmean(rls)); n_floor += rl < 0.05
+        d = metrics({kk: np.nanmean(v) for kk, v in c.items()}, {kk: np.nanmean(v) for kk, v in p.items()}, rl)
+        for m, v in d.items():
+            null[m].append(v)
+    out = SN.summarize(real, null)
+    out.update(shift_n_valid=len(valid), shift_n=len(null["WN"]), shift_frac_rel_floor=n_floor / max(len(null["WN"]), 1),
+               rel_lick_real=float(rl_real))
+    return out
 
 
 def process(args):
@@ -138,7 +215,7 @@ def process(args):
         if any(min(m.sum(), (~m).sum()) < 2 * MIN_CLASS for m in need.values()):
             continue
         rng = np.random.default_rng(zlib.crc32(f"{sid}|{area}|135".encode()))
-        acc = {e: dict(cab=[], rw=[], rl=[], cW=[], rW=[], cA=[], rA=[]) for e in EP4}
+        acc = {e: dict(cab=[], rw=[], rl=[], cW=[], rW=[], cA=[], rA=[], pW=[], pA=[]) for e in EP4}
         for _ in range(N_SPLIT):
             # split ALL active trials (stratified by type x lick) into L (lick-axis) and V (whisker-axis) sets
             Lset, Vset = [], []
@@ -176,6 +253,7 @@ def process(args):
                 for key, idx_, h1, h2 in (("W", wi, w1, w2), ("A", ai, a1, a2)):
                     acc[e][f"c{key}"].append(cos(Ee[idx_].mean(0), lick))
                     acc[e][f"r{key}"].append(cos(Ee[h1].mean(0), Ee[h2].mean(0)))
+                    acc[e][f"p{key}"].append(float(Ee[idx_].mean(0) @ unit(lick)) / np.sqrt(Ee.shape[1]))  # projection / sqrt(n)
         row = dict(base, area=area, n_units=int(keep.sum()), n_wh_licked=len(wl), n_wh_unlicked=len(wn), skipped_reason=None)
         for e in EP4:
             if not acc[e]["cab"]:
@@ -190,6 +268,10 @@ def process(args):
                 cc = np.nanmean(acc[e][f"c{key}"])
                 rr = max(np.nanmean(acc[e][f"r{key}"]), 0.05)
                 row[f"evoked{key}_cosnorm_{e}"] = float(np.clip(cc / np.sqrt(rr * rl), -1.5, 1.5))
+                row[f"evoked{key}_cos_{e}"] = float(cc)
+                row[f"evoked{key}_proj_{e}"] = float(np.nanmean(acc[e][f"p{key}"]))
+        if area == "All units" and all(acc[e]["cab"] for e in PAS):
+            row.update(shift_null(Z, E, isw, licked, act, acc, rng))
         rows.append(row)
     return rows or [dict(base, skipped_reason="no area")]
 
