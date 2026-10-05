@@ -37,6 +37,8 @@ import sys
 import time
 import warnings
 
+import os
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -47,9 +49,13 @@ CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m001 = importlib.import_module("001_within_session_halves")
-OUT = m51.RES / f"_within_day{m51.TAG}" / "slopes"
 UNIT_SET = ("good", "mua")
 MIN_UNITS, MIN_EV, C_REG, N_BINS, MIN_DPRIME = 5, 8, 0.05, 5, 0.3
+# 2026-10-05: separate minimum for whisker hits (env SSL_MIN_WH, default MIN_EV). WH never enter the axis (built from AH vs SL),
+# so a lower WH minimum keeps the axis quality and admits sessions with few whisker licks (e.g. R- experts); outputs then go to
+# slopes_wh<N>/ so the default results stay untouched
+MIN_WH = int(os.environ.get("SSL_MIN_WH", MIN_EV))
+OUT = m51.RES / f"_within_day{m51.TAG}" / ("slopes" if MIN_WH == MIN_EV else f"slopes_wh{MIN_WH}")
 AXES = ["md", "dec"]
 CLS = ["WH", "AH", "FA"]
 
@@ -91,7 +97,7 @@ def session(args):
     z = np.load(f, allow_pickle=True)
     o = np.argsort(z["trial_start"])
     X, raw, lab, t = z["rates"].astype(float)[:, o], z["raw"].astype(float)[:, o], z["cls"][o], z["trial_start"].astype(float)[o]
-    if min((lab == c).sum() for c in CLS) < MIN_EV:
+    if (lab == "WH").sum() < MIN_WH or min((lab == c).sum() for c in ("AH", "FA")) < MIN_EV:
         return None
     K = pd.DataFrame(dict(electrode_group=z["electrode_group"].astype(str), cluster_id=z["cluster_id"].astype(str)))
     K = K.merge(W_s, on=["electrode_group", "cluster_id"], how="left")
@@ -105,7 +111,7 @@ def session(args):
     for a in AXES:
         for c in CLS:
             k = (lab == c) & np.isfinite(S[a])
-            if k.sum() < MIN_EV:
+            if k.sum() < (MIN_WH if c == "WH" else MIN_EV):
                 continue
             sl, ic = np.polyfit(tau[k], S[a][k], 1)
             row[f"{a}_{c}_slope"], row[f"{a}_{c}_start"], row[f"{a}_{c}_end"] = sl, ic, ic + sl
@@ -275,7 +281,7 @@ def main(a):
         out = OUT / pop; out.mkdir(exist_ok=True)
         T = tests(Dp); T.to_csv(out / "trial_slopes_tests.csv", index=False)
         figures(Dp, TRp, T, out, pop)
-    json.dump(dict(script="002_trial_slopes.py", ref=m51.REF, min_events=MIN_EV, n_bins=N_BINS, C=C_REG, unit_set=UNIT_SET,
+    json.dump(dict(script="002_trial_slopes.py", ref=m51.REF, min_events=MIN_EV, min_wh=MIN_WH, n_bins=N_BINS, C=C_REG, unit_set=UNIT_SET,
                    min_fr=m51.MIN_FR, n_sessions=int(D.session_id.nunique()), runtime_min=round((time.time() - t0) / 60, 1)),
               open(OUT / "provenance.json", "w"), indent=1)
     print("ALL DONE", OUT, flush=True)
