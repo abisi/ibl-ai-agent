@@ -516,7 +516,20 @@ point, split at the midpoint; non-learners without a change point (midpoint) are
 
 Units: tracked **stable** units (not non-soma, $\geq 300$ spikes, spikes missing $\leq 20$ %, coverage $\geq 0.9$, presence
 $\geq 0.5$, DREDge drift-shift test passed, i.e. not $|r| > 0.5$ with $p < 0.01$; multi-unit activity allowed) firing
-$\geq 0.5$ Hz in passive pre, passive post and every active segment of both splits. Responses 5-35 ms after stimulus onset,
+$\geq 0.5$ Hz in passive pre, passive post and every active segment of both splits.
+
+*Drift test.* For every unit, firing rate and the DREDge probe motion at the unit's depth are binned in 1-s bins over the
+recording, and their Pearson correlation is compared with an exhaustive shift null (Harris 2021): the central segment of the
+rate (all bins except the first and last $N = 500$) is correlated with the motion at each of the $2N + 1$ integer shifts,
+$p = m / (N + 1)$ with $m$ the number of shifts whose $|r|$ reaches the unshifted one. A unit fails when $|r| > 0.5$ and
+$p < 0.01$. Code: `unit_spikes_analysis/single_neuron_shift_test/unit_fr_motion_shift_test_harris.py`; results per session in
+`combined_results_ks4/<mouse>/<behaviour>_<day>/single_neuron_motion_shift_test/<mouse>_<behaviour>_<day>_motion_shift_test_results.csv`.
+Units missing from those files were tested on 2026-10-05 (`exploratory-analyses/142_rerun_missing_drift_tests.py`, same
+function and settings) with results in `combined_results_ks4/_drift_rerun_20261005/` (same layout), merged by `137_stable_units.py`
+(original results take precedence). The test is undefined for a unit without spikes in the central segment (its rate there is
+constant): such units fire only in the first or last ~8 min of the recording.
+
+Responses 5-35 ms after stimulus onset,
 epoch-specific baseline -55 to -20 ms, z-scored per unit; active whisker trials with a lick before 35 ms excluded. Per half
 $h$ of the hit-median or midpoint split (hits and misses count-matched across halves, 50 repetitions, each splitting a half's
 trials into disjoint subsets A / B), the coding direction is $\mathrm{CD}_h = \bar r_\text{hit} - \bar r_\text{miss}$.
@@ -952,8 +965,10 @@ def sec_caveats() -> str:
   seven expert); expert-stage area-group results mix redone and older sessions; `area_acronym_custom` results are no longer
   maintained. Reruns are deferred.
 * The 2026-10-05 analyses (139, 140, 143) use the current trial exclusions (invalid trials removed, rule A1). 140 uses tracked
-  stable units; after rerunning the drift test for units missing it, 893 somatic units still have no drift result and enter
-  only if their quality label is good. Step and gradual groups come from one change-point definition (L5) and are small
+  stable units. After the 2026-10-05 rerun, 893 somatic units still have no drift result because the test is undefined for
+  them: they have no spikes in the central part of the recording (checked for all 160 such units of the three sessions with
+  the most), i.e. they appear or disappear during the session. Their median coverage is 0.08 and none of them is in the stable
+  set. Step and gradual groups come from one change-point definition (L5) and are small
   (10-21 sessions per group and cohort); the R- non-learner group without a change point is empty.
 * Hit vs miss is a lick vs no-lick decoding with the same label in both cohorts; a cohort difference can reflect the
   meaning of the action (trained response in R+, error in R-) or motor differences, not only coding.
