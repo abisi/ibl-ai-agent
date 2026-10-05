@@ -30,8 +30,8 @@ over all trials (pooled epochs) for the decoder; evoked patterns = baseline-subt
 2 decomposition with the mean-difference choice axis CD = mean(hits) - mean(misses) from a random half A of the balanced
   subsample (reliability = cos(CD_A, CD_B)): per epoch and stimulus, size of the mean evoked pattern (norm / sqrt(n units)),
   cos(evoked pattern, CD_A), projection on unit CD_A; active patterns from trials not in A.
-3 state space: condition means (evoked patterns) projected on the plane of unit(CD, all active whisker trials) and the passive-pre
-  whisker evoked pattern orthogonalised to it.
+3 state space: condition means (evoked patterns) projected on unit(CD, all active whisker trials) (x) and on three y axes, each
+  orthogonalised to x: passive-pre whisker pattern (ss_), passive-pre whisker - auditory (ss2_), passive-pre auditory pattern (ss3_).
 4 behaviour: whisker hit rate in each active half.
 Output: 146_choice_axis_readout.parquet (session x unit set). Run (haas, repo root): python .../146_choice_axis_readout_epochs.py
 Pilot: SSL_146_SESSIONS="sid1,sid2,..." restricts the sessions (output 146_choice_axis_readout_pilot.parquet).
@@ -248,7 +248,7 @@ def process(args):
             # whisker trials (time order) by k = 10-50 % of the trials, non-wrapping, random direction (as the Part I null);
             # keeps the slow drift of both series, so a decoder that learned session time is in the null. Per shift: the passive
             # post - pre change of the standardised readout (whisker, auditory, whisker - auditory).
-            if area == "whole_brain" and uset == "stable":
+            if uset == "stable":                     # whole brain and area groups (2026-10-05)
                 n = len(lick_w); lo, hi = max(1, int(0.1 * n)), max(1, int(0.5 * n))
                 dnull = {kk: [] for kk in ("W", "A", "WA")}
                 # every session with >= MIN_CLASS hits and misses gets a null (user 2026-10-05 "use at least 3 hits to include
@@ -326,13 +326,16 @@ def process(args):
             # variant y-axis: passive-pre whisker - auditory axis (stimulus identity), orthogonalised to the choice axis
             v0 = E["passive_pre"][wi["passive_pre"]].mean(0) - E["passive_pre"][~wi["passive_pre"]].mean(0)
             v0 = v0 - (v0 @ u1) * u1; u3 = unit(v0)
+            # variant y-axis: passive-pre AUDITORY evoked pattern, orthogonalised to the choice axis (2026-10-05)
+            a0 = E["passive_pre"][~wi["passive_pre"]].mean(0); a0 = a0 - (a0 @ u1) * u1; u4 = unit(a0)
             conds = {"pre_W": E["passive_pre"][wi["passive_pre"]], "pre_A": E["passive_pre"][~wi["passive_pre"]],
                      "post_W": E["passive_post"][wi["passive_post"]], "post_A": E["passive_post"][~wi["passive_post"]]}
             for h, mW, mA in ((1, ~h2w, ~h2a), (2, h2w, h2a)):
                 conds[f"act{h}_hit"] = Ew[mW & lick_w]; conds[f"act{h}_miss"] = Ew[mW & ~lick_w]; conds[f"act{h}_A"] = Ea[mA]
             for cname, M in conds.items():
                 m = M.mean(0) if len(M) else np.full(len(u1), np.nan)
-                row[f"ss_{cname}_x"], row[f"ss_{cname}_y"], row[f"ss2_{cname}_y"] = float(m @ u1), float(m @ u2), float(m @ u3)
+                row[f"ss_{cname}_x"], row[f"ss_{cname}_y"], row[f"ss2_{cname}_y"], row[f"ss3_{cname}_y"] = (
+                    float(m @ u1), float(m @ u2), float(m @ u3), float(m @ u4))
             rows.append(dict(row, skipped_reason=None))
     return rows
 

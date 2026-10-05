@@ -496,10 +496,10 @@ def s_caveats(pdf, k):
     save(pdf, fig, k)
 
 
-def s_backup(pdf, k, path, title):
+def s_backup(pdf, k, path, title, prefix="Backup: ", sub=None):
     if not path.exists():
         return k
-    fig = slide(f"Backup: {title}", path.name)
+    fig = slide(f"{prefix}{title}", sub or path.name)
     im = plt.imread(path)
     ax = fig.add_axes([0.04, 0.03, 0.92, 0.83]); ax.imshow(im); ax.axis("off")
     save(pdf, fig, k)
@@ -555,6 +555,12 @@ def main():
     with PdfPages(OUT_PDF) as pdf:
         s_title(pdf, 0); s_question(pdf, 0); s_data(pdf, 0, D146); s_tools(pdf, 0); s_null(pdf, 0)
         s_step1(pdf, 0, D133); s_step2(pdf, 0, D134); s_step3(pdf, 0, D135); s_step4(pdf, 0, D140); s_step5(pdf, 0, D146); s_statespace(pdf, 0, D146)
+        s_backup(pdf, 0, PUB / "151_state_space_variants_all.png", "Step 5c: the state space with three y axes", prefix="",
+                 sub="y = passive-pre whisker pattern / whisker - auditory / auditory pattern, each orthogonal to the choice axis")
+        s_backup(pdf, 0, PUB / "151_state_space_heatmap_all.png", "Step 5d: all displacements at a glance", prefix="",
+                 sub="rows: stimulus; columns: axis; R+, R-, R- minus R+ (stars: * one, ** both tests p < 0.05)")
+        s_backup(pdf, 0, PUB / "151_area_heatmap_all.png", "Step 5e: area groups", prefix="",
+                 sub="areas with >= 3 sessions per cohort; state-space and shift-null measures; colour scaled per column")
         s_step6(pdf, 0, D146, S147); s_synthesis(pdf, 0, summary_rows(D133, D135, D140, D146)); s_caveats(pdf, 0)
         for p, t in ((PUB / "150_axis_alignment_shift_null_all.png", "150 lick axis / coding direction vs the shift null"),
                      (PUB / "149_passive_readout_shift_null_all.png", "149 decoder readout vs the shift null"),

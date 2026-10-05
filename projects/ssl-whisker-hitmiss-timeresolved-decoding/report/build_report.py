@@ -517,6 +517,72 @@ create a trend. **Margin vs learning curve** (127): $r = \text{corr}(z, c)$ with
 linear-shift nulls (200 shifts). **Neural transition** (130): $c^* = \arg\max_c |t_\text{Welch}(z_{c:}, z_{:c})|$ over interior splits,
 tested against 500 IAAFT surrogates of $z$ (same values and power spectrum, phases randomised).
 
+## Part III: quantities, equations, and how the three methods relate
+
+**Responses.** For a session with $n$ tracked units, the response of unit $i$ on trial $t$ of epoch $e$ (passive pre, active,
+passive post) is the firing rate in the window 5-35 ms after stimulus onset minus the unit's mean rate in the baseline window
+(-55 to -20 ms) over all trials of that epoch,
+$$r_{it} = \text{rate}_{it}[5, 35] - \frac{1}{|e|} \sum_{t' \in e} \text{rate}_{it'}[-55, -20].$$
+Two variants replace the subtracted term: the trial's own baseline (per-trial baseline), or keep only the baseline window
+(state, no sensory response). Each unit is z-scored over all trials of the three epochs pooled, $z_{it} = (r_{it} - \mu_i) /
+\sigma_i$; the *evoked* version is scaled but not centred, $\varepsilon_{it} = r_{it} / \sigma_i$, so that an evoked pattern keeps
+its distance from zero. A population vector is $\mathbf z_t = (z_{1t}, \ldots, z_{nt})$, and $\bar{\mathbf z}(T)$ is its mean over a
+trial set $T$.
+
+**Patterns (what moves).** Passive whisker-evoked pattern $\mathbf p_W^{e} = \bar{\boldsymbol\varepsilon}(\text{whisker trials of } e)$,
+auditory-evoked pattern $\mathbf p_A^{e}$, and whisker axis $\mathbf D^{e} = \bar{\mathbf z}(W, e) - \bar{\mathbf z}(A, e)$ (stimulus
+identity). These are computed in passive pre and passive post; no lick labels enter them.
+
+**Hit / miss axes (what they are compared with).** From active whisker trials without a lick before 35 ms, labelled hit (lick)
+or miss:
+
+* lick axis (135): $\mathbf L = \bar{\mathbf z}(\text{hits}) - \bar{\mathbf z}(\text{misses})$, from a random half of the active trials;
+* coding direction (140): $\mathbf{CD}_h = \bar{\mathbf z}(\text{hits}_h) - \bar{\mathbf z}(\text{misses}_h)$ in half $h$ of the hit-median
+  split (equal numbers of hits in the two halves, hits and misses count-matched across halves); the passive comparison uses
+  $\mathbf{CD}_2$, the direction at the end of the task;
+* choice decoder (146): L2-regularised logistic regression with weights $\mathbf w$ and offset $b$, score $s(\mathbf z) = \mathbf w
+  \cdot \mathbf z + b$, trained on balanced, cross-validated subsets. For two Gaussian classes with shared noise covariance
+  $\Sigma$, $\mathbf w \propto \Sigma^{-1}(\boldsymbol\mu_\text{hit} - \boldsymbol\mu_\text{miss})$ (Fisher discriminant), pulled toward the
+  mean difference by the penalty.
+
+$\mathbf L$ and $\mathbf{CD}_2$ are mean-difference directions (they ignore noise correlations); $\mathbf w$ is the noise-whitened
+direction that best separates single trials. The three methods therefore ask the same question, *where does a passive pattern lie
+along an active hit / miss direction, and does that change from before to after the task?*, and differ in (i) which active trials
+define the direction (all trials, the late half, cross-validated balanced subsets), (ii) whether noise correlations shape it (only
+the decoder), and (iii) the summary statistic (below). The state space uses the lick-axis direction from all active whisker
+trials, $\hat{\mathbf x} = \mathbf L_\text{all} / \lVert \mathbf L_\text{all} \rVert$.
+
+**Comparing a pattern $\mathbf p$ with an axis $\mathbf u$.**
+
+* cosine $\cos(\mathbf p, \mathbf u) = \mathbf p \cdot \mathbf u / (\lVert \mathbf p \rVert \lVert \mathbf u \rVert)$: direction only;
+* size $\lVert \mathbf p \rVert / \sqrt n$ (root-mean-square response per unit);
+* projection $\pi = \mathbf p \cdot \hat{\mathbf u} / \sqrt n = \text{size} \times \cos$: how far the pattern reaches along the axis;
+* noise-corrected cosine: with $\mathbf p^{(1)}, \mathbf p^{(2)}$ and $\mathbf u^{(1)}, \mathbf u^{(2)}$ estimated from disjoint trial halves
+  and reliabilities $\rho_p = \cos(\mathbf p^{(1)}, \mathbf p^{(2)})$, $\rho_u = \cos(\mathbf u^{(1)}, \mathbf u^{(2)})$,
+  $$\cos_\text{norm}(\mathbf p, \mathbf u) = \frac{\cos(\mathbf p^{(1)}, \mathbf u^{(2)})}{\sqrt{\rho_p \rho_u}}.$$
+  With independent noise in many units, an estimate's cosine with its true vector is about $\sqrt\rho$, so the numerator is
+  about $\cos(\mathbf p, \mathbf u) \sqrt{\rho_p \rho_u}$ and the ratio removes the shrinkage; reliabilities are floored at 0.05 and the
+  value clipped at $\pm 1.5$ (it is not an angle);
+* decoder readout of a trial, $R_t = (s(\mathbf z_t) - m) / \sigma_s$, with $m$ the midpoint of the held-out hit and miss mean
+  scores and $\sigma_s$ the SD of the held-out active scores ($R > 0$ hit-like, $R < 0$ miss-like). Averaged over trials, the
+  readout of a passive condition is its projection on $\mathbf w$, shifted and rescaled.
+
+**State space.** For a y-axis vector $\mathbf v$ (the passive-pre whisker pattern $\mathbf p_W^\text{pre}$, the whisker - auditory
+difference $\mathbf p_W^\text{pre} - \mathbf p_A^\text{pre}$, or the auditory pattern $\mathbf p_A^\text{pre}$),
+$\hat{\mathbf y} = (\mathbf v - (\mathbf v \cdot \hat{\mathbf x}) \hat{\mathbf x}) / \lVert \cdot \rVert$, and a condition mean $\mathbf c$ is
+plotted at $(\mathbf c \cdot \hat{\mathbf x}, \mathbf c \cdot \hat{\mathbf y})$. The displacement of a passive pattern is $\Delta x =
+(\mathbf p^\text{post} - \mathbf p^\text{pre}) \cdot \hat{\mathbf x}$ (and $\Delta y$ likewise), i.e. $\sqrt n$ times the change of its
+projection on the choice axis; $\Delta x$ of whisker minus $\Delta x$ of auditory cancels any change the two stimuli share.
+
+**Change and null.** For any metric $M$ (cosine, projection, readout, coordinate), the session's change is $\Delta M = M^\text{post}
+- M^\text{pre}$. The linear-shift null rebuilds the axis $K = 50$ times from labels shifted against the time-ordered active
+trials and recomputes $\Delta M^{(k)}$ with the passive patterns fixed; the excess is $\Delta M - \frac1K \sum_k \Delta M^{(k)}$
+(details below). Group statistics are on per-session values (Statistics).
+
+**Other Part III quantities.** Whisker vs auditory decoding (133) asks whether stimulus identity itself changes (no hit / miss
+labels). The gain change of 134 uses each unit's preferred sign $s_i$ from half of the passive-pre trials,
+$g = \frac1n \sum_i s_i (\bar r_i^{e} - \bar r_i^{\text{pre, other half}})$, per stimulus; the specific change is $g_W - g_A$.
+
 ## Stimulus-onset geometry across epochs (132-135b)
 
 Sessions with passive trials before and after the active block. Units: the same tracked stable units in every Part III
@@ -1198,6 +1264,82 @@ def sec_part3f() -> str:
                   "Table 21. Passive pre -> post displacement in the state space (stable units; dx along the choice axis, dy along the "
                   "identity axis; W whisker, A auditory, WA whisker - auditory). Within cohort vs 0 (Wilcoxon | t), R+ vs R- "
                   "(Mann-Whitney | Welch; mean_a R+, mean_b R-).")
+    s += "\n" + txt_ss2() + "\n"
+    s += fig_if(PUB / "151_state_space_variants_all.png", "Figure 20", "State space with three y axes (151; whole brain, stable units, "
+                "all mice): passive-pre whisker pattern (top), whisker - auditory difference (middle), auditory pattern (bottom), each "
+                "orthogonalised to the choice axis x; symbols as Figure 19.")
+    s += fig_if(PUB / "151_state_space_heatmap_all.png", "Figure 21", "Passive pre -> post displacement in the state space as a matrix "
+                "(151): rows whisker, auditory, whisker - auditory; columns the choice axis and the three y axes; panels R+ mean, R- "
+                "mean, R- minus R+ (z units); stars: * one test, ** both tests p < 0.05.")
+    s += stats_md(EA / "151_stats.csv", ["measure", "cohort", "n", "mean", "p_nonparam", "p_param"],
+                  "Table 22. Statistics of Figure 21 (whole brain, all mice; dx = choice axis; dssy, dss2y, dss3y = whisker, whisker - "
+                  "auditory and auditory y axes; _W, _A, _WA = stimulus).",
+                  query=lambda d: (d.scope == "all") & (d.panel == "whole-brain state space"))
+    return s
+
+
+def txt_ss2() -> str:
+    """III.6 continued: three y axes and the displacement heatmap (151_stats, whole brain, all mice)"""
+    p = EA / "151_stats.csv"
+    if not p.exists():
+        return ""
+    d = pd.read_csv(p); d = d[(d.scope == "all") & (d.panel == "whole-brain state space")]
+    g = lambda m, c: _r(d, measure=m, cohort=c)
+    f = lambda key, m, c, fmt="{:+.2f}": num(key, g(m, c)["mean"], fmt)
+    P = lambda key, m, c: f"{pv(key + '_p', g(m, c).p_nonparam)} | {pv(key + '_pt', g(m, c).p_param)}"
+    return (
+        "Changing the y axis shows which part of each passive response shrinks (Figures 20-21, Table 22). Along the passive-pre "
+        f"whisker pattern, the whisker response shrinks in both cohorts (R+ {f('s2_wy_rp', 'dssy_W', 'R+')}, R- {f('s2_wy_rm', 'dssy_W', 'R-')}; "
+        f"R- minus R+ p = {P('s2_wy_c', 'dssy_W', 'R- minus R+')}), and along the passive-pre auditory pattern the auditory response "
+        f"shrinks (R+ {f('s2_ay_rp', 'dss3y_A', 'R+')}, R- {f('s2_ay_rm', 'dss3y_A', 'R-')}; p = {P('s2_ay_c', 'dss3y_A', 'R- minus R+')}); each "
+        f"response projects little on the other stimulus' axis (whisker on the auditory axis: R+ {f('s2_wa_rp', 'dss3y_W', 'R+')}, R- "
+        f"{f('s2_wa_rm', 'dss3y_W', 'R-')}; auditory on the whisker axis: R+ {f('s2_aw_rp', 'dssy_A', 'R+')}, R- {f('s2_aw_rm', 'dssy_A', 'R-')}). "
+        "The post-task shrinkage is thus stimulus-specific in direction (each response loses part of its own pattern) and shared "
+        "between cohorts in size: an adaptation-like or state-related loss of the evoked response that does not separate R+ from R-. "
+        f"The cohort difference stays on the choice axis, whatever the y axis: whisker R- minus R+ {f('s2_x_d', 'dx_W', 'R- minus R+')} "
+        f"(p = {P('s2_x_d', 'dx_W', 'R- minus R+')}), whisker - auditory {f('s2_xwa_d', 'dx_WA', 'R- minus R+')} (p = "
+        f"{P('s2_xwa_d', 'dx_WA', 'R- minus R+')}). The heatmap (Figure 21) collects all displacements: rows whisker, auditory and "
+        "whisker - auditory, columns the choice axis and the three y axes, for each cohort and their difference; the only cells "
+        "where the cohorts differ are on the choice axis.")
+
+
+def txt_area() -> str:
+    """III.7: area groups (151_stats, all mice)"""
+    p = EA / "151_stats.csv"
+    if not p.exists():
+        return ""
+    d = pd.read_csv(p); d = d[(d.scope == "all") & (d.panel == "area groups")]
+    areas = [a for a in d.area.unique() if a != "whole_brain"]
+    dd = d[(d.cohort == "R- minus R+") & (d.area != "whole_brain")]
+    both = dd[(dd.p_nonparam < 0.05) & (dd.p_param < 0.05)]
+    one = dd[((dd.p_nonparam < 0.05) ^ (dd.p_param < 0.05))]
+    lab = {"dx_W": "whisker along the choice axis", "dx_A": "auditory along the choice axis", "dx_WA": "whisker - auditory along the choice axis",
+           "shift_excess_dW": "decoder whisker readout (excess)", "shift_excess_dWA": "decoder whisker - auditory (excess)",
+           "lick_dWR": "lick-axis whisker raw cosine (excess)", "lick_dWAP": "lick-axis whisker - auditory projection (excess)"}
+    lst = lambda t: "; ".join(f"{r.area}: {lab.get(r.measure, r.measure)} ({r['mean']:+.2f}, p = {r.p_nonparam:.3f} | {r.p_param:.3f})"
+                              for _, r in t.sort_values(["area", "measure"]).iterrows()) or "none"
+    neg = dd[dd.measure.isin(["dx_W", "dx_WA", "lick_dWR", "lick_dWAP"])]
+    frac = (neg["mean"] < 0).mean() if len(neg) else np.nan
+    return (
+        f"Area groups sampled with at least 3 sessions in each cohort and at least 20 tracked units ({len(areas)} groups: "
+        f"{', '.join(sorted(areas))}) were analysed like the whole brain, each with its own axes (Figure 22, Table 23). Cohort "
+        f"differences with both tests p < 0.05: {lst(both)}. With one test only: {lst(one)}. Across area groups, the R- minus R+ "
+        f"difference of the whisker displacement along the choice axis and of the lick-axis measures had the R- sign (negative) in "
+        f"{num('a_frac', frac * 100, '{:.0f}')} % of the area x measure cells. Area groups have fewer units and sessions than the whole "
+        "brain, so most cells are underpowered; the pattern across areas, not single cells, is the informative part, and no cell is "
+        "corrected for the number of areas and measures.")
+
+
+def sec_part3g() -> str:
+    s = "\n### III.7 Area groups\n\n" + txt_area() + "\n"
+    s += fig_if(PUB / "151_area_heatmap_all.png", "Figure 22", "Passive pre -> post changes per area group (151; stable units; rows: "
+                "whole brain and area groups with >= 3 sessions per cohort and >= 20 units, sessions R+ | R- in brackets). Columns: "
+                "state-space displacement along the choice axis (whisker, auditory, whisker - auditory; raw), excess over the "
+                "linear-shift null of the decoder readout (whisker, whisker - auditory; 146) and of the lick-axis alignment (whisker "
+                "raw cosine, whisker - auditory projection; 135). Panels: R+ mean, R- mean, R- minus R+; colour scaled per column; "
+                "stars: * one test, ** both tests p < 0.05 (within cohort vs 0; R- minus R+: Mann-Whitney | Welch).")
+    s += stats_md(EA / "151_stats.csv", ["area", "measure", "cohort", "n", "mean", "p_nonparam", "p_param"],
+                  "Table 23. Statistics of Figure 22 (all mice).", query=lambda d: (d.scope == "all") & (d.panel == "area groups"))
     return s
 
 
@@ -1437,7 +1579,7 @@ th{background:#f4f4f4}figcaption,caption{font-size:.9em;text-align:left}"""
 
 def main():
     res = (sec_results().replace("## Part III. ", sec_overnight() + "\n## Part III. ", 1) + sec_part3b() + sec_part3c() + sec_part3d()
-           + sec_part3e() + sec_part3f())
+           + sec_part3e() + sec_part3f() + sec_part3g())
     md = sec_front() + sec_intro() + sec_methods() + sec_part1() + res + sec_discussion() + sec_caveats() + sec_supp() + sec_appendix()
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "figures").mkdir(exist_ok=True)

@@ -270,7 +270,7 @@ def process(args):
                 row[f"evoked{key}_cosnorm_{e}"] = float(np.clip(cc / np.sqrt(rr * rl), -1.5, 1.5))
                 row[f"evoked{key}_cos_{e}"] = float(cc)
                 row[f"evoked{key}_proj_{e}"] = float(np.nanmean(acc[e][f"p{key}"]))
-        if area == "All units" and all(acc[e]["cab"] for e in PAS):
+        if (area == "All units" or keep.sum() >= 20) and all(acc[e]["cab"] for e in PAS):   # area groups: >= 20 units, as 146
             row.update(shift_null(Z, E, isw, licked, act, acc, rng))
         rows.append(row)
     return rows or [dict(base, skipped_reason="no area")]
