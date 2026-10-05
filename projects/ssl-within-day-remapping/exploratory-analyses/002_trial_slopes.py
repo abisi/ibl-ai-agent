@@ -5,8 +5,8 @@ spontaneous licks (SL, unrewarded) from auditory hits (AH, rewarded), in opposit
 the end of day 0 reach the expert level? No split point: every trial contributes, with its time in the session.
 
 Events (051, PRELICK_REF=sl): WH, AH, SL ("FA"), 100 ms before the corrected first lick; trials active, perf != 6,
-warm-up cut, A1 end trim. Units: good + mua, mean raw pre-lick rate >= 0.1 Hz; whole brain; sessions with >= 8 WH,
->= 8 AH and >= 8 SL events and >= 5 units.
+warm-up cut, A1 end trim. Units: good + mua, mean raw pre-lick rate >= 0.1 Hz; whole brain; sessions with >= 4 WH (MIN_WH;
+>= 8 before 2026-10-05), >= 8 AH and >= 8 SL events and >= 5 units.
 
 Fixed session axis (5-fold stratified CV over the AH and SL events of the whole session; units z-scored on training
 folds):
@@ -54,8 +54,10 @@ MIN_UNITS, MIN_EV, C_REG, N_BINS, MIN_DPRIME = 5, 8, 0.05, 5, 0.3
 # 2026-10-05: separate minimum for whisker hits (env SSL_MIN_WH, default MIN_EV). WH never enter the axis (built from AH vs SL),
 # so a lower WH minimum keeps the axis quality and admits sessions with few whisker licks (e.g. R- experts); outputs then go to
 # slopes_wh<N>/ so the default results stay untouched
-MIN_WH = int(os.environ.get("SSL_MIN_WH", MIN_EV))
-OUT = m51.RES / f"_within_day{m51.TAG}" / ("slopes" if MIN_WH == MIN_EV else f"slopes_wh{MIN_WH}")
+# default 4 since 2026-10-05 (user: "switch that threshold on the within-day project too"); the earlier >= 8 results are in
+# slopes_wh8/
+MIN_WH = int(os.environ.get("SSL_MIN_WH", 4))
+OUT = m51.RES / f"_within_day{m51.TAG}" / ("slopes" if MIN_WH == 4 else f"slopes_wh{MIN_WH}")
 AXES = ["md", "dec"]
 CLS = ["WH", "AH", "FA"]
 

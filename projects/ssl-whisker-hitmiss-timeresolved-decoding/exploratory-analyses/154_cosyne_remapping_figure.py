@@ -1,7 +1,7 @@
 """154 -- COSYNE figure, positive results only (user 2026-10-05: "for cosyne, only positive results ... link it to the within-day-sl
 results"): within the learning session, the reward contingency remaps the whisker sensorimotor chain in opposite directions.
   a  schematic: session (passive pre -> active -> passive post), the two windows and the two axes
-  b  pre-lick (ssl-within-day-remapping 002 with SSL_MIN_WH=4, SL reference): whisker-hit (WH) minus spontaneous-lick (SL) projection on the session's
+  b  pre-lick (ssl-within-day-remapping 002, >= 4 whisker hits per session, SL reference): whisker-hit (WH) minus spontaneous-lick (SL) projection on the session's
      reward-lick coding direction (SL = 0, auditory hit AH = 1), five bins of day-0 session time; expert sessions at the right
   c  pre-lick: per-session day-0 drift of WH relative to SL along that direction (slope WH - slope SL)
   d  stimulus onset (135, this project): raw cosine of the passive / active whisker-evoked pattern (5-35 ms) with the active lick axis
@@ -41,7 +41,7 @@ COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
 WC, AC = "#f7b519", "#2c2cdb"
 WD = axel_bisi_root() / "combined_results_ks4" / "_within_day_sl"
 # within-day trial-level results with >= 4 whisker hits per session (user 2026-10-05; AH and SL keep >= 8; env override)
-WD_SLOPES = __import__("os").environ.get("SSL_154_WD_SLOPES", "slopes_wh4")
+WD_SLOPES = __import__("os").environ.get("SSL_154_WD_SLOPES", "slopes")   # >= 4 WH is the within-day default since 2026-10-05
 EPL = ["passive\npre", "active\n1st", "active\n2nd", "passive\npost"]
 
 
