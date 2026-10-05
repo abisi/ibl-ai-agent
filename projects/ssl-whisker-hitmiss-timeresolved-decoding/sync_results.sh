@@ -15,5 +15,5 @@ while read -r f; do
   t="$N/$(cat_of "$f")/$f"; mkdir -p "$(dirname "$t")"
   mv -f "$EA/$f" "$t" 2>/dev/null || { cp "$EA/$f" "$t" && rm "$EA/$f"; }
   ln -s "$t" "$EA/$f"; n=$((n + 1))
-done < <(find "$EA" -maxdepth 1 -type f ! -name '*.py' ! -name '*.sh' -printf '%f\n')
+done < <(find "$EA" -maxdepth 1 -type f ! -name '*.py' ! -name '*.sh' ! -name '_run_*' -printf '%f\n')
 echo "synced $n file(s) to $N"
