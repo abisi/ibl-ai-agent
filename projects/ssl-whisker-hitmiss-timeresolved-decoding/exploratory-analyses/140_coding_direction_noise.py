@@ -3,8 +3,8 @@ noise correlations along it (user 2026-10-05: "3. yes do this, but generalize to
 and passive post data onto that) ... 4. noise correlations ... use tracked units with drift-robust metrics"; run in full).
 Sessions: learning stage with passive trials before AND after the active block (132.session_trials: active = prep_modality_trials
 from the first whisker trial, perf != 6, A1-trimmed; passive = labelled passive whisker / auditory trials).
-Units: whole brain, 137 'stable' units (tracked, drift-robust, MUA allowed) firing >= MIN_RATE Hz in passive pre, passive post and
-every active segment of both splits.
+Units: whole brain, the shared Part III tracked stable units (tracked_units.py / 137b: 137 'stable', drift-robust, MUA allowed,
+firing >= 0.5 Hz in passive pre, passive post and both active halves of every split), identical to 133 / 134 / 135 / 146.
 Responses: rate (Hz) 5-35 ms after stimulus onset minus the unit's mean -55..-20 ms baseline WITHIN its epoch; z-scored per
 unit over all trials (pooled epochs). Active whisker trials with a lick before 35 ms are excluded (no motor contamination).
 Splits of the active whisker trials: hitmedian (first H//2 hits before, as 139) and mid (median split of the whisker trials).
@@ -131,7 +131,7 @@ def process(args):
     segs = [(pre.start_time.min() - 1, pre.start_time.max() + 1), (post.start_time.min() - 1, post.start_time.max() + 1)]
     for t in splits.values():
         segs += [(a0, t), (t, a1)]
-    units = tracked_stable(sid, stable, spikes, segs)
+    units = np.asarray(stable.get(sid, np.array([], dtype=np.int64)))    # shared tracked stable units (137b), taken as is
     if len(units) < MIN_UNITS:
         return [dict(base, n_units=len(units), skipped_reason="too few tracked stable units")]
     X = {}
@@ -233,9 +233,8 @@ def main():
     from axel_bisi_paths import axel_bisi_root
     from ibl_ai_agent.data_locations import resolve_dataset_dir
     import ssl_timeresolved_decoding as T
-    S = pd.read_parquet(axel_bisi_root() / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "tables" / "137_stable_units.parquet")
-    S = S[S.stable]
-    stable_by_sid = {sid: g.cluster_id.to_numpy() for sid, g in S.groupby("session_id")}
+    # 2026-10-05: the shared Part III tracked stable units (tracked_units.py / 137b; "same stable units throughout")
+    stable_by_sid = importlib.import_module("tracked_units").load("stable")
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
     sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]

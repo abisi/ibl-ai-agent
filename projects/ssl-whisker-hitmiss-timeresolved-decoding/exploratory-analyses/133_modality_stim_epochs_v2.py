@@ -30,7 +30,9 @@ Outputs: 133_modality_stim_epochs.parquet (session x area: per-epoch / per-pair 
      within cohort epoch effect (Friedman AND repeated-measures ANOVA), R+ vs R- on the changes active-pre, post-active,
      post-pre (Mann-Whitney AND Welch). Uncorrected.
 Units (env SSL_UNITS; user 2026-10-02 "rerun on good only, i.e. tracking the same units over the entire session"): all =
-good + mua (default); good = quality_label 'good' only AND firing >= 0.5 Hz in the time span of every epoch (outputs *_good).
+good + mua (default); good = quality_label 'good' only AND firing >= 0.5 Hz in the time span of every epoch (outputs *_good);
+tracked = the shared Part III tracked stable units (tracked_units.py / 137b, taken as is; outputs *_tracked; user 2026-10-05
+"make sure the same stable units are used throughout").
 Run (haas, repo root): python .../133_modality_stim_epochs_v2.py   |   python ... plot
 """
 
@@ -62,7 +64,9 @@ K_SUB, N_SHUF, N_FOLD, N_SPLIT = 5, 20, 5, 20
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "40"))
 UNITS = os.environ.get("SSL_UNITS", "all")                 # all = good + mua; good = quality_label 'good' AND present in every epoch
 MIN_EPOCH_RATE = 0.5                                       # Hz over each epoch's span (good mode): unit tracked across the session
-TAG = "" if UNITS == "all" else "_good"
+TAG = {"all": "", "good": "_good", "tracked": "_tracked"}[UNITS]
+sys.path.insert(0, str(Path(__file__).resolve().parent)); sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+TRACKED = importlib.import_module("tracked_units").load("stable") if UNITS == "tracked" else {}
 OUT_PATH = OUT / f"133_modality_stim_epochs{TAG}.parquet"
 
 
@@ -184,6 +188,8 @@ def process(args):
     rows = []
     for area_col, area in areas:
         units = T.area_units(sid, area_col, area, labels)
+        if UNITS == "tracked":
+            units = np.intersect1d(units, TRACKED.get(sid, np.array([], dtype=np.int64)))
         if UNITS == "good":
             # good units only (quality_label == 'good'), and tracked over the whole session: firing >= MIN_EPOCH_RATE Hz in the
             # time span of EVERY epoch (first trial - 1 s to last trial + 1 s), so the same units contribute to pre, active, post
@@ -369,8 +375,8 @@ def plot():
     n = g.drop_duplicates("session_id").groupby("reward_group").size().to_dict()
     fig.suptitle("Whisker vs auditory, 5-35 ms, whole brain: rates (Hz), epoch-specific baseline (−55 to −20 ms), z-scored; "
                  f"R+ n={n.get('R+', 0)}, R− n={n.get('R-', 0)}. Within cohort: Friedman (F) / RM-ANOVA (RM); "
-                 "R+ vs R− on changes: MW / Welch (W). Uncorrected. Units: " + ("good + mua" if UNITS == "all" else
-                 f"good only, >= {MIN_EPOCH_RATE} Hz in every epoch"), fontsize=6.5)
+                 "R+ vs R− on changes: MW / Welch (W). Uncorrected. Units: " + {"all": "good + mua", "good": f"good only, >= {MIN_EPOCH_RATE} Hz in every epoch",
+                                                       "tracked": "shared tracked stable units (137b)"}[UNITS], fontsize=6.5)
     (OUT / "figures").mkdir(exist_ok=True)
     for ext in ("pdf", "png", "svg"):
         fig.savefig(OUT / "figures" / f"133_whole_brain{TAG}.{ext}", dpi=250)

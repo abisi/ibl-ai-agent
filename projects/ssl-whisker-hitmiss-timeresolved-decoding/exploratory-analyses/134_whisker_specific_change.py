@@ -50,7 +50,12 @@ WINDOWS = [(s / 1000, (s + 30) / 1000) for s in range(5, 171, 15)]
 BASE, DZ = (-0.055, -0.020), (-0.010, 0.005)
 MIN_UNITS, MIN_EPOCH_RATE, MIN_CLASS, N_SPLIT = 5, 0.5, 5, 10
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "40"))
-OUT_PATH = OUT / "134_whisker_specific_change.parquet"
+# 2026-10-05 SSL_UNITS=tracked: the shared Part III tracked stable units (tracked_units.py / 137b), taken as is (outputs *_tracked);
+# default: the original quality_label good + >= 0.5 Hz per epoch selection (no drift check)
+UNITS = os.environ.get("SSL_UNITS", "good")
+TAG = "_tracked" if UNITS == "tracked" else ""
+TRACKED = importlib.import_module("tracked_units").load("stable") if UNITS == "tracked" else {}
+OUT_PATH = OUT / f"134_whisker_specific_change{TAG}.parquet"
 MEASURES = [("spec_state", "whisker − auditory gain change\nactive vs pre (z)"),
             ("spec_plast", "whisker − auditory gain change\npost vs pre (z)"),
             ("gW_state", "whisker gain change\nactive vs pre (z)"), ("gA_state", "auditory gain change\nactive vs pre (z)"),
@@ -156,7 +161,10 @@ def process(args):
     areas = [("whole_brain", "All units")] + [("area_group", a) for a in sorted(sl["area_group"].dropna().unique())]
     rows = []
     for area_col, area in areas:
-        units = tracked_good(sid, T.area_units(sid, area_col, area, labels), labels, spikes, trs)
+        if UNITS == "tracked":
+            units = np.intersect1d(T.area_units(sid, area_col, area, labels), TRACKED.get(sid, np.array([], dtype=np.int64)))
+        else:
+            units = tracked_good(sid, T.area_units(sid, area_col, area, labels), labels, spikes, trs)
         if len(units) < MIN_UNITS:
             continue
         mats = {}
@@ -263,7 +271,7 @@ def plot():
     d = pd.read_parquet(OUT_PATH)
     d = d[d.skipped_reason.isna()]
     S = stats_table(d)
-    S.to_csv(OUT / "134_stats.csv", index=False)
+    S.to_csv(OUT / f"134_stats{TAG}.csv", index=False)
     plt.rcParams.update({"font.family": "Arial", "pdf.fonttype": 42, "svg.fonttype": "none", "axes.spines.top": False,
                          "axes.spines.right": False, "font.size": 6.5})
     fig, axes = plt.subplots(1, len(MEASURES), figsize=(11.7, 2.6))
@@ -276,7 +284,7 @@ def plot():
                  "grey: one of them). Active trials with a lick before the window end excluded. Uncorrected.", fontsize=7)
     (OUT / "figures").mkdir(exist_ok=True)
     for ext in ("pdf", "png", "svg"):
-        fig.savefig(OUT / "figures" / f"134_whole_brain.{ext}", dpi=250)
+        fig.savefig(OUT / "figures" / f"134_whole_brain{TAG}.{ext}", dpi=250)
     plt.close(fig)
     areas = sorted(a for a in S.area.unique() if a != "All units")
     ncol = 5
@@ -294,7 +302,7 @@ def plot():
         fig.suptitle(f"{lab.replace(chr(10), ' ')} per area group (tracked good units; same conventions as the whole-brain "
                      "figure)", fontsize=7)
         for ext in ("pdf", "png", "svg"):
-            fig.savefig(OUT / "figures" / f"134_area_groups_{m}.{ext}", dpi=220)
+            fig.savefig(OUT / "figures" / f"134_area_groups_{m}{TAG}.{ext}", dpi=220)
         plt.close(fig)
     pd.set_option("display.width", 250)
     w = S[(S.area == "All units")]

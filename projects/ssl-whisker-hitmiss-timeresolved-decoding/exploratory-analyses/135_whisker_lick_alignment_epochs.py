@@ -47,6 +47,7 @@ N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "40"))
 TAG = "" if MIN_CLASS == 5 else f"_min{MIN_CLASS}"
 # 2026-10-05: SSL_135_UNITSET=good|stable uses the 137 unit sets (skills/ssl-valid-data "Unit sets": good = good AND stable)
 # instead of the label-table quality_label (no drift check); outputs carry the suffix _<unitset>.
+# SSL_135_UNITSET=tracked: the shared Part III tracked stable units (tracked_units.py / 137b), no further rate filter.
 UNITSET = os.environ.get("SSL_135_UNITSET", "")
 TAG = TAG + (f"_{UNITSET}" if UNITSET else "")
 OUT_PATH = OUT / f"135_alignment_epochs{TAG}.parquet"
@@ -103,7 +104,9 @@ def process(args):
     areas = [("whole_brain", "All units")] + [("area_group", a) for a in sorted(sl["area_group"].dropna().unique())]
     rows = []
     for area_col, area in areas:
-        if UNITSET:
+        if UNITSET == "tracked":                  # shared Part III tracked stable units (tracked_units.py / 137b), taken as is
+            units = np.intersect1d(T.area_units(sid, area_col, area, labels), SET_IDS.get(sid, np.array([], dtype=np.int64)))
+        elif UNITSET:
             au = np.intersect1d(T.area_units(sid, area_col, area, labels), SET_IDS.get(sid, np.array([], dtype=np.int64)))
             lab = labels.assign(quality_label=np.where(labels.cluster_id.isin(au) & (labels.session_id == sid), "good", "mua"))
             units = M134.tracked_good(sid, au, lab, spikes, {e: trs[e] for e in ("passive_pre", "active", "passive_post")})
@@ -199,7 +202,10 @@ def run():
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
     sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]
     done = set(pd.read_parquet(OUT_PATH, columns=["session_id"]).session_id) if OUT_PATH.exists() else set()
-    if UNITSET:                                   # filled before the worker pool forks, so workers inherit it
+    if UNITSET == "tracked":
+        sys.path.insert(0, SCRIPTS)
+        SET_IDS.update(importlib.import_module("tracked_units").load("stable"))
+    elif UNITSET:                                 # filled before the worker pool forks, so workers inherit it
         sys.path.insert(0, SCRIPTS)
         from axel_bisi_paths import axel_bisi_root
         U = pd.read_parquet(axel_bisi_root() / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "tables" / "137_stable_units.parquet",

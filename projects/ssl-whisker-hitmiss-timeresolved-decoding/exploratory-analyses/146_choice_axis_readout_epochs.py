@@ -12,8 +12,8 @@ and >= 20 tracked units in the unit set (per area: >= 20). Skipped sessions and 
 Response variants (whole brain): epochbase (rate minus the epoch-mean baseline, main), trialbase (minus the trial's own
 baseline), baseline (the -55..-20 ms baseline window alone: state without the sensory response).
 Controls stored per session: epoch durations, gaps between epochs, clock time, rewards collected, mean baseline rate per epoch.
-Units (skills/ssl-valid-data "Unit sets", 137 table): `stable` and `good` (= good AND stable), each restricted to units firing
->= 0.5 Hz over the span of every epoch (tracked).
+Units: the shared Part III tracked units (tracked_units.py / 137b, identical to 133 / 134 / 135 / 140): `stable` = 137 stable
+firing >= 0.5 Hz in passive pre, passive post and both active halves at every cut point; `good` = those with quality good.
 Responses: rate (Hz) 5-35 ms after stimulus onset minus the unit's mean -55..-20 ms baseline within its epoch; z-scored per unit
 over all trials (pooled epochs) for the decoder; evoked patterns = baseline-subtracted rates scaled by the same SD (not centred).
 1 choice decoder: hit vs miss (lick on active whisker trials), L2 logistic regression (one C per session), N_REP repetitions of a
@@ -22,6 +22,10 @@ over all trials (pooled epochs) for the decoder; evoked patterns = baseline-subt
   readout (anchored): (score - midpoint) / half-distance between the held-out hit and miss means of that repetition
   (+1 = like an active hit, -1 = like an active miss); readout (standardised): (score - midpoint) / SD of the held-out active
   whisker scores. Null: the same with the hit / miss labels shuffled before training (standardised readout only).
+  Linear-shift null (whole brain, 2026-10-05): labels shifted against the time-ordered active whisker trials by 10-50 % of
+  the trials (non-wrapping, random direction; N_SHIFT shifts x N_REP_SHIFT repetitions), readout scale anchored on the trials'
+  true labels; per shift the passive post - pre readout change (W, A, W - A). Stored: null mean / SD, excess = real - null
+  mean, one-sided percentile. It keeps slow drift in labels and activity, so a decoder that learned session time is in the null.
 2 decomposition with the mean-difference choice axis CD = mean(hits) - mean(misses) from a random half A of the balanced
   subsample (reliability = cos(CD_A, CD_B)): per epoch and stimulus, size of the mean evoked pattern (norm / sqrt(n units)),
   cos(evoked pattern, CD_A), projection on unit CD_A; active patterns from trials not in A.
@@ -53,6 +57,7 @@ WIN, BASE, DZ = (0.005, 0.035), (-0.055, -0.020), (-0.010, 0.005)
 MIN_RATE, MIN_UNITS, MIN_CLASS = 0.5, 20, 3     # MIN_CLASS: >= 3 active whisker hits and >= 3 misses (user 2026-10-05; was 6)
 RESPONSES = ["epochbase", "trialbase", "baseline"]
 N_REP, K_FOLD, N_NULL = 20, 5, 20
+N_SHIFT, N_REP_SHIFT = 50, 5                   # linear-shift null: shifts per session, balanced repetitions per shift
 EP4 = ["passive_pre", "active_1", "active_2", "passive_post"]
 UNIT_SETS = ["stable", "good"]
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "24"))
@@ -84,16 +89,18 @@ def tracked(cands, spikes, segs):
     return np.asarray(out)
 
 
-def decoder_readout(Za, lick, others, C, rng, T, shuffle=False):
+def decoder_readout(Za, lick, others, C, rng, T, shuffle=False, anchor=None, n_rep=None):
     """others: dict name -> (n x units) matrices scored by every model. Returns per-trial mean readouts (anchored, standardised)
-    for the held-out active whisker trials and for each matrix in others."""
+    for the held-out active whisker trials and for each matrix in others. `lick` = training labels (balanced on them);
+    `anchor` = the trials' true labels for the readout scale (default `lick`; differs under the linear-shift null)."""
     from ssl_timeresolved_decoding import _make_classifier
     hits, miss = np.where(lick)[0], np.where(~lick)[0]
     k = min(len(hits), len(miss))
     acc_act = {key: [[] for _ in range(len(lick))] for key in ("anch", "std")}
     acc_oth = {n: {key: [] for key in ("anch", "std")} for n in others}
     bal = []
-    for _ in range(N_REP):
+    anchor = lick if anchor is None else anchor
+    for _ in range(n_rep or N_REP):
         sel = np.r_[rng.choice(hits, k, replace=False), rng.choice(miss, k, replace=False)]
         y = lick[sel].copy()
         if shuffle:
@@ -112,7 +119,9 @@ def decoder_readout(Za, lick, others, C, rng, T, shuffle=False):
             for n, M in others.items():
                 oth[n].append(clf.decision_function(M) if len(M) else np.array([]))
         ok = np.isfinite(score_sel)
-        yt = lick[sel]                                   # true labels for anchoring (also under the shuffle null)
+        yt = anchor[sel]                                 # true labels for anchoring (also under the shuffle / shift nulls)
+        if not (ok & yt).any() or not (ok & ~yt).any():
+            continue
         mh, mm = score_sel[ok & yt].mean(), score_sel[ok & ~yt].mean()
         mid, half, sd = 0.5 * (mh + mm), 0.5 * (mh - mm), np.std(score_sel[ok])
         bal.append(0.5 * (np.mean(score_sel[ok & yt] > 0) + np.mean(score_sel[ok & ~yt] <= 0)))
@@ -124,6 +133,8 @@ def decoder_readout(Za, lick, others, C, rng, T, shuffle=False):
                 s = np.mean(oth[n], axis=0)
                 acc_oth[n]["anch"].append((s - mid) / half if half != 0 else s * np.nan)
                 acc_oth[n]["std"].append((s - mid) / sd if sd > 0 else s * np.nan)
+    if not bal:
+        bal = [np.nan]
     act = {key: np.array([np.nanmean(v) if v else np.nan for v in acc_act[key]]) for key in acc_act}
     oth = {n: {key: np.nanmean(acc_oth[n][key], axis=0) if acc_oth[n][key] else np.array([]) for key in ("anch", "std")} for n in others}
     return act, oth, float(np.mean(bal))
@@ -185,7 +196,7 @@ def process(args):
                n_rewards_auditory_active=int(((act_all.trial_type == "auditory_trial") & (act_all.lick_flag == 1)).sum()))
     rows = []
     for (uset, area), cands in sets.items():
-        units = tracked(cands, spikes, segs)
+        units = np.asarray(cands)                  # shared tracked units (137b), taken as is
         row0 = dict(base, unit_set=uset, area=area, n_units=len(units), **beh, **eng)
         if len(units) < MIN_UNITS:
             rows.append(dict(row0, skipped_reason="too few tracked units")); continue
@@ -232,6 +243,39 @@ def process(args):
                     row[f"ro_h1dec_{e}_A"] = float(np.nanmean(o1[e]["std"][~w_]))
                 row["ro_h1dec_active_2_W"] = float(np.nanmean(o1["active_2W"]["std"]))
             wi = {"passive_pre": (pre.trial_type == "whisker_trial").to_numpy(), "passive_post": (post.trial_type == "whisker_trial").to_numpy()}
+            # linear-shift null (whole brain; user 2026-10-05 "should it be a linear shift?"): labels shifted against the active
+            # whisker trials (time order) by k = 10-50 % of the trials, non-wrapping, random direction (as the Part I null);
+            # keeps the slow drift of both series, so a decoder that learned session time is in the null. Per shift: the passive
+            # post - pre change of the standardised readout (whisker, auditory, whisker - auditory).
+            if area == "whole_brain" and uset == "stable":
+                n = len(lick_w); lo, hi = max(1, int(0.1 * n)), max(1, int(0.5 * n))
+                dnull = {kk: [] for kk in ("W", "A", "WA")}
+                for _ in range(N_SHIFT):
+                    kk_ = int(rng.integers(lo, hi + 1))
+                    if rng.random() < 0.5:
+                        y_s, Zs, anc = lick_w[kk_:], Zw[: n - kk_], lick_w[: n - kk_]
+                    else:
+                        y_s, Zs, anc = lick_w[: n - kk_], Zw[kk_:], lick_w[kk_:]
+                    if min(y_s.sum(), (~y_s).sum()) < MIN_CLASS or min(anc.sum(), (~anc).sum()) < 1:
+                        continue
+                    _, o_s, _ = decoder_readout(Zs, y_s, {e: others[e] for e in ("passive_pre", "passive_post")}, C, rng, T,
+                                                anchor=anc, n_rep=N_REP_SHIFT)
+                    if not len(o_s["passive_pre"]["std"]):
+                        continue
+                    r_ = {(e, s): float(np.nanmean(o_s[e]["std"][wi[e] if s == "W" else ~wi[e]])) for e in ("passive_pre", "passive_post") for s in "WA"}
+                    dW = r_[("passive_post", "W")] - r_[("passive_pre", "W")]; dA = r_[("passive_post", "A")] - r_[("passive_pre", "A")]
+                    dnull["W"].append(dW); dnull["A"].append(dA); dnull["WA"].append(dW - dA)
+                real = {"W": float(np.nanmean(oth_r["passive_post"]["std"][wi["passive_post"]]) - np.nanmean(oth_r["passive_pre"]["std"][wi["passive_pre"]])),
+                        "A": float(np.nanmean(oth_r["passive_post"]["std"][~wi["passive_post"]]) - np.nanmean(oth_r["passive_pre"]["std"][~wi["passive_pre"]]))}
+                real["WA"] = real["W"] - real["A"]
+                row["shift_n"] = len(dnull["W"])
+                for kk, v in dnull.items():
+                    v = np.asarray(v, float)
+                    row[f"shift_null_d{kk}_mean"] = float(np.nanmean(v)) if len(v) else np.nan
+                    row[f"shift_null_d{kk}_sd"] = float(np.nanstd(v)) if len(v) else np.nan
+                    row[f"shift_excess_d{kk}"] = real[kk] - row[f"shift_null_d{kk}_mean"]
+                    # one-sided percentile: fraction of null changes <= the real change (small = real more negative / miss-ward)
+                    row[f"shift_pct_d{kk}"] = float((np.sum(v <= real[kk]) + 1) / (len(v) + 1)) if len(v) else np.nan
             h2w = half2[isw_a]; h2a = half2[~isw_a]
             for key in ("anch", "std"):
                 for e in ("passive_pre", "passive_post"):
@@ -293,7 +337,8 @@ def main():
     from axel_bisi_paths import axel_bisi_root
     from ibl_ai_agent.data_locations import resolve_dataset_dir
     import ssl_timeresolved_decoding as T
-    S = pd.read_parquet(axel_bisi_root() / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "tables" / "137_stable_units.parquet")
+    # 2026-10-05: the shared Part III tracked units (tracked_units.py / 137b; "same stable units throughout")
+    S = importlib.import_module("tracked_units").load_table()
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
     sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]

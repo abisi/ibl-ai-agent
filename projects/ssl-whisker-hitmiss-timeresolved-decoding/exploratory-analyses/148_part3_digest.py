@@ -169,7 +169,7 @@ def s_data(pdf, k, D146):
     nu = d.groupby("reward_group").n_units.median()
     bullets(fig, 0.56, 0.4, [f"Sessions: R+ {int((d.reward_group == 'R+').sum())}, R- {int((d.reward_group == 'R-').sum())} (passive before and "
                              "after the task, >= 3 active whisker hits and misses)",
-                             f"Units: tracked stable units (coverage, presence, drift test), >= 0.5 Hz in every epoch; median "
+                             f"Units: the same tracked stable units in every step (coverage, presence, drift test; >= 0.5 Hz in pre, post and both active halves); median "
                              f"{int(nu.get('R+', 0))} (R+) / {int(nu.get('R-', 0))} (R-) per session",
                              "Response = rate 5-35 ms minus the unit's baseline in that epoch, z-scored per unit",
                              "Trials: invalid trials removed, warm-up block cut, disengaged tail trimmed (rule A1)"], size=12, dy=0.075)
@@ -213,8 +213,8 @@ def s_step1(pdf, k, D133):
         ax.text(0.18 + i * 0.32, 0.45, "W vs A\ndecoder", ha="center", fontsize=11, color=WC)
     ax.annotate("", xy=(0.82, 0.8), xytext=(0.18, 0.8), arrowprops=dict(arrowstyle="->", color=AC, connectionstyle="arc3,rad=-0.4"))
     ax.text(0.5, 0.95, "train on one epoch, test on another", ha="center", color=AC, fontsize=11)
-    ax.text(0.0, 0.05, "accuracy minus trial-shuffle null; equal trial\ncounts per class and epoch; good units tracked\n"
-            "through the session (earlier definition: quality\nlabel good without the drift test)", fontsize=10.5, color="0.3")
+    ax.text(0.0, 0.05, "accuracy minus trial-shuffle null; equal trial\ncounts per class and epoch; the shared tracked\n"
+            "stable units (same units as steps 2-6)", fontsize=10.5, color="0.3")
     d = D133[(D133.area == "All units") & D133.skipped_reason.isna()]
     ax1 = fig.add_axes([0.42, 0.34, 0.25, 0.44])
     change_panel(ax1, d, ["within_passive_pre_corr", "within_active_corr", "within_passive_post_corr"], ["passive\npre", "active", "passive\npost"],
@@ -382,7 +382,7 @@ def s_caveats(pdf, k):
                              "R- sessions are longer and R- mice collect fewer rewards: reward intake and the R- contingency are confounded by design.",
                              "Coding directions at 5-35 ms are noisy: raw cosines are small, hence the noise-corrected cosine; comparisons are within session.",
                              "Selection: passive epochs on both sides and >= 3 hits and misses keeps R- mice that still licked.",
-                             "Steps 1-2 used the earlier good-unit definition; steps 3-6 the tracked stable units.",
+                             "All six steps use the same tracked stable units per session (137b); sessions differ only by each analysis's trial criteria.",
                              "Exploratory and uncorrected. Next: fix window, measures and selection, then confirm on held-out mice or expert sessions."],
             size=14, dy=0.11)
     save(pdf, fig, k)
@@ -437,9 +437,9 @@ def summary_rows(D133, D135, D140, D146):
 
 def main():
     setup()
-    D133 = pd.read_parquet(EA / "133_modality_stim_epochs_good.parquet")
-    D134 = pd.read_parquet(EA / "134_whisker_specific_change.parquet")
-    D135 = pd.read_parquet(EA / "135_alignment_epochs_stable.parquet")
+    D133 = pd.read_parquet(EA / "133_modality_stim_epochs_tracked.parquet")
+    D134 = pd.read_parquet(EA / "134_whisker_specific_change_tracked.parquet")
+    D135 = pd.read_parquet(EA / "135_alignment_epochs_tracked.parquet")
     D140 = pd.read_parquet(EA / "140_coding_direction_noise.parquet")
     D146 = pd.read_parquet(EA / "146_choice_axis_readout.parquet")
     S147 = pd.read_csv(EA / "147_stats.csv")
@@ -448,8 +448,8 @@ def main():
         s_title(pdf, 0); s_question(pdf, 0); s_data(pdf, 0, D146); s_tools(pdf, 0)
         s_step1(pdf, 0, D133); s_step2(pdf, 0, D134); s_step3(pdf, 0, D135); s_step4(pdf, 0, D140); s_step5(pdf, 0, D146)
         s_step6(pdf, 0, D146, S147); s_synthesis(pdf, 0, summary_rows(D133, D135, D140, D146)); s_caveats(pdf, 0)
-        for p, t in ((FIG / "133_whole_brain_good.png", "133 whisker vs auditory across epochs"), (FIG / "134_whole_brain.png", "134 gain changes, sliding windows"),
-                     (FIG / "134c_illustration.png", "134 illustration of the measures"), (FIG / "135b_alignment_no_bad_rplus_stable.png", "135b lick-axis alignment"),
+        for p, t in ((FIG / "133_whole_brain_tracked.png", "133 whisker vs auditory across epochs"), (FIG / "134_whole_brain_tracked.png", "134 gain changes, sliding windows"),
+                     (FIG / "134c_illustration_tracked.png", "134 illustration of the measures"), (FIG / "135b_alignment_no_bad_rplus_tracked.png", "135b lick-axis alignment"),
                      (PUB / "145_coding_direction_all.png", "145 coding direction"), (PUB / "145_evoked_alignment_all.png", "145 evoked patterns vs CD"),
                      (PUB / "147_choice_axis_readout_stable.png", "147 choice-axis readout"), (PUB / "147_state_space_whisker_auditory_axis.png", "147 state space"),
                      (PUB / "147_controls.png", "147 controls"), (PUB / "147_choice_axis_readout_area_groups.png", "147 area groups")):

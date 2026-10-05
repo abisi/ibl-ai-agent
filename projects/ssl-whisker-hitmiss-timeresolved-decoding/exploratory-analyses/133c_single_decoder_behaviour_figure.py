@@ -29,7 +29,7 @@ from scipy import stats
 
 OUT = Path(__file__).resolve().parent
 LTP = OUT.parents[1] / "ssl-learning-trial-identification" / "artifacts"
-TAG = "" if os.environ.get("SSL_UNITS", "all") == "all" else "_good"
+TAG = {"all": "", "good": "_good", "tracked": "_tracked"}[os.environ.get("SSL_UNITS", "all")]
 COL = {"R+": "#00B400", "R-": "#C800C8"}
 EP = ["passive_pre", "active", "passive_post"]
 FS = 6.5
@@ -141,7 +141,7 @@ def main():
             "single decoder: active − passive", rows)
     for ax, L in zip(axes.flat, "abcdef"):
         ax.text(-0.22, 1.12, L, transform=ax.transAxes, fontweight="bold", fontsize=FS + 1.5)
-    units = "good + mua" if TAG == "" else "good units tracked in every epoch"
+    units = {"": "good + mua", "_good": "good units tracked in every epoch", "_tracked": "shared tracked stable units (137b)"}[TAG]
     n = d.groupby("reward_group").size().to_dict()
     fig.suptitle(f"Whisker vs auditory, 5-35 ms, whole brain ({units}; R+ n={n.get('R+', 0)}, R− n={n.get('R-', 0)}): one "
                  "decoder for all epochs, and the passive → active coding change vs active-session behaviour. Uncorrected.",

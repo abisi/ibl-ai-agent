@@ -107,8 +107,8 @@ T129 = csv(EA / "129_stats.csv")
 T124 = csv(EA / "124_correlations.csv")
 T127 = csv(EA / "127_stats.csv")
 T130 = csv(EA / "130_stats.csv")
-T135 = csv(EA / "135b_stats.csv")
-T133 = csv(EA / "133_stats_good.csv")
+T135 = csv(EA / "135b_stats_tracked.csv")   # 2026-10-05: shared tracked stable units (137b) throughout Part III
+T133 = csv(EA / "133_stats_tracked.csv")
 VAR = ["half", "L0 stored", "L5 whisker CP", "L6 joint CP", "L6 lenient", "L6x forced", "L6x relaxed", "L8 fixed margin"]
 # Part I (session-wide): 113 = publication sets (learning stage; hitmiss, modality_stim, perfstate); 110 = rerun of the
 # pre-lick modality analysis with the -100..0 ms window (2026-10-02), which supersedes 113's modality_lick rows.
@@ -493,8 +493,10 @@ tested against 500 IAAFT surrogates of $z$ (same values and power spectrum, phas
 
 ## Stimulus-onset geometry across epochs (132-135b)
 
-Sessions with passive trials before and after the active block. Units tracked across the session: quality label good and
-$\geq 0.5$ Hz in every epoch. Response = rate (Hz) 5-35 ms after stimulus onset, minus the unit's mean -55 to -20 ms
+Sessions with passive trials before and after the active block. Units: the same tracked stable units in every Part III
+analysis (133 to 147; `tracked_units.py`, table 137b): 137 stable units (coverage, presence, drift test) firing $\geq 0.5$ Hz
+in passive pre, passive post and both halves of the active epoch at every split point used (middle trial, middle whisker
+trial, hit median); analyses differ only in their session criteria. Response = rate (Hz) 5-35 ms after stimulus onset, minus the unit's mean -55 to -20 ms
 baseline rate *within its epoch*, z-scored per unit over all trials. Whisker axis per epoch $D = \bar r_W - \bar r_A$;
 lick axis (active epoch) $L = \bar r_\text{hit} - \bar r_\text{miss}$ of whisker trials without a lick before 35 ms;
 evoked patterns $\bar r_W$, $\bar r_A$ alone. Cross-validated distance $d = \langle D^{(1)}, D^{(2)}\rangle / n_\text{units}$
@@ -726,7 +728,7 @@ The whisker axis (whisker - auditory) behaved the same way (p = {pv('r6_a_mw', a
 whereas the auditory-evoked pattern did not differ between cohorts (p = {pv('r6_c_mw', c.pMW_change_active_2)} / {pv('r6_c_w', c.pWelch_change_active_2)}),
 so the effect is not a general reward-expectation signal carried by the auditory response.
 
-{figure(FIG / '135b_alignment_no_bad_rplus.png', 'Figure 9', 'Whisker axis and evoked patterns vs the active lick axis, 5-35 ms (135b). Reliability-normalised cosine in passive pre, active 1st and 2nd half and passive post; a whisker - auditory axis; b whisker-evoked pattern; c auditory-evoked pattern; d as a with >= 6 licked and unlicked trials; e-g area groups (midbrain, motor, striatum). Mean +- SEM per cohort, faint lines = mice; R+ bad learners removed. Stars: R+ vs R- on the change from passive pre (** both tests p < 0.05, * one).')}
+{figure(FIG / '135b_alignment_no_bad_rplus_tracked.png', 'Figure 9', 'Whisker axis and evoked patterns vs the active lick axis, 5-35 ms (135b). Reliability-normalised cosine in passive pre, active 1st and 2nd half and passive post; a whisker - auditory axis; b whisker-evoked pattern; c auditory-evoked pattern; d as a with >= 6 licked and unlicked trials; e-g area groups (midbrain, motor, striatum). Mean +- SEM per cohort, faint lines = mice; R+ bad learners removed. Stars: R+ vs R- on the change from passive pre (** both tests p < 0.05, * one).')}
 {mdtable(t135, 'Table 10. Alignment with the lick axis per epoch (135b; panels as Figure 9).', P, (), I)}
 """
 
@@ -1165,10 +1167,10 @@ def sec_supp() -> str:
 {figure(FIG / '130_neural_transition.png', 'Figure S5', 'Neural transitions in the single-trial margin vs IAAFT surrogates (130): fraction of sessions with a significant step, its direction and position relative to the behavioural change point.')}
 {mdtable(t130, 'Table S3. Neural transitions (130).', P, (), I)}
 {figure(FIG / '120_lt_defined_vs_undefined_A1v2.png', 'Figure S6', 'Sessions with an LT (split at the LT and at the half) vs sessions without an LT (split at the half) (120).')}
-{figure(FIG / '133_whole_brain_good.png', 'Figure S7', 'Stimulus-onset whisker vs auditory across passive pre, active and passive post (133, tracked good units): within-epoch, single and cross-epoch decoders (minus shuffle), cross-validated distance and reliability-normalised cosine between epoch axes.')}
+{figure(FIG / '133_whole_brain_tracked.png', 'Figure S7', 'Stimulus-onset whisker vs auditory across passive pre, active and passive post (133, tracked stable units): within-epoch, single and cross-epoch decoders (minus shuffle), cross-validated distance and reliability-normalised cosine between epoch axes.')}
 {figure(FIG / '133c_single_decoder_behaviour_good.png', 'Figure S8', 'Single decoder evaluated per epoch vs behaviour (133c).')}
-{figure(FIG / '134_whole_brain.png', 'Figure S9', 'Whisker-specific gain change (auditory as control) and lick-axis cosine in sliding 30-ms windows 5-200 ms (134).')}
-{figure(FIG / '134c_illustration.png', 'Figure S10', 'Illustration of the whisker axis, evoked patterns and lick axis (134c).')}
+{figure(FIG / '134_whole_brain_tracked.png', 'Figure S9', 'Whisker-specific gain change (auditory as control) and lick-axis cosine in sliding 30-ms windows 5-200 ms (134).')}
+{figure(FIG / '134c_illustration_tracked.png', 'Figure S10', 'Illustration of the whisker axis, evoked patterns and lick axis (134c).')}
 {figure(FIG / 'publication' / '113_modality_stim_set1_session_wide.png', 'Figure S11', 'Whisker vs auditory decoding at stimulus onset, session-wide, learning stage (113 set 1; layout as Figure 1).')}
 {figure(FIG / 'publication' / '113_perfstate_set1_session_wide.png', 'Figure S12', 'Performance-state decoding (high vs low hit-rate state of 5-trial blocks), session-wide, whole brain, learning stage (113 set 1, panels a-g).')}
 {figure(FIG / 'publication' / '113_hitmiss_set2_within_session.png', 'Figure S13', 'Hit vs miss decoding in the first vs second half of the session from the session-wide sweep (113 set 2): whole-brain curves per half with paired-difference clusters, window values, change over time, cross-half generalisation, area x time heatmaps of the change and per-area tests. Separate decoders per half, not count-matched (compare Figure 4A).')}
@@ -1177,8 +1179,8 @@ def sec_supp() -> str:
 {fig_if(PUB / '147_choice_axis_readout_good.png', 'Figure S16', 'As Figure 15, good units (good AND stable).')}
 {fig_if(PUB / '147_state_space_whisker_auditory_axis.png', 'Figure S17', 'State space with the passive-pre whisker - auditory axis (orthogonalised to the coding direction) as y, stable and good units.')}
 {fig_if(PUB / '147_choice_axis_readout_area_groups.png', 'Figure S18', 'Post - pre change of the passive whisker choice readout and of whisker - auditory per area group (stable units; areas with >= 3 sessions per cohort).')}
-{fig_if(FIG / '135b_alignment_no_bad_rplus_stable.png', 'Figure S19', 'Figure 9 (135b) recomputed with tracked stable units.')}
-{fig_if(FIG / '135b_alignment_no_bad_rplus_good.png', 'Figure S20', 'Figure 9 (135b) recomputed with tracked good units (good AND stable).')}
+{fig_if(FIG / '135b_alignment_no_bad_rplus.png', 'Figure S19', 'Figure 9 (135b) with the earlier unit selection (quality label good without the drift check, >= 0.5 Hz per epoch).')}
+{fig_if(FIG / '135b_alignment_no_bad_rplus_good.png', 'Figure S20', 'Figure 9 (135b) with the 137 good units (good AND stable, epoch-span tracking; before the shared unit list).')}
 {fig_if(PUB / '147_choice_axis_readout_stable_learners.png', 'Figure S21', 'As Figure 15, learners only (stable units).')}
 {fig_if(PUB / '147_choice_axis_readout_good_learners.png', 'Figure S22', 'As Figure 15, learners only, good units.')}
 {fig_if(PUB / '145_evoked_alignment_all.png', 'Figure S23', 'Passive whisker- and auditory-evoked patterns vs the second-half hit / miss coding direction (140 / 145; normalised cosine, passive pre vs post), hit-median and midpoint splits; auditory = control.')}
@@ -1202,7 +1204,7 @@ def sec_appendix() -> str:
     ]
     scripts = ["024_master_sweep.py (session-wide sweep), 110_publication_figures.py (pre-lick rerun), 113_publication_merged.py, 041, 115", "117_halves_matched_pilot.py / 117b_halves_matched_full_figure.py", "118_lt_definitions_split_decoding.py, 119, 120",
                "122_lt_definitions_placebo.py (SSL_PLACEBO_TAG=_step1_pl100), 122b, 126", "124, 125 (behaviour)", "129, 131",
-               "123_singletrial_scores_all.py (v2), 128, 127, 130", "132, 133 (SSL_UNITS=good), 133c, 134, 134c, 135, 135b",
+               "123_singletrial_scores_all.py (v2), 128, 127, 130", "132, 137b, 133 / 133c / 134 / 134c (SSL_UNITS=tracked), 135 / 135b (SSL_135_UNITSET=tracked)",
                "ssl-pseudopopulation-area-decoding/exploratory-analyses/016_pseudopop_halves.py"]
     return ("\n# Appendix\n\n## Parameters\n\n| parameter | value |\n|:---|:---|\n" + "".join(f"| {a} | {b} |\n" for a, b in params)
             + "\n: Table A1. Parameters.\n\n## Scripts and results\n\nCode: `projects/" + SLUG + "/exploratory-analyses/` (ibl-ai-agent "

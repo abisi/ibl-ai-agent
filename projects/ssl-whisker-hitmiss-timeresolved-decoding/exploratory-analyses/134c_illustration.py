@@ -26,6 +26,7 @@ import pandas as pd
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 OUT = Path(__file__).resolve().parent
+TAG = "_tracked" if __import__("os").environ.get("SSL_UNITS") == "tracked" else ""   # 134 outputs of the shared tracked units
 COL = {"R+": "#00B400", "R-": "#C800C8"}
 WC, AC = "#d95f02", "#1f5fbf"            # whisker, auditory
 FS = 7
@@ -155,7 +156,7 @@ def panel_result(ax, S, measure, ylabel, title):
 def main():
     plt.rcParams.update({"font.family": "Arial", "pdf.fonttype": 42, "svg.fonttype": "none", "axes.spines.top": False,
                          "axes.spines.right": False, "font.size": FS})
-    S = pd.read_csv(OUT / "134_stats.csv")
+    S = pd.read_csv(OUT / f"134_stats{TAG}.csv")
     fig = plt.figure(figsize=(8.27, 8.6))
     gs = fig.add_gridspec(3, 2, height_ratios=[0.8, 1.05, 1.0], hspace=0.55, wspace=0.3, left=0.07, right=0.98, top=0.95,
                           bottom=0.06)
@@ -175,11 +176,11 @@ def main():
         ax.text(-0.06, 1.06, L, transform=ax.transAxes, fontweight="bold", fontsize=FS + 2)
         if t:
             ax.text(0.04, 1.06, t, transform=ax.transAxes, fontsize=FS, fontweight="bold")
-    fig.text(0.07, 0.015, "Whole brain, tracked good units, rates with epoch-specific baseline, z-scored; bars above e–f: R+ vs R− "
+    fig.text(0.07, 0.015, "Whole brain, " + ("shared tracked stable units" if TAG else "tracked good units") + ", rates with epoch-specific baseline, z-scored; bars above e–f: R+ vs R− "
              "(black: Mann-Whitney AND Welch p < .05; grey: one test); uncorrected.", fontsize=FS - 1)
     (OUT / "figures").mkdir(exist_ok=True)
     for ext in ("pdf", "png", "svg"):
-        fig.savefig(OUT / "figures" / f"134c_illustration.{ext}", dpi=250)
+        fig.savefig(OUT / "figures" / f"134c_illustration{TAG}.{ext}", dpi=250)
     plt.close(fig)
 
 
