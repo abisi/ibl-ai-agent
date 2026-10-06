@@ -10,7 +10,7 @@ import pandas as pd
 from PIL import Image
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-SM, AA, AP = RES / "_sensory_spatial_maps", RES / "_stimulus_arrival", RES / "_stimulus_arrival_passive"
+SM, AA, AP = RES / "_sensory_spatial_maps", RES / "ssl-stimulus-arrival-decoding" / "active", RES / "ssl-stimulus-arrival-decoding" / "passive"
 OUT = SM / "deck" / "img"
 FZ = SM / "figures_zone90"                       # 90 % projection zones = main (user 2026-10-04)
 REPO = pathlib.Path.home() / "code" / "ibl-ai-agent" / "projects"

@@ -9,7 +9,8 @@ RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 UNITS = RES / "_roc_stage_analysis" / "units.parquet"
 EPOCH = os.environ.get("ARRIVAL_EPOCH", "active")                 # "active" (task trials) or "passive"
 assert EPOCH in ("active", "passive"), EPOCH
-OUT = pathlib.Path(os.environ.get("ARRIVAL_OUT", RES / ("_stimulus_arrival" if EPOCH == "active" else "_stimulus_arrival_passive")))
+HOME = RES / "ssl-stimulus-arrival-decoding"                     # project results home: active/, passive/, final_n200/
+OUT = pathlib.Path(os.environ.get("ARRIVAL_OUT", HOME / EPOCH))
 N_FINE = 40
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 

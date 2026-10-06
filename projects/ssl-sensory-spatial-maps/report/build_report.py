@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-SM, AR_ACT, AR_PAS = RES / "_sensory_spatial_maps", RES / "_stimulus_arrival", RES / "_stimulus_arrival_passive"
+SM, AR_ACT, AR_PAS = RES / "_sensory_spatial_maps", RES / "ssl-stimulus-arrival-decoding" / "active", RES / "ssl-stimulus-arrival-decoding" / "passive"
 REPO = pathlib.Path.home() / "code" / "ibl-ai-agent" / "projects"
 sys.path.insert(0, str(REPO / "ssl-sensory-spatial-maps" / "exploratory-analyses"))
 OUTD = SM / "report"

@@ -3,7 +3,14 @@
 When whisker vs auditory stimulus information arrives in each brain area: pseudo-population decoding of stimulus
 modality in the first tens of milliseconds, onset per area, information vs number of neurons.
 Companion project: `ssl-sensory-spatial-maps`. Question and scope: `question.md`.
-Results (not in git): `combined_results_ks4/_stimulus_arrival/` (task trials) and `_stimulus_arrival_passive/` on the NAS.
+Results (not in git), all under `combined_results_ks4/ssl-stimulus-arrival-decoding/` on the NAS (moved 2026-10-06; the old
+`_stimulus_arrival*` paths are symlinks; mapping in `results_home_manifest_20261006.tsv`):
+
+| Folder | Content |
+|---|---|
+| `active/` | task (active) trials, N = 20-500, 100 iterations x 10 shuffles; matched accuracy |
+| `passive/` | passive trials (pre + post), N = 20-500, 100 x 10 |
+| `final_n200/` | task (active) trials, N = 200 only, 1000 x 20 (final onsets); reads `active/cache_all` |
 
 ## Method (short)
 
@@ -27,13 +34,15 @@ corrected accuracy = real - mean of 10 within-session label shuffles; 100 iterat
 ## Decisions (user, 2026-10-04)
 
 - Final onsets: N = 200 only, 1000 iterations x 20 shuffles, all 18 groups + 40 areas, after the passive sweep
-  (`~/cArrFinal.sh` on haas -> `combined_results_ks4/_stimulus_arrival_final_n200/`, `005_final_n200.py`). Other N stay at
+  (`~/cArrFinal.sh` on haas -> `combined_results_ks4/ssl-stimulus-arrival-decoding/final_n200/`, `005_final_n200.py`). Other N stay at
   pilot sampling (100 x 10).
 - No further controls for now (licked-only, cohort / stage, artefact variant): passive trials only.
 
 ## TODO
 
-- [ ] Overnight: active sweep -> 002 -> 003 -> 004 ("ACTIVE ALL DONE"), passive sweep ("PASSIVE DONE"), then the final
-      N = 200 run ("FINAL N200 DONE"). Compare with `combined_results_ks4/_snapshots/2026-10-04_2200/stimulus_arrival/`.
+- [X] Overnight: active sweep -> 002 -> 003 -> 004 ("ACTIVE ALL DONE", 10-05 04:02), passive sweep ("PASSIVE DONE",
+      10-06 01:29). Final N = 200 run (active only) running since 10-06 01:34 ("FINAL N200 DONE"). Compare with `combined_results_ks4/_snapshots/2026-10-04_2200/stimulus_arrival/`.
+- [X] Results moved to `combined_results_ks4/ssl-stimulus-arrival-decoding/{active,passive}` (2026-10-06); `final_n200/` is
+      moved automatically when the run ends (`~/mvArrFinal.sh` on haas, log `~/log/mvArrFinal.log`).
 - [ ] Use the final N = 200 onsets in report and deck once available.
 - [ ] Link single-neuron latency and population onset with all 18 groups (`build_deck_assets.py` link panel).

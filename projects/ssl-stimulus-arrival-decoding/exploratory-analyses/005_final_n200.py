@@ -3,7 +3,7 @@
 Run after `ARRIVAL_OUT=<final folder> ARRIVAL_NSHUF=20 001_arrival_pseudopop.py --n-list 200 --n-iter 1000` (the final
 folder links cache_all/ of the task-trial run, so no new cache). Same summaries and onset rule as 002 / 004; only the
 N = 200 main figures are made (the N-dependence panels of the summary figure need every N, which stay at pilot sampling
-in combined_results_ks4/_stimulus_arrival/).
+in combined_results_ks4/ssl-stimulus-arrival-decoding/active/).
 Output (ARRIVAL_OUT): onset_bootstrap_N200.csv, onsets.csv, figures/arrival_main_N200_<level>.{png,pdf,svg}, provenance.
 """
 import importlib
