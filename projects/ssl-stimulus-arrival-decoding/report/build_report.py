@@ -374,8 +374,8 @@ paired t-test; onsets only for areas reliable in both conditions.
 **Iterations.** N sweep: 100 iterations × 10 shuffles. Onsets at N = {m4.N_MAIN}: 500 iterations × 20 shuffles. The
 number of iterations was set after comparing 100 with 1000 iterations ({ref('tbl-s-iter')}).
 
-**Colours.** Area groups: the colour of their group in `allen_utils.get_custom_area_groups_colors()` (groups belonging to
-the same palette group share its colour); areas: shades of their group's colour.
+**Colours.** Area groups: `ephys_utilities.allen_utils.get_custom_area_groups_colors()` (one colour per group); areas:
+shades of their group's colour (group membership from `get_custom_area_groups_from_name()` of the same module).
 
 **Code** (`exploratory-analyses/`): `001` decoding, `002` summaries and N-sweep figures, `003` matched accuracy, `004` main
 figures, `005` final onsets, `006` task vs passive, `007` iteration check, `008` sample sizes and trial-sequence check,
@@ -452,7 +452,7 @@ accuracy along a decreasing exponential (every area at N = {m4.N_MAIN}: ρ = {nu
 exponential R² = {num('r2exp_n200_passive', ovp.r2_exp, '{:.2f}')}; every area × N: ρ = {num('rho_all_passive', ovpa.rho, '{:.2f}')};
 {ref('fig-s-passive-onset-acc')}).
 
-{figure('fig-passive-main', E['passive']['fig'][lv], f"Whisker vs auditory decoding across area groups, passive trials, all sessions pooled, N = {m4.N_MAIN} neurons per pseudo-population ({it_text('passive')}; {n_ss('passive', lv)} sessions per group, {ref('tbl-s-sizes-groups')}). (a) Corrected balanced accuracy (decoding minus trial-shuffle null; 0 = chance, 0.5 = perfect) over time, causal 50-ms bins in 5-ms steps; colour: magma, dark = low accuracy; grey: bins not above chance (5th percentile over iterations ≤ 0); tick: onset. Rows sorted by onset. (b) The same for the first 50 ms, causal 20-ms bins in 2-ms steps (bin labelled at its end). (c) Onset per group; error bars: 95 % range over {m4.N_BOOT} resamples of the iterations; † hatched: unreliable onset (95 % range > {m4.WIDE_RANGE_MS} ms), not ranked. (d, e) Time courses of the 8 best-sampled groups, mean ± s.d. over iterations, -200..600 ms and the first 50 ms; bars above: bins above chance; black tick: onset. Colours: allen_utils area-group palette.")}
+{figure('fig-passive-main', E['passive']['fig'][lv], f"Whisker vs auditory decoding across area groups, passive trials, all sessions pooled, N = {m4.N_MAIN} neurons per pseudo-population ({it_text('passive')}; {n_ss('passive', lv)} sessions per group, {ref('tbl-s-sizes-groups')}). (a) Corrected balanced accuracy (decoding minus trial-shuffle null; 0 = chance, 0.5 = perfect) over time, causal 50-ms bins in 5-ms steps; colour: magma, dark = low accuracy; grey: bins not above chance (5th percentile over iterations ≤ 0); tick: onset. Rows sorted by onset. (b) The same for the first 50 ms, causal 20-ms bins in 2-ms steps (bin labelled at its end). (c) Onset per group; error bars: 95 % range over {m4.N_BOOT} resamples of the iterations; † hatched: unreliable onset (95 % range > {m4.WIDE_RANGE_MS} ms), not ranked. (d, e) Time courses of the 8 best-sampled groups, mean ± s.d. over iterations, -200..600 ms and the first 50 ms; bars above: bins above chance; black tick: onset. Colours: area-group palette (ephys_utilities.allen_utils).")}
 
 {mdtable('tbl-onsets', onset_table(lv), f"Onsets (ms, [95 % range over resamples of the iterations]) and early corrected accuracy (5-50 ms) at N = {m4.N_MAIN}, area groups, sorted by the passive onset. Passive: {it_text('passive')}; task: {it_text('active')}. † unreliable onset.")}
 

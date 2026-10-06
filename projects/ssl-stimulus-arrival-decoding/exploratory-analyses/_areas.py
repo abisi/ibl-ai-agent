@@ -29,44 +29,23 @@ COARSE, FINE, FINE_PARENT = _lists()
 LEVELS = {"area_group": COARSE, "area_acronym_custom": FINE}
 
 
-# allen_utils.get_custom_area_groups_colors() keys for our area_group names (groups without a key take the nearest one)
-GROUP_KEY = {"Motor areas": "Motor and frontal areas", "Frontal areas": "Motor and frontal areas",
-             "Somatosensory-whisker": "Somatosensory areas-whisker", "Somatosensory-orofacial": "Somatosensory areas-orofacial",
-             "Somatosensory-body": "Somatosensory areas-orofacial", "Auditory areas": "Auditory areas",
-             "Retrosplenial areas": "Retrosplenial areas", "Posterior parietal areas": "Posterior parietal areas",
-             "Visual areas": "Posterior parietal areas", "Insular areas": "Somatosensory areas-orofacial", "Hippocampus": "Hippocampus",
-             "Striatum": "Striatum and pallidum", "Pallidum": "Striatum and pallidum", "Lateral septal complex": "Striatum and pallidum",
-             "Thalamus": "Thalamus", "Midbrain": "Midbrain", "Olfactory areas": "Olfactory areas",
-             "Amygdala and hypothalamus": "Amygdala and hypothalamus", "Cortical subplate": "Cortical subplate",
-             "Pons and medulla": "Pons and medulla"}
-
-
-FINE_EXTRA = {"SSp-body": "Somatosensory areas-orofacial"}   # body areas (SSp-ll/-ul/-tr) are orofacial in allen_utils
-
-
 def _allen():
-    """allen_utils palette (Axel Bisi): {custom group: colour}, {area acronym: custom group}"""
+    """area-group palette and membership from ephys_utilities.allen_utils.allen_utils (Axel Bisi, user 2026-10-06):
+    get_custom_area_groups_colors() is keyed by the same split group names as the unit table's area_group;
+    get_custom_area_groups_from_name() gives each fine area's group"""
     import sys
-    sys.path.insert(0, str(pathlib.Path.home() / "code"))
-    from allen_utils import allen_utils as au
+    sys.path.insert(0, str(pathlib.Path.home() / "code" / "ephys_utilities"))
+    from ephys_utilities.allen_utils import allen_utils as au
     return au.get_custom_area_groups_colors(), au.get_custom_area_groups_from_name()
 
 
 def allen_parent():
-    """decoded area group / fine area -> allen_utils custom group (user 2026-10-06: colours from
-    allen_utils.get_custom_area_groups_colors, sub-areas in shades of their group). Fine areas: allen_utils name lookup,
-    else their decoded group's parent. Decoded groups: the allen group holding most of their good + mua units (by
-    area_acronym_custom) only when GROUP_KEY has no entry."""
+    """area -> its area group: groups are their own parent; fine areas from get_custom_area_groups_from_name(), else the
+    group holding most of their units in the unit table (FINE_PARENT)"""
     pal, from_name = _allen()
-    U = pd.read_parquet(UNITS, columns=KEYS + ["quality_label", "area_group", "area_acronym_custom"])
-    U = U[U.quality_label.isin(["good", "mua"])].drop_duplicates(KEYS)
-    U["allen"] = U.area_acronym_custom.map(from_name)
-    par = {}
-    for g in COARSE:                                  # explicit GROUP_KEY first, else the majority allen_utils group
-        v = U[U.area_group == g].allen.dropna().value_counts()
-        par[g] = GROUP_KEY.get(g) or (v.index[0] if len(v) else None)
-    for a in FINE:                                    # allen_utils name lookup, else FINE_EXTRA, else the decoded group's
-        par[a] = from_name.get(a) or FINE_EXTRA.get(a) or par.get(FINE_PARENT.get(a))
+    par = {g: g for g in COARSE}
+    for a in FINE:
+        par[a] = from_name.get(a) or FINE_PARENT.get(a)
     return par, pal
 
 
@@ -87,18 +66,17 @@ def shades(base, n):
 
 
 def colors():
-    """area -> colour (user 2026-10-06). Area groups: exactly allen_utils.get_custom_area_groups_colors() of their
-    allen_utils group (allen_parent); groups in the same allen_utils group therefore share its colour. Fine areas: shades
-    of their group's colour (one shade per fine area within a colour family, ordered by number of units)."""
-    try:
-        par, pal = allen_parent()
-    except Exception:
-        par, pal = {}, {}
-    col = {g: pal.get(par.get(g), "#888888") for g in COARSE}
+    """area -> colour (user 2026-10-06): area groups exactly get_custom_area_groups_colors()[group]; fine areas in
+    shades of their group's colour (one shade per area of the group, ordered by number of units: largest darkest)"""
+    par, pal = allen_parent()
+    missing = [g for g in COARSE if g not in pal]
+    if missing:
+        raise KeyError(f"area groups without a palette colour: {missing}")
+    col = {g: pal[g] for g in COARSE}
     by = {}
     for a in FINE:
-        by.setdefault(pal.get(par.get(a), "#888888"), []).append(a)
-    for base, kids in by.items():
-        for a, c in zip(kids, shades(base, len(kids))):
+        by.setdefault(par.get(a), []).append(a)
+    for g, kids in by.items():
+        for a, c in zip(kids, shades(pal.get(g, "#888888"), len(kids))):
             col[a] = c
     return col
