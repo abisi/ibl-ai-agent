@@ -33,7 +33,8 @@ m2 = importlib.import_module("002_arrival_summary")
 OUT, FIG = m2.OUT, m2.FIG
 N_MAIN, N_BOOT, N_CURVES = 200, 1000, 8
 WIDE_RANGE_MS = 10          # onset flagged as unreliable (dagger, faded bar) when its 95 % range spans > 10 ms or the
-MIN_DEFINED = 0.95          # onset is undefined in > 5 % of the resamples (user 2026-10-06: flag, do not rank)
+MIN_DEFINED = 0.95
+CMAP = "magma"              # corrected balanced accuracy: dark = low, light = high (user 2026-10-06)          # onset is undefined in > 5 % of the resamples (user 2026-10-06: flag, do not rank)
 LEVEL_NAME = {"area_group": "area groups", "area_acronym_custom": "areas"}
 SHORT = {"Somatosensory-whisker": "SS-whisker", "Somatosensory-orofacial": "SS-orofacial", "Somatosensory-body": "SS-body",
          "Auditory areas": "Auditory", "Motor areas": "Motor", "Frontal areas": "Frontal", "Retrosplenial areas": "Retrosplenial",
@@ -97,7 +98,7 @@ def heatmap(ax, B, OB, level, areas, res, xlim, col, cax=None):
     M, Sg, t = M[:, keep], Sg[:, keep], t[keep]
     step = t[1] - t[0]
     ext = (t[0] - step / 2, t[-1] + step / 2, len(areas) - 0.5, -0.5)
-    im = ax.imshow(np.where(Sg, M, np.nan), aspect="auto", extent=ext, cmap=plt.get_cmap("magma_r"), vmin=0, vmax=0.5,
+    im = ax.imshow(np.where(Sg, M, np.nan), aspect="auto", extent=ext, cmap=plt.get_cmap(CMAP), vmin=0, vmax=0.5,
                    interpolation="nearest")
     ax.imshow(np.where(~Sg & np.isfinite(M), 1.0, np.nan), aspect="auto", extent=ext, cmap=ListedColormap(["#ececec"]),
               interpolation="nearest")
@@ -115,7 +116,7 @@ def heatmap(ax, B, OB, level, areas, res, xlim, col, cax=None):
     ax.tick_params(axis="y", length=0)
     if cax is not None:
         cb = plt.colorbar(im, cax=cax, orientation="horizontal")
-        cb.set_label("Corrected balanced accuracy (grey: not above chance)", fontsize=4.6, labelpad=1)
+        cb.set_label("Corrected balanced accuracy (dark: low; grey: not above chance)", fontsize=4.6, labelpad=1)
         cb.ax.tick_params(labelsize=4.4, length=1.2, width=0.4); cb.outline.set_linewidth(0.4)
     return im
 
@@ -172,7 +173,7 @@ def ranking(ax, OB, level, areas, col):
                 va="center", fontsize=fs - 0.3, color="0.3")
     ax.set_ylim(len(q) - 0.5, -0.5)
     ax.set_xlim(0, np.nanmax(q.hi) * 1.2)
-    ax.set_xlabel("Onset (ms)" + (f"\n† unreliable: 95 % range > {WIDE_RANGE_MS} ms" if q.flag.any() else ""))
+    ax.set_xlabel("Onset (ms)" + ("\n† unreliable, not ranked (see caption)" if q.flag.any() else ""))
     ax.tick_params(axis="y", length=0)
 
 
@@ -210,7 +211,7 @@ def main_figure(plt, D, B, OB, level, col):
     axd.set_title("First 50 ms", loc="left", fontsize=5.6)
     S.letter_row(fig, [axa, axb, axe], "abc", dx_in=0.62, dy_in=0.5)
     S.letter_row(fig, [axc, axd], "de")
-    fig.suptitle(f"Stimulus-modality decoding across {LEVEL_NAME[level]} ({EPOCH_WORD}, all sessions pooled, N = {N_MAIN} neurons)",
+    fig.suptitle(f"Whisker vs auditory decoding across {LEVEL_NAME[level]} ({EPOCH_WORD}, all sessions pooled, N = {N_MAIN} neurons)",
                  x=0.02, y=1 - 0.04 / H, ha="left", va="top", fontsize=7, weight="bold")
     S.save(fig, FIG, f"arrival_main_N200_{level}")
     plt.close(fig)
@@ -258,12 +259,13 @@ def summary_figure(plt, D, B, O, W, OB, level, col):
     axe = fig.add_subplot(gs[1, 1])
     M = O[(O.level == level) & (O.resolution == "zoom")].merge(W[["level", "area", "N", "mean"]], on=["level", "area", "N"])
     M = M[M.N.isin(m2.N_GRID)]
-    st = S.corr_panel(axe, M["mean"].to_numpy(), M.onset_ms.to_numpy(), colors=M.area.map(col).to_numpy(),
+    st = S.exp_panel(axe, M["mean"].to_numpy(), M.onset_ms.to_numpy(), colors=M.area.map(col).to_numpy(),
                       sizes=(3 + 8 * np.log(M.N / 20 + 1) / np.log(26)).to_numpy())
-    axe.text(0.98, 0.97, f"rho = {st['rho']:.2f}, {S.fmt_p(st['p_rho'])}\nn = {st['n']} area x N", transform=axe.transAxes,
+    axe.text(0.98, 0.97, f"ρ = {st['rho']:.2f}, {S.fmt_p(st['p_rho'])}; n = {st['n']} area × N\n"
+             f"exponential fit, R² = {st['r2_exp']:.2f}", transform=axe.transAxes,
              ha="right", va="top", fontsize=4.6)
     axe.set_xlabel("Corrected accuracy, 5-50 ms"); axe.set_ylabel("Onset (ms)")
-    axe.set_title("Onset vs early accuracy", loc="left", fontsize=5.6)
+    axe.set_title("Onset vs early accuracy (dot size: N)", loc="left", fontsize=5.6)
     axf = fig.add_subplot(gs[1, 2])
     P = OUT / "matched_n.csv"
     if level == "area_group" and P.exists():
@@ -308,15 +310,15 @@ def summary_figure(plt, D, B, O, W, OB, level, col):
     axh.set_ylabel("Corrected balanced accuracy")
     axh.set_title(f"{N_CURVES} best-sampled {LEVEL_NAME[level]}: time course (bars: above chance)", loc="left", fontsize=5.6)
     S.letter_row(fig, [ax, axb, axc], "abc", dy_in=0.45); S.letter_row(fig, [axd, axe, axf], "def"); S.letter_row(fig, [axg, axh], "gh")
-    fig.suptitle(f"Where and when can stimulus modality be decoded? {LEVEL_NAME[level].capitalize()}, {EPOCH_WORD}, all sessions pooled",
+    fig.suptitle(f"Where and when can whisker and auditory stimuli be told apart? {LEVEL_NAME[level].capitalize()}, {EPOCH_WORD}, all sessions pooled",
                  x=0.02, y=1 - 0.04 / H, ha="left", va="top", fontsize=7, weight="bold")
     S.save(fig, FIG, f"arrival_summary_{level}")
     plt.close(fig)
 
 
 def captions(OB, n_iter, n_shuf):
-    lines = [f"# Stimulus-modality decoding ({EPOCH_WORD})", "",
-             f"**Where and when can stimulus modality be decoded?** Pseudo-population decoding of whisker vs auditory "
+    lines = [f"# Whisker vs auditory decoding ({EPOCH_WORD})", "",
+             f"**Where and when can whisker and auditory stimuli be told apart?** Pseudo-population decoding of whisker vs auditory "
              f"{EPOCH_WORD}, all sessions pooled (both cohorts, learning day and expert days; good + mua neurons; whisker-"
              "artefact-corrected spikes). One iteration: 20 sessions drawn with replacement, N/20 neurons of the area drawn "
              "within each, pseudo-trials built by balanced reuse of each session's trials; L2 logistic regression per time bin "

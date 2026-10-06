@@ -65,6 +65,23 @@ report/
 Describe the current state only (no history of abandoned versions in the main text; superseded results go to the
 version-history appendix).
 
+### Defaults for every report (user, 2026-10-06)
+
+- **Cross-reference everything.** Every figure and table (main and supplementary) is cited in the text where its result
+  is stated ("Figure 2b", "Table S1"), with clickable links: give each figure / table a Pandoc id
+  (`![caption](figures/x.png){#fig:x}`, table caption `: caption {#tbl:x}`) and link with `[Figure 2](#fig:x)`. No figure or
+  table may be left uncited; check this before building.
+- **Paragraphs.** One idea per paragraph, separated by a blank line in `report.md` (never one long block per section).
+- **Thorough captions.** Every caption states what is plotted in each panel, the data (epoch, trials, n sessions / mice /
+  units or areas), the statistic (mean ± what, error bars, bands), the test and n, the colour / marker code, and the
+  sampling (iterations, shuffles) -- readable without the main text.
+- **All generated figures appear.** Every figure an analysis script writes ends up in the report, at least as a
+  supplementary figure; promote a supplementary figure to the main text only when the argument needs it.
+- **Sample sizes.** A supplementary table with the number of sessions, mice and units per area (and per condition /
+  epoch / level analysed), cited from the Methods.
+- **Order follows the argument** the user sets (e.g. control condition before the condition of interest, then their
+  comparison); ask when unclear.
+
 ## Publishing
 
 - Reports are published to the **private** repository `abisi/ibl-ai-agent-reports` under `docs/<slug>/`: `report.pdf`,
@@ -79,4 +96,6 @@ version-history appendix).
 - [ ] `report/` rebuilds from its own contents; PDF, md and html agree; all numbers from `numbers.json`.
 - [ ] Article structure complete: introduction, methods (equations, parameters, tests), results, discussion, caveats,
       main + supplementary figures with captions.
+- [ ] Every figure and table cited and linked in the text; every generated figure included (main or supplementary);
+      sample-size table present; paragraphs separated; captions complete.
 - [ ] Published to the private reports repo (pdf, md, html only).

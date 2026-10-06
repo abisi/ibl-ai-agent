@@ -180,7 +180,7 @@ def figure(plt, level, E, col):
     S.letter_row(fig, [rows[0][0]], "d")
     S.letter_row(fig, [rows[1][0]], "e")
     src = "; ".join(f"{e}: {E[e]['n_iter']} iterations" for e in EPOCHS)
-    fig.suptitle(f"Task (active) vs passive trials, {m4.LEVEL_NAME[level]} (N = {N_MAIN}; {src})",
+    fig.suptitle(f"Whisker vs auditory decoding, task (active) vs passive trials, {m4.LEVEL_NAME[level]} (N = {N_MAIN}; {src})",
                  x=0.02, y=1 - 0.05 / H, ha="left", va="top", fontsize=7, weight="bold")
     S.save(fig, HOME / "figures", f"active_vs_passive_{level}")
     plt.close(fig)

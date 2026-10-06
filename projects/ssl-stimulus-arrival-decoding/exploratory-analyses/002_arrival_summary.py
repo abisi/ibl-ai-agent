@@ -136,70 +136,104 @@ def fig_curves(plt, B, O, level):
                 h, lab = ax.get_legend_handles_labels()
                 fig.legend(h, lab, title="Neurons in the pseudo-population", frameon=False, fontsize=4.8, title_fontsize=4.8,
                            ncol=len(h), handlelength=1.2, columnspacing=0.9, loc="upper right", bbox_to_anchor=(0.99, 1 - 0.03 / H))
-    fig.suptitle(f"Whisker vs auditory stimulus decoding, all sessions pooled -- {LEVEL_NAME[level].lower()}",
+    fig.suptitle(f"Whisker vs auditory decoding, every N ({EPOCH_WORD}, all sessions pooled) -- {LEVEL_NAME[level].lower()}",
                  x=0.06, y=1 - 0.05 / H, va="top", ha="left", fontsize=7, weight="bold")
     S.save(fig, FIG, f"arrival_curves_{level}")
     plt.close(fig)
 
 
-def fig_window(plt, W):
+EPOCH_WORD = "task (active) trials" if AR.EPOCH == "active" else "passive trials"
+N_BEST = 8
+
+
+def best_areas(W, level, k=N_BEST):
+    """the k areas with the most eligible sessions (at N = 200)"""
+    q = W[(W.level == level) & (W.N == 200)].set_index("area").n_eligible_sessions
+    return list(q.sort_values(ascending=False).index[:k])
+
+
+def fig_n(plt, O, W):
+    """early accuracy and onset vs number of neurons, every area of each level (one row per level)"""
     from matplotlib.ticker import NullFormatter, NullLocator
-    fig = plt.figure(figsize=(S.W_IN, 2.8))
-    # panel | its legend | panel | its legend (legends beside the data: up to 18 groups / 40 areas)
-    gs = fig.add_gridspec(1, 4, width_ratios=[1, 0.7, 1, 0.6], wspace=0.35, left=0.08, right=0.99, top=0.88, bottom=0.17)
-    axs = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 2])]
-    for k, (ax, level) in enumerate(zip(axs, LEVELS)):
+    fig = plt.figure(figsize=(S.W_IN, 5.6))
+    gs = fig.add_gridspec(2, 3, width_ratios=[1, 1, 0.62], wspace=0.38, hspace=0.42, left=0.08, right=0.99, top=0.92, bottom=0.08)
+    axes = []
+    for r, level in enumerate(LEVELS):
+        axa, axb = fig.add_subplot(gs[r, 0]), fig.add_subplot(gs[r, 1])
+        axes.append((axa, axb))
         for a in LEVELS[level]:
             q = W[(W.level == level) & (W.area == a) & W.N.isin(N_GRID)].sort_values("N")
             if not len(q):
                 continue
-            ax.errorbar(q.N, q["mean"], [q["mean"] - q.lo, q.hi - q["mean"]], color=S.AREA_C[a], marker="o", ms=2.2,
-                        lw=0.8, elinewidth=0.5, capsize=0, label=S.short(a))
-        ax.set_xscale("log")
-        ax.set_xticks(N_GRID, [str(n) for n in N_GRID])
-        ax.xaxis.set_minor_locator(NullLocator()); ax.xaxis.set_minor_formatter(NullFormatter())
-        ax.axhline(0, color="0.5", lw=0.4)
-        ax.set_xlabel("Neurons in the pseudo-population")
-        ax.set_ylabel("Corrected balanced accuracy,\n5-50 ms after stimulus")
-        ax.set_title(LEVEL_NAME[level], loc="left")
-        h, lab = ax.get_legend_handles_labels()
-        lax = fig.add_subplot(gs[0, 2 * k + 1]); lax.set_axis_off()
-        lax.legend(h, lab, frameon=False, fontsize=4.3, handlelength=1.0, loc="upper left", borderaxespad=0,
-                   ncol=1 if len(h) <= 22 else 2, columnspacing=0.6, labelspacing=0.25)
-    S.letter_row(fig, axs, "ab")
-    S.save(fig, FIG, "window_vs_N")
+            axa.errorbar(q.N, q["mean"], [q["mean"] - q.lo, q.hi - q["mean"]], color=S.AREA_C[a], marker="o", ms=2.0,
+                         lw=0.7, elinewidth=0.4, capsize=0, label=S.short(a))
+            o = O[(O.level == level) & (O.area == a) & (O.resolution == "zoom") & O.N.isin(N_GRID)].sort_values("N")
+            axb.plot(o.N, o.onset_ms, color=S.AREA_C[a], marker="o", ms=2.0, lw=0.7)
+        for ax in (axa, axb):
+            ax.set_xscale("log"); ax.set_xticks(N_GRID, [str(n) for n in N_GRID])
+            ax.xaxis.set_minor_locator(NullLocator()); ax.xaxis.set_minor_formatter(NullFormatter())
+            ax.set_xlabel("Neurons in the pseudo-population")
+        axa.axhline(0, color="0.5", lw=0.4)
+        axa.set_ylabel("Corrected balanced accuracy, 5-50 ms")
+        axb.set_ylabel("Onset (ms; 20-ms bins, 2-ms steps)")
+        axa.set_title(f"{LEVEL_NAME[level]}: early accuracy (95 % range over iterations)", loc="left", fontsize=5.6)
+        axb.set_title(f"{LEVEL_NAME[level]}: onset (missing: no onset)", loc="left", fontsize=5.6)
+        h, lab = axa.get_legend_handles_labels()
+        lax = fig.add_subplot(gs[r, 2]); lax.set_axis_off()
+        lax.legend(h, lab, frameon=False, fontsize=4.2, handlelength=1.0, loc="upper left", borderaxespad=0,
+                   ncol=1 if len(h) <= 20 else 2, columnspacing=0.6, labelspacing=0.25)
+    S.letter_row(fig, axes[0], "ab"); S.letter_row(fig, axes[1], "cd")
+    fig.suptitle(f"Whisker vs auditory decoding: effect of the number of neurons ({EPOCH_WORD})", x=0.02, y=0.99, ha="left",
+                 va="top", fontsize=7, weight="bold")
+    S.save(fig, FIG, "accuracy_onset_vs_N")
     plt.close(fig)
 
 
 def fig_onset_corr(plt, O, W):
-    M = O.merge(W[["level", "area", "N", "mean"]], on=["level", "area", "N"])
+    """onset vs early accuracy, two ways per level (user 2026-10-06): (left) every area at N = 200; (right) the 8
+    best-sampled areas at every N, dot size = N, lines join an area's N; decreasing-exponential fit + 95 % bootstrap band
+    (OLS kept in the stats for comparison)"""
+    M = O[O.resolution == "zoom"].merge(W[["level", "area", "N", "mean"]], on=["level", "area", "N"])
     M = M[M.N.isin(N_GRID)]
-    fig = plt.figure(figsize=(S.W_IN, 5.0))
-    # 2 x 2 panels, then one legend per column underneath (area groups | areas), clear of the axes
-    gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 0.55], wspace=0.3, hspace=0.6, left=0.08, right=0.98, top=0.95, bottom=0.02)
-    axs = np.array([[fig.add_subplot(gs[i, j]) for j in range(2)] for i in range(2)])
-    stats = []
-    for i, res in enumerate(["zoom", "wide"]):
-        for j, level in enumerate(LEVELS):
-            ax = axs[i, j]
-            q = M[(M.level == level) & (M.resolution == res)]
-            st = S.corr_panel(ax, q["mean"].to_numpy(), q.onset_ms.to_numpy(), colors=q.area.map(S.AREA_C).to_numpy(),
-                              sizes=(4 + 14 * np.log(q.N / 20 + 1) / np.log(26)).to_numpy())
-            stats.append(dict(level=level, resolution=res, **st))
-            ax.set_title(f"{LEVEL_NAME[level]}, {'20-ms bins' if res == 'zoom' else '50-ms bins'}", loc="left")
-            ax.text(0.98, 0.97, f"r = {st['r']:.2f}, {S.fmt_p(st['p'])}\nρ = {st['rho']:.2f}, {S.fmt_p(st['p_rho'])}\nn = {st['n']} area × N",
-                    transform=ax.transAxes, ha="right", va="top", fontsize=4.8)
+    fig = plt.figure(figsize=(S.W_IN, 6.0))
+    gs = fig.add_gridspec(2, 2, wspace=0.28, hspace=0.42, left=0.08, right=0.98, top=0.92, bottom=0.08)
+    size = lambda n: 4 + 30 * np.log(n / 20 + 1) / np.log(26)
+    stats, axes = [], []
+    for r, level in enumerate(LEVELS):
+        ax1, ax2 = fig.add_subplot(gs[r, 0]), fig.add_subplot(gs[r, 1])
+        axes.append((ax1, ax2))
+        q = M[(M.level == level) & (M.N == 200)]
+        st = S.exp_panel(ax1, q["mean"].to_numpy(), q.onset_ms.to_numpy(), colors=q.area.map(S.AREA_C).to_numpy(), sizes=np.full(len(q), 14))
+        S.label_points(ax1, q["mean"].to_numpy(), q.onset_ms.to_numpy(), [S.short(a) for a in q.area],
+                       [S.AREA_C[a] for a in q.area], fontsize=3.8 if level != "area_group" else 4.3)
+        stats.append(dict(level=level, resolution="zoom", set="N200_all_areas", **st))
+        best = best_areas(W, level)
+        qb = M[(M.level == level) & M.area.isin(best)].sort_values(["area", "N"])
+        for a in best:
+            g = qb[qb.area == a]
+            ax2.plot(g["mean"], g.onset_ms, color=S.AREA_C[a], lw=0.6, alpha=0.7, zorder=2)
+        st2 = S.exp_panel(ax2, qb["mean"].to_numpy(), qb.onset_ms.to_numpy(), colors=qb.area.map(S.AREA_C).to_numpy(),
+                          sizes=size(qb.N.to_numpy()))
+        stats.append(dict(level=level, resolution="zoom", set="best8_all_N", **st2))
+        qa = M[M.level == level]
+        stats.append(dict(level=level, resolution="zoom", set="all_areas_all_N", **S.exp_panel(
+            fig.add_axes([0, 0, 0.01, 0.01], visible=False), qa["mean"].to_numpy(), qa.onset_ms.to_numpy(), n_boot=0, scatter=False)))
+        for ax, t, stt in ((ax1, f"{LEVEL_NAME[level]}, N = 200, every area", st),
+                           (ax2, f"{LEVEL_NAME[level]}, {N_BEST} best-sampled, every N (dot size: N)", st2)):
+            ax.set_title(t, loc="left", fontsize=5.6)
+            ax.text(0.98, 0.97, f"ρ = {stt['rho']:.2f}, {S.fmt_p(stt['p_rho'])}, n = {stt['n']}\n"
+                    f"exponential R² = {stt['r2_exp']:.2f}, linear R² = {stt['r2_ols']:.2f}\n"
+                    f"ΔAIC (exp - linear) = {stt['aic_exp'] - stt['aic_ols']:.1f}",
+                    transform=ax.transAxes, ha="right", va="top", fontsize=4.6)
             ax.set_xlabel("Corrected balanced accuracy, 5-50 ms")
-            ax.set_ylabel("First significant bin (ms)")
-    for j, lv in enumerate(LEVELS):
-        present = [a for a in LEVELS[lv] if a in set(M[M.level == lv].area)]
-        h = [plt.Line2D([], [], marker="o", ls="", color=S.AREA_C[a], ms=3, label=S.short(a)) for a in present]
-        lax = fig.add_subplot(gs[2, j]); lax.set_axis_off()
-        lax.legend(handles=h, loc="upper left", ncol=3 if j == 0 else 5, frameon=False, fontsize=4.4, borderaxespad=0,
-                   handletextpad=0.2, columnspacing=0.8, labelspacing=0.3, title=LEVEL_NAME[lv], title_fontsize=4.8,
-                   alignment="left")
-    S.letter_row(fig, axs[0], "ab")
-    S.letter_row(fig, axs[1], "cd")
+            ax.set_ylabel("Onset (ms)")
+        h = [plt.Line2D([], [], marker="o", ls="", color=S.AREA_C[a], ms=3, label=S.short(a)) for a in best]
+        h += [plt.Line2D([], [], marker="o", ls="", color="0.5", ms=np.sqrt(size(n)), label=f"N = {n}") for n in (20, 100, 500)]
+        ax2.legend(handles=h, loc="lower left", frameon=False, fontsize=4.2, handletextpad=0.3, labelspacing=0.35,
+                   borderaxespad=0.2)
+    S.letter_row(fig, axes[0], "ab"); S.letter_row(fig, axes[1], "cd")
+    fig.suptitle(f"Whisker vs auditory decoding: onset vs early accuracy ({EPOCH_WORD})", x=0.02, y=0.99, ha="left", va="top",
+                 fontsize=7, weight="bold")
     S.save(fig, FIG, "onset_vs_window")
     plt.close(fig)
     pd.DataFrame(stats).to_csv(OUT / "onset_vs_window_stats.csv", index=False)
@@ -215,7 +249,7 @@ def main():
     for level in LEVELS:
         if (B.level == level).any():
             fig_curves(plt, B, O, level)
-    fig_window(plt, W)
+    fig_n(plt, O, W)
     fig_onset_corr(plt, O, W)
     print(O.pivot_table(index=["level", "area"], columns=["resolution", "N"], values="onset_ms").round(0).to_string())
     print(W.pivot_table(index=["level", "area"], columns="N", values="mean").round(3).to_string())

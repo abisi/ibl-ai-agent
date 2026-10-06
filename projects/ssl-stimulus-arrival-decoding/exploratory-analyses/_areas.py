@@ -41,23 +41,61 @@ GROUP_KEY = {"Motor areas": "Motor and frontal areas", "Frontal areas": "Motor a
              "Pons and medulla": "Pons and medulla"}
 
 
-def colors():
-    """area -> colour: groups from allen_utils (Axel Bisi's palette), fine areas in shades of their parent group"""
+def _allen():
+    """allen_utils palette (Axel Bisi): {custom group: colour}, {area acronym: custom group}"""
     import sys
+    sys.path.insert(0, str(pathlib.Path.home() / "code"))
+    from allen_utils import allen_utils as au
+    return au.get_custom_area_groups_colors(), au.get_custom_area_groups_from_name()
+
+
+def allen_parent():
+    """decoded area group / fine area -> allen_utils custom group (user 2026-10-06: colours from
+    allen_utils.get_custom_area_groups_colors, sub-areas in shades of their group). Fine areas: allen_utils name lookup,
+    else their decoded group's parent. Decoded groups: the allen group holding most of their good + mua units (by
+    area_acronym_custom), else GROUP_KEY."""
+    pal, from_name = _allen()
+    U = pd.read_parquet(UNITS, columns=KEYS + ["quality_label", "area_group", "area_acronym_custom"])
+    U = U[U.quality_label.isin(["good", "mua"])].drop_duplicates(KEYS)
+    U["allen"] = U.area_acronym_custom.map(from_name)
+    par = {}
+    for g in COARSE:
+        v = U[U.area_group == g].allen.dropna().value_counts()
+        par[g] = v.index[0] if len(v) else GROUP_KEY.get(g)
+    for a in FINE:
+        par[a] = from_name.get(a, par.get(FINE_PARENT.get(a)))
+    return par, pal
+
+
+def shades(base, n):
+    """n distinguishable shades of one colour, darker to lighter, base in the middle (never near white)"""
     import numpy as np
     from matplotlib.colors import to_hex, to_rgb
+    b = np.array(to_rgb(base))
+    if n == 1:
+        return [to_hex(b)]
+    out = []
+    lum = 0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2]
+    lo, hi = -0.38, min(0.45, 0.75 * (1 - lum))      # no near-black, and light bases are not pushed to near-white
+    for f in np.linspace(lo, hi, n):                  # < 0: towards black, > 0: towards white
+        c = b * (1 + f) if f < 0 else b + (1 - b) * f
+        out.append(to_hex(np.clip(c, 0, 1)))
+    return out
+
+
+def colors():
+    """area -> colour. Each level separately: members sharing one allen_utils group colour get shades of it
+    (ordered by number of units, largest = darkest); a lone member gets the group colour itself."""
     try:
-        sys.path.insert(0, str(pathlib.Path.home() / "code"))
-        from allen_utils import allen_utils as au
-        pal = au.get_custom_area_groups_colors()
+        par, pal = allen_parent()
     except Exception:
-        pal = {}
-    col = {g: pal.get(GROUP_KEY.get(g, ""), "#888888") for g in COARSE}
-    for parent in set(FINE_PARENT.values()):
-        kids = [a for a in FINE if FINE_PARENT.get(a) == parent]
-        base = np.array(to_rgb(col.get(parent, "#888888")))
-        for i, a in enumerate(kids):
-            f = np.linspace(-0.45, 0.45, len(kids))[i] if len(kids) > 1 else 0.0
-            c = base * (1 - f) if f > 0 else base + (1 - base) * (-f)
-            col[a] = to_hex(np.clip(c, 0, 1))
+        par, pal = {}, {}
+    col = {}
+    for members in (COARSE, FINE):
+        by = {}                                       # families by colour (allen_utils gives two groups the same one)
+        for a in members:
+            by.setdefault(pal.get(par.get(a), "#888888"), []).append(a)
+        for base, kids in by.items():
+            for a, c in zip(kids, shades(base, len(kids))):
+                col[a] = c
     return col

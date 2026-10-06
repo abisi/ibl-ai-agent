@@ -79,9 +79,14 @@ def plot():
     D = m2.load_raw()
     B, O, W = m2.summarise(D)
     H = 1.9 * len(REFS) + 0.7
-    fig = plt.figure(figsize=(S.W_IN * 1.3, H))
-    # columns: a (groups, 50 ms) | b (groups, 20 ms) | legend b | c (areas, 20 ms) | legend c | d (neurons needed)
-    gs = fig.add_gridspec(len(REFS), 6, width_ratios=[1.4, 1.0, 0.55, 1.0, 0.55, 0.9], wspace=0.42, hspace=0.75, left=0.06,
+    fine = (P.level == "area_acronym_custom").any()   # fine-area matched runs exist only when 003 --plan was run for them
+    panels = [("area_group", "wide"), ("area_group", "zoom")] + ([("area_acronym_custom", "zoom")] if fine else [])
+    titles = ["Area groups, 50-ms bins", "Area groups, 20-ms bins", "Areas, 20-ms bins"]
+    # columns: a (groups, 50 ms) | b (groups, 20 ms) | legend b | [c (areas, 20 ms) | legend c] | neurons needed
+    widths = [1.4, 1.0, 0.55] + ([1.0, 0.55] if fine else []) + [0.9]
+    plot_cols, leg_cols = ([0, 1, 3], {1: 2, 2: 4}) if fine else ([0, 1], {1: 2})
+    fig = plt.figure(figsize=(S.W_IN * (1.3 if fine else 1.0), H))
+    gs = fig.add_gridspec(len(REFS), len(widths), width_ratios=widths, wspace=0.42, hspace=0.75, left=0.08,
                           right=0.99, top=1 - 0.6 / H, bottom=0.45 / H)
     chk = []
     for r, ref in enumerate(REFS):
@@ -89,8 +94,8 @@ def plot():
         if not len(p):
             continue
         target = p.target_accuracy.iloc[0]
-        axs = [fig.add_subplot(gs[r, k]) for k in (0, 1, 3, 5)]
-        for col, (level, res) in enumerate([("area_group", "wide"), ("area_group", "zoom"), ("area_acronym_custom", "zoom")]):
+        axs = [fig.add_subplot(gs[r, k]) for k in plot_cols + [len(widths) - 1]]
+        for col, (level, res) in enumerate(panels):
             ax = axs[col]
             for x in p[p.level == level].itertuples():
                 if not np.isfinite(x.matched_N):
@@ -114,14 +119,14 @@ def plot():
             else:
                 ax.set_xlim(-200, 600)
             ax.set_xlabel("Time from stimulus (ms)", fontsize=5.5)
-            ax.set_title(["Area groups, 50-ms bins", "Area groups, 20-ms bins", "Areas, 20-ms bins"][col], loc="left", fontsize=5.6)
+            ax.set_title(titles[col], loc="left", fontsize=5.6)
             if col > 0:                                # panel a has the same areas and N as b: one legend, beside b
-                lax = fig.add_subplot(gs[r, 2 if col == 1 else 4]); lax.set_axis_off()
+                lax = fig.add_subplot(gs[r, leg_cols[col]]); lax.set_axis_off()
                 h, lab = ax.get_legend_handles_labels()
                 lax.legend(h, lab, frameon=False, fontsize=4.2, handlelength=1, loc="upper left", borderaxespad=0,
                            title="area (neurons)", title_fontsize=4.4, alignment="left")
         axs[0].set_ylabel(f"Reference: {S.short(ref)}, {N_REF} neurons\nCorrected balanced accuracy")
-        ax = axs[3]
+        ax = axs[-1]
         q = p.sort_values("matched_N", na_position="last")
         y = np.arange(len(q))
         vals = q.matched_N.fillna(N_MAX * 1.15)
@@ -135,8 +140,9 @@ def plot():
         ax.set_xlabel("Neurons needed", fontsize=5.5)
         ax.set_title(f"to reach {target:.2f} (5-50 ms)", loc="left", fontsize=5.6)
         ax.invert_yaxis()
-        S.letter_row(fig, axs, "abcd" if r == 0 else "efgh" if r == 1 else "ijkl")
-    fig.suptitle("Neurons needed to match the early stimulus decoding of a reference area (* extrapolated beyond 500)",
+        k = len(axs)
+        S.letter_row(fig, axs, "abcdefghijkl"[r * k:(r + 1) * k])
+    fig.suptitle("Neurons needed to match the early whisker vs auditory decoding of a reference area, task trials (* extrapolated beyond 500)",
                  x=0.02, y=1 - 0.05 / H, ha="left", va="top", fontsize=7, weight="bold")
     S.save(fig, FIG, "matched_accuracy")
     plt.close(fig)
