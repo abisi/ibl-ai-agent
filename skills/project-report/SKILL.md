@@ -68,9 +68,9 @@ version-history appendix).
 ### Defaults for every report (user, 2026-10-06)
 
 - **Cross-reference everything.** Every figure and table (main and supplementary) is cited in the text where its result
-  is stated ("Figure 2b", "Table S1"), with clickable links: give each figure / table a Pandoc id
-  (`![caption](figures/x.png){#fig:x}`, table caption `: caption {#tbl:x}`) and link with `[Figure 2](#fig:x)`. No figure or
-  table may be left uncited; check this before building.
+  is stated ("Figure 2b", "Table S1"), as a clickable link. Use `report_lib` (below): anchors are empty spans `[]{#id}`
+  before the element, references `[Figure 2](#id)` (LaTeX `\hyperref`, HTML `<a href>`). Do not use `{#fig:x}` figure /
+  table attributes (they need pandoc-crossref). The build refuses to write a report with an uncited figure or table.
 - **Paragraphs.** One idea per paragraph, separated by a blank line in `report.md` (never one long block per section).
 - **Thorough captions.** Every caption states what is plotted in each panel, the data (epoch, trials, n sessions / mice /
   units or areas), the statistic (mean ± what, error bars, bands), the test and n, the colour / marker code, and the
@@ -81,6 +81,34 @@ version-history appendix).
   epoch / level analysed), cited from the Methods.
 - **Order follows the argument** the user sets (e.g. control condition before the condition of interest, then their
   comparison); ask when unclear.
+- **Wording the user rejects** (e.g. "stimulus arrival" in ssl-stimulus-arrival-decoding) goes into `Report(banned=...)`,
+  so the build refuses any text that contains it.
+- **Provisional results** (runs still going, pilot sampling) are labelled in the text and captions ("provisional, 100
+  iterations"), computed from the result metadata, and the report is rebuilt when the final runs land.
+- **Figures follow the user's figure conventions** (area colours: `ephys_utilities.allen_utils.get_custom_area_groups_colors()`
+  exact per area group, shades for areas -- skills/ssl-valid-data; other project rules in the project README / memory).
+  Change figures in the analysis scripts, show them, and wait for the user's confirmation before rebuilding the report
+  when the user is reviewing figures.
+
+### Generator mechanics: `skills/project-report/report_lib.py` (use it in every `build_report.py`)
+
+```python
+sys.path.insert(0, str(REPO / "skills" / "project-report"))
+from report_lib import Report
+R = Report(banned=())                          # project-specific rejected words
+R.register([("fig-main", "Figure 1"), ..., ("tbl-s-sizes", "Table S1")])   # all anchors, reading order, first
+num, pv, ref, figure, table = R.num, R.pv, R.ref, R.figure, R.table
+text = f"... ({ref('fig-main')}) ... {num('acc_x', value)} ... p {pv('p_x', p)} ..."
+md += figure("fig-main", src_png, caption) + table("tbl-s-sizes", df, caption)
+R.write(OUT, md)       # checks; figures -> report/figures/<anchor>.png (stale removed); report.md, numbers.json, build.sh
+```
+
+- `num` / `pv` record every quoted number in `numbers.json`; captions get bold labels from the registry; tables are pipe
+  tables in footnote size with the first column left-aligned.
+- `write` fails on: an anchor never defined, an anchor never cited, a citation of an unknown anchor, a banned word.
+- Figure copies use `shutil.copyfile` (the NAS refuses the metadata copy of `shutil.copy2`).
+- latexmk runs several passes; "Hyper reference ... undefined" warnings from the first passes are normal -- check only the
+  last pass of `build.log` (`awk '/Run number 3 of rule/{f=1} f' build.log | grep -c undefined` should be 0).
 
 ## Publishing
 

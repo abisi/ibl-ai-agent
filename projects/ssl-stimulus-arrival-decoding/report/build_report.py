@@ -3,8 +3,9 @@ Reads the result tables of the project results folder (active/, passive/, active
 tables/, figures/), writes numbers.json and report.md (Pandoc Markdown with LaTeX math), copies every figure used into
 report/figures/ and copies build.sh there. No number in the text is typed by hand.
 Structure (user 2026-10-06): passive trials, then task (active) trials, then their comparison. Every figure and table
-has an anchor and is cited with a link in the text; main() refuses to write a report with an uncited figure or table, or
-with the word "arrival" (user: "stimulus decoding", not "stimulus arrival").
+has an anchor and is cited with a link in the text. Report mechanics (numbers, anchors, references, tables, checks,
+output) come from skills/project-report/report_lib.py, which refuses to write a report with an uncited figure or table
+or with the word "arrival" (user: "stimulus decoding", not "stimulus arrival").
 Onsets at N = 200 come from the final run of an epoch (500 iterations x 20 shuffles) once it covers every area of a level;
 until then from the N-sweep run (100 x 10), labelled provisional.
 Run (haas):  cd ~/code/unit_spikes_analysis && PYTHONPATH=~/code/NWB_reader:. ./.venv/bin/python \
@@ -15,8 +16,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import re
-import shutil
 import sys
 from datetime import date
 from pathlib import Path
@@ -37,51 +36,18 @@ m6 = importlib.import_module("006_active_vs_passive")
 
 HOME = AR.HOME
 OUT = HOME / "report"
-NUM: dict = {}
-FIGS: dict[str, Path] = {}
-ANCHORS: dict[str, str] = {}          # anchor id -> label ("Figure 3", "Table S2")
+sys.path.insert(0, str(REPO / "skills" / "project-report"))
+from report_lib import Report  # noqa: E402
+
+R_ = Report(banned=("arrival",))     # user 2026-10-06: "stimulus decoding", never "stimulus arrival"
+num, pv, ref, figure, mdtable = R_.num, R_.pv, R_.ref, R_.figure, R_.table
+ANCHORS = R_.anchors
 LEVELS = ("area_group", "area_acronym_custom")
 EPOCHS = ("passive", "active")
 LV = {"area_group": "area groups", "area_acronym_custom": "areas"}
 
 
 # ---------------------------------------------------------------------------------------------------------- helpers
-def num(key, value, fmt="{:.3f}"):
-    """record a quoted number in numbers.json and return it formatted"""
-    if isinstance(value, (np.integer, int)) and not isinstance(value, bool):
-        NUM[key] = int(value)
-        return str(int(value))
-    v = float(value)
-    NUM[key] = None if np.isnan(v) else v
-    return "n/a" if np.isnan(v) else fmt.format(v)
-
-
-def pv(key, value):
-    v = float(value)
-    NUM[key] = v
-    return "< 0.001" if v < 0.001 else f"= {v:.3f}"
-
-
-def ref(anchor):
-    """link to a figure / table anchor"""
-    return f"[{ANCHORS[anchor]}](#{anchor})"
-
-
-def figure(anchor, src: Path, caption: str) -> str:
-    dest = f"{anchor}.png"
-    FIGS[dest] = src
-    return f"\n[]{{#{anchor}}}\n\n![**{ANCHORS[anchor]}.** {caption}](figures/{dest}){{width=100%}}\n"
-
-
-def mdtable(anchor, df: pd.DataFrame, caption: str) -> str:
-    cols = list(df.columns)
-    head = "| " + " | ".join(cols) + " |\n|" + "|".join(":--" if i == 0 else "--:" for i in range(len(cols))) + "|\n"
-    body = "".join("| " + " | ".join("" if (isinstance(v, float) and np.isnan(v)) else str(v) for v in r) + " |\n"
-                   for r in df.itertuples(index=False))
-    return (f"\n[]{{#{anchor}}}\n\n```{{=latex}}\n\\begingroup\\footnotesize\n```\n\n{head}{body}\n: **{ANCHORS[anchor]}.** "
-            f"{caption}\n\n```{{=latex}}\n\\endgroup\n```\n")
-
-
 def ms(v):
     return "n.s." if not np.isfinite(v) else f"{v:.0f}"
 
@@ -161,7 +127,7 @@ def unrel(e, level="area_group"):
 
 
 # anchors in reading order (labels fixed before any text cites them)
-for _a, _l in [("fig-passive-main", "Figure 1"), ("fig-active-main", "Figure 2"), ("fig-onset-acc", "Figure 3"),
+R_.register([("fig-passive-main", "Figure 1"), ("fig-active-main", "Figure 2"), ("fig-onset-acc", "Figure 3"),
                ("fig-matched", "Figure 4"), ("fig-peak", "Figure 5"), ("fig-onset-accuracy", "Figure 6"),
                ("fig-avp", "Figure 7"),
                ("fig-s-passive-main-areas", "Figure S1"), ("fig-s-passive-summary-groups", "Figure S2"),
@@ -174,8 +140,7 @@ for _a, _l in [("fig-passive-main", "Figure 1"), ("fig-active-main", "Figure 2")
                ("tbl-onsets", "Table 1"), ("tbl-matched", "Table 2"), ("tbl-tests", "Table 3"),
                ("tbl-s-sizes-groups", "Table S1"), ("tbl-s-sizes-areas", "Table S2"), ("tbl-s-onsets-areas", "Table S3"),
                ("tbl-s-iter", "Table S4"), ("tbl-s-seq", "Table S5"), ("tbl-a-params", "Table A1"),
-               ("tbl-a-files", "Table A2")]:
-    ANCHORS[_a] = _l
+               ("tbl-a-files", "Table A2")])
 
 
 # ---------------------------------------------------------------------------------------------------------- tables
@@ -674,30 +639,10 @@ comparison). Parameters and result files: {ref('tbl-a-params')}, {ref('tbl-a-fil
 """
 
 
-def check(md):
-    """every registered figure / table defined and cited at least once; no 'arrival' wording"""
-    bad = [f"{a}: not defined" for a in ANCHORS if f"{{#{a}}}" not in md]
-    bad += [f"{a}: never cited" for a in ANCHORS if not re.search(rf"\(#{re.escape(a)}\)", md)]
-    bad += ["contains 'arrival'"] if "arrival" in md.lower() else []
-    if bad:
-        raise SystemExit("report not written:\n  " + "\n  ".join(bad))
-
-
 def main():
-    OUT.mkdir(parents=True, exist_ok=True)
     md = (sec_front() + sec_intro() + sec_methods() + sec_results() + sec_discussion() + sec_caveats() + sec_supp()
           + sec_supp_tables() + sec_appendix())
-    check(md)
-    (OUT / "figures").mkdir(exist_ok=True)
-    for old in (OUT / "figures").glob("*.png"):
-        if old.name not in FIGS:
-            old.unlink()
-    for dest, src in FIGS.items():
-        shutil.copyfile(src, OUT / "figures" / dest)
-    (OUT / "report.md").write_text(md, encoding="utf-8")
-    (OUT / "numbers.json").write_text(json.dumps(NUM, indent=1), encoding="utf-8")
-    shutil.copyfile(REPO / "skills" / "project-report" / "build.sh", OUT / "build.sh")
-    print(f"report.md ({len(md.split())} words), {len(FIGS)} figures, {len(ANCHORS)} anchors, {len(NUM)} numbers -> {OUT}")
+    R_.write(OUT, md)
     print({e: {lv: E[e]["src"][lv]["kind"] for lv in LEVELS} for e in EPOCHS})
 
 

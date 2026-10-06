@@ -118,9 +118,17 @@ default is `False`. Emits (harmless) pandas `SettingWithCopyWarning`s and a
 (dataset-inherent, not a bug in this call) — check the warning's mouse list
 against real ephys-QC exclusions before treating it as expected.
 
-Area-group color palette: `allen_utils.get_custom_area_groups_colors()`
-returns a `dict[group_name -> hex]`, keyed by the **current** (split) group
-names. Use this, not a generic matplotlib color cycle, for any figure that
+Area-group color palette (user rule, 2026-10-06, every figure of every project):
+`ephys_utilities.allen_utils.allen_utils.get_custom_area_groups_colors()` (import
+`from ephys_utilities.allen_utils import allen_utils`; repo `Github/ephys_utilities` on the share,
+`~/code/ephys_utilities` on haas) returns a `dict[group_name -> hex]` keyed by the **current**
+(split) group names of the unit table's `area_group` ("Motor areas", "Frontal areas", "Striatum",
+"Somatosensory-whisker", ...), one distinct colour per group: use it as is. Fine areas
+(`area_acronym_custom`) get shades of their group's colour, with membership from
+`get_custom_area_groups_from_name()` of the same module. Do NOT use the standalone
+`allen_utils` repo (`~/code/allen_utils`, `Github/allen_utils`): its palette has old combined groups
+("Motor and frontal areas", "Striatum and pallidum") whose members share one colour.
+Use this, not a generic matplotlib color cycle, for any figure that
 compares/overlays areas — see the cross-area-communication project's own
 locked convention (`ssl_cross_area_rplus_rminus_colors` memory) for the
 separate R+/R- cohort-color convention, which is unrelated to and layered on
