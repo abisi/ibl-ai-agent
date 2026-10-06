@@ -55,6 +55,20 @@ def main():
     T = pd.DataFrame(rows)
     (HOME / "tables").mkdir(exist_ok=True)
     T.to_csv(HOME / "tables" / "sample_sizes.csv", index=False)
+    # trial-sequence diagnostic (2026-10-06, passive pre-stimulus decoding offset): per session, trials in time order;
+    # P(same type as the previous trial) vs its value for an independent sequence, and the whisker fraction in the first
+    # and second half of the session's trials (passive: roughly the pre- and post-task blocks)
+    seq = []
+    for epoch in ("passive", "active"):
+        for sid, s in sessions(epoch).items():
+            y = s["y"].astype(int)
+            if len(y) < 10:
+                continue
+            p, h = y.mean(), len(y) // 2
+            seq.append(dict(epoch=epoch, session_id=sid, n_trials=len(y), p_whisker=p, p_repeat=(y[1:] == y[:-1]).mean(),
+                            p_repeat_independent=p ** 2 + (1 - p) ** 2, p_whisker_first_half=y[:h].mean(),
+                            p_whisker_second_half=y[h:].mean()))
+    pd.DataFrame(seq).to_csv(HOME / "tables" / "trial_sequence_check.csv", index=False)
     print(T[T.level == "area_group"].to_string(index=False))
 
 

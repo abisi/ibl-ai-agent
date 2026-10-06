@@ -36,6 +36,8 @@ corrected accuracy = real - mean of 10 within-session label shuffles; 100 iterat
 | 005_final_n200.py | final N = 200 onsets (500 x 20; only iterations 0-499 used), main figures, summaries |
 | 006_active_vs_passive.py | task vs passive: onset, early accuracy, pre-stimulus baseline (paired Wilcoxon + t over areas), time courses |
 | 007_iteration_check.py | 100 vs 1000 iterations at N = 200 (task trials) |
+| 008_sample_sizes.py | sessions / mice / units / trials per area, level and condition; trial-sequence check |
+| 009_area_ranking.py | areas ordered by peak accuracy and by accuracy at onset |
 | report/build_report.py, render.sh | report sources (haas) and PDF / HTML render (local) |
 
 ## Decisions (user, 2026-10-04)
