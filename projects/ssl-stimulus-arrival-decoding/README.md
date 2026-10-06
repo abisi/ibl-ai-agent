@@ -10,7 +10,10 @@ Results (not in git), all under `combined_results_ks4/ssl-stimulus-arrival-decod
 |---|---|
 | `active/` | task (active) trials, N = 20-500, 100 iterations x 10 shuffles; matched accuracy |
 | `passive/` | passive trials (pre + post), N = 20-500, 100 x 10 |
-| `final_n200/` | task (active) trials, N = 200 only, 1000 x 20 (final onsets); reads `active/cache_all` |
+| `active_final_n200/` | task trials, N = 200 only, 500 x 20 (final onsets; 21 areas first run to 1000, iterations 0-499 used); reads `active/cache_all` |
+| `passive_final_n200/` | passive trials, N = 200 only, 500 x 20 (final onsets); reads `passive/cache_all` |
+| `tables/`, `figures/` | cross-epoch outputs (006 task vs passive, 007 iteration check) |
+| `report/` | article-style report (build_report.py on haas, render.sh locally) |
 
 ## Method (short)
 
@@ -29,20 +32,26 @@ corrected accuracy = real - mean of 10 within-session label shuffles; 100 iterat
 | 001_arrival_pseudopop.py | `--cache` per-session rate cache; decoding sweep (area x N x iteration chunks, resumable); `--runs-file` for extra runs |
 | 002_arrival_summary.py | summaries (onsets, early accuracy), time-course / accuracy-vs-N / onset-vs-accuracy figures |
 | 003_matched_accuracy.py | `--plan` / `--plot`: neurons needed to match a reference area's early accuracy |
-| 004_main_figures.py | main (N = 200) and summary figures per level, onset bootstrap |
+| 004_main_figures.py | main (N = 200) and summary figures per level, onset bootstrap; unreliable onsets (95 % range > 10 ms) flagged |
+| 005_final_n200.py | final N = 200 onsets (500 x 20; only iterations 0-499 used), main figures, summaries |
+| 006_active_vs_passive.py | task vs passive: onset, early accuracy, pre-stimulus baseline (paired Wilcoxon + t over areas), time courses |
+| 007_iteration_check.py | 100 vs 1000 iterations at N = 200 (task trials) |
+| report/build_report.py, render.sh | report sources (haas) and PDF / HTML render (local) |
 
 ## Decisions (user, 2026-10-04)
 
-- Final onsets: N = 200 only, 1000 iterations x 20 shuffles, all 18 groups + 40 areas, after the passive sweep
-  (`~/cArrFinal.sh` on haas -> `combined_results_ks4/ssl-stimulus-arrival-decoding/final_n200/`, `005_final_n200.py`). Other N stay at
-  pilot sampling (100 x 10).
+- Final onsets: N = 200 only, all 18 groups + 40 areas, task and passive trials. 2026-10-06: 500 iterations x 20 shuffles
+  is the default (100 vs 1000 iterations agree, 007); `~/cArr500.sh` on haas (active remaining areas, then passive), then
+  `~/cArr500_after.sh` reruns 006 and the report sources. Other N stay at pilot sampling (100 x 10).
 - No further controls for now (licked-only, cohort / stage, artefact variant): passive trials only.
 
 ## TODO
 
-- [X] Overnight: active sweep -> 002 -> 003 -> 004 ("ACTIVE ALL DONE", 10-05 04:02), passive sweep ("PASSIVE DONE",
-      10-06 01:29). Final N = 200 run (active only) running since 10-06 01:34 ("FINAL N200 DONE"). Compare with `combined_results_ks4/_snapshots/2026-10-04_2200/stimulus_arrival/`.
-- [X] Results moved to `combined_results_ks4/ssl-stimulus-arrival-decoding/{active,passive}` (2026-10-06); `final_n200/` is
-      moved automatically when the run ends (`~/mvArrFinal.sh` on haas, log `~/log/mvArrFinal.log`).
-- [ ] Use the final N = 200 onsets in report and deck once available.
+- [X] Overnight 10-04/05: active sweep + 002-004, passive sweep; results moved to the project home (2026-10-06).
+- [X] Iteration check (007, see report); default 500 x 20 (2026-10-06).
+- [X] Task vs passive figure (006); unreliable onsets flagged (004); first report build (2026-10-06, provisional onsets).
+- [ ] Final N = 200 runs at 500 x 20 (running: `~/log/cArr500.log`); then render the report locally (`report/render.sh`)
+      and publish.
+- [ ] Passive pre-stimulus decoding offset (corrected accuracy above 0 before onset; see report): rerun with an order-preserving null
+      (circular / linear label shift within session) before interpreting task vs passive onset differences. ASK USER.
 - [ ] Link single-neuron latency and population onset with all 18 groups (`build_deck_assets.py` link panel).

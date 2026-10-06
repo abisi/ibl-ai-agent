@@ -32,6 +32,8 @@ AR = importlib.import_module("_areas")
 m2 = importlib.import_module("002_arrival_summary")
 OUT, FIG = m2.OUT, m2.FIG
 N_MAIN, N_BOOT, N_CURVES = 200, 1000, 8
+WIDE_RANGE_MS = 10          # onset flagged as unreliable (dagger, faded bar) when its 95 % range spans > 10 ms or the
+MIN_DEFINED = 0.95          # onset is undefined in > 5 % of the resamples (user 2026-10-06: flag, do not rank)
 LEVEL_NAME = {"area_group": "area groups", "area_acronym_custom": "areas"}
 SHORT = {"Somatosensory-whisker": "SS-whisker", "Somatosensory-orofacial": "SS-orofacial", "Somatosensory-body": "SS-body",
          "Auditory areas": "Auditory", "Motor areas": "Motor", "Frontal areas": "Frontal", "Retrosplenial areas": "Retrosplenial",
@@ -145,10 +147,20 @@ def curves(ax, B, OB, level, areas, res, xlim, col, ylim=(-0.03, 0.52)):
     ax.set_xlabel("Time from stimulus onset (ms)")
 
 
+def unreliable(OB):
+    """onsets whose 95 % range over resamples is wider than WIDE_RANGE_MS, or undefined in too many resamples"""
+    return ((OB.hi - OB.lo) > WIDE_RANGE_MS) | (OB.frac_defined < MIN_DEFINED) | OB.onset_ms.isna()
+
+
 def ranking(ax, OB, level, areas, col):
     q = OB[OB.level == level].set_index("area").reindex(areas)
+    q["flag"] = unreliable(q)
     y = np.arange(len(q))
     ax.barh(y, q.onset_ms, color=[col[a] for a in q.index], height=0.7, lw=0)
+    for yi, (a, r) in zip(y, q.iterrows()):
+        if r.flag and np.isfinite(r.onset_ms):            # faded, hatched bar for an unreliable onset
+            ax.barh(yi, r.onset_ms, color="white", alpha=0.6, height=0.7, lw=0)
+            ax.barh(yi, r.onset_ms, color="none", edgecolor=col[a], hatch="////", height=0.7, lw=0.4)
     ax.errorbar(q.onset_ms, y, xerr=[q.onset_ms - q.lo, q.hi - q.onset_ms], fmt="none", ecolor="0.2", lw=0.5, capsize=0)
     fs = 4.3 if len(areas) > 20 else 5
     ax.set_yticks(y, [label(a) for a in q.index], fontsize=fs)
@@ -156,10 +168,11 @@ def ranking(ax, OB, level, areas, col):
         tl.set_color(col.get(a, "k"))
     for yi, v, h in zip(y, q.onset_ms, q.hi):
         xt = (np.nanmax([v, h]) if np.isfinite(v) else 0) + 0.5
-        ax.text(xt, yi, f"{v:.0f}" if np.isfinite(v) else "n.s.", va="center", fontsize=fs - 0.3, color="0.3")
+        ax.text(xt, yi, (f"{v:.0f}" if np.isfinite(v) else "n.s.") + ("†" if q.flag.iloc[yi] and np.isfinite(v) else ""),
+                va="center", fontsize=fs - 0.3, color="0.3")
     ax.set_ylim(len(q) - 0.5, -0.5)
     ax.set_xlim(0, np.nanmax(q.hi) * 1.2)
-    ax.set_xlabel("Onset (ms)")
+    ax.set_xlabel("Onset (ms)" + (f"\n† unreliable: 95 % range > {WIDE_RANGE_MS} ms" if q.flag.any() else ""))
     ax.tick_params(axis="y", length=0)
 
 
@@ -301,17 +314,18 @@ def summary_figure(plt, D, B, O, W, OB, level, col):
     plt.close(fig)
 
 
-def captions(OB):
+def captions(OB, n_iter, n_shuf):
     lines = [f"# Stimulus-modality decoding ({EPOCH_WORD})", "",
              f"**Where and when can stimulus modality be decoded?** Pseudo-population decoding of whisker vs auditory "
              f"{EPOCH_WORD}, all sessions pooled (both cohorts, learning day and expert days; good + mua neurons; whisker-"
              "artefact-corrected spikes). One iteration: 20 sessions drawn with replacement, N/20 neurons of the area drawn "
              "within each, pseudo-trials built by balanced reuse of each session's trials; L2 logistic regression per time bin "
-             "(3-fold cross-validation on real trials, inner 2-fold for the regularisation); the same draw re-decoded 10 times "
+             f"(3-fold cross-validation on real trials, inner 2-fold for the regularisation); the same draw re-decoded {n_shuf} times "
              "with trial labels shuffled within sessions; corrected balanced accuracy = real - mean shuffled (0 = chance, "
-             "0.5 = perfect). 100 iterations (pilot value). Above chance in a bin: 5th percentile over iterations > 0. Onset: "
+             f"0.5 = perfect). {n_iter} iterations. Above chance in a bin: 5th percentile over iterations > 0. Onset: "
              "first post-stimulus bin above chance with >= 80 % of the bins in the next 25 ms above chance (20-ms bins, 2-ms "
-             "steps, labelled at their end); onset ranges: 95 % range over 1000 resamples of the iterations. Area groups and "
+             "steps, labelled at their end); onset ranges: 95 % range over 1000 resamples of the iterations; † onset "
+             f"unreliable (95 % range > {WIDE_RANGE_MS} ms or undefined in > 5 % of the resamples), not ranked. Area groups and "
              "areas (40 best-sampled) are shown in separate figures; colours: allen_utils area-group palette, areas in shades "
              "of their group.", ""]
     for level in ("area_group", "area_acronym_custom"):
@@ -333,7 +347,7 @@ def main():
         if (OB.level == level).any():
             main_figure(plt, D, B, OB, level, col)
             summary_figure(plt, D, B, O, W, OB, level, col)
-    captions(OB)
+    captions(OB, int(D.rep.nunique()), int(D.n_shuffles.iloc[0]))
     print("ALL DONE", FIG)
 
 

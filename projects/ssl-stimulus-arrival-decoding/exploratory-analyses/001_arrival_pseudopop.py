@@ -64,8 +64,8 @@ COARSE, FINE, LEVELS = AR.COARSE, AR.FINE, AR.LEVELS
 N_LIST = [20, 50, 100, 200, 300, 500]
 N_SESS = 20
 MIN_UNITS, MIN_TRIALS = 5, 3
-N_SHUF = int(os.environ.get("ARRIVAL_NSHUF", "10"))  # PILOT value 10; final N = 200 run: 20 (user 2026-10-04)
-N_ITER = 100                                  # PILOT value
+N_SHUF = int(os.environ.get("ARRIVAL_NSHUF", "20"))  # 20 (final N = 200 runs, user 2026-10-04); N-sweep runs used 10
+N_ITER = 500                                  # default (user 2026-10-06: 500 vs 1000 iterations agree, see change-log); N-sweep runs before that used 100
 CHUNK = 5
 C_GRID = 1.0 / np.array([1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10])     # = scripts/ssl_bwm_decoding.C_GRID (002's grid)
 
@@ -289,7 +289,9 @@ def main(a):
                    n_inner=m2.N_INNER, engine=m2.ENGINE, c_grid=CGRID.tolist(), wide="causal 50 ms / 5 ms, -200..600 ms",
                    zoom="causal 20 ms / 2 ms, -20..100 ms", null="trial shuffle within session, C fixed from real decode",
                    spikes="NWB_ks4, whisker-artefact Poisson correction (roc_utils_new), seeded per session",
-                   trials="active, perf!=6, warm-up cut, A1 trim; all whisker vs all auditory",
+                   trials=("active, perf!=6, warm-up cut, A1 trim; all whisker vs all auditory" if AR.EPOCH == "active" else
+                           "passive (fixed ~3 s ITI or labelled passive; pre + post pooled; perf 6 kept); all whisker vs all auditory"),
+                   epoch=AR.EPOCH,
                    units="good+mua, v2 unit table", sessions=sorted(SESS), stages_cohorts="pooled",
                    date=time.strftime("%Y-%m-%d %H:%M")), open(OUT / "provenance_001.json", "w"), indent=1)
     print(f"ALL DONE {time.time() - t0:.0f}s", flush=True)
