@@ -50,8 +50,11 @@ def main(a):
     rng = np.random.default_rng(0)
     with plt.rc_context({"font.size": 5.5, "axes.titlesize": 5.8, "axes.labelsize": 5.5, "xtick.labelsize": 5,
                          "ytick.labelsize": 5, "legend.fontsize": 4.8}):
-        fig = plt.figure(figsize=(m62.W_IN, 2.55))
-        gs = fig.add_gridspec(1, 4, width_ratios=[1, 1, 1.05, 1.55], wspace=0.55, left=0.06, right=0.9, top=0.78, bottom=0.17)
+        fig = plt.figure(figsize=(m62.W_IN, 5.0))
+        outer = fig.add_gridspec(2, 1, height_ratios=[1, 1.15], hspace=0.55, left=0.06, right=0.9, top=0.9, bottom=0.08)
+        top = outer[0].subgridspec(1, 4, wspace=0.5)
+        bot = outer[1].subgridspec(1, 2, width_ratios=[1.0, 2.3], wspace=0.35)
+        gs = {(0, 0): top[0], (0, 1): top[1], (0, 2): bot[0], (0, 3): bot[1]}
         axs = []
         # a, b: day-0 trajectories
         for j, coh in enumerate(("R+", "R-")):
@@ -65,7 +68,28 @@ def main(a):
             if j == 0:
                 ax.set_ylabel("Pre-lick score on reward-lick axis\n(spont. lick = 0, auditory hit = 1)")
                 ax.legend(frameon=False, loc="upper left", handlelength=1.0, borderaxespad=0.1)
-        # c: day-0 drift per session
+        # c, d: within-session differences WH - SL (distance from SL) and AH - WH (distance to AH), cohorts overlaid
+        axs_cd = []
+        for j, (col, ylab, ttl) in enumerate((("WH_SL", "Whisker hit − spont. lick\n(score difference)",
+                                               "Whisker hits separate from\nspontaneous licks (R+)"),
+                                              ("AH_WH", "Auditory hit − whisker hit\n(score difference)",
+                                               "Whisker hits approach\nauditory hits (R+)"))):
+            ax = fig.add_subplot(top[2 + j]); axs_cd.append(ax)
+            for coh in ("R+", "R-"):
+                n = m011.traj(ax, D, coh, "learning", [col], [COH[coh]], [f"{coh.replace('-', '−')}"])
+                d_ = D[(D.cohort == coh) & (D.stage == "learning")]
+                b_ = d_.groupby("session_id").apply(lambda g: np.polyfit(g.bin, g[col], 1)[0] if g[col].notna().sum() >= 3 else np.nan,
+                                                    include_groups=False)
+                rows.append(dict(panel="c" if j == 0 else "d", measure=f"{col} binned slope", cohort=coh, n=int(b_.notna().sum()),
+                                 mean=b_.mean(), sem=b_.sem()))
+            ax.axhline(0, color="0.6", lw=0.5, ls=":")
+            ax.set_xlim(0, 1); ax.set_xlabel("Time in session (normalised)"); ax.set_ylabel(ylab)
+            ax.set_title(ttl, fontsize=5.4)
+            ax.legend(frameon=False, loc="upper left", handlelength=1.0)
+        yl = (min(x.get_ylim()[0] for x in axs_cd), max(x.get_ylim()[1] for x in axs_cd))
+        for x in axs_cd:
+            x.set_ylim(*yl)
+        # e: day-0 drift per session
         ax = fig.add_subplot(gs[0, 2]); axs.append(ax)
         for i, (col, lab) in enumerate((("drift_WH_SL", "vs spont.\nlick"), ("drift_WH_AH", "vs auditory\nhit"))):
             r = dict(panel="c", measure=col)
@@ -86,7 +110,7 @@ def main(a):
         ax.set_xticks([0.225, 1.375], ["vs spont. lick", "vs auditory hit"])
         ax.set_xlim(-0.3, 1.9)
         ax.set_ylabel("Whisker-hit drift over the session\n(β_WH − β_ref, CD units)")
-        ax.set_title("Whisker hits drift toward (R+) or\naway from (R−) rewarded licks", fontsize=5.4)
+        ax.set_title("Whisker-hit drift relative to the\nreference class, per session", fontsize=5.4)
         from matplotlib.lines import Line2D
         ax.legend(handles=[Line2D([], [], marker="o", ls="", color=COH[c], mfc="white", ms=3, label=c.replace("-", "−"))
                            for c in ("R+", "R-")], frameon=False, loc="lower left", fontsize=4.6)
@@ -112,15 +136,66 @@ def main(a):
             dots_d(fig, gs[0, 3], TT, order, gcol, axs)
         else:
             matrix_d(fig, gs[0, 3], Ti, order, gcol, axs)
-        m62.letter_row(fig, axs[:3], "abc", dx_in=0.35, dy_in=0.15)
-        m62.letter_row(fig, axs[3:4], "d", dx_in=0.55, dy_in=0.3)
-        fig.suptitle("On the learning day, whisker-hit pre-lick activity drifts toward the rewarded-lick pattern in R+ mice "
-                     "and away from it in R− mice", x=0.02, y=0.995, ha="left", va="top", fontsize=6.6, weight="bold")
+        m62.letter_row(fig, axs[:2] + axs_cd, "abcd", dx_in=0.35, dy_in=0.15)
+        m62.letter_row(fig, axs[2:3], "e", dx_in=0.35, dy_in=0.25)
+        m62.letter_row(fig, axs[3:4], "f", dx_in=0.55, dy_in=0.3)
+        fig.suptitle("On the learning day, whisker-hit pre-lick activity converges toward the rewarded-lick pattern in R+ mice, "
+                     "not in R− mice", x=0.02, y=0.995, ha="left", va="top", fontsize=6.6, weight="bold")
         tag = ("_strict" if a.strict else "") + ("_dots" if a.dots else "")
         m62.save(fig, out, f"COSYNE_day0{tag}"); plt.close(fig)
     R = pd.DataFrame(rows); R.to_csv(out / f"COSYNE_day0{tag}_stats.csv", index=False)
+    E = drift_estimators(T[T.stage == "learning"], D[D.stage == "learning"])
+    E.to_csv(out / "drift_estimators.csv", index=False)
     with pd.option_context("display.width", 250):
-        print(R.round(4).to_string())
+        print(R.round(4).to_string()); print(E.round(4).to_string())
+
+
+def drift_estimators(T, D):
+    """day-0 drift of WH relative to a reference class, several estimators (user 2026-10-07: is the drift the best
+    quantification?): ols = beta_WH - beta_ref (OLS on single trials; figure), theil = the same with Theil-Sen slopes
+    (robust to outlying trials), binned = OLS slope of the per-bin difference WH - ref over the 5 tau bins x 5 (one point per
+    bin, so each part of the session weighs equally whatever its event count; scaled to the whole session), half =
+    [WH - ref](late half) - [WH - ref](early half) (no linearity assumed). R+ vs R- per estimator (mouse-level permutation,
+    MWU, Welch) and Spearman correlation of each estimator with ols across sessions."""
+    per = []
+    for sid, g in T.dropna(subset=["cd"]).groupby("session_id"):
+        r = dict(session_id=sid, mouse_id=g.mouse_id.iloc[0], cohort=g.cohort.iloc[0], stage=g.stage.iloc[0])
+        sl = {}
+        for k in ("WH", "AH", "FA"):
+            q = g[g.cls == k]
+            if len(q) >= 3 and q.tau.std() > 0:
+                sl[("ols", k)] = np.polyfit(q.tau, q.cd, 1)[0]
+                sl[("theil", k)] = stats.theilslopes(q.cd, q.tau)[0]
+                h = q.tau >= 0.5
+                sl[("half", k)] = q.cd[h].mean() - q.cd[~h].mean() if h.any() and (~h).any() else np.nan
+        for ref, nm in (("FA", "SL"), ("AH", "AH")):
+            for est in ("ols", "theil", "half"):
+                if (est, "WH") in sl and (est, ref) in sl:
+                    r[f"{est}_WH_{nm}"] = sl[(est, "WH")] - sl[(est, ref)]
+        per.append(r)
+    P = pd.DataFrame(per)
+    for col, nm in (("WH_SL", "SL"), ("AH_WH", "AH")):
+        b = D.groupby("session_id").apply(lambda g: np.polyfit((g.bin + 0.5) / 5, g[col], 1)[0] if g[col].notna().sum() >= 3
+                                          else np.nan, include_groups=False)
+        P[f"binned_WH_{nm}"] = P.session_id.map(b) * (1 if col == "WH_SL" else -1)        # sign: WH moving toward AH > 0
+    rows = []
+    for nm in ("SL", "AH"):
+        for est in ("ols", "theil", "binned", "half"):
+            col = f"{est}_WH_{nm}"
+            d = P.dropna(subset=[col])
+            x, y = d[d.cohort == "R+"][col], d[d.cohort == "R-"][col]
+            _, pp = m001.perm_interaction(d, col, kind="learning")
+            rho = stats.spearmanr(d[col], d[f"ols_WH_{nm}"])[0] if est != "ols" else 1.0
+            rows.append(dict(reference=nm, estimator=est, n_Rplus=len(x), n_Rminus=len(y), mean_Rplus=x.mean(), mean_Rminus=y.mean(),
+                             hedges_g=m017_hedges(x, y), p_perm=pp, p_MWU=stats.mannwhitneyu(x, y).pvalue,
+                             p_Welch=stats.ttest_ind(x, y, equal_var=False).pvalue, rho_with_ols=rho))
+    return pd.DataFrame(rows)
+
+
+def m017_hedges(a, b):
+    na, nb = len(a), len(b)
+    sp = np.sqrt(((na - 1) * a.var(ddof=1) + (nb - 1) * b.var(ddof=1)) / (na + nb - 2))
+    return (a.mean() - b.mean()) / sp * (1 - 3 / (4 * (na + nb) - 9))
 
 
 def dots_d(fig, spec, TT, order, gcol, axs):
@@ -128,6 +203,7 @@ def dots_d(fig, spec, TT, order, gcol, axs):
     one column per drift, then R+ vs R- permutation p and FDR q per drift"""
     sub = spec.subgridspec(1, 3, width_ratios=[1, 1, 0.75], wspace=0.08)
     y = None
+    i0 = len(axs)
     for j, (col, lab) in enumerate((("drift_WH_SL", "vs spont. lick"), ("drift_WH_AH", "vs auditory hit"))):
         ax = fig.add_subplot(sub[0, j]); axs.append(ax)
         y, _ = m017.forest(ax, TT[TT.measure == col], order, j == 0, gcol, xlabel=False)
@@ -143,8 +219,7 @@ def dots_d(fig, spec, TT, order, gcol, axs):
             axp.text(0.0 + 0.5 * k, y[i], f"{m017.fp(p)}\n({m017.fp(q)})", fontsize=3.9, va="center", linespacing=1.0,
                      color="#D62728" if p < 0.05 else "0.35", weight="bold" if q < 0.05 else "normal")
     axp.set_xlim(0, 1)
-    axs[3].set_title(axs[3].get_title(), fontsize=5.2, pad=2)
-    fig.text(axs[3].get_position().x0, axs[3].get_position().y1 + 0.075, "Day-0 drift per area group (filled: ≠ 0; bold q < 0.05)",
+    fig.text(axs[i0].get_position().x0, axs[i0].get_position().y1 + 0.04, "Day-0 drift per area group (filled: ≠ 0; bold q < 0.05)",
              fontsize=5.4, ha="left")
 
 
