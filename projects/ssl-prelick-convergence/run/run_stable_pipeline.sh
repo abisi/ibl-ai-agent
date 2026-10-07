@@ -26,7 +26,7 @@ run() {  # run <name> <script> [args...]
 
 echo "$(date '+%F %T') PIPELINE START (PRELICK_UNITS=stable)" >> $STATUS
 run 053 $EA/053_roc_prelick_table.py
-mkdir -p $B/across_days/sl_stable/extras
+mkdir -p $B/across_days/sl_stable/extras $B/within_day/sl_stable/cosyne   # 010 writes into cosyne/ before 005 creates it
 cp $B/across_days/sl/extras/performance_sessions.csv $B/across_days/sl_stable/extras/ 2>/dev/null
 run 061 $EA/061_roc_prelick_learners.py
 
