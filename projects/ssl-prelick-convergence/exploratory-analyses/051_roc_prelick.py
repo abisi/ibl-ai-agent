@@ -100,6 +100,14 @@ def resolve_context(t):
 def select_trials(trials, sid=None):
     """active (resolve_context), perf != 6, warm-up cut (with the WARMUP_KEEP_AH exception), rule A1; returns
     (classified trials, log)"""
+    t, log = active_trials(trials, sid)
+    return classify(t, log)
+
+
+def active_trials(trials, sid=None):
+    """all trials of the analysed task epoch (any type / outcome): active (resolve_context), perf != 6, warm-up cut
+    (with the WARMUP_KEEP_AH exception), rule A1; returns (trials, log). Split out of select_trials (2026-10-07) so that
+    behaviour (hit / FA rates) is computed on exactly the analysed trials."""
     t = trials.sort_values("start_time").reset_index(drop=True)
     log = dict(n_all=len(t))
     ctx = resolve_context(t)
@@ -127,6 +135,12 @@ def select_trials(trials, sid=None):
             t = t.iloc[:licked[-1] + 1].reset_index(drop=True)
             log["a1_trimmed"] = len(tail)
     log["epoch"] = (float(t.start_time.min()), float(t.stop_time.max())) if len(t) else (np.nan, np.nan)
+    return t, log
+
+
+def classify(t, log):
+    """events of the analysed trials: corrected first lick, pre-trial baseline window, class WH / AH / FA"""
+    t = t.copy()
     t["reaction_time"] = t["lick_time"] - t["response_window_start_time"]
     t["first_lick_time"] = t["start_time"] + t["reaction_time"]
     t["base_lo"], t["base_hi"] = t.start_time + BASE[0], t.start_time + BASE[1]
