@@ -59,6 +59,7 @@ def session_table(T):
     B = pd.DataFrame(bins)
     D = B.pivot_table(index=["session_id", "cohort", "stage", "bin"], columns="cls", values="score").reset_index()
     D["WH_SL"] = D.WH - D.FA
+    D["AH_WH"] = D.AH - D.WH                               # distance of whisker hits to auditory hits along the CD
     return S, B, D
 
 
@@ -113,8 +114,8 @@ def main(a):
     TT = tests(S)
     TT.to_csv(out / "tests.csv", index=False)
     rng = np.random.default_rng(0)
-    fig = plt.figure(figsize=(m62.W_IN, 7.6))
-    gs = fig.add_gridspec(3, 4, hspace=0.75, wspace=0.55, left=0.08, right=0.98, top=0.93, bottom=0.06)
+    fig = plt.figure(figsize=(m62.W_IN, 9.8))
+    gs = fig.add_gridspec(4, 4, hspace=0.8, wspace=0.55, left=0.08, right=0.98, top=0.95, bottom=0.05)
     # row 1: class trajectories per cohort x stage
     axs1 = []
     for j, (coh, (st, sl)) in enumerate([(c, s) for c in ("R+", "R-") for s in STG]):
@@ -125,30 +126,36 @@ def main(a):
         ax.set_xlabel("Time in session τ"); ax.set_xlim(0, 1); ax.set_ylim(-0.4, 1.5)
         if j == 0:
             ax.set_ylabel("Reward-lick CD score\n(SL = 0, AH = 1)"); ax.legend(frameon=False, fontsize=4.6, loc="upper left")
-    # row 2: WH - SL trajectories, day 0 vs expert; drift per session
+    # row 2: WH - SL (distance from SL) and AH - WH (distance to AH) trajectories, day 0 (dashed) vs expert (solid)
     axs2 = []
-    for j, coh in enumerate(("R+", "R-")):
+    for j, (col, coh) in enumerate([(c, h) for c in ("WH_SL", "AH_WH") for h in ("R+", "R-")]):
         ax = fig.add_subplot(gs[1, j]); axs2.append(ax)
         for st, sl in STG:
-            n = traj(ax, D, coh, st, ["WH_SL"], [m62.COH[coh]], [f"{sl}"], ls="--" if st == "learning" else "-",
-                     mfc="white" if st == "learning" else None)
+            traj(ax, D, coh, st, [col], [m62.COH[coh]], [f"{sl}"], ls="--" if st == "learning" else "-",
+                 mfc="white" if st == "learning" else None)
         ax.axhline(0, color="0.6", lw=0.5, ls=":")
-        ax.set_xlabel("Time in session τ"); ax.set_ylabel("CD score, WH − SL"); ax.set_xlim(0, 1)
+        ax.set_xlabel("Time in session τ"); ax.set_xlim(0, 1)
+        ax.set_ylabel("CD score, WH − SL" if col == "WH_SL" else "CD score, AH − WH")
         ax.legend(frameon=False, fontsize=4.6, loc="upper left")
-        ax.set_title(f"{coh.replace('-', '−')}: WH relative to SL", color=m62.COH[coh], fontsize=5.8)
-    for j, (col, ttl) in enumerate([("drift_WH_SL", "Drift of WH relative to SL\nβ_WH − β_SL per session"),
-                                    ("drift_WH_AH", "Drift of WH relative to AH\nβ_WH − β_AH per session")]):
-        ax = fig.add_subplot(gs[1, 2 + j]); axs2.append(ax)
-        m62.dots_panel(ax, S, col, "Change over one session" if j == 0 else "", rng, f"W-cd {col}", ttl, ref=[(0, "0.6")])
-        ax.set_title(ax.get_title(), fontsize=5.4)
-    # row 3: per-class slopes (what moves), and the mixed model
+        ax.set_title(f"{coh.replace('-', '−')}: " + ("WH distance from SL" if col == "WH_SL" else "WH distance to AH"),
+                     color=m62.COH[coh], fontsize=5.8)
+    for a_, b_ in ((0, 1), (2, 3)):
+        yl = (min(axs2[a_].get_ylim()[0], axs2[b_].get_ylim()[0]), max(axs2[a_].get_ylim()[1], axs2[b_].get_ylim()[1]))
+        axs2[a_].set_ylim(*yl); axs2[b_].set_ylim(*yl)
+    # row 3: drifts per session (relative to SL, relative to AH) and per-class slopes of WH and SL
     axs3 = []
-    for j, (col, ttl) in enumerate([("beta_WH", "Slope of WH score β_WH"), ("beta_FA", "Slope of SL score β_SL"),
-                                    ("beta_AH", "Slope of AH score β_AH")]):
+    for j, (col, ttl) in enumerate([("drift_WH_SL", "Drift of WH relative to SL\nβ_WH − β_SL per session"),
+                                    ("drift_WH_AH", "Drift of WH relative to AH\nβ_WH − β_AH per session"),
+                                    ("beta_WH", "Slope of WH score β_WH"), ("beta_FA", "Slope of SL score β_SL")]):
         ax = fig.add_subplot(gs[2, j]); axs3.append(ax)
         m62.dots_panel(ax, S, col, "Change over one session" if j == 0 else "", rng, f"W-cd {col}", ttl, ref=[(0, "0.6")])
         ax.set_title(ax.get_title(), fontsize=5.4)
-    ax = fig.add_subplot(gs[2, 3]); axs3.append(ax)
+    # row 4: slope of AH score, and the mixed model
+    axs4 = []
+    ax = fig.add_subplot(gs[3, 0]); axs4.append(ax)
+    m62.dots_panel(ax, S, "beta_AH", "Change over one session", rng, "W-cd beta_AH", "Slope of AH score β_AH", ref=[(0, "0.6")])
+    ax.set_title(ax.get_title(), fontsize=5.4)
+    ax = fig.add_subplot(gs[3, 1:3]); axs4.append(ax)
     MM = pd.read_csv(m51.WITHIN / "mixed_model" / "mixed_model_terms.csv")
     for k_, (ref_, mk) in enumerate((("spontaneous licks", "o"), ("auditory hits", "s"))):
         for i, (st, sl) in enumerate(STG):
@@ -161,8 +168,9 @@ def main(a):
     ax.set_xticks([0, 1, 2, 3], ["D0\nvs SL", "D0\nvs AH", "Exp.\nvs SL", "Exp.\nvs AH"], fontsize=4.8)
     ax.set_ylabel("WH drift (mixed model, ± 95 % CI)"); ax.set_title("Mixed model (all mice)", fontsize=5.6)
     m62.letter_row(fig, axs1, "abcd"); m62.letter_row(fig, axs2, "efgh"); m62.letter_row(fig, axs3, "ijkl")
+    m62.letter_row(fig, axs4, "mn")
     fig.suptitle(f"Reward-lick coding direction within sessions: learning day and expert sessions ({a.population})",
-                 x=0.02, y=0.995, ha="left", va="top", fontsize=7, weight="bold")
+                 x=0.02, y=0.997, ha="left", va="top", fontsize=7, weight="bold")
     m62.save(fig, out, "cd_trajectories"); plt.close(fig)
     pd.DataFrame(m62.STATS).to_csv(out / "stats_dots.csv", index=False)
     print(TT.round(4).T.to_string())
