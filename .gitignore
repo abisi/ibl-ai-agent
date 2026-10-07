@@ -36,7 +36,9 @@ projects/**
 projects/**/__pycache__/
 projects/ssl-prelick-convergence/**/__pycache__/
 projects/ssl-prelick-convergence/**/_render/
-projects/ssl-prelick-convergence/report/
+projects/ssl-prelick-convergence/report/*
+!projects/ssl-prelick-convergence/report/*.py
+!projects/ssl-prelick-convergence/report/*.sh
 projects/ssl-prelick-convergence/report_src/
 projects/ssl-prelick-convergence/LOCKED.md
 data/*
