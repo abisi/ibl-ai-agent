@@ -1523,9 +1523,9 @@ def fig4(plt, D, out, pop, rng, PR):
             mu, se = P[idx, kk].mean(0), P[idx, kk].std(0) / np.sqrt(max(len(idx), 1))
             ax.fill_between(tc, mu - se, mu + se, color=CL[c], alpha=0.25, lw=0); ax.plot(tc, mu, color=CL[c], lw=1.0, label=CLAB[c])
         ax.set_xlim(-600, 400); ax.set_xticks([-400, 0, 400]); ax.set_xlabel("Time from first lick (ms)")
-        ax.set_title(f"{short[g]}, {GLAB[k]}\n({len(idx)} units; mean ± s.e.m. over units)", color=COH[k[0]], fontsize=5.4)
+        ax.set_title(f"{short[g]}, {GLAB[k]}\n({len(idx)} units;\nmean ± s.e.m. over units)", color=COH[k[0]], fontsize=5.4)
         if j == 0:
-            ax.set_ylabel("Δ firing rate (Hz)"); ax.legend(frameon=False, loc="upper left", handlelength=1.2, fontsize=5)
+            ax.set_ylabel("Rate − baseline (spikes/s)"); ax.legend(frameon=False, loc="upper left", handlelength=1.2, fontsize=5)
     # e: same areas, mean over units within session then mean +- s.e.m. over sessions (pre-trial baseline)
     PB, KB, tcb = load_psth_prestart(W)
     Wb = W.merge(KB, on=["session_id", "electrode_group", "cluster_id"], how="inner")
@@ -1537,9 +1537,9 @@ def fig4(plt, D, out, pop, rng, PR):
         ns, nu = mouse_psth(ax, Wb, PB, tcb, tb & ((Wb.cohort == k[0]) & (Wb.stage == k[1]) & (Wb.area_group == g)).to_numpy(),
                             legend=(j == 0), min_units=1)
         ax.set_xlim(-600, 400); ax.set_xticks([-400, 0, 400]); ax.set_xlabel("Time from first lick (ms)")
-        ax.set_title(f"{short[g]}, {GLAB[k]}\n({ns} sessions, {nu} units)", color=COH[k[0]], fontsize=5.8)
+        ax.set_title(f"{short[g]}, {GLAB[k]}\n({ns} sessions, {nu} units;\nmean ± s.e.m. over sessions)", color=COH[k[0]], fontsize=5.4)
         if j == 0:
-            ax.set_ylabel("Rate − pre-trial\nbaseline (Hz)")
+            ax.set_ylabel("Rate − baseline (spikes/s)")
     fig.align_ylabels([axs_c[0], axs_d[0], axs_e[0]])
     letter_row(fig, [ax_a, ax_b], "ab", dx_in=0.75); letter_row(fig, axs_c[:1], "c"); letter_row(fig, axs_d[:1], "d")
     letter_row(fig, axs_e[:1], "e")
@@ -1639,10 +1639,23 @@ def fig5(plt, D, out, pop, rng):
               ("transfer_bin_corrected", f"Transfer − chance\n(0 = like {RA}, 1 = like AH)", "5b", "WH decoded as AH\n(yes/no), chance-corr.", [(0, CL["FA"]), (1, CL["AH"])]),
               ("transfer_prob_corrected", f"Transfer − chance\n(0 = like {RA}, 1 = like AH)", "5c", "WH decoded as AH\n(probability), chance-corr.", [(0, CL["FA"]), (1, CL["AH"])]),
               ("num_prob_corrected", f"P(AH|WH) − P(AH|{RA}) − chance", "5d", f"WH more AH-like than\n{RA}, chance-corrected", [(0, "0.6")])]
-    axs = [fig.add_subplot(gs[0, k]) for k in range(4)]
-    for ax, (col, yl, pid, ttl, ref) in zip(axs, panels):
-        dots_panel(ax, DC, col, yl, rng, pid, ttl, ref=ref)
+    g0 = gs[0, :].subgridspec(1, 5, wspace=0.75)
+    ax_raw = fig.add_subplot(g0[0])                     # raw accuracy with the per-session linear-shift chance (2026-10-07)
+    dots_panel(ax_raw, DC, "bacc", "Balanced accuracy (raw)", rng, "5a", f"Decoder AH vs {RA}:\nraw accuracy and chance",
+               ref=[(0.5, "0.75")])
+    for k in GROUPS:
+        nm = DC[(DC.cohort == k[0]) & (DC.stage == k[1])].bacc_null_median.dropna()
+        if len(nm):
+            lo, hi = np.percentile(nm, [2.5, 97.5])
+            ax_raw.add_patch(plt.Rectangle((XS[k] - 0.32, lo), 0.64, hi - lo, color="0.55", alpha=0.25, lw=0, zorder=0))
+            ax_raw.plot([XS[k] - 0.32, XS[k] + 0.32], [nm.median()] * 2, color="0.35", lw=0.9, zorder=1)
+    ax_raw.set_title(ax_raw.get_title(), fontsize=5.4)
+    axs = [ax_raw] + [fig.add_subplot(g0[k + 1]) for k in range(4)]
+    for ax, (col, yl, pid, ttl, ref) in zip(axs[1:], panels):
+        dots_panel(ax, DC, col, yl, rng, chr(ord(pid[0]) + 0) + chr(ord(pid[1]) + 1), ttl, ref=ref)
         ax.set_title(ax.get_title(), fontsize=5.4)
+    for ax in axs:                                      # five panels in a row: smaller stage labels
+        ax.tick_params(axis="x", labelsize=4.2)
     PP = D.get("pp"); PB_ = D.get("pp_boot")
     axs2 = [fig.add_subplot(gs[1, k]) for k in range(4)]
     axs3 = [fig.add_subplot(gs[2, k]) for k in range(4)]
@@ -1724,8 +1737,8 @@ def fig5(plt, D, out, pop, rng):
         ax.set_ylabel("Expert − learning\n(bootstrap 95% CI)")
         ax.set_title(f"Change at M = {Mmax} (filled: p < 0.05)\ntop: interaction p (permutation)", fontsize=5.0, pad=9)
         ax.legend(frameon=False, fontsize=4.6, loc="lower left")
-    letter_row(fig, axs, "abcd"); letter_row(fig, axs2, "efgh"); letter_row(fig, axs3, "ijkl")
-    fig.suptitle("Figure 5 | Decoders: single sessions (a–d) and hierarchical pseudo-populations (e–l), chance-corrected",
+    letter_row(fig, axs, "abcde"); letter_row(fig, axs2, "fghi"); letter_row(fig, axs3, "jklm")
+    fig.suptitle("Figure 5 | Decoders: single sessions (a raw, b–e chance-corrected) and hierarchical pseudo-populations (f–m)",
                  x=0.08, y=0.985, ha="left", fontsize=7.5, weight="bold")
     save(fig, out, "Fig5_decoders"); plt.close(fig)
 
