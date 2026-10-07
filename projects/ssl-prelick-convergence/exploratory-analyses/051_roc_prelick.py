@@ -60,8 +60,15 @@ NWB = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/NWB_ks4")
 REF = os.environ.get("PRELICK_REF", "fa")
 TAG = "" if REF == "fa" else f"_{REF}"
 HOME = RES / "ssl-prelick-convergence"   # project results home (2026-10-07; old _roc_prelick{,_sl} / _within_day_sl are symlinks)
-OUTROOT = HOME / "across_days" / REF      # across-day analyses (Part I), per reference (sl / fa)
-WITHIN = HOME / "within_day" / REF        # within-day analyses (Part II), per reference
+# unit set (user 2026-10-07): "all" = good + mua (results of 2026-10-07 and before, kept as records in <ref>/);
+# "stable" = good + mua passing the stability criteria of 137_stable_units (coverage >= 0.9, presence >= 0.5, no probe-drift
+# dependence; ssl-whisker-hitmiss-timeresolved-decoding tables) -> results in <ref>_stable/. The per-event trial files
+# (*_trials.npz, all units) and the per-unit ROC are shared; 053 relabels non-stable units so every downstream
+# quality_label filter keeps stable units only.
+UNITS = os.environ.get("PRELICK_UNITS", "all")
+USUF = "" if UNITS == "all" else f"_{UNITS}"
+OUTROOT = HOME / "across_days" / f"{REF}{USUF}"   # across-day analyses (Part I), per reference (sl / fa) and unit set
+WITHIN = HOME / "within_day" / f"{REF}{USUF}"     # within-day analyses (Part II), per reference and unit set
 SL_GAP = 1.0
 THREE_CLASS = False         # three-class ROC removed from the analyses (user 2026-10-03)
 SL_BASE = (-1.0, -0.5)

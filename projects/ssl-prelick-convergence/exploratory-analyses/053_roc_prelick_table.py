@@ -23,7 +23,10 @@ import pandas as pd
 import os
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 TAG = "" if os.environ.get("PRELICK_REF", "fa") == "fa" else "_" + os.environ["PRELICK_REF"]   # same switch as 051
-OUT = RES / "ssl-prelick-convergence" / "across_days" / os.environ.get("PRELICK_REF", "fa")   # = 051 OUTROOT
+UNITS = os.environ.get("PRELICK_UNITS", "all")                       # unit set, as 051 (all | stable)
+OUT = RES / "ssl-prelick-convergence" / "across_days" / (os.environ.get("PRELICK_REF", "fa")
+                                                          + ("" if UNITS == "all" else f"_{UNITS}"))   # = 051 OUTROOT
+STABLE = RES / "ssl-whisker-hitmiss-timeresolved-decoding" / "tables" / "137_stable_units.parquet"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 MOUSE_REF = pathlib.Path("/mnt/share_internal/Axel_Bisi_Share/dataset_info/joint_mouse_reference_weight.xlsx")
 
@@ -52,6 +55,24 @@ def mouse_cohort(U, out):
     if len(bad):
         print("[053] cohort check (sheet wins):\n" + bad.to_string(index=False), flush=True)
     return U.mouse_id.map(ref)
+
+
+def stable_relabel(W):
+    """stable-unit run (PRELICK_UNITS=stable, user 2026-10-07): units that are not stable in 137_stable_units (coverage >= 0.9,
+    presence >= 0.5, no probe-drift dependence; joined on session_id, electrode_group and NWB cluster id) get
+    quality_label = "unstable", so every downstream good / mua filter keeps stable units only; the original label is kept
+    in quality_label_all and the stable flag in stable"""
+    S = pd.read_parquet(STABLE, columns=["session_id", "electrode_group", "nwb_cluster_id", "stable"])
+    S = S.assign(cluster_id=S.nwb_cluster_id.astype(int).astype(str), electrode_group=S.electrode_group.astype(str))
+    W = W.merge(S[["session_id", "electrode_group", "cluster_id", "stable"]].drop_duplicates(
+        ["session_id", "electrode_group", "cluster_id"]), on=["session_id", "electrode_group", "cluster_id"], how="left")
+    W["stable"] = W.stable.fillna(False).astype(bool)
+    W["quality_label_all"] = W.quality_label
+    gm = W.quality_label.isin(["good", "mua"])
+    W.loc[gm & ~W.stable, "quality_label"] = "unstable"
+    print(f"stable relabel: {int(gm.sum())} good/mua units, {int((gm & W.stable).sum())} stable, "
+          f"{int((gm & ~W.stable).sum())} relabelled unstable", flush=True)
+    return W
 
 
 def main():
@@ -91,12 +112,15 @@ def main():
     W = W.reset_index().merge(
         U[KEYS + ["cohort", "stage", "day", "quality_label", "area_group", "area_acronym_custom", "ccf_atlas_ap",
                   "ccf_atlas_ml", "ccf_atlas_dv", "reward_group"]], on=KEYS, how="left")
+    if UNITS == "stable":
+        W = stable_relabel(W)
     W.to_parquet(OUT / "prelick_units.parquet", index=False)
     cnt = W.groupby(["cohort", "stage"]).agg(sessions=("session_id", "nunique"), mice=("mouse_id", "nunique"),
                                               units=("cluster_id", "size")).reset_index()
     prov = dict(script="053_roc_prelick_table.py", n_files=len(files), n_rows=len(R), measures=sorted(R.measure.unique()),
                 counts=cnt.to_dict("records"), unit_table="_roc_stage_analysis/units.parquet (045)",
-                created=time.strftime("%Y-%m-%d %H:%M"))
+                created=time.strftime("%Y-%m-%d %H:%M"), unit_set=UNITS,
+                stable_table=str(STABLE) if UNITS == "stable" else None)
     (OUT / "provenance.json").write_text(json.dumps(prov, indent=1, default=str))
     print(cnt.to_string())
     print(len(prov["measures"]), "measures")
