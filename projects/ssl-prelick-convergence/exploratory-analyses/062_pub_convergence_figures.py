@@ -1072,8 +1072,12 @@ def draw_triangles(ax, Lwb, cohort, RA):
         for (x, y), c in zip(T, ["FA", "AH", "WH"]):
             ax.scatter(x, y, s=22 if s_ == "expert" else 12, color=CL[c], zorder=3,
                        edgecolor="none" if s_ == "expert" else CL[c], facecolor=CL[c] if s_ == "expert" else "white", lw=0.8)
-    ax.set_aspect("equal"); ax.axis("off")
-    ax.set_title(f"{cohort.replace('-', '−')}: learning (dashed) → expert", color=COH[cohort], fontsize=5.6)
+    ax.set_aspect("equal")
+    ax.set_xlabel(f"Along {RA} → AH (√ squared distance / unit)", fontsize=4.8)
+    ax.set_ylabel("Orthogonal (√ sq. dist. / unit)", fontsize=4.8)
+    ax.tick_params(labelsize=4.5)
+    ax.set_title(f"{cohort.replace('-', '−')}: learning (dashed) → expert" + "\n(group-mean distances, real data)",
+                 color=COH[cohort], fontsize=5.4)
 
 
 def share_triangle_limits(axs):
@@ -1110,7 +1114,7 @@ def fig3(plt, D, out, pop, rng, PR):
               va="top", color="0.2")
     ax_a.set_title("Population distance between trial types", loc="left")
     # b triangles (group geometry)
-    sub = gs[0, 2:4].subgridspec(1, 2, wspace=0.15)
+    sub = gs[0, 2:4].subgridspec(1, 2, wspace=0.55)
     axs_b = []
     for j, c in enumerate(["R+", "R-"]):
         ax = fig.add_subplot(sub[j]); axs_b.append(ax); draw_triangles(ax, Lwb, c, RA)
@@ -1118,7 +1122,7 @@ def fig3(plt, D, out, pop, rng, PR):
     share_triangle_limits(axs_b)
     axs_b[0].legend([Line2D([], [], marker="o", ls="", color=CL[c], ms=3.5) for c in ["FA", "AH", "WH"]],
                     [RA, "AH", "WH"], frameon=False, fontsize=4.8, loc="upper center", handletextpad=0.1, ncol=3,
-                    bbox_to_anchor=(1.07, -0.02))
+                    bbox_to_anchor=(1.3, -0.55))
     # c-f per session
     row = [("dd", "3c", "Distance difference\n(> 0: WH nearer AH)", [(0, "0.6")]),
            ("d_WH_FA", "3d", f"WH to {RA}", None), ("d_WH_AH", "3e", "WH to AH", None),
@@ -1155,11 +1159,11 @@ def fig3(plt, D, out, pop, rng, PR):
     ok = Ld.d_AH_FA >= 0.01
     Ld["ortho"] = np.where(ok, Ld.d_WH_FA - Ld.along ** 2 / Ld.d_AH_FA.where(ok), np.nan)
     ax_i = fig.add_subplot(gs[2, 2])
-    dots_panel(ax_i, Ld, "along", f"(WH − {RA})·(AH − {RA}) per unit", rng, "3i",
-               f"WH displacement along\nthe {RA} → AH direction", ref=[(0, "0.6")])
+    dots_panel(ax_i, Ld, "along", f"Cross-validated dot product\n(WH − {RA})·(AH − {RA}) per unit", rng, "3i",
+               f"WH displacement along\nthe {RA} → AH direction (= λ·d(AH, {RA}))", ref=[(0, "0.6")])
     ax_i.set_title(ax_i.get_title(), fontsize=5.5)
     ax_j = fig.add_subplot(gs[2, 3])
-    dots_panel(ax_j, Ld, "ortho", "Squared distance per unit", rng, "3j",
+    dots_panel(ax_j, Ld, "ortho", "Orthogonal squared distance per unit", rng, "3j",
                f"WH displacement orthogonal\nto the {RA} → AH direction", ref=[(0, "0.6")])
     ax_j.set_title(ax_j.get_title(), fontsize=5.5)
     letter_row(fig, [ax_a, axs_b[0]], "ab"); letter_row(fig, axs_c, "cdef"); letter_row(fig, [ax_g, ax_h, ax_i, ax_j], "ghij")
