@@ -11,8 +11,9 @@ fractions, and convergence within stimulus-defined neuron classes (user 2026-10-
    and pair, significance by N_PERM = 200 label permutations (two-sided, p < 0.05); fraction selective per pair averaged
    over draws; Delta-fraction = frac_WS - frac_WA.
 3. Neuron classes from the existing stimulus-aligned ROC analyses (_roc_stage_analysis roc_long.parquet, 045):
-     sensory      significant in any of whisker_passive_pre, whisker_passive_post, auditory_passive_pre,
-                  auditory_passive_post (units of sessions without passive data: class "no passive", left out of 3)
+     sensory      significant in whisker_active or auditory_active (stimulus response in the active context;
+                  user 2026-10-08, replaces the first definition from the passive pre / post analyses)
+                  (units without these analyses: class "unclassified", left out of 3)
      lick-gated   not sensory, whisker_choice significant (whisker hit vs whisker miss)
      non-sensory  neither
    Within each class: converging fraction among AH > SL neurons (051 pre-lick ROC on all events: WH > SL significant), mean
@@ -44,7 +45,7 @@ m80 = importlib.import_module("080_single_unit_geometry")
 OUT = m51.OUTROOT / "single_unit_classes"
 N_SPLIT, N_MATCH, N_DRAW, N_PERM, MIN_EV, MIN_UNITS, MIN_CLASS = 50, 8, 10, 200, 8, 10, 3
 ROC_LONG = m51.RES / "_roc_stage_analysis" / "roc_long.parquet"
-PASSIVE = ["whisker_passive_pre", "whisker_passive_post", "auditory_passive_pre", "auditory_passive_post"]
+SENSORY = ["whisker_active", "auditory_active"]       # user 2026-10-08 (was the four passive pre / post analyses)
 CLASSES = ["sensory", "lick-gated", "non-sensory"]
 PAIRS = {"WS": ("WH", "FA"), "AS": ("AH", "FA"), "WA": ("WH", "AH")}
 SEL_WS, SEL_AS = m80.SEL_WS, m80.SEL_AS
@@ -52,15 +53,15 @@ SEL_WS, SEL_AS = m80.SEL_WS, m80.SEL_AS
 
 def neuron_classes():
     L = pd.read_parquet(ROC_LONG, columns=["session_id", "electrode_group", "cluster_id", "analysis_type", "sig"])
-    L = L[L.analysis_type.isin(PASSIVE + ["whisker_choice"])]
+    L = L[L.analysis_type.isin(SENSORY + ["whisker_choice"])]
     L["cluster_id"] = L.cluster_id.astype(str); L["electrode_group"] = L.electrode_group.astype(str)
     P = L.pivot_table(index=["session_id", "electrode_group", "cluster_id"], columns="analysis_type", values="sig",
                       aggfunc="first").reset_index()
     sig = lambda c: P[c].astype(str).str.lower().isin(["true", "1", "1.0"]) if c in P else pd.Series(False, index=P.index)
-    has_passive = P[[c for c in PASSIVE if c in P]].notna().any(axis=1)
-    sens = np.logical_or.reduce([sig(c) for c in PASSIVE])
+    has = P[[c for c in SENSORY if c in P]].notna().any(axis=1)
+    sens = np.logical_or.reduce([sig(c) for c in SENSORY])
     gated = ~sens & sig("whisker_choice")
-    P["nclass"] = np.select([~has_passive, sens, gated], ["no passive", "sensory", "lick-gated"], "non-sensory")
+    P["nclass"] = np.select([~has, sens, gated], ["unclassified", "sensory", "lick-gated"], "non-sensory")
     return P[["session_id", "electrode_group", "cluster_id", "nclass"]]
 
 
@@ -115,7 +116,7 @@ def compute(n_proc):
     W = W[W.cohort.isin(["R+", "R-"])].copy()
     W["electrode_group"] = W.electrode_group.astype(str); W["cluster_id"] = W.cluster_id.astype(str)
     W = W.merge(neuron_classes(), on=["session_id", "electrode_group", "cluster_id"], how="left")
-    W["nclass"] = W.nclass.fillna("no passive")
+    W["nclass"] = W.nclass.fillna("unclassified")
     cols = ["mouse_id", "electrode_group", "cluster_id", "quality_label", "area_group", "nclass",
             f"sel:{SEL_WS}", f"sel:{SEL_AS}", f"sig:{SEL_WS}", f"sig:{SEL_AS}"]
     st26 = importlib.import_module("026_roc_rates_all_sessions")
@@ -203,6 +204,10 @@ def main(a):
     f = OUT / "units.parquet"
     if a.replot and f.exists():
         U0 = pd.read_parquet(f)
+        # classes are reassigned from the ROC table on every run (definition changes need no recomputation)
+        U0 = U0.drop(columns=["nclass"]).merge(neuron_classes(), on=["session_id", "electrode_group", "cluster_id"], how="left")
+        U0["nclass"] = U0.nclass.fillna("unclassified")
+        U0.to_parquet(f, index=False)
     else:
         U0 = compute(a.n_proc); U0.to_parquet(f, index=False)
     print(U0.nclass.value_counts().to_dict(), flush=True)

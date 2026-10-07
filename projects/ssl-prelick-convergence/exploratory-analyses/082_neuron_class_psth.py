@@ -2,7 +2,7 @@
 
 Units and classes from 081 (units.parquet): good / mua (stable run: stable only), pre-lick rate >= 0.1 Hz; classes from the
 existing stimulus-aligned ROC analyses (045 roc_long, joined on session_id, electrode_group, cluster_id; all analysed units
-match): sensory = significant in any passive pre / post analysis (whisker or auditory); lick-gated = not sensory,
+match): sensory = significant in whisker_active or auditory_active (user 2026-10-08); lick-gated = not sensory,
 whisker_choice significant; non-sensory = neither. Pre-lick ROC (051, all events): reward-lick neurons = AH > SL
 significant; converging = reward-lick and WH > SL significant; reward-lick-only = reward-lick, WH vs SL not significant.
 PSTHs (062 load_psth_prestart): first-lick aligned, rate minus the unit's pre-trial baseline per class, 10-ms bins, 3-bin
