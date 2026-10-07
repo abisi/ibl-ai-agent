@@ -98,8 +98,14 @@ Data and settings (rerun of 051 + everything downstream, both parts):
 - [ ] 5. One shared implementation of the decoder + linear-shift null and of the mouse-level cohort-permutation
       interaction (068 / 062 / within_day 001 duplicates removed).
 - [X] 6. LOCKED.md untracked from the public fork (kept locally / NAS; .gitignore).
-- [ ] Geometry normalisation: diagonal crossnobis (each unit divided by its pooled within-class noise SD, equal weight
-      per class) as main; raw spikes/s geometry as a supplement. Decoders keep training-fold z-scoring.
+- [ ] Geometry normalisation (DECIDED 2026-10-07 after 074): within-class SD = diagonal crossnobis -- each unit centred
+      and divided by its pooled within-class noise SD with equal weight per class, sqrt(mean_c var_c), applied to the
+      per-event pre-lick rates before the class means (distances, lambda, CD scores, both parts). Why: field standard
+      for cross-validated distances (noise normalisation); the current pooled SD contains the class differences and
+      depends on class proportions. 074 (raw / pooled / within, same events and splits): within and pooled agree
+      (session values and all conclusions); raw rates keep the direction but weaken the delta-d interaction (high-rate
+      units dominate). Supplement: 074 three-scaling figure (raw rates as the requested raw supplement). Decoders keep
+      training-fold z-scoring; lambda_LDA unaffected (whitens by the within-class covariance).
 - [ ] Axis inclusion rule (lambda / CD): to decide after seeing results (options: axis length >= 0.01 / unit, held-out
       d' >= 0.3, cross-validated axis length above its shift / permutation null).
 
