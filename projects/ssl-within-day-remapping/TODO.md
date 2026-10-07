@@ -28,3 +28,9 @@
       (e.g. regress WH on time with SL-trial scores as a time-varying reference).
 - [ ] Per-mouse saturating fit on day 0 (when does R− WH reach SL?) against the behavioural drop in whisker licking.
 - [ ] Report.
+
+## Next iteration (decided 2026-10-07)
+- [ ] Spontaneous-lick reference "C8" (false-alarm licks counted, exclusion [stim - 0.5 s, stim + W] after every
+      whisker / auditory trial, trial licks merged into the lick train): inherited from ssl-prelick-convergence 051 --
+      rerun 001-010 after the 051 rerun; see ssl-prelick-convergence/TODO.md "Next iteration".
+- [ ] Harmonise with ssl-prelick-convergence: event minima, one decoder / shift-null / interaction implementation.

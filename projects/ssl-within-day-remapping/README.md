@@ -21,3 +21,16 @@ imported from `../ssl-prelick-convergence/exploratory-analyses`).
 
 Statistics: session as unit; Wilcoxon / one-sample t vs 0 per group; day 0 R+ vs R− (MWU, Welch, mouse-level cohort
 permutation); cohort × stage by mouse-level permutation; populations all mice and learners.
+
+## Shared with ssl-prelick-convergence (method map, 2026-10-07)
+| What | Defined in (ssl-prelick-convergence) | Used here |
+|---|---|---|
+| Trials, classes (WH / AH / reference), corrected first lick, warm-up cut, A1 trim, SL reference, baselines, pre-lick window (100 ms), per-event rates (`*_trials.npz`), min FR 0.1 Hz | 051 (`select_trials`, `spontaneous_licks`, `unit_rates`, `MIN_FR`, `SL_BASE`, `PSTH_*`, `OUTROOT` / `TAG`) | all scripts (004 recomputes PSTHs per half with 051 functions) |
+| λ and cross-validated distances (d(WH,SL), d(WH,AH), d(AH,SL)) | 057 `lam` | 001, 003 |
+| Session list, learners rule | 026 `all_sessions`, 061 `learner_filter` | 001, 002, 003, 008 |
+| Figure style, group colours, `dots_panel`, `fmt_p` | 062 | 001-010 |
+| Decoder (logistic, C = 0.05, balanced, 5-fold, z-scored on training folds) + linear-shift null (40 shifts, \|k\| 5..n/3) | 068 (`cv_bacc`, `decode_shift`) | re-implemented in 001 (`ws_predict`, `xh_predict`, `shifts`, `shifted`); same parameters |
+| Mouse-level cohort-permutation interaction (10 000 permutations) | 062 `group_stats` | re-implemented in 001 (`perm_interaction`, + day-0 R+ vs R−); same statistic |
+| Units | good + mua, min FR 0.1 Hz, >= 5 units | same |
+| Minimum events per class | 3 (051 ROC), 4 (057, 068), 6 (064 pseudo-populations) | 4 (001), 4 whisker hits (002) |
+Results of this project feed `ssl-whisker-hitmiss-timeresolved-decoding` 154 (`_within_day_sl/slopes`).
