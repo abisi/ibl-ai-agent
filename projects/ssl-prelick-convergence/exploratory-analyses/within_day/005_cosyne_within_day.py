@@ -10,7 +10,7 @@
   e  Size of the within-session change |late - early| per session (003), day 0 vs expert, R- (R+ for reference), for the
      position and the normalised distance; p = hierarchical bootstrap (mice, then sessions) of the day 0 - expert difference
      and Mann-Whitney U.
-Output: combined_results_ks4/_within_day<TAG>/cosyne/COSYNE_within_day.{png,pdf,svg} + stats csv.
+Output: combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/cosyne/COSYNE_within_day.{png,pdf,svg} + stats csv.
 """
 import importlib
 import pathlib
@@ -21,11 +21,11 @@ import pandas as pd
 from scipy import stats
 
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m62 = importlib.import_module("062_pub_convergence_figures")
-BASE = m51.RES / f"_within_day{m51.TAG}"
+BASE = m51.WITHIN
 OUT = BASE / "cosyne"
 COH, CL, CLAB = m62.COH, m62.CL, m62.CLAB
 STAGE_LS = {"learning": "-", "expert": (0, (2.5, 1.5))}

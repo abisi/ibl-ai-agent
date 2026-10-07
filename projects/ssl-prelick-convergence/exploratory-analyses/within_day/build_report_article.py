@@ -222,7 +222,7 @@ baselines and time trends from the whisker-hit offset, gives the most direct est
 
 - Code: `projects/ssl-within-day-remapping/exploratory-analyses/` (001-010, `build_report_article.py`; ibl-ai-agent fork).
   Depends on `projects/ssl-prelick-convergence/exploratory-analyses/` (051, 057, 061, 062) and its pre-lick unit table.
-- Results: `combined_results_ks4/_within_day_sl/` (halves, slopes, epochs*, mixed_model, psth_halves, cosyne); to be
+- Results: `combined_results_ks4/ssl-prelick-convergence/within_day/sl/` (halves, slopes, epochs*, mixed_model, psth_halves, cosyne); to be
   moved to `combined_results_ks4/ssl-within-day-remapping/ref_sl/`.
 """
     REP.mkdir(parents=True, exist_ok=True)

@@ -7,7 +7,7 @@ FA (false alarm = no-stim lick). Inputs: 051 per-session npz, 053 prelick_units,
 060 lambda_LDA. Unit of analysis = session. Tests: Mann-Whitney U (shown) and Welch t (table) for learning vs expert
 within cohort and R+ vs R- at expert; learning x cohort interaction [E-L](R+) - [E-L](R-) by permuting cohort labels
 across mice (10000). Area family-wise p: max-|z| permutation across area groups (057 / 059 / 060). No other correction.
-Figures -> combined_results_ks4/_roc_prelick/publication/<population>/Fig1..Fig5.{png,pdf} + stats_<population>.csv
+Figures -> combined_results_ks4/ssl-prelick-convergence/across_days/fa/publication/<population>/Fig1..Fig5.{png,pdf} + stats_<population>.csv
   Fig1 task, alignment, reaction times, dataset, recording coverage, whole-brain population PSTHs
   Fig2 single neurons: examples, WH vs FA selectivity, reward-lick neuron transfer, selectivity scatter, shared code
   Fig3 population distance (main): schematic, class-mean triangles, distance difference dd = d(WH,ref) - d(WH,AH) and its

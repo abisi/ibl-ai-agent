@@ -18,7 +18,7 @@ import pandas as pd
 from PIL import Image
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-SL, FA = RES / "_roc_prelick_sl", RES / "_roc_prelick"
+SL, FA = RES / "ssl-prelick-convergence" / "across_days" / "sl", RES / "ssl-prelick-convergence" / "across_days" / "fa"
 REP = RES / "ssl-prelick-convergence" / "report"
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[2]
@@ -78,7 +78,7 @@ def main():
         FIGS.append((pub(*MAIN) / f, f.replace(".png", ".jpg")))
     md = md.replace("(working draft)", "-- report generated " + pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"))
     vt, VT = variant_table()
-    colo = RES / "_roc_prelick_sl" / "projection_colocation"
+    colo = RES / "ssl-prelick-convergence" / "across_days" / "sl" / "projection_colocation"
     PT = pd.read_csv(colo / "prelick_colocation_tests_zone90.csv").set_index("group")
     PT7 = pd.read_csv(colo / "prelick_colocation_tests.csv").set_index("group")
     rec = (FA / "recap" / "recap.md").read_text(encoding="utf-8") if (FA / "recap" / "recap.md").exists() else ""
@@ -102,7 +102,7 @@ permutation for single-neuron ROC; linear shift of the neural activity against t
 decoders and pseudo-populations. Statistics: Mann-Whitney U and Welch per contrast, learning × cohort interaction by
 mouse-level cohort permutation (10,000), area ANOVA with mouse-level permutation, no correction across panels.
 
-**Archived iterations (not used; `combined_results_ks4/_roc_prelick/_archive_*`).**
+**Archived iterations (not used; `combined_results_ks4/ssl-prelick-convergence/across_days/fa/_archive_*`).**
 
 | Iteration | Unit selection and thresholds | Folder |
 |---|---|---|
@@ -181,8 +181,8 @@ were not enriched in the overlap: 90 % zones {100 * PT.loc['All sessions', 'P_in
 ## Files and code
 
 - Code: `projects/ssl-prelick-convergence/exploratory-analyses/` (051-072, `build_article.py`, `build_report_article.py`;
-  ibl-ai-agent fork); within-session follow-up: project ssl-within-day-remapping.
-- Results: `combined_results_ks4/_roc_prelick_sl/` (SL) and `_roc_prelick/` (FA, archives, recap); to be moved to
+  ibl-ai-agent fork); within-session follow-up: Part II of ssl-prelick-convergence.
+- Results: `combined_results_ks4/ssl-prelick-convergence/across_days/sl/` (SL) and `_roc_prelick/` (FA, archives, recap); to be moved to
   `combined_results_ks4/ssl-prelick-convergence/ref_sl/` and `ref_fa/`.
 - Locked analysis set: `LOCKED.md` (project folder) and `_roc_prelick_sl/prelick_convergence_LOCKED.md`.
 """

@@ -59,7 +59,9 @@ NWB = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/NWB_ks4")
 # defined for spontaneous licks -> only the "all" variant is run.
 REF = os.environ.get("PRELICK_REF", "fa")
 TAG = "" if REF == "fa" else f"_{REF}"
-OUTROOT = RES / f"_roc_prelick{TAG}"
+HOME = RES / "ssl-prelick-convergence"   # project results home (2026-10-07; old _roc_prelick{,_sl} / _within_day_sl are symlinks)
+OUTROOT = HOME / "across_days" / REF      # across-day analyses (Part I), per reference (sl / fa)
+WITHIN = HOME / "within_day" / REF        # within-day analyses (Part II), per reference
 SL_GAP = 1.0
 THREE_CLASS = False         # three-class ROC removed from the analyses (user 2026-10-03)
 SL_BASE = (-1.0, -0.5)

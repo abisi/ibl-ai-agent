@@ -9,7 +9,7 @@ Projections: for the example regions, held-out shrinkage-LDA scores (060 procedu
 per session so that the held-out FA mean = 0 and the held-out AH mean = 1 (per fold, then pooled); shown pooled over
 learner sessions per cohort x stage (trial distributions + session means) and for one example session per group
 (the session with the median lambda_LDA).
-Output (new folder, nothing overwritten): combined_results_ks4/_roc_prelick/learners/
+Output (new folder, nothing overwritten): combined_results_ks4/ssl-prelick-convergence/across_days/fa/learners/
 """
 import importlib
 import json

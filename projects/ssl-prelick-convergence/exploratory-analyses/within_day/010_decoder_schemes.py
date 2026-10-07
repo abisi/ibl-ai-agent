@@ -3,7 +3,7 @@
 Compares the within-day, across-day and carry-over changes of the decoder readout (003, 4 events per class) between
 unit-sampling schemes: one draw of 150 units (original), 10 draws of 150 units (averaged), 10 draws of 50 and of 100 units,
 5 draws of 400 units, and all units of each session (one fit; unit counts then differ between sessions).
-Output: combined_results_ks4/_within_day<TAG>/cosyne/decoder_schemes.{png,pdf,svg} + decoder_schemes.csv
+Output: combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/cosyne/decoder_schemes.{png,pdf,svg} + decoder_schemes.csv
 """
 import importlib
 import pathlib
@@ -13,11 +13,11 @@ import numpy as np
 import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m62 = importlib.import_module("062_pub_convergence_figures")
-BASE = m51.RES / f"_within_day{m51.TAG}"
+BASE = m51.WITHIN
 SCHEMES = [("epochs_n4_u50x10", "50 × 10"), ("epochs_n4_u100x10", "100 × 10"), ("epochs_n4", "150 × 1"),
            ("epochs_n4_u150x10", "150 × 10"), ("epochs_n4_u400x5", "400 × 5"), ("epochs_n4_uall", "all")]
 NAMES = [("within-day", "Within day 0\n(late − early)"), ("across-day (early)", "Across days\n(expert − day 0, early halves)"),

@@ -35,7 +35,7 @@ cohort labels permuted across mice (same label for a mouse at both stages), each
 with B_PERM iterations; p = (1 + #|null| >= |obs|) / (1 + n_perm).
 Areas: area groups with >= MIN_MICE mice in both stages of a cohort (within-cohort inclusion); interaction only if both
 cohorts qualify.
-Output: combined_results_ks4/_roc_prelick/pseudopop/<population>/
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/pseudopop/<population>/
 """
 import argparse
 import importlib

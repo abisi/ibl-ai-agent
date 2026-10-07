@@ -6,7 +6,7 @@ Units: good + mua with mean raw pre-lick rate >= 0.1 Hz (051 trial files; same u
 Per unit, class and half: PSTH (10 ms bins, [-0.6, 0.4] s around the first lick) minus the unit's mean baseline rate of
 the same events (baseline windows as 051: 1 s before trial start for WH / AH, [-1, -0.5] s before the lick for SL);
 then mean over units within the session. Output: one array per session (class x half x bins) with the number of events,
-saved to combined_results_ks4/_within_day<TAG>/psth_halves/psth_halves.npz (+ sessions.csv).
+saved to combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/psth_halves/psth_halves.npz (+ sessions.csv).
 """
 import argparse
 import importlib
@@ -21,10 +21,10 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
-OUT = m51.RES / f"_within_day{m51.TAG}" / "psth_halves"
+OUT = m51.WITHIN / "psth_halves"
 UNIT_SET = ("good", "mua")
 HALVES = ("early", "late")
 

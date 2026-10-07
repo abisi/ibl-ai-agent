@@ -2,7 +2,7 @@
 
 Inputs: 051 outputs (<mouse>_roc_prelick_results.csv / _trials.npz) of the pilot sessions; good units only
 (units.parquet quality_label, joined on session_id, electrode_group, cluster_id).
-Figures -> combined_results_ks4/_roc_prelick/pilot/
+Figures -> combined_results_ks4/ssl-prelick-convergence/across_days/fa/pilot/
   examples_<category>.png  one row per unit: (a) PSTH aligned to the corrected first lick per class (window shaded),
      (b) single-trial baseline-corrected pre-lick rates per class, pairwise selectivity and p, (c) ROC curves of the
      3 pairs, (d) three-class D3 vs its joint-permutation null.

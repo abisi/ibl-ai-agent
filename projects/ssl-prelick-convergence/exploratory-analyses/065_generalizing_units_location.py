@@ -3,7 +3,7 @@
 Transfer neuron: significant pre-lick ROC for auditory hit vs false alarm AND for whisker hit vs false alarm, with the
 same sign (051, all trials; tested units = both ROCs tested: mean raw pre-lick rate >= 0.1 Hz, >= 3 trials per class).
 Units: quality good or mua. Unit of analysis: session.
-Outputs -> combined_results_ks4/_roc_prelick/generalizing_units/
+Outputs -> combined_results_ks4/ssl-prelick-convergence/across_days/fa/generalizing_units/
   areas.png / area_group_stats.csv / fine_area_stats.csv: fraction of transfer neurons among tested units per
      session x area (>= MIN_UNITS tested units), mean +- s.e.m. over sessions per cohort x stage; Mann-Whitney U for
      R+ learning vs expert and expert R+ vs R- (Welch in csv); areas need >= 3 sessions per group compared.

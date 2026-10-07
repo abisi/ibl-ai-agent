@@ -14,7 +14,7 @@ Tests (unit = session): stage within cohort (MWU + Welch), cohort at expert (MWU
   interaction [E-L](R+) - [E-L](R-) with cohort labels permuted across mice (10000). Across areas: max-statistic
   permutation (same cohort permutations for all areas; per-area interaction standardised by its null SD; family-wise
   p = P(max_area |z_null| >= |z_obs|)) -> "in some areas" claims control the family-wise error.
-Output: combined_results_ks4/_roc_prelick/lambda/
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/lambda/
 """
 import importlib
 import json

@@ -22,13 +22,13 @@ import pandas as pd
 from scipy import stats
 
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m62 = importlib.import_module("062_pub_convergence_figures")
 m001 = importlib.import_module("001_within_session_halves")
 m002 = importlib.import_module("002_trial_slopes")
-BASE = m51.RES / f"_within_day{m51.TAG}"
+BASE = m51.WITHIN
 OUT = BASE / "cosyne"
 COH, CL, CLAB = m62.COH, m62.CL, m62.CLAB
 rng = np.random.default_rng(0)

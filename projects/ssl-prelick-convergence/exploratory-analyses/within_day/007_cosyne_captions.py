@@ -3,7 +3,7 @@
   COSYNE_figure_v3, COSYNE_figure_v2   ssl-prelick-convergence 062 (captions_<pop>.md, per reference x population)
   COSYNE_convergence_timeline          006 (caption written by 006)
   COSYNE_within_day                    005 (superseded by 006; caption built here from COSYNE_within_day_stats.csv)
-Output: combined_results_ks4/_within_day<TAG>/cosyne/COSYNE_captions.md (headline: spontaneous-lick reference, all mice;
+Output: combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/cosyne/COSYNE_captions.md (headline: spontaneous-lick reference, all mice;
 the 062 figures of the other variants have the same structure, their captions are in each publication folder).
 """
 import importlib
@@ -14,11 +14,11 @@ import sys
 import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m62 = importlib.import_module("062_pub_convergence_figures")
-BASE = m51.RES / f"_within_day{m51.TAG}"
+BASE = m51.WITHIN
 OUT = BASE / "cosyne"
 PUB = m51.OUTROOT / "publication"
 
@@ -66,12 +66,12 @@ def main():
     general = re.search(r"\*\*General\.\*\*(.*?)\n", cap)
     parts = ["# COSYNE figure captions — pre-lick convergence (spontaneous-lick reference, all mice)\n",
              "General conventions (all figures): " + (general.group(1).strip() if general else "") + "\n",
-             "## COSYNE_convergence_timeline (`_within_day_sl/cosyne/`; recommended)\n",
+             "## COSYNE_convergence_timeline (`within_day/sl/cosyne/`; recommended)\n",
              (OUT / "COSYNE_convergence_timeline_caption.md").read_text(encoding="utf-8").split("\n", 2)[2].strip() + "\n",
-             "## COSYNE_convergence_timeline_expanded (`_within_day_sl/cosyne/`; methods with examples, results, controls)\n",
+             "## COSYNE_convergence_timeline_expanded (`within_day/sl/cosyne/`; methods with examples, results, controls)\n",
              opt(OUT / "COSYNE_convergence_timeline_expanded_caption.md"),
-             "## Single-trial mixed model (`_within_day_sl/mixed_model/`)\n", opt(BASE / "mixed_model" / "mixed_model_summary.md"),
-             "## decoder_schemes (`_within_day_sl/cosyne/`)\n",
+             "## Single-trial mixed model (`within_day/sl/mixed_model/`)\n", opt(BASE / "mixed_model" / "mixed_model_summary.md"),
+             "## decoder_schemes (`within_day/sl/cosyne/`)\n",
              "Within-day, across-day and carry-over changes of the single-session decoder readout (as in the timeline "
              "figure, panels d and e) for different numbers of neurons per decoder: one draw of 150 units, 10 random draws "
              "of 50, 100 or 150 units (averaged), 5 draws of 400 units, or all units of each session (unit counts then differ "
@@ -79,7 +79,7 @@ def main():
              "across mice).\n",
              "## COSYNE_figure_v3 (`_roc_prelick_sl/publication/all/`)\n", section(cap, "COSYNE abstract figure (COSYNE_figure_v3)") + "\n",
              "## COSYNE_figure_v2 (`_roc_prelick_sl/publication/all/`)\n", section(cap, "COSYNE abstract figure (COSYNE_figure_v2)") + "\n",
-             "## COSYNE_within_day (`_within_day_sl/cosyne/`; superseded)\n", within_day_caption() + "\n"]
+             "## COSYNE_within_day (`within_day/sl/cosyne/`; superseded)\n", within_day_caption() + "\n"]
     (OUT / "COSYNE_captions.md").write_text("\n".join(parts), encoding="utf-8")
     print("wrote", OUT / "COSYNE_captions.md")
 

@@ -39,7 +39,7 @@ from axel_bisi_paths import axel_bisi_root  # noqa: E402
 
 COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
 WC, AC = "#f7b519", "#2c2cdb"
-WD = axel_bisi_root() / "combined_results_ks4" / "_within_day_sl"
+WD = axel_bisi_root() / "combined_results_ks4" / "ssl-prelick-convergence" / "within_day" / "sl"
 # within-day trial-level results with >= 4 whisker hits per session (user 2026-10-05; AH and SL keep >= 8; env override)
 WD_SLOPES = __import__("os").environ.get("SSL_154_WD_SLOPES", "slopes")   # >= 4 WH is the within-day default since 2026-10-05
 EPL = ["passive\npre", "active\n1st", "active\n2nd", "passive\npost"]

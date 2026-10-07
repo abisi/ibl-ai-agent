@@ -19,7 +19,7 @@ raw rate >= 0.1 Hz on the used trials, quality good or mua; decoder >= 5 units, 
    Session x area values kept if bacc >= BACC_MIN (the AH-FA decoder works there).
 Statistics as 057 (unit = session; MWU + Welch; interaction by mouse-level cohort permutation; family-wise max-|z|
 permutation across areas within metric x variant x level).
-Output: combined_results_ks4/_roc_prelick/transfer/
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/transfer/
 """
 import importlib
 import json

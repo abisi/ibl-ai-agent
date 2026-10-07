@@ -1,6 +1,6 @@
 """Collect the pre-lick ROC results (051) of all sessions into tables for the learning-stage statistics (047).
 
-Output: combined_results_ks4/_roc_prelick/
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/
   roc_long_prelick.parquet  one row per unit x measure, measure = "<analysis_type>@<variant>"; columns as the 045
                             roc_long table (sel, abs_sel, sig, pos, neg) + p_value_to_show; units not tested
                             (min FR / min trials) have sig = NaN (-> not valid in 047)
@@ -23,7 +23,7 @@ import pandas as pd
 import os
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 TAG = "" if os.environ.get("PRELICK_REF", "fa") == "fa" else "_" + os.environ["PRELICK_REF"]   # same switch as 051
-OUT = RES / f"_roc_prelick{TAG}"
+OUT = RES / "ssl-prelick-convergence" / "across_days" / os.environ.get("PRELICK_REF", "fa")   # = 051 OUTROOT
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 MOUSE_REF = pathlib.Path("/mnt/share_internal/Axel_Bisi_Share/dataset_info/joint_mouse_reference_weight.xlsx")
 

@@ -15,7 +15,7 @@ auditory zone only, overlap) and overlap vs each single-modality zone (same boot
 Maps: converging fraction density = Gaussian-smoothed converging count / smoothed tested count (3-D, sigma 150 um,
 >= 3 neurons in the kernel), coronal 500-um slabs through the overlap sub-regions (as 006) and the isocortex flatmap
 (as 007).
-Outputs: combined_results_ks4/_roc_prelick_sl/projection_colocation/ (tests, zone categories, unit table with
+Outputs: combined_results_ks4/ssl-prelick-convergence/across_days/sl/projection_colocation/ (tests, zone categories, unit table with
 mouse_id, session_id, electrode_group, cluster_id, provenance, caption) and its figures<ZTAG>/prelick_convergence_{colocation,
 groups,flatmaps}.{png,pdf,svg}.
 """
@@ -36,7 +36,7 @@ m2 = importlib.import_module("002_projection_zones")
 m6 = importlib.import_module("006_colocation_figure")
 m7 = importlib.import_module("007_cortical_flatmaps")
 S, FIG, ZTAG, ZONE_PCT = m3.S, m3.FIG, m3.ZTAG, m3.ZONE_PCT
-PRE = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/_roc_prelick_sl")
+PRE = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/across_days/sl")
 POUT = PRE / "projection_colocation"                       # results live with the pre-lick analyses (user)
 FIGO = POUT / f"figures{ZTAG}"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]

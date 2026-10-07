@@ -33,7 +33,7 @@ AH, mean raw pre-lick rate per class, half duration.
 lambda clipped to [-1, 2] as in 057. Statistic: per session the change late - early (Δ). Learning day: R+ vs R- (MWU / Welch; mouse-level cohort permutation);
 expert: Δ vs 0 per cohort (Wilcoxon signed-rank and one-sample t); cohort x stage x half = learning x cohort interaction
 on Δ ([ΔE - ΔL](R+) - [ΔE - ΔL](R-), mouse-level cohort permutation). Populations: all mice and learners.
-Output: combined_results_ks4/_within_day<TAG>/halves/ (project ssl-within-day-remapping; was 072 in ssl-prelick-convergence)
+Output: combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/halves/ (Part II of ssl-prelick-convergence; was 072 in ssl-prelick-convergence)
 """
 import argparse
 import importlib
@@ -50,11 +50,11 @@ from scipy import stats
 
 warnings.filterwarnings("ignore")
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"   # data loaders and pre-lick events (051, 057)
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)   # data loaders and pre-lick events (051, 057)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m57 = importlib.import_module("057_roc_prelick_lambda")
-OUT = m51.RES / f"_within_day{m51.TAG}" / "halves"
+OUT = m51.WITHIN / "halves"
 UNIT_SET = ("good", "mua")
 MIN_UNITS, MIN_EVENTS, N_SUB, K_SHIFT, MIN_SHIFT, C_REG = 5, 4, 20, 40, 5, 0.05
 SPLITS = ["time", "oddeven"]

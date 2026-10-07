@@ -103,7 +103,7 @@ def main():
     sig_mc = MC[MC.p_distance_holm < 0.05]
     nrec = int(pd.read_csv(SM / "recorded_structures.csv").recorded.sum())
     nflat = len(pd.read_parquet(SM / "flatmap_units_zone90.parquet", columns=["session_id"]))
-    PL = RES / "_roc_prelick_sl" / "projection_colocation"
+    PL = RES / "ssl-prelick-convergence" / "across_days" / "sl" / "projection_colocation"
     PT = pd.read_csv(PL / "prelick_colocation_tests_zone90.csv").set_index("group") if (PL / "prelick_colocation_tests_zone90.csv").exists() else None
     snap = RES / "_snapshots" / "2026-10-04_2200" / "sensory_spatial_maps"
     N.update(n_neurons=len(U), n_sessions=int(ses.session_id.nunique()), n_mice=int(U.mouse_id.nunique()), n_structures=nrec,

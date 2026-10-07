@@ -22,7 +22,7 @@ Statistics (unit = session; skill memory: session is the unit for the expert sta
 within stage: Mann-Whitney U and Welch t (both reported); interaction [E-L](R+) - [E-L](R-): cohort labels permuted
 across mice (10000). No multiple-comparison correction. Units: all units (min FR) and, as a check, good units.
 Areas: M1 and M4 per session x area group (>= 10 tested units), stage change per cohort (MWU, Welch) and interaction.
-Output: combined_results_ks4/_roc_prelick/convergence/
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/convergence/
 """
 import importlib
 import json

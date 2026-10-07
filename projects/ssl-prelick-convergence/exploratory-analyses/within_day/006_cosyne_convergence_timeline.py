@@ -7,7 +7,7 @@
   d  Common footing (003, 4 events per class): whole-session decoder readout per session half.
   e  Contrasts of d: within day 0, across days (early phase), carry-over.
 Writes the figure and a detailed caption (COSYNE_convergence_timeline_caption.md) with the statistics of this run.
-Output: combined_results_ks4/_within_day<TAG>/cosyne/
+Output: combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/cosyne/
 """
 import importlib
 import pathlib
@@ -18,12 +18,12 @@ import pandas as pd
 from scipy import stats
 
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m62 = importlib.import_module("062_pub_convergence_figures")
 m001 = importlib.import_module("001_within_session_halves")
-BASE = m51.RES / f"_within_day{m51.TAG}"
+BASE = m51.WITHIN
 OUT = BASE / "cosyne"
 COH, CL, CLAB = m62.COH, m62.CL, m62.CLAB
 EPOCH_DIR = "epochs_n4_u150x10" if (BASE / "epochs_n4_u150x10" / "all" / "epoch_contrasts.csv").exists() else "epochs_n4"

@@ -19,7 +19,7 @@ with many neurons weigh more).
 Coordinates: Allen CCF (um) as stored, drawn on allen_mouse_bluebrain_barrels_10um_v1.0 annotation (grey region
 contours with layers / barrel columns merged, darker brain outline, white background). FOLD_HEMISPHERES mirrors neurons
 across the midline onto the right side.
-Output: combined_results_ks4/_roc_prelick/generalizing_units/density_maps/<version>/<group>.{png,pdf,svg}
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/generalizing_units/density_maps/<version>/<group>.{png,pdf,svg}
 """
 import importlib
 import pathlib

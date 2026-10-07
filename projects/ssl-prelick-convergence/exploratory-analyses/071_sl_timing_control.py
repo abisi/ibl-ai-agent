@@ -8,7 +8,7 @@ Exclusions tested: none (current), >= 5 s after the previous trial start, >= 10 
 lambda: 057 (z-scored good + mua units with mean raw pre-lick rate >= 0.1 Hz over the used events, >= 5 units,
 >= 4 events per class, cross-validated over 50 split halves, AH-reference axis >= 0.01 per unit, clipped [-1, 2]).
 Statistics: 062 group_stats (MWU, mouse-level permutation interaction), all mice.
-Output: combined_results_ks4/_roc_prelick_sl/sl_timing_control/
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/sl/sl_timing_control/
 """
 import importlib
 import pathlib

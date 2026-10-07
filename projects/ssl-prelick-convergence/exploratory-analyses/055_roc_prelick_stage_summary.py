@@ -1,6 +1,6 @@
 """Learning-stage x area summary of the pre-lick ROC types (047 run on 053's table; all units passing min FR).
 
-Figures -> combined_results_ks4/_roc_prelick/figures/
+Figures -> combined_results_ks4/ssl-prelick-convergence/across_days/fa/figures/
   P1_overview.png       measures (type x trial variant) x comparisons: change in % significant and in mean |sel|
                         (pooled over areas), stars = permutation p (047: stage labels across sessions, cohort labels
                         across mice), uncorrected

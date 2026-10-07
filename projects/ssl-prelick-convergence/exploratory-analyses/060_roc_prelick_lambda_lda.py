@@ -11,7 +11,7 @@ Kept if d_prime >= DPRIME_MIN (a reliable AH-FA axis); clipped to [-1, 2].
 Difference from lambda (057): the axis is Sigma^-1 (mu_AH - mu_FA) (noise-whitened, shrinkage-regularised) instead of
 the plain mean difference, so noisy / correlated directions are down-weighted.
 Statistics as 057 / 059 (unit = session; MWU + Welch; interaction by mouse-level cohort permutation; family-wise max-|z|
-across areas). Output: combined_results_ks4/_roc_prelick/lambda_lda/
+across areas). Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/lambda_lda/
 """
 import importlib
 import json

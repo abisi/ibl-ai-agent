@@ -9,7 +9,7 @@ Steps (counts of sessions, and of units where relevant):
       (single-cell area statistics, 065)
   s4  population: lambda defined for the session x area (>= 5 units, >= 4 trials / class, AH-FA axis >= 0.01; 057)
 Inclusion for a cohort in area figures: >= 3 sessions passing at both stages.
-Output: combined_results_ks4/_roc_prelick/attrition/attrition_area_group.csv (+ printed summary)
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/attrition/attrition_area_group.csv (+ printed summary)
 """
 import importlib
 import json

@@ -5,7 +5,7 @@ first lick) and 053 prelick_units.parquet (trial variant "all"; tested units: mi
 Per unit: rate minus its mean rate in [-600, -400] ms (all classes pooled), 3-bin boxcar. Mean +- SEM over neurons.
 Groups: two-class types: significant positive, significant negative, non-significant (tested);
         three-class: significant preferring WH / AH / FA (one-vs-rest), non-significant.
-Figures -> combined_results_ks4/_roc_prelick/psth/
+Figures -> combined_results_ks4/ssl-prelick-convergence/across_days/fa/psth/
   wholebrain_<type>.png  rows = cohort x stage, columns = groups; traces = WH (blue), AH (red), FA (grey)
   areas_<type>.png       rows = area groups, columns = cohort x stage; two-class: class-2 minus class-1 difference
                          trace for sig. positive (solid), sig. negative (dashed) and non-sig. (grey) neurons;

@@ -16,7 +16,7 @@ Plain-language terms:
     wh:tau:rplus    how much more this happens in R+ than in R- sessions  (the test of interest)
     per-cohort drift = wh:tau (R-) and wh:tau + wh:tau:rplus (R+)
 p values: Wald (model) and a permutation test of wh:tau:rplus that shuffles cohort labels across mice (N_PERM refits).
-Output: combined_results_ks4/_within_day<TAG>/mixed_model/{mixed_model_terms.csv, mixed_model_summary.md}
+Output: combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/mixed_model/{mixed_model_terms.csv, mixed_model_summary.md}
 """
 import argparse
 import importlib
@@ -31,10 +31,10 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
-BASE = m51.RES / f"_within_day{m51.TAG}"
+BASE = m51.WITHIN
 OUT = BASE / "mixed_model"
 SL_MAX = 150            # spontaneous licks per session subsampled to at most this many (balances events; seed 0)
 FORMULA = "cd ~ wh * tau * rplus"

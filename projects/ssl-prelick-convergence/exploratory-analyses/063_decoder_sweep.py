@@ -12,7 +12,7 @@ logistic regression C = 0.05, balanced classes; WH trials never used for fitting
   topk  prob readout after within-fold selection of the 100 units with the largest |t| (AH vs FA, training trials)
 Values clipped to [-1, 2]; kept if >= 5 units and held-out balanced accuracy >= 0.55 (bin / prob share the fit).
 Statistics: 062 group_stats (session = unit; MWU, Welch; interaction by mouse-level permutation).
-Output: combined_results_ks4/_roc_prelick/decoder_sweep/ (sweep_sessions.csv, sweep_stats.csv, sweep_summary.png)
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/decoder_sweep/ (sweep_sessions.csv, sweep_stats.csv, sweep_summary.png)
 Note: this is a sensitivity analysis; choosing the best variant post hoc inflates false positives.
 """
 import importlib

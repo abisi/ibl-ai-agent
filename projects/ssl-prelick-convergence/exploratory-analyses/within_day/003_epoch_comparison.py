@@ -25,7 +25,7 @@ Uncertainty: hierarchical bootstrap per cohort (mice with replacement, then each
 2000 iterations, 95% percentile CI. Cohort difference of each contrast: permutation of cohort labels across mice (5000).
 Mixed model (statsmodels MixedLM): value ~ C(cohort) * C(epoch), random intercept per mouse and variance component
 per session; contrasts as Wald tests. Populations: all mice and learners.
-Output: combined_results_ks4/_within_day<TAG>/epochs/
+Output: combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/epochs/
 """
 import argparse
 import importlib
@@ -41,13 +41,13 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m57 = importlib.import_module("057_roc_prelick_lambda")
 m001 = importlib.import_module("001_within_session_halves")
 m002 = importlib.import_module("002_trial_slopes")
-OUT = m51.RES / f"_within_day{m51.TAG}" / "epochs"
+OUT = m51.WITHIN / "epochs"
 UNIT_SET = ("good", "mua")
 N_FIX, N_SUB, N_UNITS, MIN_UNITS, K_SHIFT, N_DRAWS = 6, 20, 150, 30, 40, 1
 MEAS = [("pos", "WH − SL position on the session's\nSL → AH axis (0 = SL, 1 = AH)"),

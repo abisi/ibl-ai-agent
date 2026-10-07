@@ -44,6 +44,6 @@ Canonical record of dataset-level decisions for all SSL analyses (created 2026-1
   sessions per day, day-0 sessions dropped by `recording`, sessions without drift results),
   `combined_results_ks4/_roc_stage_analysis/unit_info_all_days_v2.parquet` (metadata read by 045),
   `_roc_stage_analysis/sessions_cohort_check.csv` (per-session cohort label vs sheet).
-- Pre-lick tables (053) re-apply the sheet cohort and write `_roc_prelick{,_sl}/cohort_check.csv`.
+- Pre-lick tables (053) re-apply the sheet cohort and write `ssl-prelick-convergence/across_days/{fa,sl}/cohort_check.csv`.
 - Any new analysis must read units through these tables (or apply the same rules) and report session inclusion
   (sessions and mice per cohort x stage) in its provenance.

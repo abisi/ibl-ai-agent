@@ -15,7 +15,7 @@ lambda_LDA, ROC transfer (fraction of reward-lick neurons also WH vs reference, 
 (uncorrected normalised transfer, v1-v4) and chance-corrected probability numerator (v4 only); plus the pseudo-
 population (current runs). Statistics: Mann-Whitney U (R+ learning vs expert; expert R+ vs R-), learning x cohort
 interaction by mouse-level cohort permutation (062 group_stats, 10,000 permutations).
-Output: combined_results_ks4/_roc_prelick/recap/ (recap.csv, recap.md, recap.png)
+Output: combined_results_ks4/ssl-prelick-convergence/across_days/fa/recap/ (recap.csv, recap.md, recap.png)
 """
 import importlib
 import pathlib
@@ -31,10 +31,10 @@ sys.path.insert(0, str(HERE))
 m62 = importlib.import_module("062_pub_convergence_figures")
 m61 = importlib.import_module("061_roc_prelick_learners")
 R = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-P0 = R / "_roc_prelick"
+P0 = R / "ssl-prelick-convergence" / "across_days" / "fa"
 OUT = P0 / "recap"
 ITER = [("v1", P0 / "_archive_v1_minfr1Hz_allunits", "FA"), ("v2", P0 / "_archive_v2_minunits10_axisthr", "FA"),
-        ("v3", P0 / "_archive_v3_minunits5_noaxisthr", "FA"), ("v4 FA", P0, "FA"), ("v4 SL", R / "_roc_prelick_sl", "SL")]
+        ("v3", P0 / "_archive_v3_minunits5_noaxisthr", "FA"), ("v4 FA", P0, "FA"), ("v4 SL", R / "ssl-prelick-convergence" / "across_days" / "sl", "SL")]
 MEAS = [("lambda", "lambda/lambda_sessions.csv", "lam"), ("lambda_LDA", "lambda_lda/lambda_lda_sessions.csv", "lam_lda"),
         ("ROC transfer", "transfer/transfer_sessions.csv", "frac_transfer"),
         ("decoder transfer (raw)", "transfer/transfer_sessions.csv", "transfer_n"),
@@ -72,7 +72,7 @@ def main():
                                  p_expert_Rplus_vs_Rminus=S.get("expert R+ vs R-", (np.nan,))[0],
                                  interaction=S["interaction"][0], p_interaction=S["interaction"][1]))
     # pseudo-population (current runs only; M = 2000, chance-corrected readouts)
-    for ref, base in [("FA", P0), ("SL", R / "_roc_prelick_sl")]:
+    for ref, base in [("FA", P0), ("SL", R / "ssl-prelick-convergence" / "across_days" / "sl")]:
         for pop, folder in [("all mice", "all"), ("learners", "learners")]:
             f = base / "pseudopop" / folder / "pseudopop_stats.csv"
             if not f.exists():

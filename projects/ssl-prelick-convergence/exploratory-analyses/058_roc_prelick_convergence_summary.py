@@ -1,7 +1,7 @@
 """Summary figure: do whisker hits become more like auditory hits before the lick, more in R+ (and where)?
 
 Inputs: 054 session metrics, 056 PSTHs (via its loader), 057 lambda tables. Output:
-combined_results_ks4/_roc_prelick/summary/convergence_summary.{png,pdf}
+combined_results_ks4/ssl-prelick-convergence/across_days/fa/summary/convergence_summary.{png,pdf}
   a  lambda scale: whole-brain mean position of whisker hits between FA (0) and AH (1), per cohort x stage
   b  population first-lick PSTHs (all tested units, Δ rate vs -600..-400 ms): WH, AH, FA per cohort x stage
   c  lambda (whole brain) per session      d  Δd = d(WH,FA) - d(WH,AH) per session

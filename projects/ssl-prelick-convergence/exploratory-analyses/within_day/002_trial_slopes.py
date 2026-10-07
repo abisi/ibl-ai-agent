@@ -25,7 +25,7 @@ Comparison with experts: day-0 fitted start (tau = 0) and end (tau = 1) WH score
 (MWU, Welch), per cohort.
 Statistics (unit = session): slope vs 0 per group (Wilcoxon, one-sample t); day 0 R+ vs R- (MWU, Welch, mouse-level
 cohort permutation); cohort x stage on the slopes (mouse-level permutation). Populations: all mice and learners.
-Output: combined_results_ks4/_within_day<TAG>/slopes/ (incl. trial_scores.parquet: one row per event, CD projection
+Output: combined_results_ks4/ssl-prelick-convergence/within_day/<ref>/slopes/ (incl. trial_scores.parquet: one row per event, CD projection
 `cd` and decoder P(AH) `p_ah`, used by the mixed model 009)
 """
 import argparse
@@ -45,7 +45,7 @@ from scipy import stats
 
 warnings.filterwarnings("ignore")
 HERE = pathlib.Path(__file__).resolve().parent
-CONV = HERE.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"
+CONV = HERE.parent                                         # across-day scripts (projects merged 2026-10-07)
 sys.path[:0] = [str(HERE), str(CONV)]
 m51 = importlib.import_module("051_roc_prelick")
 m001 = importlib.import_module("001_within_session_halves")
@@ -57,7 +57,7 @@ MIN_UNITS, MIN_EV, C_REG, N_BINS, MIN_DPRIME = 5, 8, 0.05, 5, 0.3
 # default 4 since 2026-10-05 (user: "switch that threshold on the within-day project too"); the earlier >= 8 results are in
 # slopes_wh8/
 MIN_WH = int(os.environ.get("SSL_MIN_WH", 4))
-OUT = m51.RES / f"_within_day{m51.TAG}" / ("slopes" if MIN_WH == 4 else f"slopes_wh{MIN_WH}")
+OUT = m51.WITHIN / ("slopes" if MIN_WH == 4 else f"slopes_wh{MIN_WH}")
 AXES = ["md", "dec"]
 CLS = ["WH", "AH", "FA"]
 
