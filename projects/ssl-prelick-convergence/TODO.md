@@ -84,3 +84,58 @@ Harmonisation with ssl-within-day-remapping (see the method map in README):
       whisker / auditory trial, trial licks merged into the lick train): inherited from ssl-prelick-convergence 051 --
       rerun 001-010 after the 051 rerun; see ssl-prelick-convergence/TODO.md "Next iteration".
 - [ ] Harmonise with ssl-prelick-convergence: event minima, one decoder / shift-null / interaction implementation.
+
+## Review decisions (user, 2026-10-07, item by item)
+Order: figures first on the current results, then the rerun, then the merged report.
+
+Data and settings (rerun of 051 + everything downstream, both parts):
+- [ ] 1. SL reference C8 replaces the current one (FA licks counted; exclusion [stim - 0.5 s, stim + 8 s] after every
+      whisker / auditory trial; trial first licks merged into the lick train, 50 ms collapse; bout onset >= 1 s).
+- [ ] 2. W = 8 s fixed.
+- [ ] 3. Units: stable good + mua as main (coverage + presence + drift joint test), all good + mua as a supplementary
+      control.
+- [ ] 4. Minimum events per class: 4 in every analysis (now 3 in 051 ROC, 6 in 064).
+- [ ] 5. One shared implementation of the decoder + linear-shift null and of the mouse-level cohort-permutation
+      interaction (068 / 062 / within_day 001 duplicates removed).
+- [X] 6. LOCKED.md untracked from the public fork (kept locally / NAS; .gitignore).
+- [ ] Geometry normalisation: diagonal crossnobis (each unit divided by its pooled within-class noise SD, equal weight
+      per class) as main; raw spikes/s geometry as a supplement. Decoders keep training-fold z-scoring.
+- [ ] Axis inclusion rule (lambda / CD): to decide after seeing results (options: axis length >= 0.01 / unit, held-out
+      d' >= 0.3, cross-validated axis length above its shift / permutation null).
+
+Single neurons (Figure 2):
+- [ ] 7. 2a: square panels (same example-selection rule).
+- [ ] 8. 2b: add the fraction of WH-vs-AH selective units per cohort x stage (051 ROC wh_vs_aud_hit_prelick).
+- [ ] 9. Converging neurons / AH-likeness: no change (cross-validated versions skipped).
+- [ ] 10. One row: shared-code schematic | Spearman r per session | selectivity scatter R+ | R-.
+- [ ] 11. 2f: no change (no mixed model).
+- [ ] 12. New supplement: change in |selectivity| (equivalents of 2b-e), all units and split by sign, plus fraction
+      significant per sign.
+- [ ] 13. Time-resolved pre-lick ROC: skipped.
+
+Population geometry (Figure 3 and supplements):
+- [ ] 14. Linear-shift correction for geometry (delta d, lambda, angles) as a control supplement (raw stays main).
+- [ ] 15. Supplement: angles (cross-validated cos theta between WH - SL and AH - SL), length ratio |WH - SL| / |AH - SL|
+      and lambda side by side (lambda = ratio x cos theta); sessions with a too-short axis excluded.
+- [ ] 16. Supplement: quiet windows [-200, -100] ms before every trial start (raw rates, no baseline: the baseline /
+      spontaneous activity itself) placed on the readouts (distance, lambda, lambda_LDA).
+- [ ] 17. Clarity: 3b axes (real data: along SL -> AH, orthogonal; units sqrt(squared distance per unit)); 3i relabelled
+      cross-validated dot product (WH - SL).(AH - SL) per unit; 3j orthogonal part; 3S h "orthogonal PC1" replaced by the
+      WH off-axis direction; definitions in captions and report.
+- [ ] 18. Coding direction: apply BOTH estimators in BOTH parts for comparison -- (a) unified split-half estimator (trial
+      scores with the session normalisation D, whose WH session mean equals lambda), (b) the current 5-fold CD; agreement
+      supplement.
+
+Areas and decoders:
+- [ ] 19. 4d / 4e: same y-label (rate - baseline, spikes/s); averaging (over neurons / over sessions) in the titles;
+      note SL pre-lick vs hit pre-trial baselines.
+- [ ] 20. 5a: raw balanced accuracy with the per-session shift-null chance (median, 95 % band) first; current 5a -> 5b.
+
+Cross-cutting:
+- [ ] 21. Supplement: per-session quantities vs session performance (whisker hit rate, FA rate, d'), by cohort, analysis
+      and stage (scatter + fit + 95 % CI, Spearman).
+
+Report (after figure review): one merged report on report_lib -- Part I across days, Part II within the learning day and
+within expert sessions; math definitions with short derivations (squared distance per unit, crossnobis normalisation,
+lambda and its split-half estimator, along / orthogonal decomposition, cos theta and length ratio, AH-likeness, LDA d',
+decoder readouts, linear-shift chance); every figure and table linked; sample-size tables.

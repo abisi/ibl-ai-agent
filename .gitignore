@@ -33,13 +33,12 @@ projects/**
 !projects/**/*.md
 !projects/**/.gitignore
 !projects/ssl-prelick-convergence/**
-!projects/ssl-within-day-remapping/**
 projects/**/__pycache__/
-projects/ssl-within-day-remapping/**/__pycache__/
 projects/ssl-prelick-convergence/**/__pycache__/
 projects/ssl-prelick-convergence/**/_render/
 projects/ssl-prelick-convergence/report/
 projects/ssl-prelick-convergence/report_src/
+projects/ssl-prelick-convergence/LOCKED.md
 data/*
 pytest.ini
 
