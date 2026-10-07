@@ -11,6 +11,8 @@ Sessions with fewer than N whisker hits are dropped. Per session: OLS slope of W
 drift D of 011). Matched set: N = 10 restricted to the sessions that also enter N = 20 (separates N from dropout).
 Statistics (unit = session): Wilcoxon vs 0 per group; day 0 vs expert per cohort (MWU, Welch); R+ vs R- per stage (MWU,
 Welch, mouse-level cohort permutation); cohort x stage interaction (mouse-level permutation, 10,000).
+Figure (user 2026-10-07): every single trial plotted (dots) with the mean +- s.e.m. per trial number, R+ and R-
+overlaid within each stage; per-session changes contrasted R+ vs R- within stage.
 Output: within_day/<ref>/wh_trials/<pop>/wh_trials_N{10,20}.{png,pdf,svg}, sessions_N{N}.csv, trials_N{N}.csv, tests.csv.
 """
 import argparse
@@ -83,52 +85,78 @@ def tests(S, label):
     return out
 
 
-def traj(ax, D, coh, col, N):
+def trials_panel(ax, D, st, col, N, rng):
+    """every single whisker-hit trial of every session (dots, R+ left / R- right of each trial number) and the mean +- s.e.m.
+    over sessions per trial number, the two cohorts overlaid within one stage"""
     k = np.arange(1, N + 1)
-    for st, sl in STG:
+    for coh, dx in (("R+", -0.17), ("R-", 0.17)):
         d = D[(D.cohort == coh) & (D.stage == st)]
         if d.empty:
             continue
+        ax.scatter(d.k + dx + rng.uniform(-0.07, 0.07, len(d)), d[col], s=2.5, color=COH[coh], alpha=0.28, lw=0, zorder=1)
         g = d.groupby("k")[col]
         mu, se = g.mean().reindex(k), g.sem().reindex(k)
-        ls, mfc = ("--", "white") if st == "learning" else ("-", COH[coh])
-        ax.fill_between(k, mu - se, mu + se, color=COH[coh], alpha=0.13, lw=0)
-        ax.plot(k, mu, ls=ls, color=COH[coh], marker="o", ms=2.6, lw=1.0, mfc=mfc,
-                label=f"{sl} ({d.session_id.nunique()})")
-    ax.axhline(0, color="0.6", lw=0.4, ls=":")
-    ax.set_xlim(0.5, N + 0.5); ax.set_xlabel("Whisker-hit trial")
-    ax.legend(frameon=False, fontsize=4.5, loc="upper left")
+        ax.errorbar(k + dx, mu, se, color=COH[coh], lw=1.1, marker="o", ms=2.8, capsize=0, zorder=3, mfc="white",
+                    label=f"{coh.replace('-', '−')} ({d.session_id.nunique()})")
+    ax.axhline(0, color="0.5", lw=0.5, ls=":")
+    ax.set_xlim(0.4, N + 0.6); ax.set_xticks(k if N <= 10 else k[::2])
+    ax.set_xlabel("Whisker-hit trial")
+    ax.legend(frameon=False, fontsize=4.6, loc="upper left")
+
+
+def cohort_dots(ax, S, st, col, rng, label):
+    """per-session change over the N trials, R+ vs R- within one stage; p: mouse-level cohort permutation (MWU, Welch)"""
+    d = S[S.stage == st].dropna(subset=[col])
+    for i, coh in enumerate(("R+", "R-")):
+        v = d[d.cohort == coh][col]
+        ax.scatter(i + rng.uniform(-0.12, 0.12, len(v)), v, s=4, color=COH[coh], alpha=0.45, lw=0)
+        ax.errorbar(i + 0.3, v.mean(), v.sem(), fmt="o", ms=3.8, color=COH[coh], lw=1.1, capsize=0, mfc="white")
+    x, y = d[d.cohort == "R+"][col], d[d.cohort == "R-"][col]
+    _, pp = m001.perm_interaction(d.assign(stage="learning"), col, kind="learning")
+    pm, pw = stats.mannwhitneyu(x, y).pvalue, stats.ttest_ind(x, y, equal_var=False).pvalue
+    top = np.nanmax(d[col]); rng_ = top - np.nanmin(d[col])
+    ax.plot([0.1, 1.1], [top + 0.08 * rng_] * 2, color="0.3", lw=0.6)
+    ax.text(0.6, top + 0.1 * rng_, f"perm {m62.fmt_p(pp)[4:] if m62.fmt_p(pp).startswith('p = ') else m62.fmt_p(pp)}",
+            ha="center", va="bottom", fontsize=4.5)
+    ax.axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
+    ax.set_xticks([0.15, 1.15], ["R+", "R−"]); ax.set_xlim(-0.4, 1.6)
+    for t, c in zip(ax.get_xticklabels(), ("R+", "R-")):
+        t.set_color(COH[c])
+    ax.set_ylabel(label, fontsize=5)
+    m62.STATS.append(dict(panel="022 cohort dots", measure=col, stage=st, n_Rplus=len(x), n_Rminus=len(y),
+                          mean_Rplus=x.mean(), mean_Rminus=y.mean(), p_perm=pp, p_MWU=pm, p_Welch=pw))
 
 
 def figure(plt, D, S, Sm, N, out, pop):
     rng = np.random.default_rng(0)
-    fig = plt.figure(figsize=(m62.W_IN, 4.1 if Sm is None else 5.9))
     nrow = 2 if Sm is None else 3
-    gs = fig.add_gridspec(nrow, 4, hspace=0.85, wspace=0.6, left=0.08, right=0.98, top=0.86 if nrow == 2 else 0.9, bottom=0.08)
+    fig = plt.figure(figsize=(m62.W_IN, 4.3 if Sm is None else 6.1))
+    gs = fig.add_gridspec(nrow, 4, hspace=0.75, wspace=0.55, left=0.08, right=0.98, top=0.87 if nrow == 2 else 0.9, bottom=0.08)
+    panels = [(c, st, sl) for c in ("WH_SL", "AH_WH") for st, sl in STG]
     axs1 = []
-    for j, (col, coh) in enumerate([(c, h) for c in ("WH_SL", "AH_WH") for h in ("R+", "R-")]):
+    for j, (col, st, sl) in enumerate(panels):
         ax = fig.add_subplot(gs[0, j]); axs1.append(ax); ax.set_box_aspect(1)
-        traj(ax, D, coh, col, N)
+        trials_panel(ax, D, st, col, N, rng)
         ax.set_ylabel("WH − SL (score)" if col == "WH_SL" else "AH − WH (distance to AH)", fontsize=5)
-        ax.set_title(f"{coh.replace('-', '−')}: " + ("WH relative to SL" if col == "WH_SL" else "WH distance to AH"),
-                     color=COH[coh], fontsize=5.6)
-    for a_, b_ in ((0, 1), (2, 3)):
-        yl = (min(axs1[a_].get_ylim()[0], axs1[b_].get_ylim()[0]), max(axs1[a_].get_ylim()[1], axs1[b_].get_ylim()[1]))
-        axs1[a_].set_ylim(*yl); axs1[b_].set_ylim(*yl)
+        ax.set_title(f"{sl}: " + ("WH relative to SL" if col == "WH_SL" else "WH distance to AH"), fontsize=5.6)
+    for a_, b_, col in ((0, 1, "WH_SL"), (2, 3, "AH_WH")):        # same y range per reference; robust to single outlying trials
+        lo, hi = np.nanpercentile(D[col], [1, 99])
+        for ax in (axs1[a_], axs1[b_]):
+            ax.set_ylim(lo - 0.05 * (hi - lo), hi + 0.25 * (hi - lo))
     rows_ax = [axs1]
-    for i, (SS, tag) in enumerate([(S, f"all sessions with ≥ {N} WH")] + ([] if Sm is None else [(Sm, "sessions with ≥ 20 WH")])):
+    sets = [(S, f"sessions with ≥ {N} WH")] + ([] if Sm is None else [(Sm, "sessions with ≥ 20 WH")])
+    for i, (SS, tag) in enumerate(sets):
         axs = []
-        for j, (col, ttl) in enumerate([("slope_WH_SL", f"Change of WH − SL over {N} WH"), ("slope_WH_AH", f"Change of WH − AH over {N} WH"),
-                                        ("slope_WH", f"Change of WH score over {N} WH"), ("tau_last", f"Session time of WH #{N}")]):
+        for j, (col, st, sl) in enumerate(panels):
             ax = fig.add_subplot(gs[1 + i, j]); axs.append(ax); ax.set_box_aspect(1)
-            ref = [(0, "0.6")] if col != "tau_last" else []
-            m62.dots_panel(ax, SS, col, (tag if j == 0 else ""), rng, f"WHtr N{N} {i} {col}", ttl, ref=ref)
-            ax.set_title(ax.get_title(), fontsize=5.0)
+            m = "slope_WH_SL" if col == "WH_SL" else "slope_WH_AH"
+            cohort_dots(ax, SS, st, m, rng, (f"Change over {N} WH\n({tag})" if j == 0 else ""))
+            ax.set_title(f"{sl}: " + ("WH − SL" if col == "WH_SL" else "WH − AH") + f" over {N} WH", fontsize=5.4)
         rows_ax.append(axs)
     for r_, letters in zip(rows_ax, ("abcd", "efgh", "ijkl")):
         m62.letter_row(fig, r_, letters)
-    fig.suptitle(f"Reward-lick CD along the first {N} whisker hits (time-matched SL / AH references; {pop})",
-                 x=0.02, y=0.995, ha="left", va="top", fontsize=7, weight="bold")
+    fig.suptitle(f"First {N} whisker hits, trial by trial: R+ vs R− within each stage (time-matched SL / AH references; {pop})",
+                 x=0.02, y=0.995, ha="left", va="top", fontsize=6.8, weight="bold")
     m62.save(fig, out, f"wh_trials_N{N}"); plt.close(fig)
 
 
