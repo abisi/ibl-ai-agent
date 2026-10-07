@@ -94,13 +94,17 @@ def forest(ax, T, order, show_labels, gcol, xlabel=True):
 
 
 def pcol(ax, y, T, order, title="R+ vs R−"):
+    """p-value columns: mouse-level permutation, its Benjamini-Hochberg q over the areas shown, MWU, Welch"""
     ax.axis("off")
-    ax.text(0, len(order) - 0.45, f"{title}\nperm  MWU  Welch", fontsize=4.4, va="bottom", weight="bold")
+    ax.text(0, len(order) - 0.45, f"{title}\n perm  q_FDR   MWU  Welch", fontsize=4.4, va="bottom", weight="bold",
+            family="DejaVu Sans Mono")
     for i, g in enumerate(order):
         if g in T.index and np.isfinite(T.loc[g].get("p_perm", np.nan)):
             r = T.loc[g]
-            ax.text(0, y[i], f"{fp(r['p_perm']):>5}  {fp(r['p_MWU']):>5}  {fp(r['p_Welch']):>5}", fontsize=4.3, va="center",
-                    family="DejaVu Sans Mono", color="#D62728" if r["p_perm"] < 0.05 else "0.25")
+            q = r.get("q_BH", np.nan)
+            ax.text(0, y[i], f"{fp(r['p_perm']):>5}  {fp(q):>5}  {fp(r['p_MWU']):>5}  {fp(r['p_Welch']):>5}", fontsize=4.3,
+                    va="center", family="DejaVu Sans Mono", color="#D62728" if r["p_perm"] < 0.05 else "0.25",
+                    weight="bold" if (np.isfinite(q) and q < 0.05) else "normal")
 
 
 def strict_areas(A, col, min_sess=3):
@@ -118,7 +122,7 @@ def stage_figure(plt, A, out, pop, st, sl, gcol, strict=False):
         TT["q_BH"] = pd.concat([pd.Series(m015.bh(TT[TT.measure == c].p_perm), index=TT[TT.measure == c].index) for c, _ in MEAS])
     order = order_of(TT.area_group)
     fig = plt.figure(figsize=(m62.W_IN, 0.25 * len(order) + 1.3))
-    gs = fig.add_gridspec(1, 4, width_ratios=[1.3, 0.62, 1.3, 0.62], wspace=0.12, left=0.11, right=0.99, top=0.84, bottom=0.11)
+    gs = fig.add_gridspec(1, 4, width_ratios=[1.3, 0.8, 1.3, 0.8], wspace=0.12, left=0.1, right=0.99, top=0.84, bottom=0.11)
     axs = []
     for j, (col, ttl) in enumerate(MEAS):
         ax = fig.add_subplot(gs[0, 2 * j]); axs.append(ax)
@@ -132,7 +136,7 @@ def stage_figure(plt, A, out, pop, st, sl, gcol, strict=False):
     m62.letter_row(fig, axs, "ab", dx_in=0.5, dy_in=0.2)
     fig.suptitle(f"Within-session drift on the reward-lick CD per area group, {sl.lower()} sessions ({pop}); mean ± s.e.m. over "
                  "sessions;\nfilled: drift ≠ 0 (Wilcoxon p < 0.05); areas with ≥ 3 sessions per cohort; red: R+ vs R− mouse-level "
-                 "permutation p < 0.05", x=0.02, y=0.995, ha="left", va="top", fontsize=5.8, weight="bold")
+                 "permutation p < 0.05, bold: FDR q < 0.05 (Benjamini-Hochberg over the areas shown)", x=0.02, y=0.995, ha="left", va="top", fontsize=5.8, weight="bold")
     m62.save(fig, out, f"area_cd_drift_{'day0' if st == 'learning' else 'expert'}{'_strict' if strict else ''}"); plt.close(fig)
     return TT
 
@@ -157,16 +161,18 @@ def matrix(ax, A, T15, col, order, cbar_label, fig):
     for t, c in zip(ax.get_xticklabels(), ["R+", "R+", "R-", "R-"]):
         t.set_color(COH[c])
     ax.set_yticks(range(len(order)), [SHORT(g) for g in order], fontsize=5)
-    T = T15[T15.measure == col].set_index("area_group")
+    T = T15[T15.measure == col].set_index("area_group").reindex(order)
+    keys = ("learning p_perm", "expert p_perm", "cxs p_perm")
+    Q = {k: pd.Series(m015.bh(T[k].to_numpy()), index=T.index) for k in keys}     # FDR over the areas in the matrix
     for i, g in enumerate(order):
-        if g in T.index and np.isfinite(T.loc[g].get("learning p_perm", np.nan)):
-            r = T.loc[g]
-            for k, key in enumerate(("learning p_perm", "expert p_perm", "cxs p_perm")):
-                ax.text(4.0 + 0.85 * k, i, fp(r[key]), ha="center", va="center", fontsize=4.3,
-                        color="#D62728" if r[key] < 0.05 else "0.3", clip_on=False)
+        if np.isfinite(T.loc[g].get("learning p_perm", np.nan)):
+            for k, key in enumerate(keys):
+                p_, q_ = T.loc[g, key], Q[key][g]
+                ax.text(4.05 + 0.95 * k, i, f"{fp(p_)}\n({fp(q_)})", ha="center", va="center", fontsize=4.0, linespacing=1.0,
+                        color="#D62728" if p_ < 0.05 else "0.3", weight="bold" if q_ < 0.05 else "normal", clip_on=False)
     for k, lab in enumerate(("D0", "E", "×")):
-        ax.annotate(lab, xy=(4.0 + 0.85 * k, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=4.8, weight="bold")
-    ax.annotate("R+ vs R− p", xy=(4.85, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 13), textcoords="offset points", ha="center", va="bottom", fontsize=4.6)
+        ax.annotate(lab, xy=(4.05 + 0.95 * k, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=4.8, weight="bold")
+    ax.annotate("R+ vs R− p (FDR q)", xy=(5.0, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 13), textcoords="offset points", ha="center", va="bottom", fontsize=4.6)
     cb = fig.colorbar(im, ax=ax, fraction=0.05, pad=0.02, location="bottom")
     cb.set_label(cbar_label, fontsize=4.8); cb.ax.tick_params(labelsize=4.5)
 
@@ -187,7 +193,7 @@ def main(a):
         Q = set(T15[T15.qualifies_Rplus & T15.qualifies_Rminus].area_group)
         order = order_of(Q)
         fig = plt.figure(figsize=(m62.W_IN * 0.9, 0.2 * len(order) + 1.9))
-        gs = fig.add_gridspec(1, 2, wspace=1.35, left=0.09, right=0.86, top=0.8, bottom=0.12)
+        gs = fig.add_gridspec(1, 2, wspace=1.5, left=0.09, right=0.84, top=0.76, bottom=0.12)
         axs = []
         for j, (col, ttl) in enumerate(MEAS):
             ax = fig.add_subplot(gs[0, j]); axs.append(ax)
@@ -196,7 +202,7 @@ def main(a):
         m62.letter_row(fig, axs, "ab", dx_in=0.45, dy_in=0.35)
         fig.suptitle(f"Within-session drift per area group and group ({pop}); D0 = day 0, E = expert; '*': drift ≠ 0 (Wilcoxon "
                      "p < 0.05);\nareas with ≥ 3 sessions at both stages in both cohorts; p: mouse-level permutation, "
-                     "×: cohort × stage interaction", x=0.02, y=0.995, ha="left", va="top", fontsize=5.6, weight="bold")
+                     "×: cohort × stage interaction;\nq: Benjamini-Hochberg over the areas shown, bold q < 0.05", x=0.02, y=0.995, ha="left", va="top", fontsize=5.6, weight="bold")
         m62.save(fig, out, "area_cd_drift_matrix"); plt.close(fig)
         with pd.option_context("display.width", 250):
             c = ["measure", "stage", "area_group", "n R+", "mean R+", "n R-", "mean R-", "p_perm", "p_MWU", "p_Welch", "q_BH"]

@@ -7,9 +7,11 @@
         R-; dots = sessions, mean +- s.e.m.; p = mouse-level cohort permutation (Mann-Whitney U and Welch t in the stats table).
   d     Day-0 drift per area group (015 per-area CD): area group x [R+, R-] for each drift, mean over sessions; '*' = drift
         differs from 0 (Wilcoxon p < 0.05); right: R+ vs R- mouse-level permutation p per drift; areas with >= 3 day-0
-        sessions in both cohorts (017 stage rule).
+        sessions in both cohorts (017 stage rule). q = Benjamini-Hochberg FDR of the permutation p over the areas shown, per
+        drift (user 2026-10-07).
 Output: within_day/<ref>/cosyne/<pop>/COSYNE_day0.{png,pdf,svg}, COSYNE_day0_stats.csv; --strict: COSYNE_day0_strict.* (panel d
-restricted to areas with >= 3 sessions in every cohort x stage condition; user 2026-10-07).
+restricted to areas with >= 3 sessions in every cohort x stage condition; user 2026-10-07); --dots: panel d as a dot plot
+(per-area mean +- s.e.m., R+ and R-, as area_cd_drift) instead of the matrix, suffix _dots.
 """
 import argparse
 import importlib
@@ -88,21 +90,69 @@ def main(a):
         from matplotlib.lines import Line2D
         ax.legend(handles=[Line2D([], [], marker="o", ls="", color=COH[c], mfc="white", ms=3, label=c.replace("-", "−"))
                            for c in ("R+", "R-")], frameon=False, loc="lower left", fontsize=4.6)
-        # d: per-area day-0 matrix
-        ax = fig.add_subplot(gs[0, 3]); axs.append(ax)
+        # d: per-area day-0 drift (matrix, or dot plot with --dots)
         TT = pd.concat([m017.stage_tests(A, c, "learning") for c, _ in m017.MEAS], ignore_index=True)
         both = TT.dropna(subset=["p_perm"])
         keep = set(both[both.measure == "drift_WH_SL"].area_group) & set(both[both.measure == "drift_WH_AH"].area_group)
         if a.strict:                                         # only areas with >= 3 sessions in every cohort x stage condition
             keep &= m017.strict_areas(A, "drift_WH_SL") & m017.strict_areas(A, "drift_WH_AH")
-            TT["q_BH"] = np.nan
-            for c_, _ in m017.MEAS:
-                k_ = (TT.measure == c_) & TT.area_group.isin(keep)
-                TT.loc[k_, "q_BH"] = m015.bh(TT.loc[k_, "p_perm"])
+        TT["q_BH"] = np.nan                                  # FDR (Benjamini-Hochberg) over the areas shown, per drift
+        for c_, _ in m017.MEAS:
+            k_ = (TT.measure == c_) & TT.area_group.isin(keep)
+            TT.loc[k_, "q_BH"] = m015.bh(TT.loc[k_, "p_perm"])
         order = m017.order_of(keep)
+        Ti = TT.set_index(["measure", "area_group"])
+        for col, _ in m017.MEAS:
+            for g in order:
+                rows.append(dict(panel="d", measure=col, area_group=g, **{k_: Ti.loc[(col, g)].get(k_) for k_ in
+                            ("n R+", "mean R+", "sem R+", "p_wilcoxon R+", "n R-", "mean R-", "sem R-", "p_wilcoxon R-",
+                             "p_MWU", "p_Welch", "p_perm", "q_BH")}))
+        gcol = au.get_custom_area_groups_colors()
+        if a.dots:
+            dots_d(fig, gs[0, 3], TT, order, gcol, axs)
+        else:
+            matrix_d(fig, gs[0, 3], Ti, order, gcol, axs)
+        m62.letter_row(fig, axs[:3], "abc", dx_in=0.35, dy_in=0.15)
+        m62.letter_row(fig, axs[3:4], "d", dx_in=0.55, dy_in=0.3)
+        fig.suptitle("On the learning day, whisker-hit pre-lick activity drifts toward the rewarded-lick pattern in R+ mice "
+                     "and away from it in R− mice", x=0.02, y=0.995, ha="left", va="top", fontsize=6.6, weight="bold")
+        tag = ("_strict" if a.strict else "") + ("_dots" if a.dots else "")
+        m62.save(fig, out, f"COSYNE_day0{tag}"); plt.close(fig)
+    R = pd.DataFrame(rows); R.to_csv(out / f"COSYNE_day0{tag}_stats.csv", index=False)
+    with pd.option_context("display.width", 250):
+        print(R.round(4).to_string())
+
+
+def dots_d(fig, spec, TT, order, gcol, axs):
+    """panel d as dot plot: day-0 drift per area group, R+ and R- (mean +- s.e.m. over sessions, filled = drift != 0),
+    one column per drift, then R+ vs R- permutation p and FDR q per drift"""
+    sub = spec.subgridspec(1, 3, width_ratios=[1, 1, 0.75], wspace=0.08)
+    y = None
+    for j, (col, lab) in enumerate((("drift_WH_SL", "vs spont. lick"), ("drift_WH_AH", "vs auditory hit"))):
+        ax = fig.add_subplot(sub[0, j]); axs.append(ax)
+        y, _ = m017.forest(ax, TT[TT.measure == col], order, j == 0, gcol, xlabel=False)
+        ax.tick_params(axis="y", labelsize=4.8)
+        ax.set_title(lab, fontsize=5.2, pad=2)
+        ax.set_xlabel("Drift (CD units)", fontsize=4.8)
+    axp = fig.add_subplot(sub[0, 2], sharey=axs[-1]); axp.axis("off")
+    Ti = TT.set_index(["measure", "area_group"])
+    axp.text(0.0, len(order) - 0.45, "R+ vs R− p (q)\n  SL        AH", fontsize=4.3, va="bottom", weight="bold")
+    for i, g in enumerate(order):
+        for k, col in enumerate(("drift_WH_SL", "drift_WH_AH")):
+            p, q = Ti.loc[(col, g), "p_perm"], Ti.loc[(col, g), "q_BH"]
+            axp.text(0.0 + 0.5 * k, y[i], f"{m017.fp(p)}\n({m017.fp(q)})", fontsize=3.9, va="center", linespacing=1.0,
+                     color="#D62728" if p < 0.05 else "0.35", weight="bold" if q < 0.05 else "normal")
+    axp.set_xlim(0, 1)
+    axs[3].set_title(axs[3].get_title(), fontsize=5.2, pad=2)
+    fig.text(axs[3].get_position().x0, axs[3].get_position().y1 + 0.075, "Day-0 drift per area group (filled: ≠ 0; bold q < 0.05)",
+             fontsize=5.4, ha="left")
+
+
+def matrix_d(fig, spec, Ti, order, gcol, axs):
+    ax = fig.add_subplot(spec); axs.append(ax)
+    if True:
         cols = [("drift_WH_SL", "R+"), ("drift_WH_SL", "R-"), ("drift_WH_AH", "R+"), ("drift_WH_AH", "R-")]
         M = np.full((len(order), 4), np.nan); star = np.zeros_like(M, bool)
-        Ti = TT.set_index(["measure", "area_group"])
         for i, g in enumerate(order):
             for j, (col, c) in enumerate(cols):
                 r = Ti.loc[(col, g)]
@@ -119,37 +169,25 @@ def main(a):
             t.set_color(COH[c])
         for x_, lab in ((0.5, "vs spont. lick"), (2.5, "vs auditory hit")):
             ax.annotate(lab, xy=(x_, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 13), textcoords="offset points", ha="center", va="bottom", fontsize=4.8)
-        gcol = au.get_custom_area_groups_colors()
         ax.set_yticks(range(len(order)), [m017.SHORT(g) for g in order])
         for tl, g in zip(ax.get_yticklabels(), order):
             tl.set_color(gcol.get(g, "k"))
         for k, col in enumerate(("drift_WH_SL", "drift_WH_AH")):
-            ax.annotate("SL" if k == 0 else "AH", xy=(4.0 + 0.75 * k, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 3), textcoords="offset points",
+            ax.annotate("SL" if k == 0 else "AH", xy=(4.05 + 0.9 * k, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 3), textcoords="offset points",
                         ha="center", va="bottom", fontsize=4.6, weight="bold")
             for i, g in enumerate(order):
-                p = Ti.loc[(col, g), "p_perm"]
-                ax.text(4.0 + 0.75 * k, i, m017.fp(p), ha="center", va="center", fontsize=4.2, clip_on=False,
-                        color="#D62728" if p < 0.05 else "0.35")
-                rows.append(dict(panel="d", measure=col, area_group=g, **{k_: Ti.loc[(col, g)].get(k_) for k_ in
-                            ("n R+", "mean R+", "p_wilcoxon R+", "n R-", "mean R-", "p_wilcoxon R-", "p_MWU", "p_Welch",
-                             "p_perm", "q_BH")}))
-        ax.annotate("R+ vs R− p", xy=(4.375, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 13), textcoords="offset points", ha="center", va="bottom", fontsize=4.6)
+                p, q = Ti.loc[(col, g), "p_perm"], Ti.loc[(col, g), "q_BH"]
+                ax.text(4.05 + 0.9 * k, i, f"{m017.fp(p)}\n({m017.fp(q)})", ha="center", va="center", fontsize=3.9, clip_on=False,
+                        linespacing=1.0, color="#D62728" if p < 0.05 else "0.35", weight="bold" if q < 0.05 else "normal")
+        ax.annotate("R+ vs R− p (q)", xy=(4.5, 1), xycoords=ax.get_xaxis_transform(), xytext=(0, 13), textcoords="offset points", ha="center", va="bottom", fontsize=4.6)
         cb = fig.colorbar(im, ax=ax, fraction=0.045, pad=0.25, location="bottom", aspect=30)
         cb.set_label("Day-0 whisker-hit drift (CD units)", fontsize=4.8); cb.ax.tick_params(labelsize=4.5)
-        ax.set_title("Day-0 drift per area group (* ≠ 0)", pad=24, fontsize=5.4)
-        m62.letter_row(fig, axs[:3], "abc", dx_in=0.35, dy_in=0.15)
-        m62.letter_row(fig, axs[3:], "d", dx_in=0.55, dy_in=0.3)
-        fig.suptitle("On the learning day, whisker-hit pre-lick activity drifts toward the rewarded-lick pattern in R+ mice "
-                     "and away from it in R− mice", x=0.02, y=0.995, ha="left", va="top", fontsize=6.6, weight="bold")
-        tag = "_strict" if a.strict else ""
-        m62.save(fig, out, f"COSYNE_day0{tag}"); plt.close(fig)
-    R = pd.DataFrame(rows); R.to_csv(out / f"COSYNE_day0{tag}_stats.csv", index=False)
-    with pd.option_context("display.width", 250):
-        print(R.round(4).to_string())
+        ax.set_title("Day-0 drift per area group (* ≠ 0; bold q < 0.05)", pad=24, fontsize=5.4)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--population", default="learners", choices=["all", "learners"])
     ap.add_argument("--strict", action="store_true", help="panel d: only areas with >= 3 sessions in every cohort x stage condition")
+    ap.add_argument("--dots", action="store_true", help="panel d as a dot plot (per-area means, as area_cd_drift) instead of a matrix")
     main(ap.parse_args())
