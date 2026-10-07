@@ -115,6 +115,47 @@ def strict_areas(A, col, min_sess=3):
     return set(n.index[(n >= min_sess).all(1)])
 
 
+def stage_area_anova(A, areas, col, stage, n_perm=1000, seed=0):
+    """two-way ANOVA within one stage on session x area drifts: y ~ C(cohort) * C(area) (type II, OLS), areas shown only.
+    Terms: cohort (R+ vs R- across areas), area, cohort x area (does the cohort difference depend on the area). A session
+    contributes several areas (not independent), so cohort and cohort x area are also tested by permuting cohort labels
+    across mice (n_perm, F re-estimated); the area term is not changed by that permutation (parametric p only)."""
+    import statsmodels.formula.api as smf
+    from statsmodels.stats.anova import anova_lm
+    d = A[(A.stage == stage) & A.area_group.isin(areas)].dropna(subset=[col]).rename(columns={col: "y", "area_group": "area"})
+    terms = {"cohort": "C(cohort)", "area": "C(area)", "cohort x area": "C(cohort):C(area)"}
+    fit = lambda dd: anova_lm(smf.ols("y ~ C(cohort) * C(area)", data=dd).fit(), typ=2)
+    tab = fit(d)
+    out = {k: dict(F=tab.loc[v, "F"], p=tab.loc[v, "PR(>F)"]) for k, v in terms.items()}
+    rng = np.random.default_rng(seed)
+    mice = d.mouse_id.unique(); mc = d.groupby("mouse_id").cohort.first().reindex(mice).to_numpy()
+    midx = pd.Index(mice).get_indexer(d.mouse_id)
+    null = {k: [] for k in ("cohort", "cohort x area")}
+    for _ in range(n_perm):
+        t = fit(d.assign(cohort=rng.permutation(mc)[midx]))
+        for k in null:
+            null[k].append(t.loc[terms[k], "F"])
+    for k in null:
+        nl = np.array(null[k])
+        out[k]["p_perm"] = (1 + np.sum(nl >= out[k]["F"])) / (1 + len(nl))
+    out["area"]["p_perm"] = np.nan
+    out["n_sessions"], out["n_mice"], out["n_values"] = d.session_id.nunique(), d.mouse_id.nunique(), len(d)
+    return out
+
+
+def anova_line(o):
+    return (f"ANOVA cohort {m62.fmt_p(o['cohort']['p_perm'])}, area {m62.fmt_p(o['area']['p'])}, "
+            f"cohort × area {m62.fmt_p(o['cohort x area']['p_perm'])}")
+
+
+def anova_rows(o, **meta):
+    return dict(**meta, **{f"{k} {s_}": o[k][s_] for k in ("cohort", "area", "cohort x area") for s_ in ("F", "p", "p_perm")},
+                n_sessions=o["n_sessions"], n_mice=o["n_mice"], n_values=o["n_values"])
+
+
+ANOVA = []          # filled by stage_figure / main, written to area_anova.csv
+
+
 def stage_figure(plt, A, out, pop, st, sl, gcol, strict=False):
     TT = pd.concat([stage_tests(A, c, st) for c, _ in MEAS], ignore_index=True)
     if strict:                                               # user 2026-10-07: duplicate with only fully sampled areas
@@ -127,7 +168,9 @@ def stage_figure(plt, A, out, pop, st, sl, gcol, strict=False):
     for j, (col, ttl) in enumerate(MEAS):
         ax = fig.add_subplot(gs[0, 2 * j]); axs.append(ax)
         y, T = forest(ax, TT[TT.measure == col], order, j == 0, gcol)
-        ax.set_title(f"{sl}: drift of {ttl}", fontsize=5.6)
+        AN = stage_area_anova(A, [g for g in order if g in set(TT[(TT.measure == col) & TT.p_perm.notna()].area_group)], col, st)
+        ANOVA.append(anova_rows(AN, measure=col, stage=st, strict=strict))
+        ax.set_title(f"{sl}: drift of {ttl}\n" + anova_line(AN), fontsize=5.4)
         axp = fig.add_subplot(gs[0, 2 * j + 1], sharey=ax)
         pcol(axp, y, T, order)
     from matplotlib.lines import Line2D
@@ -198,12 +241,18 @@ def main(a):
         for j, (col, ttl) in enumerate(MEAS):
             ax = fig.add_subplot(gs[0, j]); axs.append(ax)
             matrix(ax, A, T15, col, order, f"Mean drift of {ttl.replace(chr(10), ' ')}", fig)
-            ax.set_title(f"Drift of {ttl}", pad=22, fontsize=5.6)
+            AN3 = m62.area_anova(A.rename(columns={"area_group": "region"}), order, col=col)
+            ANOVA.append(dict(measure=col, stage="both", model="cohort x stage x area",
+                              **{f"{k} {s_}": v[s_] for k, v in AN3.items() for s_ in ("F", "p", "p_perm")}))
+            ax.set_title(f"Drift of {ttl}\nANOVA: cohort {m62.fmt_p(AN3['cohort']['p_perm'])}, cohort × area "
+                         f"{m62.fmt_p(AN3['cohort x area']['p_perm'])},\ncohort × stage {m62.fmt_p(AN3['cohort x stage']['p_perm'])}, "
+                         f"cohort × stage × area {m62.fmt_p(AN3['cohort x stage x area']['p_perm'])}", pad=22, fontsize=5.2)
         m62.letter_row(fig, axs, "ab", dx_in=0.45, dy_in=0.35)
         fig.suptitle(f"Within-session drift per area group and group ({pop}); D0 = day 0, E = expert; '*': drift ≠ 0 (Wilcoxon "
                      "p < 0.05);\nareas with ≥ 3 sessions at both stages in both cohorts; p: mouse-level permutation, "
                      "×: cohort × stage interaction;\nq: Benjamini-Hochberg over the areas shown, bold q < 0.05", x=0.02, y=0.995, ha="left", va="top", fontsize=5.6, weight="bold")
         m62.save(fig, out, "area_cd_drift_matrix"); plt.close(fig)
+        pd.DataFrame(ANOVA).to_csv(out / "area_anova.csv", index=False); ANOVA.clear()
         with pd.option_context("display.width", 250):
             c = ["measure", "stage", "area_group", "n R+", "mean R+", "n R-", "mean R-", "p_perm", "p_MWU", "p_Welch", "q_BH"]
             print(pop); print(ST[[x for x in c if x in ST]].round(3).to_string())
