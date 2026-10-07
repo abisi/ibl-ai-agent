@@ -12,7 +12,8 @@ drift D of 011). Matched set: N = 10 restricted to the sessions that also enter 
 Statistics (unit = session): Wilcoxon vs 0 per group; day 0 vs expert per cohort (MWU, Welch); R+ vs R- per stage (MWU,
 Welch, mouse-level cohort permutation); cohort x stage interaction (mouse-level permutation, 10,000).
 Figure (user 2026-10-07): every single trial plotted (dots) with the mean +- s.e.m. per trial number, R+ and R-
-overlaid within each stage; per-session changes contrasted R+ vs R- within stage.
+overlaid within each stage; per-session changes contrasted R+ vs R- within stage. Row 1: the whisker-hit
+projections themselves (CD score, no reference).
 Output: within_day/<ref>/wh_trials/<pop>/wh_trials_N{10,20}.{png,pdf,svg}, sessions_N{N}.csv, trials_N{N}.csv, tests.csv.
 """
 import argparse
@@ -129,13 +130,29 @@ def cohort_dots(ax, S, st, col, rng, label):
 
 def figure(plt, D, S, Sm, N, out, pop):
     rng = np.random.default_rng(0)
-    nrow = 2 if Sm is None else 3
-    fig = plt.figure(figsize=(m62.W_IN, 4.3 if Sm is None else 6.1))
-    gs = fig.add_gridspec(nrow, 4, hspace=0.75, wspace=0.55, left=0.08, right=0.98, top=0.87 if nrow == 2 else 0.9, bottom=0.08)
+    nrow = 3 if Sm is None else 4
+    fig = plt.figure(figsize=(m62.W_IN, 6.1 if Sm is None else 7.9))
+    gs = fig.add_gridspec(nrow, 4, hspace=0.75, wspace=0.55, left=0.08, right=0.98, top=0.9 if nrow == 3 else 0.92, bottom=0.06)
     panels = [(c, st, sl) for c in ("WH_SL", "AH_WH") for st, sl in STG]
+    # row 1 (user 2026-10-07): the whisker-hit projections themselves (score on the CD, no reference), trial by trial, and
+    # their per-session change over the N trials, R+ vs R- within each stage
+    axs0 = []
+    for j, (st, sl) in enumerate(STG):
+        ax = fig.add_subplot(gs[0, j]); axs0.append(ax); ax.set_box_aspect(1)
+        trials_panel(ax, D, st, "wh", N, rng)
+        ax.axhline(1, color=m62.CL["AH"], lw=0.5, ls=":")
+        ax.set_ylabel("WH score (SL = 0, AH = 1)", fontsize=5)
+        ax.set_title(f"{sl}: WH projection", fontsize=5.6)
+    lo, hi = np.nanpercentile(D["wh"], [1, 99])
+    for ax in axs0:
+        ax.set_ylim(lo - 0.05 * (hi - lo), hi + 0.25 * (hi - lo))
+    for j, (st, sl) in enumerate(STG):
+        ax = fig.add_subplot(gs[0, 2 + j]); axs0.append(ax); ax.set_box_aspect(1)
+        cohort_dots(ax, S, st, "slope_WH", rng, f"Change over {N} WH" if j == 0 else "")
+        ax.set_title(f"{sl}: WH score over {N} WH", fontsize=5.4)
     axs1 = []
     for j, (col, st, sl) in enumerate(panels):
-        ax = fig.add_subplot(gs[0, j]); axs1.append(ax); ax.set_box_aspect(1)
+        ax = fig.add_subplot(gs[1, j]); axs1.append(ax); ax.set_box_aspect(1)
         trials_panel(ax, D, st, col, N, rng)
         ax.set_ylabel("WH − SL (score)" if col == "WH_SL" else "AH − WH (distance to AH)", fontsize=5)
         ax.set_title(f"{sl}: " + ("WH relative to SL" if col == "WH_SL" else "WH distance to AH"), fontsize=5.6)
@@ -143,17 +160,17 @@ def figure(plt, D, S, Sm, N, out, pop):
         lo, hi = np.nanpercentile(D[col], [1, 99])
         for ax in (axs1[a_], axs1[b_]):
             ax.set_ylim(lo - 0.05 * (hi - lo), hi + 0.25 * (hi - lo))
-    rows_ax = [axs1]
+    rows_ax = [axs0, axs1]
     sets = [(S, f"sessions with ≥ {N} WH")] + ([] if Sm is None else [(Sm, "sessions with ≥ 20 WH")])
     for i, (SS, tag) in enumerate(sets):
         axs = []
         for j, (col, st, sl) in enumerate(panels):
-            ax = fig.add_subplot(gs[1 + i, j]); axs.append(ax); ax.set_box_aspect(1)
+            ax = fig.add_subplot(gs[2 + i, j]); axs.append(ax); ax.set_box_aspect(1)
             m = "slope_WH_SL" if col == "WH_SL" else "slope_WH_AH"
             cohort_dots(ax, SS, st, m, rng, (f"Change over {N} WH\n({tag})" if j == 0 else ""))
             ax.set_title(f"{sl}: " + ("WH − SL" if col == "WH_SL" else "WH − AH") + f" over {N} WH", fontsize=5.4)
         rows_ax.append(axs)
-    for r_, letters in zip(rows_ax, ("abcd", "efgh", "ijkl")):
+    for r_, letters in zip(rows_ax, ("abcd", "efgh", "ijkl", "mnop")):
         m62.letter_row(fig, r_, letters)
     fig.suptitle(f"First {N} whisker hits, trial by trial: R+ vs R− within each stage (time-matched SL / AH references; {pop})",
                  x=0.02, y=0.995, ha="left", va="top", fontsize=6.8, weight="bold")
