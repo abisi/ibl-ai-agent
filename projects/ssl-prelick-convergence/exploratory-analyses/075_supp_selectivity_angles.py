@@ -59,6 +59,7 @@ def angles(L):
     ok = (d.d_WH_FA > 0) & (d.d_AH_FA > 0) & d.axis_ok.astype(bool)
     d["cos"] = np.where(ok, np.clip(d.along / np.sqrt(d.d_WH_FA.clip(lower=1e-12) * d.d_AH_FA.clip(lower=1e-12)), -1, 1), np.nan)
     d["ratio"] = np.where(ok, np.sqrt(d.d_WH_FA.clip(lower=0) / d.d_AH_FA.clip(lower=1e-12)), np.nan)
+    d["theta"] = np.degrees(np.arccos(d.cos))                       # angle between WH - ref and AH - ref (deg)
     d["lam_from_parts"] = d.ratio * d.cos
     return d
 
@@ -98,12 +99,13 @@ def main(a):
     L = keep(pd.read_csv(m51.OUTROOT / "lambda" / "lambda_sessions.csv"))
     A = angles(L)
     fig = plt.figure(figsize=(m62.W_IN, 2.9))
-    gs = fig.add_gridspec(1, 4, wspace=0.65, left=0.07, right=0.98, top=0.78, bottom=0.2)
-    axs = [fig.add_subplot(gs[0, k]) for k in range(4)]
-    m62.dots_panel(axs[0], A, "cos", f"cos θ (WH−{RA}, AH−{RA})", rng, "S-ang cos", "Angle: cos θ", ref=[(0, "0.6"), (1, "0.8")])
-    m62.dots_panel(axs[1], A, "ratio", f"|WH−{RA}| / |AH−{RA}|", rng, "S-ang ratio", "Length ratio", ref=[(1, "0.8")])
-    m62.dots_panel(axs[2], A.assign(lam_=A.lam_from_parts), "lam_", "λ = ratio × cos θ", rng, "S-ang lam", "λ", ref=[(0, "0.6"), (1, "0.8")])
-    ax = axs[3]
+    gs = fig.add_gridspec(1, 5, wspace=0.7, left=0.06, right=0.98, top=0.78, bottom=0.2)
+    axs = [fig.add_subplot(gs[0, k]) for k in range(5)]
+    m62.dots_panel(axs[0], A, "theta", f"θ (deg) between WH−{RA} and AH−{RA}", rng, "S-ang theta", "Angle θ", ref=[(90, "0.8")])
+    m62.dots_panel(axs[1], A, "cos", f"cos θ", rng, "S-ang cos", "cos θ", ref=[(0, "0.6"), (1, "0.8")])
+    m62.dots_panel(axs[2], A, "ratio", f"|WH−{RA}| / |AH−{RA}|", rng, "S-ang ratio", "Length ratio", ref=[(1, "0.8")])
+    m62.dots_panel(axs[3], A.assign(lam_=A.lam_from_parts), "lam_", "λ = ratio × cos θ", rng, "S-ang lam", "λ", ref=[(0, "0.6"), (1, "0.8")])
+    ax = axs[4]
     for k in m62.GROUPS:
         q = A[(A.cohort == k[0]) & (A.stage == k[1])]
         ax.scatter(q.cos, q.ratio, s=7, facecolor="white" if k[1] == "learning" else m62.COH[k[0]], edgecolor=m62.COH[k[0]],
@@ -115,13 +117,13 @@ def main(a):
     ax.set_xlim(-0.2, 1.1); ax.set_ylim(0, max(2.0, np.nanpercentile(A.ratio, 98)))
     ax.set_xlabel("cos θ"); ax.set_ylabel("Length ratio"); ax.legend(frameon=False, fontsize=4.2, loc="upper left")
     ax.set_title("Sessions (dashed: iso-λ)", fontsize=5.6)
-    for ax in axs[:3]:
+    for ax in axs[:4]:
         ax.set_title(ax.get_title(), fontsize=5.6)
-    m62.letter_row(fig, axs, "abcd")
+    m62.letter_row(fig, axs, "abcde")
     fig.suptitle(f"Figure 3—supplement | Angle and length behind λ ({RA} reference, {a.population}; whole brain, cross-validated)",
                  x=0.02, y=0.99, ha="left", va="top", fontsize=7, weight="bold")
     m62.save(fig, out, "FigS_angles"); plt.close(fig)
-    S.merge(A[["session_id", "cos", "ratio", "lam", "lam_from_parts"]], on="session_id", how="outer").to_csv(
+    S.merge(A[["session_id", "theta", "cos", "ratio", "lam", "lam_from_parts"]], on="session_id", how="outer").to_csv(
         out / f"supp_selectivity_angles_{a.population}.csv", index=False)
     pd.DataFrame(m62.STATS).to_csv(out / f"stats_supp_selectivity_angles_{a.population}.csv", index=False)
     print("ALL DONE", out, "| lambda vs ratio x cos: max |diff| =",

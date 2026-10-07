@@ -72,6 +72,13 @@ version-history appendix).
   before the element, references `[Figure 2](#id)` (LaTeX `\hyperref`, HTML `<a href>`). Do not use `{#fig:x}` figure /
   table attributes (they need pandoc-crossref). The build refuses to write a report with an uncited figure or table.
 - **Paragraphs.** One idea per paragraph, separated by a blank line in `report.md` (never one long block per section).
+- **Equations (user, 2026-10-07).** Short symbols and one-term expressions inline (`$\lambda$`, `$d' \ge 0.3$`); any
+  equation with a fraction, sum, several terms or longer than about half a line goes in display mode, centred on its own
+  line, LaTeX style: a blank line, `$$ ... $$`, a blank line. Inside a list item, indent the `$$ ... $$` line and the text
+  after it by two spaces, or Pandoc closes the list. Define every quantity reported with its equation in Methods, with a
+  short derivation when the property matters (e.g. why a cross-validated distance is unbiased).
+- **Methods per figure.** For summary figures assembled from several analyses (e.g. conference figures), state in the
+  caption or a provenance table which script and which results each panel comes from, including variant settings.
 - **Thorough captions.** Every caption states what is plotted in each panel, the data (epoch, trials, n sessions / mice /
   units or areas), the statistic (mean ± what, error bars, bands), the test and n, the colour / marker code, and the
   sampling (iterations, shuffles) -- readable without the main text.
