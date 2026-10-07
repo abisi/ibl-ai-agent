@@ -56,6 +56,10 @@ part1() {
   ( export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
     for pop in learners all; do run 064_$pop $EA/064_pseudopop_hbootstrap.py --population $pop --n-proc 60; done )
   for pop in learners all; do run 062_$pop $EA/062_pub_convergence_figures.py --population $pop; done
+  run 080 $EA/080_single_unit_geometry.py --n-proc 40
+  run 081 $EA/081_single_unit_classes.py --n-proc 40
+  run 082 $EA/082_neuron_class_psth.py
+  run 083 $EA/083_cosyne_across_days.py
   echo "$(date '+%F %T') PART I DONE" >> $STATUS
 }
 
@@ -73,18 +77,18 @@ part2() {
   run w003_u400x5 $WD/003_epoch_comparison.py --n-proc 50 --n-fix 4 --n-units 400 --unit-draws 5
   run w003_uall $WD/003_epoch_comparison.py --n-proc 50 --n-fix 4 --n-units 0
   run w010 $WD/010_decoder_schemes.py
-  run w005 $WD/005_cosyne_within_day.py
-  run w006 $WD/006_cosyne_convergence_timeline.py
   run w008 $WD/008_cosyne_timeline_expanded.py
   run w015 $WD/015_area_cd_drift.py --n-proc 30
   for pop in learners all; do
     for s in 011_cd_trajectories 012_psth_halves_groups 013_within_session_change 014_cohort_specificity 016_day0_predicts_expert 019_cosyne_day0_v2; do
       run w${s:0:3}_$pop $WD/$s.py --population $pop
     done
-    for v in "" "--strict" "--dots" "--strict --dots"; do run "w018_${pop}_$(echo $v | tr -d ' -')" $WD/018_cosyne_day0.py --population $pop $v; done
   done
   run w017 $WD/017_area_cd_drift_views.py
   run w020 $WD/020_area_cd_panels.py
+  run w022 $WD/022_wh_trial_trajectories.py
+  run w023 $WD/023_cd_cohorts_by_stage.py
+  run w024 $WD/024_drift_compact.py
   echo "$(date '+%F %T') PART II DONE" >> $STATUS
 }
 
@@ -93,6 +97,5 @@ P1=$!
 part2 &
 P2=$!
 wait $P1 $P2
-run w007 $WD/007_cosyne_captions.py
 run w021 $WD/021_figure_index.py
 echo "$(date '+%F %T') PIPELINE DONE" >> $STATUS

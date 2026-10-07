@@ -36,7 +36,9 @@ m2 = importlib.import_module("002_projection_zones")
 m6 = importlib.import_module("006_colocation_figure")
 m7 = importlib.import_module("007_cortical_flatmaps")
 S, FIG, ZTAG, ZONE_PCT = m3.S, m3.FIG, m3.ZTAG, m3.ZONE_PCT
-PRE = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/across_days/sl")
+import os
+PRE = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/across_days/sl"
+                   + ("" if os.environ.get("PRELICK_UNITS", "all") == "all" else "_" + os.environ["PRELICK_UNITS"]))   # unit set (2026-10-08)
 POUT = PRE / "projection_colocation"                       # results live with the pre-lick analyses (user)
 FIGO = POUT / f"figures{ZTAG}"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]

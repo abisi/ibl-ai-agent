@@ -27,3 +27,9 @@
 - Report rebuilt (report/, good + mua units): Part II one section per analysis (011 CD drift, 001 halves, 012 PSTHs per half, 002 slopes, 013 change size, 003 epochs, 015/017 areas with ANOVA, 014 cohort specificity, 016 day-0 vs expert outcome, summary figures 019/006/008/005); numbered equations (19); 020 per-area figures and 018 variants in the supplement.
 - Stable-unit switch (PRELICK_UNITS=stable: 051 roots *_stable, 053 relabels non-stable units); full pipeline rerun on stable units started (run/run_stable_pipeline.sh); good + mua results kept as records in sl/.
 - within_day 021 figure index (FIGURES.md per results folder).
+
+## 2026-10-08
+- 080 single-neuron geometry (cross-validated ROC products), 081 neuron classes (sensory = whisker_active or auditory_active; lick-gated = whisker_choice), 082 class PSTHs, 083 across-days COSYNE figure (2 x 4 square panels, angle with bootstrap CI, per-area geometry with BH q).
+- Cleanup (user request): superseded within-day scripts 005, 006, 007, 018 moved to within_day/archive/ (README); stable driver updated (022-024, 080-083 added; archived scripts removed).
+- Reports rebuilt without redundant figures (old COSYNE versions, timelines, non-strict area variants, unit-sampling variants removed); report/ (good + mua record) and report_stable/.
+- Projection colocation (ssl-sensory-spatial-maps 008) now follows PRELICK_UNITS; stricter contours run (002 at ZONE_PCT=50 and 30; 008 at 50 on stable units). 50 % chosen as the strict level (30 % leaves too few units in some groups).

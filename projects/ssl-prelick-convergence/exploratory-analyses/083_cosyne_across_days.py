@@ -14,7 +14,8 @@ population geometry (row 2), last panel = per-area breakdown of the population g
   g  Length grows, no detectable rotation (user wording 2026-10-08; the angle CI is wide): angle theta between WH - SL and AH - SL and length ratio rho (Eq. 10) per group, mean and
      95 % hierarchical-bootstrap CI (mice, then sessions; 5,000 resamples); text: change day 0 -> expert per cohort and
      the cohort difference of the change (interaction), each with its 95 % CI.
-  h  Per area group: change of Delta-d from day 0 to expert (mean +- s.e.m.), R+ and R-; area groups with >= 3 sessions at
+  h  Per area group: change of Delta-d from day 0 to expert (mean +- s.e.m.), R+ and R-; right: FDR q (Benjamini-Hochberg
+     over the area groups) of the per-area interaction; area groups with >= 3 sessions at
      both stages in both cohorts; right: interaction p (mouse permutation); title: ANOVA Delta-d ~ cohort x stage x area
      (cohort-label permutation across mice).
 Output: across_days/<ref>[_units]/publication/<pop>/COSYNE_across_days.{png,pdf,svg} + COSYNE_across_days_stats.csv.
@@ -127,10 +128,18 @@ def area_panel(ax, LA, rows):
             diff, se = b.mean() - a.mean(), np.sqrt(a.var(ddof=1) / len(a) + b.var(ddof=1) / len(b))
             ax.errorbar(diff, y[i] + 0.16 - 0.32 * k, xerr=se, fmt="o", ms=2.8, color=COH[c], lw=0.8, capsize=0, mfc="white")
             rows.append(dict(panel="h", area=g, cohort=c, change=diff, sem=se, n_day0=len(a), n_expert=len(b)))
+    # FDR (Benjamini-Hochberg) over the area groups shown, of the per-area interaction p (user 2026-10-08)
+    pv = np.array([T.loc[g, "interaction_p"] if g in T.index else np.nan for g in order], float)
+    ok = np.isfinite(pv); qv = np.full_like(pv, np.nan)
+    if ok.any():
+        o = np.argsort(pv[ok]); r_ = pv[ok][o] * ok.sum() / (np.arange(ok.sum()) + 1)
+        qv[np.where(ok)[0][o]] = np.minimum.accumulate(r_[::-1])[::-1].clip(max=1)
+    ax.text(1.02, len(order) - 0.4, "q", transform=ax.get_yaxis_transform(), va="bottom", fontsize=4.4, weight="bold")
     for i, g in enumerate(order):
-        p = T.loc[g, "interaction_p"] if g in T.index else np.nan
-        ax.text(1.02, y[i], f"{p:.2f}".lstrip("0") if np.isfinite(p) else "", transform=ax.get_yaxis_transform(),
-                va="center", fontsize=4.2, color="#D62728" if p < 0.05 else "0.4")
+        q = qv[i]
+        ax.text(1.02, y[i], f"{q:.2f}".lstrip("0") if np.isfinite(q) else "", transform=ax.get_yaxis_transform(),
+                va="center", fontsize=4.2, color="#D62728" if q < 0.05 else "0.4")
+        rows.append(dict(panel="h q", area=g, p_perm=pv[i], q_BH=q))
     ax.axvline(0, color="0.6", lw=0.5)
     ax.set_yticks(y, [m62_short(g) for g in order], fontsize=4.6)
     for tl, g in zip(ax.get_yticklabels(), order):

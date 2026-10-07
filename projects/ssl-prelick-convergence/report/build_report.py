@@ -128,14 +128,20 @@ def sizes():
 # (anchor, file, producing script). Main figures in reading order (Part I, then Part II one analysis per section, summary
 # figures last), then supplements.
 PER_AREA = sorted(f for f in (WD / "area_cd_drift" / POP / "per_area").glob("*.png") if not f.stem.endswith("_by_stage"))
-PER_AREA_BS = sorted((WD / "area_cd_drift" / POP / "per_area").glob("*_by_stage.png"))
 area_of = lambda f: f.stem.replace("_by_stage", "").split("_", 1)[1].replace("_", " ").replace("Somatosensory ", "Somatosensory-")
+SUC = m51.OUTROOT / "single_unit_classes" / POP
+SUG = m51.OUTROOT / "single_unit_geometry" / POP
+# redundant figures removed (user 2026-10-08): all-mice duplicates (all-mice versions stay in the <pop> = all result folders),
+# superseded COSYNE versions (Part I v2 / v3, day-0 v1 x4) and timeline summaries (006, 008, 005), non-strict and
+# both-stage area versions, per-area cohort-within-stage duplicates, unit-sampling and >= 8 WH variants
 MAIN = [
     ("fig-task", P1 / "Fig1_task_data.png", "062 fig1"),
     ("fig-single", P1 / "Fig2_single_neurons.png", "062 fig2"),
+    ("fig-classes", SUC / "neuron_class_psth.png", "081 + 082"),
     ("fig-distance", P1 / "Fig3_population_distance.png", "062 fig3"),
     ("fig-areas", P1 / "Fig4_areas.png", "062 fig4"),
     ("fig-decoders", P1 / "Fig5_decoders.png", "062 fig5"),
+    ("fig-cosyne-across", P1 / "COSYNE_across_days.png", "083"),
     ("fig-cd", WD / "cd_trajectories" / POP / "cd_trajectories.png", "within_day 011"),
     ("fig-halves", WD / "halves" / POP / "within_session_time.png", "within_day 001"),
     ("fig-psth-halves", WD / "psth_halves" / POP / "psth_halves_groups.png", "within_day 004 + 012"),
@@ -147,14 +153,14 @@ MAIN = [
     ("fig-area-matrix", WD / "area_cd_drift" / POP / "area_cd_drift_matrix.png", "within_day 015 + 017"),
     ("fig-specificity", WD / "cohort_specificity" / POP / "cohort_specificity.png", "within_day 014"),
     ("fig-day0-expert", WD / "day0_predicts_expert" / POP / "day0_predicts_expert.png", "within_day 016"),
-    ("fig-cosyne-day0", WD / "cosyne" / POP / "COSYNE_day0_v2.png", "within_day 019"),
-    ("fig-timeline", WD / "cosyne" / "COSYNE_convergence_timeline.png", "within_day 006"),
-    ("fig-timeline-exp", WD / "cosyne" / "COSYNE_convergence_timeline_expanded.png", "within_day 008"),
-    ("fig-wd-rminus", WD / "cosyne" / "COSYNE_within_day.png", "within_day 005")]
+    ("fig-cosyne-day0", WD / "cosyne" / POP / "COSYNE_day0_v2.png", "within_day 019")]
 SUPP1 = [  # Part I supplements, learners
     ("fig-s-converging", P1 / "Fig2S_converging_neurons.png", "062 fig2_supplement"),
     ("fig-s-conv-sign", P1 / "FigS_converging_sign.png", "079"),
     ("fig-s-abssel", P1 / "FigS_abs_selectivity.png", "075"),
+    ("fig-s-classes", SUC / "single_unit_classes.png", "081"),
+    ("fig-s-sug", SUG / "single_unit_geometry.png", "080"),
+    ("fig-s-sug-d", SUG / "single_unit_geometry_effectsize.png", "080"),
     ("fig-s-lambda", P1 / "Fig3S_lambda_lambdaLDA.png", "062 fig3s_lambda"),
     ("fig-s-angles", P1 / "FigS_angles.png", "075"),
     ("fig-s-norm", NORM / f"geometry_normalisation_{POP}.png", "074"),
@@ -162,33 +168,19 @@ SUPP1 = [  # Part I supplements, learners
     ("fig-s-cd", P1 / "FigS_cd_estimators.png", "076 + 078 (coding_direction.py)"),
     ("fig-s-quiet", P1 / "FigS_quiet_windows.png", "077 + 078"),
     ("fig-s-decq", P1 / "FigS_decoder_quality.png", "079"),
-    ("fig-s-perf", P1 / "FigS_performance.png", "077 + 078"),
-    ("fig-s-cosyne-v2", P1 / "COSYNE_figure_v2.png", "062 fig_cosyne2"),
-    ("fig-s-cosyne-v3", P1 / "COSYNE_figure_v3.png", "062 fig_cosyne3")]
+    ("fig-s-perf", P1 / "FigS_performance.png", "077 + 078")]
 SUPP2 = [  # Part II supplements, learners
-    ("fig-s-area-all", WD / "area_cd_drift" / POP / "area_cd_drift.png", "within_day 015"),
-    ("fig-s-area-day0-all", WD / "area_cd_drift" / POP / "area_cd_drift_day0.png", "within_day 017"),
-    ("fig-s-area-expert-all", WD / "area_cd_drift" / POP / "area_cd_drift_expert.png", "within_day 017")] + [
+    ("fig-s-cd-by-stage", WD / "cd_trajectories" / POP / "cd_trajectories_by_stage.png", "within_day 023"),
+    ("fig-s-drift-compact", WD / "cosyne" / POP / "drift_compact.png", "within_day 024")] + [
     (f"fig-s-pa-{i + 1:02d}", f, "within_day 020") for i, f in enumerate(PER_AREA)] + [
-    ("fig-s-cd-by-stage", WD / "cd_trajectories" / POP / "cd_trajectories_by_stage.png", "within_day 023")] + [
-    (f"fig-s-pabs-{i + 1:02d}", f, "within_day 023") for i, f in enumerate(PER_AREA_BS)] + [
-    ("fig-s-drift-compact", WD / "cosyne" / POP / "drift_compact.png", "within_day 024"),
     ("fig-s-wh10", WD / "wh_trials" / POP / "wh_trials_N10.png", "within_day 022 (N = 10)"),
-    ("fig-s-wh20", WD / "wh_trials" / POP / "wh_trials_N20.png", "within_day 022 (N = 20)")] + [
-    ("fig-s-cosyne-v1", WD / "cosyne" / POP / "COSYNE_day0.png", "within_day 018"),
-    ("fig-s-cosyne-v1-dots", WD / "cosyne" / POP / "COSYNE_day0_dots.png", "within_day 018 --dots"),
-    ("fig-s-cosyne-v1-strict", WD / "cosyne" / POP / "COSYNE_day0_strict.png", "within_day 018 --strict"),
-    ("fig-s-cosyne-v1-strict-dots", WD / "cosyne" / POP / "COSYNE_day0_strict_dots.png", "within_day 018 --strict --dots"),
+    ("fig-s-wh20", WD / "wh_trials" / POP / "wh_trials_N20.png", "within_day 022 (N = 20)"),
     ("fig-s-oddeven", WD / "halves" / POP / "within_session_oddeven.png", "within_day 001"),
     ("fig-s-controls", WD / "halves" / POP / "within_session_controls.png", "within_day 001"),
     ("fig-s-decschemes", WD / "cosyne" / "decoder_schemes.png", "within_day 010"),
-    ("fig-s-slopes-wh8", WD / "slopes_wh8" / POP / "trial_slopes.png", "within_day 002 (SSL_MIN_WH=8)"),
-    ("fig-s-epochs-n4", WD / "epochs_n4" / POP / "epoch_comparison.png", "within_day 003 (4 events per class)")] + [
-    (f"fig-s-epochs-{v}", WD / f"epochs_n4_{v}" / POP / "epoch_comparison.png", f"within_day 003 (4 events, units {v})")
-    for v in ("u50x10", "u100x10", "u150x10", "u400x5", "uall")]
-# all-mice versions of every population-specific figure
-ALLM = [(f"{a}-all", Path(str(f).replace(f"/{POP}/", "/all/").replace(f"_{POP}.png", "_all.png")), s, a)
-        for a, f, s in MAIN + SUPP1 + SUPP2 if (f"/{POP}/" in str(f) or f"_{POP}.png" in str(f))]
+    ("fig-s-epochs-n4", WD / "epochs_n4" / POP / "epoch_comparison.png", "within_day 003 (4 events per class)")]
+ALLM = []                                   # all-mice duplicates removed (2026-10-08)
+FILE = {a_: f_ for a_, f_, *_ in MAIN + SUPP1 + SUPP2}
 
 # numbered display equations, in reading order (Methods); each is cited where the quantity is used
 EQ = {
@@ -225,7 +217,7 @@ E = lambda k, indent="": eq(k, EQ[k], indent)
 lab = []
 for i, (a, *_r) in enumerate(MAIN):
     lab.append((a, f"Figure {i + 1}"))
-for i, (a, *_r) in enumerate(SUPP1 + SUPP2 + [(x[0], x[1], x[2]) for x in ALLM]):
+for i, (a, *_r) in enumerate(SUPP1 + SUPP2):
     lab.append((a, f"Figure S{i + 1}"))
 lab += [("tbl-estimators", "Table 1"), ("tbl-mixed", "Table 2"), ("tbl-halves", "Table 3"), ("tbl-epochs", "Table 4"),
         ("tbl-area-anova", "Table 5"),
@@ -234,7 +226,7 @@ lab += [("tbl-estimators", "Table 1"), ("tbl-mixed", "Table 2"), ("tbl-halves", 
         ("tbl-provenance", "Table A3")]
 lab += [(k, f"Eq. ({i + 1})") for i, k in enumerate(EQ)]
 R.register(lab)
-L = R.label
+L = lambda a_: R.anchors.get(a_, a_)
 
 
 # ---------------------------------------------------------------------------------------------------------- captions
@@ -280,6 +272,17 @@ def captions():
 
 
 
+def captions_part1_new(C):
+    C.update({
+        "fig-classes": f"Converging neurons by stimulus class across learning ({POP}). Classes from the stimulus-aligned ROC analyses: sensory = significant whisker_active or auditory_active; lick-gated = not sensory, whisker_choice significant; non-sensory = neither. Rows 1–3: first-lick-aligned PSTHs of converging neurons (pre-lick AH > SL and WH > SL, significant) of each class; row 4: reward-lick-only neurons (AH > SL, WH vs SL not significant); columns: R+ day 0, R+ expert, R− day 0, R− expert; rate − pre-trial baseline, mean over units within session, mean ± s.e.m. over sessions; shaded: pre-lick window. Right column: converging fraction among reward-lick neurons per class (mean ± s.e.m. over sessions) and the class composition of converging neurons.",
+        "fig-cosyne-across": f"COSYNE figure, across days ({POP}). (a) Population PSTHs (all tested neurons) per cohort and stage; (b) converging non-sensory neurons; (c) converging fraction among reward-lick neurons (squares: the three stimulus classes); (d) AH-likeness ({ref('eq-likeness')}); (e) group geometry from cross-validated distances ({ref('eq-cvd')}); (f) Δd per session; (g) angle θ and length ratio ρ ({ref('eq-angle')}), mean and 95 % hierarchical-bootstrap CI, with the cohort × stage interaction of the change and its CI; (h) change of Δd per area group, R+ and R−, with the FDR q of the per-area interaction; title: ANOVA Δd ~ cohort × stage × area. Statistics as {L('fig-single')}.",
+        "fig-s-classes": f"Single neurons ({POP}): (a–d) cross-validated squared ROC selectivity per unit for WH vs SL, AH vs SL and WH vs AH (the single-neuron counterparts of the three distances, {ref('eq-cvd')}) and their Δd counterpart; (e–h) fraction selective with event counts matched (8 events per class; close to the 5 % false-positive rate, not used for inference); (i–p) converging fraction, AH-likeness and per-unit cross product within the sensory, lick-gated and non-sensory classes.",
+        "fig-s-sug": f"Single-neuron (ROC) counterpart of the population geometry ({POP}). (a–d) ROC selectivity WH vs SL against AH vs SL for every unit per group (density) with the mean gain (slope through the origin); (e–h) per session, cross-validated across event halves: alignment (cos θ analogue), gain (λ analogue, {ref('eq-lambda')}), spread ratio (ρ analogue) and the WH-specific residual (o² analogue); (i, j) per-unit contribution to the cross product of converging and WH-only neurons; (k, l) gain and alignment per area group (day 0 → expert change; interaction p and FDR q).",
+        "fig-s-sug-d": f"As {L('fig-s-sug')}, with per-unit effect sizes (mean difference / within-class SD, {ref('eq-sigma')}) instead of ROC selectivity; this version corresponds exactly to the population geometry.",
+    })
+    return C
+
+
 def captions_part2(C):
     """captions of the Part II figures (one per analysis) and their supplements"""
     C.update({
@@ -307,8 +310,6 @@ def captions_part2(C):
         "fig-s-wh10": f"The reward-lick CD along the first 10 whisker hits ({POP}; sessions with ≥ 10 whisker hits). (a, b) Whisker-hit projections, every trial of every session (dots) and the mean ± s.e.m. over sessions per trial number, R+ and R− overlaid, day 0 and expert; (c, d) per-session change of the projection over the 10 trials (slope against the trial number scaled to 0–1), R+ vs R− within stage; (e–h) the same relative to time-matched references: WH − SL and AH − WH, with SL and AH taken from the session's OLS lines ({ref('eq-ols')}) at the time of each whisker hit; (i–l) per-session change of WH − SL and WH − AH; (m–p) as (i–l) restricted to the sessions that also enter the 20-trial version.",
         "fig-s-wh20": f"As {L('fig-s-wh10')}, first 20 whisker hits (sessions with ≥ 20 whisker hits).",
     })
-    for i, f in enumerate(PER_AREA_BS):
-        C[f"fig-s-pabs-{i + 1:02d}"] = f"{area_of(f)}: as {L('fig-s-cd-by-stage')}, with the CD built from this area group's units ({POP})."
     for i, f in enumerate(PER_AREA):
         C[f"fig-s-pa-{i + 1:02d}"] = (f"{area_of(f)}: the analyses of {L('fig-cd')} with the CD built from this area group's "
                                        f"units ({POP}). (a–d) class scores per cohort × stage; (e–h) WH − SL and AH − WH, day 0 "
@@ -359,7 +360,7 @@ expert sessions.
 3. **Where the change lies.** The whisker-hit vector grew rather than rotated: length ratio interaction
    {gi('S-ang ratio', SS)}, angle interaction {gi('S-ang theta', SS)} ({ref('fig-s-angles')}).
 4. **Decoders.** P(AH | WH) − P(AH | SL), chance-corrected: {grp('5e', 'k4')} ({ref('fig-decoders')}e).
-5. **Within days.** Mixed model of single-trial coding-direction scores ({ref('tbl-mixed')}, {ref('fig-timeline')}):
+5. **Within days.** Mixed model of single-trial coding-direction scores ({ref('tbl-mixed')}, {ref('fig-cd')}):
    day-0 drift R+ {a.drift_Rplus:+.2f} ± {a.se_Rplus:.2f} (p {pv('mm_p_rplus_d0', a.p_Rplus)}), R− {a.drift_Rminus:+.2f} ± {a.se_Rminus:.2f}
    (p {pv('mm_p_rminus_d0', a.p_Rminus)}); R+ − R− mouse-permutation p {pv('mm_pperm_d0', a.p_perm_diff)}.
 """
@@ -530,17 +531,15 @@ whisker hits relative to a reference class,
 {E('eq-drift')}
 (> 0: whisker hits move toward AH relative to the reference). Relative to SL it removes drift shared by all licks; relative
 to AH, drift shared by rewarded, stimulus-triggered licks. Alternative estimators (Theil-Sen slopes, slope of the binned
-difference, late − early half) are compared in {ref('tbl-estimators')}. Variant with ≥ 8 whisker hits per session:
-{ref('fig-s-slopes-wh8')}.
+difference, late − early half) are compared in {ref('tbl-estimators')}. Trial by trial along the first 10 and 20 whisker hits: {ref('fig-s-wh10')}, {ref('fig-s-wh20')}.
 
 **Halves (001, 004, 012).** Each session is split at the midpoint between its two middle auditory hits (equal AH per half);
 per half the events are count-matched by subsampling (20 subsamples) and Δd, λ and decoder readouts recomputed; change =
 late − early. Null split: odd vs even events ({ref('fig-s-oddeven')}); controls per half in {ref('fig-s-controls')}.
 
 **Epochs on a common footing (003, 013).** Day-0 and expert halves each estimated from a fixed number of events per class (6;
-variants with 4) drawn 20 times, and a fixed number of units (150; variants {ref('fig-s-epochs-u50x10')},
-{ref('fig-s-epochs-u100x10')}, {ref('fig-s-epochs-u150x10')}, {ref('fig-s-epochs-u400x5')}, {ref('fig-s-epochs-uall')};
-4 events, one draw: {ref('fig-s-epochs-n4')}); one decoder per session read out per half; hierarchical bootstrap over mice then
+variants with 4: {ref('fig-s-epochs-n4')}) drawn 20 times, and a fixed number of units (150; other unit samplings are
+compared in the decoder-scheme figure); one decoder per session read out per half; hierarchical bootstrap over mice then
 sessions; with $D$ a readout of a half, the contrasts are
 {E('eq-epochs')}
 ($L$: learning day, $E$: expert). The decoder schemes are compared in {ref('fig-s-decschemes')}.
@@ -569,7 +568,7 @@ def part1():
 
 The task, the alignment and the data are summarised in {ref('fig-task')}.
 
-{figure('fig-task', MAIN[0][1], CAP['fig-task'])}
+{figure('fig-task', FILE['fig-task'], CAP['fig-task'])}
 
 ## Single neurons
 
@@ -596,7 +595,20 @@ The increase in WH vs SL selective units in R+ is carried by positively selectiv
 {gi('S-sel pos whisker_hit_vs_fa_prelick', SS)}); mean absolute selectivity over all units changed less
 ({ref('fig-s-abssel')}).
 
-{figure('fig-single', MAIN[1][1], CAP['fig-single'])}
+{figure('fig-single', FILE['fig-single'], CAP['fig-single'])}
+
+The convergence is not a property of stimulus-responsive neurons only ({ref('fig-classes')}). Classifying neurons by the
+stimulus-aligned ROC analyses (sensory: responsive to the whisker or auditory stimulus in the active context; lick-gated:
+whisker hit vs miss; non-sensory: neither), the converging fraction among reward-lick neurons roughly doubled in R+ in
+every class and did not change in R−, including neurons that respond to neither stimulus ({ref('fig-s-classes')}). In R+
+experts the whisker-hit trace of converging neurons reaches the auditory-hit trace before the lick in all three classes.
+
+Single neurons also mirror the population geometry ({ref('fig-s-sug')}, {ref('fig-s-sug-d')}): across units, the
+selectivity for WH vs SL against AH vs SL becomes more aligned in both cohorts, while its spread (the counterpart of the
+length ratio ρ) grows in R+ only; converging neurons carry most of the cross product and their number, not their
+individual contribution, increases.
+
+{figure('fig-classes', FILE['fig-classes'], CAP['fig-classes'])}
 
 ## Population geometry
 
@@ -623,7 +635,7 @@ observed {grp('S-shift dd', 'shdd', S78)}; corrected {grp('S-shift dd_corrected'
 ({ref('fig-s-cd')}). Lick-free quiet windows sat near the spontaneous-lick end of the axis and did not show the whisker-hit
 change ({ref('fig-s-quiet')}).
 
-{figure('fig-distance', MAIN[2][1], CAP['fig-distance'])}
+{figure('fig-distance', FILE['fig-distance'], CAP['fig-distance'])}
 
 ## Brain areas
 
@@ -631,7 +643,7 @@ change ({ref('fig-s-quiet')}).
 but no area group survived family-wise correction ({ref('fig-areas')}a–c); lick-aligned PSTHs of two groups illustrate the
 three event types per neuron and per session ({ref('fig-areas')}d–e).
 
-{figure('fig-areas', MAIN[3][1], CAP['fig-areas'])}
+{figure('fig-areas', FILE['fig-areas'], CAP['fig-areas'])}
 
 ## Decoders
 
@@ -651,9 +663,14 @@ AH − SL axis inflates a ratio.
 ## Behaviour
 
 Across sessions, most single-neuron and geometry measures tracked whisker hit rate and d′, strongly in R+ ({ref('fig-s-perf')}).
-The COSYNE summary figures of Part I are in {ref('fig-s-cosyne-v2')} and {ref('fig-s-cosyne-v3')}.
+The across-days COSYNE figure ({ref('fig-cosyne-across')}) assembles the single-neuron and geometry results on one page:
+converging neurons and AH-likeness, group geometry and Δd, the length / angle decomposition with bootstrap CIs (the
+length grows in R+ only, no detectable rotation) and Δd per area group (FDR q per area; the cohort × stage × area term of
+the ANOVA tests whether the effect differs between areas).
 
-{figure('fig-decoders', MAIN[4][1], CAP['fig-decoders'])}
+{figure('fig-decoders', FILE['fig-decoders'], CAP['fig-decoders'])}
+
+{figure('fig-cosyne-across', FILE['fig-cosyne-across'], CAP['fig-cosyne-across'])}
 """
 
 
@@ -806,7 +823,7 @@ linear trend, the smallest (g = {num('de_h_g', de_h.hedges_g, '{:.2f}')}). The s
 licks the R− drift is close to zero on the learning day ({a.drift_Rminus:+.2f} ± {a.se_Rminus:.2f}; R+ − R− permutation p
 {P(a.p_perm_diff)}), so the R− drift relative to SL is partly carried by sessions with few events.
 
-{figure('fig-cd', MAIN[5][1], CAP['fig-cd'])}
+{figure('fig-cd', FILE['fig-cd'], CAP['fig-cd'])}
 
 {table('tbl-estimators', estimators_table(), f"Drift of whisker hits relative to the reference ({ref('eq-drift')}) on the learning day ({POP}) with four estimators: OLS slopes of {ref('eq-ols')} (main), Theil-Sen slopes, the OLS slope of the per-bin difference (five bins of session time, each part of the session weighted equally) and the late − early half difference. R+ vs R−: Hedges g, mouse-level permutation, Mann-Whitney U and Welch p; ρ: Spearman correlation with the OLS estimate across sessions.")}
 
@@ -823,11 +840,11 @@ per half are in {ref('fig-s-controls')}. The first-lick-aligned activity per hal
 {ref('fig-psth-halves')}: in R+ the whisker-hit trace separates from the spontaneous-lick trace before the lick at both
 stages, in R− it overlaps it.
 
-{figure('fig-halves', MAIN[6][1], CAP['fig-halves'])}
+{figure('fig-halves', FILE['fig-halves'], CAP['fig-halves'])}
 
 {table('tbl-halves', halves_table(), f"Late − early change per group (mean; Wilcoxon p vs 0), time split, {POP}; day 0 R+ vs R− and cohort × stage by mouse-level permutation.")}
 
-{figure('fig-psth-halves', MAIN[7][1], CAP['fig-psth-halves'])}
+{figure('fig-psth-halves', FILE['fig-psth-halves'], CAP['fig-psth-halves'])}
 
 ## Trial-level trajectories
 
@@ -837,7 +854,7 @@ session, R+ whisker hits were far from their expert position; by the end they ap
 lick rates fell during sessions while whisker hit rates rose in R+ ({ref('fig-slopes')}k–l), which is why the slopes are taken
 relative to spontaneous licks measured at the same times.
 
-{figure('fig-slopes', MAIN[8][1], CAP['fig-slopes'])}
+{figure('fig-slopes', FILE['fig-slopes'], CAP['fig-slopes'])}
 
 ## Size of the within-session change
 
@@ -848,7 +865,7 @@ R+ {num('ch_pos_rp_d0', chp['R+ day0 mean'], '{:.2f}')} vs {num('ch_pos_rp_e', c
 (p {pv('ch_pos_rp_p', chp['R+ day0 vs expert p_boot'])}). Whisker-hit rates rose across R+ sessions and fell across R−
 sessions at both stages ({ref('fig-change')}a).
 
-{figure('fig-change', MAIN[9][1], CAP['fig-change'])}
+{figure('fig-change', FILE['fig-change'], CAP['fig-change'])}
 
 ## Within days vs across days
 
@@ -857,7 +874,7 @@ within-day change (WH − SL position, contrasts of {ref('eq-epochs')}: within d
 across days {num('ep_a_rp', w('R+', 'across-day (early)').value, '{:+.2f}')}), and part of it was already present at the start
 of expert sessions (carry-over {num('ep_c_rp', w('R+', 'carry-over').value, '{:+.2f}')}) ({ref('tbl-epochs')}, {ref('fig-epochs')}).
 
-{figure('fig-epochs', MAIN[10][1], CAP['fig-epochs'])}
+{figure('fig-epochs', FILE['fig-epochs'], CAP['fig-epochs'])}
 
 {table('tbl-epochs', epochs_table(), f"Epoch contrasts on a common footing ({POP}; 6 events per class, 150 units): estimate and 95 % hierarchical-bootstrap CI per cohort; R+ vs R− by cohort-label permutation across mice.")}
 
@@ -876,17 +893,15 @@ and {pv('an3_ah_cs', an3('drift_WH_AH')['cohort x stage p_perm'])} (D_AH), cohor
 {pv('an3_sl_csa', an3('drift_WH_SL')['cohort x stage x area p_perm'])} and {pv('an3_ah_csa', an3('drift_WH_AH')['cohort x stage x area p_perm'])}:
 area-specific learning-day effects (single area groups with a significant cohort × stage interaction, {ref('tbl-s-area-contrasts')})
 are not supported by the full model. One figure per area group, day 0 vs expert: {", ".join(f"{ref(f'fig-s-pa-{i + 1:02d}')} ({area_of(f)})" for i, f in enumerate(PER_AREA))};
-all area groups regardless of sampling: {ref('fig-s-area-day0-all')}, {ref('fig-s-area-expert-all')}, {ref('fig-s-area-all')}.
-The same analyses with R+ and R− contrasted within each stage: whole brain {ref('fig-s-cd-by-stage')}; per area group
-{", ".join(f"{ref(f'fig-s-pabs-{i + 1:02d}')} ({area_of(f)})" for i, f in enumerate(PER_AREA_BS))}; all drifts in the compact
-format: {ref('fig-s-drift-compact')}. Along the first 10 and 20 whisker hits instead of session time: {ref('fig-s-wh10')},
+R+ and R− contrasted within each stage (whole brain): {ref('fig-s-cd-by-stage')}; all drifts, whole brain and per area
+group, in the compact format: {ref('fig-s-drift-compact')}. Along the first 10 and 20 whisker hits instead of session time: {ref('fig-s-wh10')},
 {ref('fig-s-wh20')}.
 
-{figure('fig-area-day0', MAIN[11][1], CAP['fig-area-day0'])}
+{figure('fig-area-day0', FILE['fig-area-day0'], CAP['fig-area-day0'])}
 
-{figure('fig-area-expert', MAIN[12][1], CAP['fig-area-expert'])}
+{figure('fig-area-expert', FILE['fig-area-expert'], CAP['fig-area-expert'])}
 
-{figure('fig-area-matrix', MAIN[13][1], CAP['fig-area-matrix'])}
+{figure('fig-area-matrix', FILE['fig-area-matrix'], CAP['fig-area-matrix'])}
 
 {table('tbl-area-anova', area_anova_table(), "ANOVA of the per-area drifts (session × area group values; area groups with ≥ 3 sessions in every cohort × stage condition): p of the cohort terms by cohort-label permutation across mice (1,000), per stage (cohort × area) and over both stages (cohort × stage × area).")}
 
@@ -898,7 +913,7 @@ Measures meeting the learning-day-specific criterion (day-0 p < 0.05, expert p �
 Expert sessions are fewer than day-0 sessions, so "not significant in experts" is weak evidence; the interaction is the
 relevant test.
 
-{figure('fig-specificity', MAIN[14][1], CAP['fig-specificity'])}
+{figure('fig-specificity', FILE['fig-specificity'], CAP['fig-specificity'])}
 
 ## Day-0 effects and expert outcome
 
@@ -907,22 +922,15 @@ Per mouse ({num('m16_rp', int(nm.get('R+', 0)))} R+ and {num('m16_rm', int(nm.ge
 {best.x} vs {best.y} in {best.cohort} (Spearman ρ = {num('m16_best_rho', best.spearman_rho, '{:.2f}')}, p
 {pv('m16_best_p', best.spearman_p)}, uncorrected over {len(D16)} tests). The samples are too small to conclude.
 
-{figure('fig-day0-expert', MAIN[15][1], CAP['fig-day0-expert'])}
+{figure('fig-day0-expert', FILE['fig-day0-expert'], CAP['fig-day0-expert'])}
 
 ## Summary figures
 
-The learning-day COSYNE figure ({ref('fig-cosyne-day0')}; earlier versions {ref('fig-s-cosyne-v1')}, {ref('fig-s-cosyne-v1-dots')}, {ref('fig-s-cosyne-v1-strict')}, {ref('fig-s-cosyne-v1-strict-dots')})
-combines the class scores, example sessions, the drift relative to each reference and its area breakdown. The convergence
-timeline ({ref('fig-timeline')}, expanded with methods and controls in {ref('fig-timeline-exp')}) and the R− comparison of the
-learning day with expert sessions ({ref('fig-wd-rminus')}) summarise the earlier analyses with all mice.
+The learning-day COSYNE figure ({ref('fig-cosyne-day0')}) combines the class scores, example sessions, the drift
+relative to each reference and its area breakdown.
 
-{figure('fig-cosyne-day0', MAIN[16][1], CAP['fig-cosyne-day0'])}
+{figure('fig-cosyne-day0', FILE['fig-cosyne-day0'], CAP['fig-cosyne-day0'])}
 
-{figure('fig-timeline', MAIN[17][1], CAP['fig-timeline'])}
-
-{figure('fig-timeline-exp', MAIN[18][1], CAP['fig-timeline-exp'])}
-
-{figure('fig-wd-rminus', MAIN[19][1], CAP['fig-wd-rminus'])}
 """
 
 
@@ -969,8 +977,7 @@ def caveats():
   pre-lick activity nor the per-neuron selectivity.
 - **Pending settings.** Within-class SD unit scaling ({ref('eq-sigma')}) and a minimum of 4 events per class everywhere are
   pending; the false-alarm reference variants are not shown.
-- **Part II settings.** The timeline figures use all mice and the common-footing variant with 4 events per class (10 draws
-  of 150 units); the other Part II figures use learners and 6 events per class.
+- **Part II settings.** Learners; common footing with 6 events per class (variant with 4 in the supplement).
 - **Drift relative to SL.** In the single-trial mixed model the R− drift relative to spontaneous licks is near zero on the
   learning day; the per-session estimate is partly carried by sessions with few events. The drift relative to AH is robust
   to the estimator.
@@ -1002,10 +1009,8 @@ def supp(T, TA):
     o.append("\n## Part II\n")
     for a, f, s in SUPP2:
         o.append(figure(a, f, CAP[a] + f" Script: {s}."))
-    o.append("\n## All mice\n\nEvery population-specific figure, repeated for all mice: "
-             + ", ".join(f"{ref(a)} (as {L(b)})" for a, f, s, b in ALLM) + ".\n")
-    for a, f, s, b in ALLM:
-        o.append(figure(a, f, CAP[a]))
+    o.append("\nAll-mice versions of every population-specific figure are in the result folders (<pop> = all); the "
+             "report shows learners only.\n")
     o.append("\n# Supplementary tables\n")
     o.append(table("tbl-s-sizes", T, f"Sample sizes, Part I ({POP}): sessions, mice and tested units ({UNIT_TXT}, mean pre-lick rate ≥ {m51.MIN_FR} Hz, WH vs SL ROC tested) per cohort and stage."))
     o.append(table("tbl-s-sizes-areas", TA, f"Sessions / tested units per area group, cohort and stage ({POP})."))
@@ -1018,8 +1023,7 @@ def provenance_table():
     rows = []
     for a, f, s in MAIN + SUPP1 + SUPP2:
         rows.append({"Figure": L(a), "Script": s, "File (results folder)": str(f).split("ssl-prelick-convergence/")[-1]})
-    rows.append({"Figure": f"{L(ALLM[0][0])}–{L(ALLM[-1][0])}", "Script": "as the learners versions, --population all",
-                 "File (results folder)": "…/all/…"})
+
     return pd.DataFrame(rows)
 
 
@@ -1062,7 +1066,7 @@ version of the report (report_stable/).
 """
 
 
-CAP = captions_part2(captions())
+CAP = captions_part2(captions_part1_new(captions()))
 
 
 def main():
