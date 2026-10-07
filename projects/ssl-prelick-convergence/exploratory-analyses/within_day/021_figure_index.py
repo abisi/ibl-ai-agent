@@ -42,6 +42,12 @@ GROUPS = [
      "014", ["cohort_specificity/*/cohort_specificity.png"]),
     ("B8. Day-0 effects per mouse vs expert outcome", "Do day-0 effects predict expert performance?", "016",
      ["day0_predicts_expert/*/day0_predicts_expert.png"]),
+    ("B9. Cohorts contrasted within each stage (time-normalised)", "R+ vs R- on day 0 and in experts.", "023",
+     ["cd_trajectories/*/cd_trajectories_by_stage.png"]),
+    ("B10. Along the first 10 / 20 whisker hits, trial by trial", "Does the drift follow the number of whisker-hit "
+     "outcomes?", "022", ["wh_trials/*/wh_trials_N*.png"]),
+    ("B11. All drifts, compact (mean +- s.e.m.), whole brain and per area", "Summary of the drift quantifications.", "024",
+     ["cosyne/*/drift_compact.png"]),
     ("C. Per-area analyses (CD built from each area group's units)", None, None, []),
     ("C1. Day 0 and expert, all area groups and strict set", "Which area groups carry the drift, per stage?", "017",
      ["area_cd_drift/*/area_cd_drift_day0*.png", "area_cd_drift/*/area_cd_drift_expert*.png"]),
@@ -50,7 +56,7 @@ GROUPS = [
     ("C3. Both stages per area (forest)", "Drift per area group, day 0 and expert together.", "015",
      ["area_cd_drift/*/area_cd_drift.png"]),
     ("C4. One figure per area group: trajectories and drifts, day 0 vs expert", "Learning-day vs expert contrast within "
-     "each area group.", "020", ["area_cd_drift/*/per_area/*.png"]),
+     "each area group.", "020 / 023 (_by_stage: cohorts within stage)", ["area_cd_drift/*/per_area/*.png"]),
     ("D. Controls and variants", None, None, []),
     ("D1. Odd/even split and per-half controls", "Null split without time; rates, RTs, firing rates per half.", "001",
      ["halves/*/within_session_oddeven.png", "halves/*/within_session_controls.png"]),

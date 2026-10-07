@@ -127,8 +127,9 @@ def sizes():
 # ---------------------------------------------------------------------------------------------------------- figure inventory
 # (anchor, file, producing script). Main figures in reading order (Part I, then Part II one analysis per section, summary
 # figures last), then supplements.
-PER_AREA = sorted((WD / "area_cd_drift" / POP / "per_area").glob("*.png"))
-area_of = lambda f: f.stem.split("_", 1)[1].replace("_", " ").replace("Somatosensory ", "Somatosensory-")
+PER_AREA = sorted(f for f in (WD / "area_cd_drift" / POP / "per_area").glob("*.png") if not f.stem.endswith("_by_stage"))
+PER_AREA_BS = sorted((WD / "area_cd_drift" / POP / "per_area").glob("*_by_stage.png"))
+area_of = lambda f: f.stem.replace("_by_stage", "").split("_", 1)[1].replace("_", " ").replace("Somatosensory ", "Somatosensory-")
 MAIN = [
     ("fig-task", P1 / "Fig1_task_data.png", "062 fig1"),
     ("fig-single", P1 / "Fig2_single_neurons.png", "062 fig2"),
@@ -152,8 +153,6 @@ MAIN = [
     ("fig-wd-rminus", WD / "cosyne" / "COSYNE_within_day.png", "within_day 005")]
 SUPP1 = [  # Part I supplements, learners
     ("fig-s-converging", P1 / "Fig2S_converging_neurons.png", "062 fig2_supplement"),
-    ("fig-s-conv-types", P1 / "Fig2S_converging_neuron_types.png", "062 fig2_supplement"),
-    ("fig-s-examples-psth", P1 / "Fig2S_examples_psth_only.png", "062 fig2_old_examples"),
     ("fig-s-conv-sign", P1 / "FigS_converging_sign.png", "079"),
     ("fig-s-abssel", P1 / "FigS_abs_selectivity.png", "075"),
     ("fig-s-lambda", P1 / "Fig3S_lambda_lambdaLDA.png", "062 fig3s_lambda"),
@@ -171,6 +170,11 @@ SUPP2 = [  # Part II supplements, learners
     ("fig-s-area-day0-all", WD / "area_cd_drift" / POP / "area_cd_drift_day0.png", "within_day 017"),
     ("fig-s-area-expert-all", WD / "area_cd_drift" / POP / "area_cd_drift_expert.png", "within_day 017")] + [
     (f"fig-s-pa-{i + 1:02d}", f, "within_day 020") for i, f in enumerate(PER_AREA)] + [
+    ("fig-s-cd-by-stage", WD / "cd_trajectories" / POP / "cd_trajectories_by_stage.png", "within_day 023")] + [
+    (f"fig-s-pabs-{i + 1:02d}", f, "within_day 023") for i, f in enumerate(PER_AREA_BS)] + [
+    ("fig-s-drift-compact", WD / "cosyne" / POP / "drift_compact.png", "within_day 024"),
+    ("fig-s-wh10", WD / "wh_trials" / POP / "wh_trials_N10.png", "within_day 022 (N = 10)"),
+    ("fig-s-wh20", WD / "wh_trials" / POP / "wh_trials_N20.png", "within_day 022 (N = 20)")] + [
     ("fig-s-cosyne-v1", WD / "cosyne" / POP / "COSYNE_day0.png", "within_day 018"),
     ("fig-s-cosyne-v1-dots", WD / "cosyne" / POP / "COSYNE_day0_dots.png", "within_day 018 --dots"),
     ("fig-s-cosyne-v1-strict", WD / "cosyne" / POP / "COSYNE_day0_strict.png", "within_day 018 --strict"),
@@ -297,6 +301,14 @@ def captions_part2(C):
         "fig-s-cosyne-v1-strict-dots": f"As {L('fig-s-cosyne-v1-strict')}, panel f as a dot plot.",
         "fig-s-slopes-wh8": f"As {L('fig-slopes')}, sessions with ≥ 8 whisker hits.",
     })
+    C.update({
+        "fig-s-cd-by-stage": f"As {L('fig-cd')}, with the cohorts contrasted within each stage ({POP}): (a–d) WH − SL and AH − WH across the session, R+ and R− overlaid, day 0 and expert; (e–h) class scores per cohort × stage; (i–l) per-session drifts ({ref('eq-drift')}), R+ vs R− within each stage (mouse-level permutation p).",
+        "fig-s-drift-compact": f"Within-session drifts ({ref('eq-drift')}) in the compact format of the COSYNE figure ({POP}): mean ± s.e.m. over sessions, R+ and R−, day 0 (open) and expert (filled), whole brain and every area group with ≥ 3 sessions in every cohort × stage condition; above each stage: R+ vs R− mouse-level permutation p; titles: cohort × stage interaction.",
+        "fig-s-wh10": f"The reward-lick CD along the first 10 whisker hits ({POP}; sessions with ≥ 10 whisker hits). (a, b) Whisker-hit projections, every trial of every session (dots) and the mean ± s.e.m. over sessions per trial number, R+ and R− overlaid, day 0 and expert; (c, d) per-session change of the projection over the 10 trials (slope against the trial number scaled to 0–1), R+ vs R− within stage; (e–h) the same relative to time-matched references: WH − SL and AH − WH, with SL and AH taken from the session's OLS lines ({ref('eq-ols')}) at the time of each whisker hit; (i–l) per-session change of WH − SL and WH − AH; (m–p) as (i–l) restricted to the sessions that also enter the 20-trial version.",
+        "fig-s-wh20": f"As {L('fig-s-wh10')}, first 20 whisker hits (sessions with ≥ 20 whisker hits).",
+    })
+    for i, f in enumerate(PER_AREA_BS):
+        C[f"fig-s-pabs-{i + 1:02d}"] = f"{area_of(f)}: as {L('fig-s-cd-by-stage')}, with the CD built from this area group's units ({POP})."
     for i, f in enumerate(PER_AREA):
         C[f"fig-s-pa-{i + 1:02d}"] = (f"{area_of(f)}: the analyses of {L('fig-cd')} with the CD built from this area group's "
                                        f"units ({POP}). (a–d) class scores per cohort × stage; (e–h) WH − SL and AH − WH, day 0 "
@@ -578,7 +590,7 @@ carried by neurons that are excited before rewarded licks.
 The shared hit code, the correlation across units of AH vs SL and WH vs SL selectivities, rose in R+:
 {grp('2g', 'shared')} ({ref('fig-single')}g); pooled over neurons the correlation increased in R+ and not in R−
 ({ref('fig-single')}h–i). Converging neurons were found across areas ({ref('fig-single')}j); examples, functional types and
-anatomical distribution: {ref('fig-s-converging')}, {ref('fig-s-conv-types')}, {ref('fig-s-examples-psth')}.
+anatomical distribution: {ref('fig-s-converging')}.
 
 The increase in WH vs SL selective units in R+ is carried by positively selective units (WH > SL; interaction
 {gi('S-sel pos whisker_hit_vs_fa_prelick', SS)}); mean absolute selectivity over all units changed less
@@ -865,6 +877,10 @@ and {pv('an3_ah_cs', an3('drift_WH_AH')['cohort x stage p_perm'])} (D_AH), cohor
 area-specific learning-day effects (single area groups with a significant cohort × stage interaction, {ref('tbl-s-area-contrasts')})
 are not supported by the full model. One figure per area group, day 0 vs expert: {", ".join(f"{ref(f'fig-s-pa-{i + 1:02d}')} ({area_of(f)})" for i, f in enumerate(PER_AREA))};
 all area groups regardless of sampling: {ref('fig-s-area-day0-all')}, {ref('fig-s-area-expert-all')}, {ref('fig-s-area-all')}.
+The same analyses with R+ and R− contrasted within each stage: whole brain {ref('fig-s-cd-by-stage')}; per area group
+{", ".join(f"{ref(f'fig-s-pabs-{i + 1:02d}')} ({area_of(f)})" for i, f in enumerate(PER_AREA_BS))}; all drifts in the compact
+format: {ref('fig-s-drift-compact')}. Along the first 10 and 20 whisker hits instead of session time: {ref('fig-s-wh10')},
+{ref('fig-s-wh20')}.
 
 {figure('fig-area-day0', MAIN[11][1], CAP['fig-area-day0'])}
 
