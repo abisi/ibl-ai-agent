@@ -72,11 +72,21 @@ version-history appendix).
   before the element, references `[Figure 2](#id)` (LaTeX `\hyperref`, HTML `<a href>`). Do not use `{#fig:x}` figure /
   table attributes (they need pandoc-crossref). The build refuses to write a report with an uncited figure or table.
 - **Paragraphs.** One idea per paragraph, separated by a blank line in `report.md` (never one long block per section).
-- **Equations (user, 2026-10-07).** Short symbols and one-term expressions inline (`$\lambda$`, `$d' \ge 0.3$`); any
-  equation with a fraction, sum, several terms or longer than about half a line goes in display mode, centred on its own
-  line, LaTeX style: a blank line, `$$ ... $$`, a blank line. Inside a list item, indent the `$$ ... $$` line and the text
-  after it by two spaces, or Pandoc closes the list. Define every quantity reported with its equation in Methods, with a
-  short derivation when the property matters (e.g. why a cross-validated distance is unbiased).
+- **Math is LaTeX** (user, 2026-10-07): report.md holds LaTeX math, converted by Pandoc to `report.tex` and typeset by
+  XeLaTeX; the HTML shows the same math as MathML.
+- **Equations.** Short symbols and one-term expressions inline (`$\lambda$`, `$d' \ge 0.3$`). Any equation with a
+  fraction, sum, several terms or longer than about half a line is a **numbered display equation**, centred on its own
+  line with its number on the right: `R.eq("eq-name", latex)` (register `("eq-name", "Eq. (n)")` in reading order with
+  the other anchors). Display equations without a number are refused by the build.
+- **Equation placement.** An equation directly follows the sentence that introduces it (the sentence leads into it, e.g.
+  ending with "is" or a colon), and the sentence after it defines every symbol not defined before. Equations never stand
+  alone between paragraphs or in a separate list.
+- **Equation citations.** Cite an equation by its number wherever the quantity is used again, in the text, captions and
+  tables: `ref("eq-name")` gives a clickable "Eq. (n)". Every numbered equation must be cited at least once outside its
+  own definition (same check as figures and tables).
+- Inside a list item, pass `indent="  "` to `R.eq`, or Pandoc closes the list.
+- Define every quantity reported with its equation in Methods, with a short derivation when the property matters (e.g. why
+  a cross-validated distance is unbiased).
 - **Methods per figure.** For summary figures assembled from several analyses (e.g. conference figures), state in the
   caption or a provenance table which script and which results each panel comes from, including variant settings.
 - **Thorough captions.** Every caption states what is plotted in each panel, the data (epoch, trials, n sessions / mice /
@@ -104,15 +114,19 @@ sys.path.insert(0, str(REPO / "skills" / "project-report"))
 from report_lib import Report
 R = Report(banned=())                          # project-specific rejected words
 R.register([("fig-main", "Figure 1"), ..., ("tbl-s-sizes", "Table S1")])   # all anchors, reading order, first
-num, pv, ref, figure, table = R.num, R.pv, R.ref, R.figure, R.table
+num, pv, ref, figure, table, eq = R.num, R.pv, R.ref, R.figure, R.table, R.eq
 text = f"... ({ref('fig-main')}) ... {num('acc_x', value)} ... p {pv('p_x', p)} ..."
 md += figure("fig-main", src_png, caption) + table("tbl-s-sizes", df, caption)
+md += "The distance is" + eq("eq-dist", r"d = rac{1}{N} ...") + f"where N is ... ({ref('eq-dist')} is reused below)."
 R.write(OUT, md)       # checks; figures -> report/figures/<anchor>.png (stale removed); report.md, numbers.json, build.sh
 ```
 
 - `num` / `pv` record every quoted number in `numbers.json`; captions get bold labels from the registry; tables are pipe
   tables in footnote size with the first column left-aligned.
-- `write` fails on: an anchor never defined, an anchor never cited, a citation of an unknown anchor, a banned word.
+- `write` fails on: an anchor never defined, an anchor never cited, a citation of an unknown anchor, an unnumbered
+  display equation, a banned word.
+- `write` also writes `report_html.md`, used by `build.sh` for the HTML (Pandoc's MathML drops `	ag`, so the number is
+  written next to the equation there).
 - Figure copies use `shutil.copyfile` (the NAS refuses the metadata copy of `shutil.copy2`).
 - latexmk runs several passes; "Hyper reference ... undefined" warnings from the first passes are normal -- check only the
   last pass of `build.log` (`awk '/Run number 3 of rule/{f=1} f' build.log | grep -c undefined` should be 0).

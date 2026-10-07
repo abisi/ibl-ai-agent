@@ -17,7 +17,8 @@ rm -f report.pdf
 "$LATEXMK" -xelatex -interaction=nonstopmode -halt-on-error report.tex > build.log 2>&1
 "$LATEXMK" -c report.tex > /dev/null 2>&1
 if [ -f report.pdf ]; then echo "report.pdf $(du -h report.pdf | cut -f1)"; else echo "PDF build failed: see build.log"; tail -20 build.log; exit 1; fi
-"${PANDOC[@]}" report.md -s -o report.html --embed-resources --mathml --number-sections --toc --toc-depth=2 \
+HTMLSRC=report.md; [ -f report_html.md ] && HTMLSRC=report_html.md   # report_lib: equation numbers visible in HTML
+"${PANDOC[@]}" "$HTMLSRC" -s -o report.html --embed-resources --mathml --number-sections --toc --toc-depth=2 \
   --metadata pagetitle="$(sed -n 's/^title: *//p' report.md | head -1 | tr -d '"')" \
   -c "data:text/css,body{max-width:60em;margin:auto;font-family:Arial,sans-serif;line-height:1.45}img{max-width:100%}figcaption{font-size:0.9em}"
 echo "report.html $(du -h report.html | cut -f1)"

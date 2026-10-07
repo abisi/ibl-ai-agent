@@ -74,6 +74,12 @@ class Report:
         self.figs[dest] = Path(src)
         return f"\n[]{{#{anchor}}}\n\n![**{self.anchors[anchor]}.** {caption}](figures/{dest}){{width=100%}}\n"
 
+    def eq(self, anchor, latex: str, indent: str = "") -> str:
+        """numbered display equation (register the anchor with a label "Eq. (n)"): centred on its own line, number on the
+        right (\\tag in LaTeX); cite it with ref(anchor). indent: two spaces when the equation sits inside a list item"""
+        n = self.anchors[anchor].split("(")[-1].rstrip(")")
+        return f"\n{indent}[]{{#{anchor}}}\n\n{indent}$$ {latex} \\tag{{{n}}} $$\n\n"
+
     def table(self, anchor, df: pd.DataFrame, caption: str, footnotesize=True) -> str:
         """pipe table (first column left-aligned, others right) with a bold numbered caption"""
         cols = list(df.columns)
@@ -90,6 +96,7 @@ class Report:
         bad = [f"{a}: not defined" for a in self.anchors if f"{{#{a}}}" not in md]
         bad += [f"{a}: never cited" for a in self.anchors if not re.search(rf"\(#{re.escape(a)}\)", md)]
         bad += [f"cites undefined anchor #{a}" for a in set(re.findall(r"\]\(#([\w-]+)\)", md)) if a not in self.anchors]
+        bad += [f"unnumbered display equation: {m[:60]}" for m in re.findall(r"\$\$(.+?)\$\$", md, re.S) if "\\tag{" not in m]
         bad += [f"contains banned word '{w}'" for w in self.banned if w in md.lower()]
         return bad
 
@@ -106,8 +113,10 @@ class Report:
         for dest, src in self.figs.items():
             shutil.copyfile(src, out / "figures" / dest)
         (out / "report.md").write_text(md, encoding="utf-8")
+        # HTML source: Pandoc's MathML drops the equation tag, so the number is written next to the equation instead
+        (out / "report_html.md").write_text(re.sub(r"\\tag\{([^}]+)\}", lambda m: r"\qquad\qquad (" + m.group(1) + ")", md), encoding="utf-8")
         (out / "numbers.json").write_text(json.dumps(self.numbers, indent=1), encoding="utf-8")
         shutil.copyfile(BUILD_SH, out / "build.sh")
-        n_fig = sum(a.startswith("fig") for a in self.anchors)
-        print(f"report.md ({len(md.split())} words), {n_fig} figures, {len(self.anchors) - n_fig} tables, "
+        k = lambda p: sum(a.startswith(p) for a in self.anchors)
+        print(f"report.md ({len(md.split())} words), {k('fig')} figures, {k('tbl')} tables, {k('eq')} equations, "
               f"{len(self.numbers)} numbers -> {out}")
