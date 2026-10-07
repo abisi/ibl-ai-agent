@@ -202,9 +202,11 @@ def session_unit_metrics(W):
     rows = []
     for sid, g in W.groupby("session_id"):
         a = g["sig:whisker_hit_vs_fa_prelick@all"].dropna().astype(float)
+        wa = g["sig:wh_vs_aud_hit_prelick@all"].dropna().astype(float)            # WH vs AH (user 2026-10-07, Fig 2c)
         both = g[["sel:whisker_hit_vs_fa_prelick@all", "sel:auditory_hit_vs_fa_prelick@all"]].dropna()
         rows.append(dict(session_id=sid, mouse_id=g.mouse_id.iloc[0], cohort=g.cohort.iloc[0], stage=g.stage.iloc[0],
                          frac_sig_WHvsFA=a.mean() if len(a) >= 10 else np.nan,
+                         frac_sig_WHvsAH=wa.mean() if len(wa) >= 10 else np.nan,
                          r_shared=stats.spearmanr(both.iloc[:, 0], both.iloc[:, 1])[0] if len(both) >= 10 else np.nan))
     return pd.DataFrame(rows)
 
@@ -503,46 +505,48 @@ def raster_psth(fig, spec, row, rng, title, color):
     return ax_p, ax_r
 
 
-def schematics(fig, specs, RA):
-    """row of schematic definitions of the single-neuron quantifications b-e"""
+def schematic(ax, kind, RA):
+    """schematic definition of one single-neuron quantification (drawn in axes coordinates)"""
     from matplotlib.patches import Circle
-    axs = [fig.add_subplot(s) for s in specs]
-    for ax in axs:
-        ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-    # b: per unit ROC of WH vs reference pre-lick rates
-    ax = axs[0]; x = np.linspace(0.05, 0.95, 200)
-    g = lambda m, s: np.exp(-0.5 * ((x - m) / s) ** 2)
-    ax.fill_between(x, 0.22, 0.22 + 0.45 * g(0.38, 0.09), color=CL["FA"], alpha=0.35, lw=0, edgecolor="none")
-    ax.fill_between(x, 0.22, 0.22 + 0.45 * g(0.62, 0.09), color=CL["WH"], alpha=0.55, lw=0, edgecolor="none")
-    ax.plot([0.05, 0.95], [0.22, 0.22], color="0.3", lw=0.6)
-    ax.text(0.38, 0.7, RA, ha="center", fontsize=5, color=CL["FA"]); ax.text(0.64, 0.7, "WH", ha="center", fontsize=5, color="#b07e00")
-    ax.text(0.5, 0.08, "pre-lick rate of one unit", ha="center", fontsize=4.6, color="0.3")
-    ax.text(0.5, 0.92, f"Unit counted if ROC WH vs {RA}\nsignificant (label permutation)", ha="center", va="top", fontsize=4.6)
-    # c: converging = overlap of reward-lick and WH-selective
-    ax = axs[1]
-    ax.add_patch(Circle((0.4, 0.45), 0.24, fc=CL["AH"], alpha=0.25, ec="none"))
-    ax.add_patch(Circle((0.62, 0.45), 0.24, fc=CL["WH"], alpha=0.35, ec="none"))
-    ax.text(0.27, 0.45, f"AH ≠ {RA}", ha="center", va="center", fontsize=4.6, color=CL["AH"])
-    ax.text(0.76, 0.45, f"WH ≠ {RA}", ha="center", va="center", fontsize=4.6, color="#b07e00")
-    ax.text(0.51, 0.45, "same\nsign", ha="center", va="center", fontsize=4.2)
-    ax.text(0.5, 0.92, "Converging = overlap / reward-lick\nneurons (AH ≠ ref)", ha="center", va="top", fontsize=4.6)
-    # d: AH-likeness on the reference -> AH line
-    ax = axs[2]
-    ax.plot([0.12, 0.88], [0.45, 0.45], color="0.3", lw=0.8)
-    for xx, c, t in [(0.12, "FA", RA), (0.88, "AH", "AH")]:
-        ax.scatter(xx, 0.45, s=28, color=CL[c], zorder=3); ax.text(xx, 0.3, t, ha="center", fontsize=5, color=CL[c])
-    ax.scatter(0.66, 0.45, s=28, color=CL["WH"], zorder=4); ax.text(0.66, 0.56, "WH", ha="center", fontsize=5, color="#b07e00")
-    ax.text(0.5, 0.92, "c = (|WH−ref| − |WH−AH|) / |AH−ref|\n−1: like ref, +1: like AH (per neuron)", ha="center",
-            va="top", fontsize=4.4)
-    ax.text(0.12, 0.12, "−1", ha="center", fontsize=4.6); ax.text(0.88, 0.12, "+1", ha="center", fontsize=4.6)
-    # e: correlation of selectivities across units
-    ax = axs[3]; rng = np.random.default_rng(3)
-    a = rng.normal(0, 1, 60); b = 0.7 * a + rng.normal(0, 0.6, 60)
-    ax.scatter(0.5 + a * 0.12, 0.42 + b * 0.12, s=2, color="0.3", lw=0)
-    ax.plot([0.2, 0.8], [0.12, 0.72], color="0.5", lw=0.6, ls=(0, (2, 2)))
-    ax.text(0.5, 0.92, f"Spearman r across units of\nsel(AH vs {RA}) and sel(WH vs {RA})", ha="center", va="top", fontsize=4.6)
-    ax.text(0.5, 0.03, f"x: AH vs {RA}, y: WH vs {RA}", ha="center", fontsize=4.2, color="0.3")
-    return axs
+    ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    x = np.linspace(0.05, 0.95, 200)
+    g = lambda m, s_: np.exp(-0.5 * ((x - m) / s_) ** 2)
+    if kind in ("frac_wh", "frac_whah"):                # per-unit ROC between two event types
+        c0, l0 = ("FA", RA) if kind == "frac_wh" else ("AH", "AH")
+        ax.fill_between(x, 0.22, 0.22 + 0.34 * g(0.38, 0.09), color=CL[c0], alpha=0.35, lw=0, edgecolor="none")
+        ax.fill_between(x, 0.22, 0.22 + 0.34 * g(0.62, 0.09), color=CL["WH"], alpha=0.55, lw=0, edgecolor="none")
+        ax.plot([0.05, 0.95], [0.22, 0.22], color="0.3", lw=0.6)
+        ax.text(0.30, 0.6, l0, ha="center", fontsize=5, color=CL[c0]); ax.text(0.72, 0.6, "WH", ha="center", fontsize=5, color="#b07e00")
+        ax.text(0.5, 0.08, "pre-lick rate of one unit", ha="center", fontsize=4.6, color="0.3")
+        ax.text(0.5, 1.0, f"Unit counted if ROC WH vs {l0}\nsignificant (label permutation)", ha="center", va="top", fontsize=4.6)
+    elif kind == "conv":                                # converging = overlap of reward-lick and WH-selective
+        ax.add_patch(Circle((0.4, 0.45), 0.24, fc=CL["AH"], alpha=0.25, ec="none"))
+        ax.add_patch(Circle((0.62, 0.45), 0.24, fc=CL["WH"], alpha=0.35, ec="none"))
+        ax.text(0.27, 0.45, f"AH ≠ {RA}", ha="center", va="center", fontsize=4.6, color=CL["AH"])
+        ax.text(0.76, 0.45, f"WH ≠ {RA}", ha="center", va="center", fontsize=4.6, color="#b07e00")
+        ax.text(0.51, 0.45, "same\nsign", ha="center", va="center", fontsize=4.2)
+        ax.text(0.5, 0.92, "Converging = overlap / reward-lick\nneurons (AH ≠ ref)", ha="center", va="top", fontsize=4.6)
+    elif kind == "like":                                # AH-likeness on the reference -> AH line
+        ax.plot([0.12, 0.88], [0.45, 0.45], color="0.3", lw=0.8)
+        for xx, c, t in [(0.12, "FA", RA), (0.88, "AH", "AH")]:
+            ax.scatter(xx, 0.45, s=28, color=CL[c], zorder=3); ax.text(xx, 0.3, t, ha="center", fontsize=5, color=CL[c])
+        ax.scatter(0.66, 0.45, s=28, color=CL["WH"], zorder=4); ax.text(0.66, 0.56, "WH", ha="center", fontsize=5, color="#b07e00")
+        ax.text(0.5, 0.92, "c = (|WH−ref| − |WH−AH|) / |AH−ref|\n−1: like ref, +1: like AH (per neuron)", ha="center",
+                va="top", fontsize=4.4)
+        ax.text(0.12, 0.12, "−1", ha="center", fontsize=4.6); ax.text(0.88, 0.12, "+1", ha="center", fontsize=4.6)
+    elif kind == "shared":                              # correlation of selectivities across units
+        rng = np.random.default_rng(3)
+        a = rng.normal(0, 1, 60); b = 0.7 * a + rng.normal(0, 0.6, 60)
+        ax.scatter(0.5 + a * 0.12, 0.42 + b * 0.12, s=2, color="0.3", lw=0)
+        ax.plot([0.2, 0.8], [0.12, 0.72], color="0.5", lw=0.6, ls=(0, (2, 2)))
+        ax.text(0.5, 0.92, f"Spearman r across units of\nsel(AH vs {RA}) and sel(WH vs {RA})", ha="center", va="top", fontsize=4.6)
+        ax.text(0.5, 0.03, f"x: AH vs {RA}, y: WH vs {RA}", ha="center", fontsize=4.2, color="0.3")
+    return ax
+
+
+def schematics(fig, specs, RA, kinds=("frac_wh", "conv", "like", "shared")):
+    """row of schematic definitions of the single-neuron quantifications"""
+    return [schematic(fig.add_subplot(sp), k, RA) for sp, k in zip(specs, kinds)]
 
 
 # ------------------------------------------------------------------ CCF slab maps (Fig 2g, Fig 2S)
@@ -821,14 +825,19 @@ def converging_area_bars(ax, W, rng, out):
 
 
 def fig2(plt, D, out, pop, rng):
+    """Figure 2 (layout 2026-10-07): a square example panels (PSTH + raster); b-e schematics above the session
+    quantifications (WH vs ref selective units, WH vs AH selective units, converging neurons, AH-likeness); f-i shared
+    hit code on one row (schematic, Spearman r per session, selectivity scatter R+ and R-); j converging neurons per area"""
     W = D["W"]
     S = session_unit_metrics(W)
     RA = "FA" if m51.REF == "fa" else "SL"
-    fig = plt.figure(figsize=(W_IN, 11.6))
-    gs = fig.add_gridspec(5, 1, height_ratios=[2.3, 1.4, 1.5, 1.9, 1.6], hspace=0.42, left=0.08, right=0.97, top=0.94,
-                          bottom=0.06)
+    cell = (W_IN * 0.89 - 2 * 0.3) / 3                 # width of one example panel (in); PSTH + raster block is square
+    H = 2 * cell * 1.12 + 0.7 + 1.0 + 1.55 + 1.75 + 1.6 + 1.2
+    fig = plt.figure(figsize=(W_IN, H))
+    gs = fig.add_gridspec(5, 1, height_ratios=[2 * cell * 1.12 + 0.7, 1.0, 1.55, 1.75, 1.6], hspace=0.42, left=0.08, right=0.97,
+                          top=1 - 0.55 / H, bottom=0.45 / H)
     ex = pick_examples(W)
-    ga = gs[0].subgridspec(2, 3, hspace=0.42, wspace=0.28)
+    ga = gs[0].subgridspec(2, 3, hspace=0.32, wspace=0.28)
     axs_a = []
     af, wf = "auditory_hit_vs_fa_prelick@all", "whisker_hit_vs_fa_prelick@all"
     for i, k in enumerate([GROUPS[1], GROUPS[3]]):
@@ -845,37 +854,41 @@ def fig2(plt, D, out, pop, rng):
             axs_a.append(ap)
             if j == 0:
                 ap.set_ylabel("Rate (Hz)", fontsize=5.2); ar.set_ylabel("Events", fontsize=5.2)
-            if i == 1:
-                ar.set_xlabel("Time from first lick (ms)", fontsize=5.2)
+            ar.set_xlabel("Time from first lick (ms)", fontsize=5.0)
     from matplotlib.lines import Line2D
     fig.legend([Line2D([], [], color=CL[c], lw=1.2) for c in ["WH", "AH", "FA"]],
-               [CLAB[c] for c in ["WH", "AH", "FA"]], loc="upper right", bbox_to_anchor=(0.98, 0.972), ncol=3,
+               [CLAB[c] for c in ["WH", "AH", "FA"]], loc="upper right", bbox_to_anchor=(0.98, 1 - 0.18 / H), ncol=3,
                frameon=False, fontsize=5.2)
+    # b-e: schematics (row 2) above the session values (row 3)
     gsch = gs[1].subgridspec(1, 4, wspace=0.35)
-    axs_s = schematics(fig, [gsch[i] for i in range(4)], RA)
+    axs_s = schematics(fig, [gsch[i] for i in range(4)], RA, kinds=("frac_wh", "frac_whah", "conv", "like"))
     gq = gs[2].subgridspec(1, 4, wspace=0.6)
     ax_b = fig.add_subplot(gq[0])
     dots_panel(ax_b, S, "frac_sig_WHvsFA", "Fraction of units", rng, "2b", f"WH vs {RA} selective units")
-    T = D["tr"]; T = T[(T.level == "all") & (T.variant == "all")]
     ax_c = fig.add_subplot(gq[1])
-    dots_panel(ax_c, T, "frac_transfer", f"Fraction of AH-vs-{RA} neurons", rng, "2c", "Converging neurons")
+    dots_panel(ax_c, S, "frac_sig_WHvsAH", "Fraction of units", rng, "2c", "WH vs AH selective units")
+    T = D["tr"]; T = T[(T.level == "all") & (T.variant == "all")]
     ax_d = fig.add_subplot(gq[2])
-    dots_panel(ax_d, T, "likeness", f"AH-likeness (−1 {RA}, +1 AH)", rng, "2d", "AH-likeness of\nreward-lick neurons",
-               ref=[(0, "0.6")])
+    dots_panel(ax_d, T, "frac_transfer", f"Fraction of AH-vs-{RA} neurons", rng, "2d", "Converging neurons")
     ax_e = fig.add_subplot(gq[3])
-    dots_panel(ax_e, S, "r_shared", "Spearman r", rng, "2e", f"Shared hit code")
+    dots_panel(ax_e, T, "likeness", f"AH-likeness (−1 {RA}, +1 AH)", rng, "2e", "AH-likeness of\nreward-lick neurons",
+               ref=[(0, "0.6")])
     for a_ in (ax_b, ax_c, ax_d, ax_e):
         a_.set_title(a_.get_title(), fontsize=5.5)
-    # f: selectivity densities per cohort (stages merged) with per-stage fits; g: converging neurons per area
-    gf = gs[3].subgridspec(1, 4, wspace=0.5)
-    axs_f = [selectivity_density(fig.add_subplot(gf[k_]), W, coh, RA, rng) for k_, coh in enumerate(["R+", "R-"])]
-    ax_g = converging_area_bars(fig.add_subplot(gs[4]), W, rng, out)
-    letter_row(fig, axs_a[:1], "a", dy_in=0.32)
+    # f-i: shared hit code on one row
+    gf = gs[3].subgridspec(1, 4, wspace=0.55, width_ratios=[0.9, 1, 1, 1])
+    ax_fs = schematic(fig.add_subplot(gf[0]), "shared", RA)
+    ax_g = fig.add_subplot(gf[1])
+    dots_panel(ax_g, S, "r_shared", "Spearman r", rng, "2g", "Shared hit code")
+    ax_g.set_title(ax_g.get_title(), fontsize=5.5)
+    axs_hi = [selectivity_density(fig.add_subplot(gf[2 + k_]), W, coh, RA, rng) for k_, coh in enumerate(["R+", "R-"])]
+    ax_j = converging_area_bars(fig.add_subplot(gs[4]), W, rng, out)
+    letter_row(fig, axs_a[:1], "a", dy_in=0.12)
     letter_row(fig, axs_s, "bcde", dy_in=0.05)
-    letter_row(fig, [ax_b, ax_c, ax_d, ax_e], "    ", dy_in=0.4)
-    letter_row(fig, axs_f[:1], "f"); letter_row(fig, [ax_g], "g", dy_in=0.3)
+    letter_row(fig, [ax_fs, ax_g] + list(axs_hi), "fghi", dy_in=0.12)
+    letter_row(fig, [ax_j], "j", dy_in=0.3)
     fig.suptitle("Figure 2 | Single neurons: in R+ mice, reward-lick neurons come to treat whisker hits like auditory hits",
-                 x=0.08, y=0.995, ha="left", fontsize=7.5, weight="bold")
+                 x=0.08, y=1 - 0.02 / H, ha="left", va="top", fontsize=7.5, weight="bold")
     save(fig, out, "Fig2_single_neurons"); plt.close(fig)
     pd.DataFrame([dict(group=GLAB[k], type=t, session_id=r.session_id, electrode_group=r.electrode_group,
                        cluster_id=r.cluster_id, area=r.area_acronym_custom) for (k, t), r in ex.items()]).to_csv(
@@ -2313,17 +2326,23 @@ def main(a):
     else:
         sess = D["lam"][(D["lam"].level == "all") & (D["lam"].variant == "all")].dropna(subset=["lam"]).session_id.unique()
         PR = axis_projections(set(sess), ["all"], D["W"], rng); PR.to_csv(f, index=False)
-    fig1(plt, D, out, a.population, rng)
-    fig2(plt, D, out, a.population, rng)
-    fig2_supplement(plt, D, out, a.population, rng)
-    fig3(plt, D, out, a.population, rng, PR)
-    fig3s_lambda(plt, D, out, a.population, rng, PR)
-    fig4(plt, D, out, a.population, rng, PR)
-    fig5(plt, D, out, a.population, rng)
-    fig_cosyne2(plt, D, out, a.population, rng, PR)
-    fig_cosyne3(plt, D, out, a.population, rng, PR)
-    write_captions(D, out, a.population)
-    pd.DataFrame(STATS).to_csv(out / f"stats_{a.population}.csv", index=False)
+    sel = set(a.figs.split(","))                        # --figs all | comma list of 1,2,2S,3,3S,4,5,cosyne
+    run = lambda k: "all" in sel or k in sel
+    if run("1"): fig1(plt, D, out, a.population, rng)
+    if run("2"): fig2(plt, D, out, a.population, rng)
+    if run("2S"): fig2_supplement(plt, D, out, a.population, rng)
+    if run("3"): fig3(plt, D, out, a.population, rng, PR)
+    if run("3S"): fig3s_lambda(plt, D, out, a.population, rng, PR)
+    if run("4"): fig4(plt, D, out, a.population, rng, PR)
+    if run("5"): fig5(plt, D, out, a.population, rng)
+    if run("cosyne"):
+        fig_cosyne2(plt, D, out, a.population, rng, PR)
+        fig_cosyne3(plt, D, out, a.population, rng, PR)
+    if "all" in sel:                                    # captions and stats only for complete runs
+        write_captions(D, out, a.population)
+        pd.DataFrame(STATS).to_csv(out / f"stats_{a.population}.csv", index=False)
+    else:
+        pd.DataFrame(STATS).to_csv(out / f"stats_{a.population}_partial_{'_'.join(sorted(sel))}.csv", index=False)
     json.dump(dict(script="062_pub_convergence_figures.py", population=a.population, unit_set=UNIT_SET,
                    min_fr_hz=m51.MIN_FR, colors=CL, cohort_colors=COH, n_perm_interaction=N_PERM,
                    tests="MWU shown (Welch in stats csv); interaction: mouse-level cohort permutation; area family-wise "
@@ -2335,4 +2354,5 @@ def main(a):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--population", default="all", choices=["all", "learners"])
+    ap.add_argument("--figs", default="all", help="all, or a comma list of 1,2,2S,3,3S,4,5,cosyne")
     main(ap.parse_args())
