@@ -11,7 +11,8 @@ tests only where both cohorts qualify.
 Statistics per area group (unit = session): drift vs 0 per cohort x stage (Wilcoxon); day 0 R+ vs R- and expert R+ vs R-
 (Mann-Whitney U and Welch t; mouse-level cohort permutation); cohort x stage interaction (mouse-level permutation, 001);
 Benjamini-Hochberg over area groups for the day-0 permutation p.
-Output: within_day/<ref>/area_cd_drift/area_sessions.csv (all sessions), <pop>/area_cd_drift.{png,pdf,svg}, area_tests.csv.
+Output: within_day/<ref>/area_cd_drift/area_sessions.csv (all sessions), area_trial_scores.parquet (every event's score
+on its area's CD, used by 020), <pop>/area_cd_drift.{png,pdf,svg}, area_tests.csv.
 """
 import argparse
 import importlib
@@ -45,12 +46,12 @@ def session(args):
     o = np.argsort(z["trial_start"])
     X, raw, lab, t = z["rates"].astype(float)[:, o], z["raw"].astype(float)[:, o], z["cls"][o], z["trial_start"].astype(float)[o]
     if (lab == "WH").sum() < m002.MIN_WH or min((lab == c).sum() for c in ("AH", "FA")) < m002.MIN_EV:
-        return []
+        return [], []
     K = pd.DataFrame(dict(electrode_group=z["electrode_group"].astype(str), cluster_id=z["cluster_id"].astype(str)))
     K = K.merge(W_s, on=["electrode_group", "cluster_id"], how="left")
     ok = K.quality_label.isin(m002.UNIT_SET).to_numpy() & (raw.mean(1) >= m51.MIN_FR)
     tau = (t - t.min()) / max(t.max() - t.min(), 1e-9)
-    rows = []
+    rows, trials = [], []
     for g in K.area_group.dropna().unique():
         u = ok & (K.area_group == g).to_numpy()
         if u.sum() < MIN_UNITS:
@@ -66,8 +67,11 @@ def session(args):
             if "beta_WH" in r:
                 r["drift_WH_SL"] = r["beta_WH"] - r.get("beta_FA", np.nan)
                 r["drift_WH_AH"] = r["beta_WH"] - r.get("beta_AH", np.nan)
+            k = np.isin(lab, CLS) & np.isfinite(S["md"])         # single-event scores of this area's CD (020 figures)
+            trials.append(pd.DataFrame(dict(session_id=meta["session_id"], mouse_id=meta["mouse_id"], cohort=meta["cohort"],
+                                            stage=meta["stage"], area_group=g, cls=lab[k], tau=tau[k], t=t[k], cd=S["md"][k])))
         rows.append(r)
-    return rows
+    return rows, trials
 
 
 def compute(n_proc):
@@ -85,11 +89,11 @@ def compute(n_proc):
                                  stage=Ws.stage.iloc[0]),
                          Ws[["electrode_group", "cluster_id", "quality_label", "area_group"]].drop_duplicates(
                              ["electrode_group", "cluster_id"]), i))
-    rows = []
+    rows, trials = [], []
     with mp.get_context("fork").Pool(n_proc) as pool:
-        for res in pool.imap_unordered(session, jobs):
-            rows += res
-    return pd.DataFrame(rows)
+        for res, tr in pool.imap_unordered(session, jobs):
+            rows += res; trials += tr
+    return pd.DataFrame(rows), pd.concat(trials, ignore_index=True)
 
 
 def qualify(A, col):
@@ -192,7 +196,8 @@ def main(a):
     if a.replot and f.exists():
         A0 = pd.read_csv(f)
     else:
-        A0 = compute(a.n_proc); A0.to_csv(f, index=False)
+        A0, TR = compute(a.n_proc); A0.to_csv(f, index=False)
+        TR.to_parquet(OUT / "area_trial_scores.parquet", index=False)
     for pop in ("learners", "all"):
         A = m61.learner_filter(A0) if pop == "learners" else A0
         out = OUT / pop; out.mkdir(exist_ok=True)

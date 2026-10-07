@@ -58,7 +58,7 @@ def main(a):
         axs = []
         # a, b: day-0 trajectories
         for j, coh in enumerate(("R+", "R-")):
-            ax = fig.add_subplot(gs[0, j]); axs.append(ax)
+            ax = fig.add_subplot(gs[0, j]); axs.append(ax); ax.set_box_aspect(1)
             n = m011.traj(ax, D, coh, "learning", ["WH", "AH", "FA"], [CL["WH"], CL["AH"], CL["FA"]],
                           ["Whisker hit", "Auditory hit", "Spont. lick"])
             ax.axhline(0, color="0.7", lw=0.5, ls=":"); ax.axhline(1, color=CL["AH"], lw=0.5, ls=":")
@@ -74,7 +74,7 @@ def main(a):
                                                "Whisker hits separate from\nspontaneous licks (R+)"),
                                               ("AH_WH", "Auditory hit − whisker hit\n(score difference)",
                                                "Whisker hits approach\nauditory hits (R+)"))):
-            ax = fig.add_subplot(top[2 + j]); axs_cd.append(ax)
+            ax = fig.add_subplot(top[2 + j]); axs_cd.append(ax); ax.set_box_aspect(1)
             for coh in ("R+", "R-"):
                 n = m011.traj(ax, D, coh, "learning", [col], [COH[coh]], [f"{coh.replace('-', '−')}"])
                 d_ = D[(D.cohort == coh) & (D.stage == "learning")]
@@ -90,7 +90,7 @@ def main(a):
         for x in axs_cd:
             x.set_ylim(*yl)
         # e: day-0 drift per session
-        ax = fig.add_subplot(gs[0, 2]); axs.append(ax)
+        ax = fig.add_subplot(gs[0, 2]); axs.append(ax); ax.set_box_aspect(1)
         for i, (col, lab) in enumerate((("drift_WH_SL", "vs spont.\nlick"), ("drift_WH_AH", "vs auditory\nhit"))):
             r = dict(panel="c", measure=col)
             for k, coh in enumerate(("R+", "R-")):
