@@ -117,7 +117,7 @@ R.register([("fig-main", "Figure 1"), ..., ("tbl-s-sizes", "Table S1")])   # all
 num, pv, ref, figure, table, eq = R.num, R.pv, R.ref, R.figure, R.table, R.eq
 text = f"... ({ref('fig-main')}) ... {num('acc_x', value)} ... p {pv('p_x', p)} ..."
 md += figure("fig-main", src_png, caption) + table("tbl-s-sizes", df, caption)
-md += "The distance is" + eq("eq-dist", r"d = rac{1}{N} ...") + f"where N is ... ({ref('eq-dist')} is reused below)."
+md += "The distance is" + eq("eq-dist", r"d = \frac{1}{N} ...") + f"where N is ... ({ref('eq-dist')} is reused below)."
 R.write(OUT, md)       # checks; figures -> report/figures/<anchor>.png (stale removed); report.md, numbers.json, build.sh
 ```
 
@@ -125,7 +125,7 @@ R.write(OUT, md)       # checks; figures -> report/figures/<anchor>.png (stale r
   tables in footnote size with the first column left-aligned.
 - `write` fails on: an anchor never defined, an anchor never cited, a citation of an unknown anchor, an unnumbered
   display equation, a banned word.
-- `write` also writes `report_html.md`, used by `build.sh` for the HTML (Pandoc's MathML drops `	ag`, so the number is
+- `write` also writes `report_html.md`, used by `build.sh` for the HTML (Pandoc's MathML drops `\tag`, so the number is
   written next to the equation there).
 - Figure copies use `shutil.copyfile` (the NAS refuses the metadata copy of `shutil.copy2`).
 - latexmk runs several passes; "Hyper reference ... undefined" warnings from the first passes are normal -- check only the
