@@ -1191,24 +1191,28 @@ def lda_plane(sid, W, rng):
     from sklearn.model_selection import StratifiedKFold
     ia = np.where(m)[0]; iw = np.where(lab == "WH")[0]
     y = (lab[ia] == "AH").astype(int)
-    P = np.full((len(lab), 2), np.nan); Pw = []; mds = []; v0 = None
+    P = np.full((len(lab), 2), np.nan); mds = []
+    Wsum, Wcnt = np.zeros((len(iw), 2)), np.zeros(len(iw))
+    rw = np.random.default_rng(1)
     for tr, te in StratifiedKFold(5, shuffle=True, random_state=0).split(ia, y):
         A = Z[ia[tr]]; mu_, sd_ = A.mean(0), A.std(0); sd_[sd_ == 0] = 1
         zf = lambda q: (q - mu_) / sd_
         w = LinearDiscriminantAnalysis(solver="lsqr", shrinkage="auto").fit(zf(A), y[tr]).coef_[0]
         w = w / np.linalg.norm(w)
-        Rr = zf(A) - np.outer(zf(A) @ w, w)
-        v = np.linalg.svd(Rr - Rr.mean(0), full_matrices=False)[2][0]
-        if v0 is not None and v @ v0 < 0:
-            v = -v
-        v0 = v if v0 is None else v0
-        f0 = (zf(A[y[tr] == 0]) @ w).mean(); f1 = (zf(A[y[tr] == 1]) @ w).mean(); sc = f1 - f0
-        o0 = (zf(A) @ v).mean()
+        # second axis (2026-10-07, replaces the first PC orthogonal to w): the WH off-axis direction, cross-validated --
+        # defined by a random half of the WH events (mean WH - training ref mean, w removed), only the other half projected
+        hh = rw.permutation(len(iw)); k1, k2 = hh[: len(hh) // 2], hh[len(hh) // 2:]
+        ref_tr = zf(A[y[tr] == 0])
+        dv = zf(Z[iw[k1]]).mean(0) - ref_tr.mean(0); dv = dv - (dv @ w) * w
+        v = dv / np.linalg.norm(dv)
+        f0 = (ref_tr @ w).mean(); f1 = (zf(A[y[tr] == 1]) @ w).mean(); sc = f1 - f0
+        o0 = (ref_tr @ v).mean()                                       # ref mean = 0 on both axes
         prj = lambda q: np.c_[(zf(q) @ w - f0) / sc, (zf(q) @ v - o0) / sc]
-        P[ia[te]] = prj(Z[ia[te]]); Pw.append(prj(Z[iw]))
+        P[ia[te]] = prj(Z[ia[te]])
+        Wsum[k2] += prj(Z[iw[k2]]); Wcnt[k2] += 1
         md = zf(A[y[tr] == 1]).mean(0) - zf(A[y[tr] == 0]).mean(0)
         mds.append(np.array([md @ w, md @ v]) / np.linalg.norm([md @ w, md @ v]))
-    P[iw] = np.mean(Pw, 0)
+    P[iw] = np.where(Wcnt[:, None] > 0, Wsum / np.maximum(Wcnt, 1)[:, None], np.nan)
     mdv = np.mean(mds, 0); mdv = mdv / np.linalg.norm(mdv)
     return P, lab, mdv, int(u.sum())
 
@@ -1216,7 +1220,7 @@ def lda_plane(sid, W, rng):
 def lda_plane_panel(ax, sid, W, rng, k, lam_lda):
     P, lab, mdv, nu = lda_plane(sid, W, rng)
     for c in ["FA", "AH", "WH"]:
-        q = P[lab == c]
+        q = P[lab == c]; q = q[np.isfinite(q).all(1)]          # WH events never held out have no projection
         ax.scatter(q[:, 0], q[:, 1], s=3, color=CL[c], alpha=0.5, lw=0, label=CLAB[c], zorder=2 if c != "WH" else 3)
         ax.scatter(*q.mean(0), s=28, color=CL[c], edgecolor="white", lw=0.6, zorder=5)
     ax.annotate("", xy=(0.5 + 0.6 * mdv[0], 0.6 * mdv[1]), xytext=(0.5, 0),
@@ -1224,9 +1228,11 @@ def lda_plane_panel(ax, sid, W, rng, k, lam_lda):
     ax.text(0.5 + 0.65 * mdv[0], 0.65 * mdv[1], "mean-\ndifference\naxis", fontsize=4.2, color="0.35", ha="left", va="center")
     ax.axvline(0, color=CL["FA"], lw=0.5, ls=(0, (2, 2))); ax.axvline(1, color=CL["AH"], lw=0.5, ls=(0, (2, 2)))
     ax.axvline(0.5, color="0.6", lw=0.4)
-    q = np.nanpercentile(np.abs(P), 98, axis=0)
-    ax.set_xlim(-max(1.2, q[0] * 0.8), max(2.2, q[0] * 0.9)); ax.set_ylim(-q[1], q[1])
-    ax.set_xlabel("Shrinkage-LDA axis (ref = 0, AH = 1)"); ax.set_ylabel("Orthogonal PC 1")
+    q = np.nanpercentile(np.abs(P), 99, axis=0)
+    mu = np.array([np.nanmean(P[lab == c], 0) for c in ["FA", "AH", "WH"]])     # class means always inside the axes
+    ylo, yhi = min(-q[1], mu[:, 1].min() - 0.2), max(q[1], mu[:, 1].max() + 0.3)
+    ax.set_xlim(-max(1.2, q[0] * 0.8), max(2.2, q[0] * 0.9)); ax.set_ylim(ylo, yhi)
+    ax.set_xlabel("Shrinkage-LDA axis (ref = 0, AH = 1)"); ax.set_ylabel("WH off-axis direction\n(cross-validated, same units)")
     ax.set_title(f"{GLAB[k]} example ({nu} units)\nλ_LDA = {lam_lda:.2f}", color=COH[k[0]], fontsize=5.4)
 
 
@@ -1265,7 +1271,7 @@ def fig3s_lambda(plt, D, out, pop, rng, PR):
             ax.scatter(kk + rng.uniform(-0.22, 0.22, len(v)), v, s=3, color=CL[c], alpha=0.6, lw=0)
             ax.plot([kk - 0.3, kk + 0.3], [np.mean(v)] * 2, color="k", lw=1.0)
         ax.axhline(0, color=CL["FA"], lw=0.5, ls=(0, (2, 2))); ax.axhline(1, color=CL["AH"], lw=0.5, ls=(0, (2, 2)))
-        ax.set_xticks(range(3), ["FA", "AH", "WH"]); ax.set_ylim(-2, 3)
+        ax.set_xticks(range(3), ["FA" if m51.REF == "fa" else "SL", "AH", "WH"]); ax.set_ylim(-2, 3)
         ax.set_title(f"{GLAB[k]}: example session\nλ = {cand[cand.session_id == sid].lam.iloc[0]:.2f}", color=COH[k[0]], fontsize=5.8)
         if j == 0:
             ax.set_ylabel("Projection (FA = 0, AH = 1)")
