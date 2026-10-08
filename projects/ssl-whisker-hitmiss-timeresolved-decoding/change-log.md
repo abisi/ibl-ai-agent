@@ -131,3 +131,4 @@
 - 2026-10-08: 165: one common session set per row for every panel (row 1: whisker shifted-label null, angle and time course; row 2: 026 sessions with a time course); explicit y / x labels (angle vs projection, which axis, real - shifted); n under the cohort ticks from the main line, a line with fewer sessions gives its n in the legend.
 - 2026-10-08: 172 debug figure of the learner sessions missing from 165 panels (no shifted-label null: AB123 / AB139 minority class = 10; auditory angle undefined: AB133 / AB140 rho_post = 0; reward-lick no 026 result: AB143 / MH017 with 8 AH; AB161 no WH in the first fifth).
 - 2026-10-08: 165 compact: square subplots (except areas), wider column spacing, shorter tick labels, shorter reward-lick labels.
+- 2026-10-08: 165 compact: inch-based layout (gap columns / rows): every panel of a row has the same height, quantification squares 1.0 in, stacked examples fit the row height; 168 / 169 accept SSL_STAGE=expert (suffix _expert).

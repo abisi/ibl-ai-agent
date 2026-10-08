@@ -48,3 +48,4 @@
 - 2026-10-08: within_day 026 uses 50 linear shifts (as hit/miss 135; was 20); 086 redrawn in 3D (u = AH - SL, w = WH - SL, d = WH late - early half; common start offset; before / after orthogonalisation; no grid / panes).
 - 2026-10-08: within_day 027 time-resolved projection on the reward-lick CD (026 folds and units; held-out AH / SL, WH on every fold; -400 to +200 ms around the first lick; within_day/<ref>/cd_psth/cd_psth_projection.parquet).
 - 2026-10-08: 026 example sessions re-picked as representative (closest to the cohort mean excess, >= 20 WH, |null| < 0.03; SSL_026_EXAMPLES override).
+- 2026-10-08: 087 across days with the within-day metric definitions (026 folds / scaling; per-neuron WH - SL position on the unit-norm CD, lambda, cross-validated angle and length; cohort x stage mouse permutation); across_days/<ref>/harmonised/.

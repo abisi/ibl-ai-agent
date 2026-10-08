@@ -201,7 +201,7 @@ def example_pl(axs, Ex):
                 txt.append(("WH shifted", bn[0]))
         if COMPACT:                                                # stacked: beta values in one line, cohort at the right
             b_ = dict(txt)
-            ax.text(0.0, 1.02, f"β WH {b_['WH']:+.2f} (shifted {b_['WH shifted']:+.2f})\nβ AH {b_['AH']:+.2f}, SL {b_['SL']:+.2f}",
+            ax.text(0.0, 1.02, f"β WH {b_['WH']:+.2f} (sh. {b_['WH shifted']:+.2f})\nβ AH {b_['AH']:+.2f}, SL {b_['SL']:+.2f}",
                     transform=ax.transAxes, va="bottom", fontsize=4.0, linespacing=1.1)
             ax.text(0.99, 0.97, f"{c.replace('-', '−')} {e.session_id.iloc[0][:5]}", color=COL[c], fontsize=5, ha="right", va="top",
                     transform=ax.transAxes)
@@ -272,6 +272,28 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
         ax.legend(frameon=False, fontsize=4.8, loc="best", handlelength=1.2)
     if not COMPACT:
         ax.text(0.02, 0.02, "ring: ≠ 0 within cohort (Wilcoxon p < 0.05)", transform=ax.transAxes, fontsize=4.2, color="0.4")
+
+
+class _Cols:
+    """compact layout in inches: panel columns / rows separated by explicit gap columns / rows (wspace = hspace = 0), so every panel
+    of a row has the same height and the quantification panels are squares of that height; gs[r, k] -> panel k of row r"""
+    def __init__(self, g):
+        self.g = g
+
+    def __getitem__(self, rk):
+        r, k = rk
+        return self.g[2 * r, 2 * k]
+
+
+def compact_grid(fig_w_extra=0.3):
+    h = 1.0                                                        # row height = side of the quantification squares (in)
+    widths = [0.85, 0.5, 0.45, 0.7, h, 0.7, h, 0.8, 0.65]          # schematic | gap | examples | gap | c | gap | d | gap | areas
+    left, top, gap_r, bottom = 0.55, 0.62, 0.9, 0.45
+    W = left + sum(widths) + fig_w_extra; Hf = top + h + gap_r + h + bottom
+    fig = plt.figure(figsize=(W, Hf))
+    g = fig.add_gridspec(3, len(widths), width_ratios=widths, height_ratios=[h, gap_r, h], wspace=0, hspace=0,
+                         left=left / W, right=1 - fig_w_extra / W, top=1 - top / Hf, bottom=bottom / Hf)
+    return fig, _Cols(g), (top, h, gap_r, Hf)
 
 
 def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
@@ -436,7 +458,7 @@ def angle_slopes(axs, P):
         ax.set_xlim(-0.25, 1.25); ax.set_xticks([0, 1]); ax.set_xticklabels(["pre", "post"] if c == "R-" else ["", ""])
         if c == "R-":
             ax.set_ylabel("angle θ between whisker response\nand hit − miss axis (°)", fontsize=5)
-            ax.yaxis.set_label_coords(-0.3, 1.1)
+            ax.yaxis.set_label_coords(-0.62, 1.06)
         ax.text(0.03, 0.04, f"{c.replace('-', '−')} (n = {len(d)})", transform=ax.transAxes, fontsize=4.8, color=COL[c])
 
 
@@ -459,7 +481,7 @@ def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
     W = A[A.area == "All units"].dropna(subset=[f"shift_null_post_{s_}_mean"])
     if ANGLE and s_ == "W":                                        # angle (b, c) + projection (d, e)
         P, T_ = load_angle()
-        sub = gs[r, 1 + o].subgridspec(2, 1, hspace=0.25)
+        sub = gs[r, 1 + o].subgridspec(2, 1, hspace=0.12)
         angle_slopes([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[1, 0])], P)
         cohort_lines(fig.add_subplot(gs[r, 2 + o]), T_, ["q_th_W", "q_th_A"], ["whisker", "auditory"], [EV["W"], EV["A"]],
                      "Δ angle θ to hit − miss axis\n(post − pre, °; real − shifted)", R, "hit-miss angle", rng)
@@ -528,13 +550,13 @@ def main():
     if COMPACT:
         plt.rcParams.update({"font.size": 5.5, "axes.labelsize": 5.5, "xtick.labelsize": 5, "ytick.labelsize": 5, "axes.linewidth": 0.6,
                              "xtick.major.size": 2, "ytick.major.size": 2})
-        fig = plt.figure(figsize=(7.1, 4.3))
-        gs = fig.add_gridspec(2, 5, width_ratios=[0.95, 0.75, 0.85, 0.9, 0.95], wspace=1.0, hspace=0.55, left=0.075, right=0.99, top=0.88, bottom=0.08)
+        fig, gs, (top_, h_, gap_, Hf_) = compact_grid()
         for r, t in enumerate(("hit − miss axis", "reward-lick axis")):
-            sc = gs[r, 0].subgridspec(2, 1, height_ratios=[1.25, 1], hspace=0.55)
+            sc = gs[r, 0].subgridspec(2, 1, height_ratios=[1.0, 1.0], hspace=0.45)
             frame(fig, sc[0, 0], "a  schematic")
             (hm_psth if r == 0 else pl_psth)(fig, sc[1, 0])
-            fig.text(0.004, 0.68 - r * 0.45, t, fontsize=7, weight="bold", rotation=90, va="center")
+            yc = 1 - (top_ + h_ / 2 + r * (h_ + gap_)) / Hf_
+            fig.text(0.004, yc, t, fontsize=7, weight="bold", rotation=90, va="center")
     else:
         fig = plt.figure(figsize=(12.4 + 1.6 * o, 5.2))
         wr = [0.9] + ([1.0] if PSTH else []) + [1.45, 0.85, 0.95, 0.25, 0.9]
@@ -545,7 +567,7 @@ def main():
     if PSTH and not COMPACT:
         hm_psth(fig, gs[0, 1]); pl_psth(fig, gs[1, 1])
     if COMPACT:
-        sub = gs[1, 1 + o].subgridspec(2, 1, hspace=0.55)
+        sub = gs[1, 1 + o].subgridspec(2, 1, hspace=0.75)
         example_pl([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[1, 0])], ExP)
     else:
         sub = gs[1, 1 + o].subgridspec(1, 2, wspace=0.25)

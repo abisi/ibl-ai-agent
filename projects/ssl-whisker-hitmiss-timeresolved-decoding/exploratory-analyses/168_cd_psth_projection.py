@@ -37,7 +37,9 @@ TC = TS + 0.005                                               # window centres
 N_SPLIT, MIN_UNITS, MIN_CLASS = 10, 5, 5
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "30"))
 TAB = EA                                                      # sync_results.sh moves tables to the NAS tables/ and symlinks them
-OUT_P, OUT_S = TAB / "168_cd_psth_projection.parquet", TAB / "168_cd_psth_separation.parquet"
+STAGE = os.environ.get("SSL_STAGE", "learning")             # 2026-10-08: SSL_STAGE=expert for the across-days port; suffix _expert
+SFX = "" if STAGE == "learning" else f"_{STAGE}"
+OUT_P, OUT_S = TAB / f"168_cd_psth_projection{SFX}.parquet", TAB / f"168_cd_psth_separation{SFX}.parquet"
 SET_IDS = {}
 
 
@@ -124,7 +126,7 @@ def main():
     import ssl_timeresolved_decoding as T
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
-    sess = sess[(sess.day_stage == "learning") & sess.reward_group.isin(["R+", "R-"])]
+    sess = sess[(sess.day_stage == STAGE) & sess.reward_group.isin(["R+", "R-"])]
     SET_IDS.update(importlib.import_module("tracked_units").load("stable"))
     args = [(r.session_id, r.subject_id, r.reward_group) for r in sess.itertuples()]
     print(f"[168] {len(args)} sessions", flush=True)
