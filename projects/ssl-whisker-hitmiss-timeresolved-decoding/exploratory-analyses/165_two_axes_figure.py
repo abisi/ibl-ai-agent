@@ -275,6 +275,7 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
 
 
 def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
+    ax._keep_aspect = True                                             # compact: area panels keep their shape (not squared)
     n = D.dropna(subset=[val]).groupby(["area", "cohort"]).size().unstack().fillna(0)
     areas = sorted([a for a in n.index if min(n.loc[a].get("R+", 0), n.loc[a].get("R-", 0)) >= 3], key=lambda a: -n.loc[a].sum())
     Dq = D[D.area.isin(areas)]
@@ -336,7 +337,7 @@ def load_pl():
 
 
 def frame(fig, spec, txt):
-    ax = fig.add_subplot(spec); ax.set_xticks([]); ax.set_yticks([])
+    ax = fig.add_subplot(spec); ax.set_xticks([]); ax.set_yticks([]); ax._keep_aspect = True
     for sp in ax.spines.values():
         sp.set_color("0.85"); sp.set_visible(True)
     ax.text(0.5, 0.5, txt, ha="center", va="center", fontsize=6, color="0.6", transform=ax.transAxes)
@@ -363,7 +364,8 @@ def psth_panels(fig, spec, D, classes, win, xlab, lim):
             ax.set_title(f"{c.replace('-', '−')} (n = {n} sessions)", color=COL[c], fontsize=5.4, pad=2)
         ax.set_xlim(*lim); ax.tick_params(labelsize=4.5 if COMPACT else 5)
         if COMPACT:
-            ax.set_xticks([lim[0], 0] if i == 0 else [0, lim[1]])
+            tk = [lim[0], 0] if i == 0 else [0, lim[1]]
+            ax.set_xticks(tk); ax.set_xticklabels([f"{x_:g}" for x_ in tk])
             if i == 1:
                 ax.tick_params(labelleft=False)
         elif i == 0:
@@ -526,8 +528,8 @@ def main():
     if COMPACT:
         plt.rcParams.update({"font.size": 5.5, "axes.labelsize": 5.5, "xtick.labelsize": 5, "ytick.labelsize": 5, "axes.linewidth": 0.6,
                              "xtick.major.size": 2, "ytick.major.size": 2})
-        fig = plt.figure(figsize=(7.1, 4.8))
-        gs = fig.add_gridspec(2, 5, width_ratios=[0.95, 0.75, 0.85, 0.9, 0.95], wspace=0.75, hspace=0.62, left=0.075, right=0.99, top=0.87, bottom=0.08)
+        fig = plt.figure(figsize=(7.1, 4.3))
+        gs = fig.add_gridspec(2, 5, width_ratios=[0.95, 0.75, 0.85, 0.9, 0.95], wspace=1.0, hspace=0.55, left=0.075, right=0.99, top=0.88, bottom=0.08)
         for r, t in enumerate(("hit − miss axis", "reward-lick axis")):
             sc = gs[r, 0].subgridspec(2, 1, height_ratios=[1.25, 1], hspace=0.55)
             frame(fig, sc[0, 0], "a  schematic")
@@ -565,12 +567,17 @@ def main():
     ax = fig.add_subplot(gs[1, 2 + o])
     change_panel(ax, items, "projection on reward-lick CD\n(rel. to first fifth, per neuron)" if COMPACT else "projection on reward-lick CD\n(per neuron, relative to first fifth)",
                  ["1", "2", "3", "4", "5"])
-    ax.set_xlabel("fifth of the session (" + ax.get_xlabel() + ")", fontsize=5)
+    ax.set_xlabel(("fifth of session\n(" if COMPACT else "fifth of the session (") + ax.get_xlabel() + ")", fontsize=5)
     ax.set_title("across the session: real (solid)\nvs shifted CDs (grey dashed)" if COMPACT else
                  "across the session: real CD (solid) vs\nshifted-label CDs (grey dashed)", fontsize=5.6, pad=12)
-    cohort_lines(fig.add_subplot(gs[1, 3 + o]), Sw, ["q_WH", "q_SL"], ["whisker hits", "spont. licks"], [EV["WH"], EV["SL"]], Q2, R, "reward-lick", rng)
+    cohort_lines(fig.add_subplot(gs[1, 3 + o]), Sw, ["q_WH", "q_SL"], ["whisker hits", "spont. licks"], [EV["WH"], EV["SL"]],
+                 "slope of projection on reward-lick CD\n(per neuron; real − shifted)" if COMPACT else Q2, R, "reward-lick", rng)
     area_panel(fig.add_subplot(gs[1, (4 if COMPACT else 5) + o]), S[S.area != "whole_brain"], "q_D", R, "reward-lick",
                "areas: distance whisker hit − spontaneous lick", rng, AC, Q2.replace("\n", " ") + " (WH − SL)")
+    if COMPACT:                                                    # square subplots, except the area panels (and schematic slots)
+        for a_ in fig.axes:
+            if not getattr(a_, "_keep_aspect", False):
+                a_.set_box_aspect(1)
     fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=5 if COMPACT else 6)
     name = ("165_two_axes_compact" + ("_angle" if ANGLE else "_polar" if POLAR else "") + PSFX[5:]) if COMPACT else f"165_two_axes_figure{PSFX if PSTH else ''}"
     for ext in ("svg", "pdf", "png"):
