@@ -1,20 +1,30 @@
-"""165 -- Two-row figure, one row per within-session axis, same quantities in both rows (user 2026-10-08).
-Row 1, hit - miss axis (stimulus onset, 5-35 ms; 135 with SSL_135_HARM=1: unit mean / SD from the active trials, as the pre-lick CD):
-  c  passive whisker and auditory projections on the unit hit - miss axis (per neuron, / sqrt(N)), relative to the session's own passive
-     pre (= 0): pre -> post on the real axis (solid) and on axes rebuilt from linearly shifted hit / miss labels (dashed, mean of the
-     shifts); mean +- s.e.m. over sessions per cohort
-  d  excess beyond session time (real - shifted) for whisker, auditory and whisker - auditory; filled: Wilcoxon vs 0 p < 0.05; top:
-     R+ vs R- Mann-Whitney
-  e  per area group (axis from the group's units): whisker - auditory excess, R+ and R-; ANOVA excess ~ cohort x area with cohort labels
-     permuted across mice (cohort, cohort x area); right: per-area Mann-Whitney p and Benjamini-Hochberg q
-Row 2, reward-lick axis (pre-lick, 100 ms before the first lick; ssl-prelick-convergence within_day 026):
-  c  whisker-hit (WH) and spontaneous-lick (SL) projections on the unit reward-lick CD (per neuron) in five bins of session time,
-     relative to the session's own first bin (= 0): real CD (solid) vs CDs from linearly shifted AH / SL labels (dashed)
-  d  excess of the slope over session time (real - shifted) for WH, SL and WH - SL
-  e  per area group: WH - SL excess, as row 1
-Columns a (schematic) and b (example session in state space: 163 / ssl-prelick-convergence 085) are left for the author.
-Learners, learning day only; session = unit; non-parametric tests.
-Outputs: figures/publication/165_two_axes_figure.{svg,pdf,png}; 165_stats.csv
+"""165 -- Two-row figure, one row per within-session axis, same quantities in both rows (user 2026-10-08, revised).
+All values: projection on a unit-norm axis, per neuron (/ sqrt(N)); learners, learning day; session = unit (one session per mouse).
+"Shifted" = axes rebuilt from labels shifted by 10-50 % of the time-ordered defining trials (non-wrapping, 20 shifts); the shifted value
+of a session is the mean over its shifts.
+Row 1, hit - miss axis (stimulus onset 5-35 ms; 135 SSL_135_HARM=1 and 166):
+  b  example sessions (R+, R-): projection of every passive whisker trial, pre and post; real axis (filled) vs mean over shifted axes
+     (open); bars: means
+  c  passive whisker projection relative to the session's own passive pre: real axis (solid) vs shifted axes (dashed); mean +- s.e.m.
+  d  quantity: (post - pre on the real axis) - (mean post - pre on the shifted axes), per cohort (x), whisker and auditory (lines); per
+     line R+ vs R- Mann-Whitney; cohort x modality interaction = difference of the whisker - auditory values between cohorts, cohort labels
+     permuted across mice (10,000)
+  e  per area group: the whisker quantity of d (axis from the group's units); see "Areas" below
+Row 2, reward-lick axis (pre-lick 100 ms; ssl-prelick-convergence within_day 026):
+  b  example sessions: whisker-hit (yellow) and spontaneous-lick (black) projections over normalised session time with OLS lines; real
+     CD (filled, solid) vs mean over shifted CDs (open, dashed)
+  c  whisker-hit projection and whisker-hit minus spontaneous-lick distance in five bins of session time, relative to the first bin:
+     real CD (solid) vs shifted CDs (dashed)
+  d  quantity: slope over the session on the real CD - mean slope on the shifted CDs, per cohort (x), whisker hits and spontaneous licks
+     (lines); interaction test as row 1 (= the whisker-hit - spontaneous-lick distance)
+  e  per area group: the whisker-hit - spontaneous-lick distance quantity
+Areas: hit - miss axis: area groups with >= 20 tracked units in the session (needed for the axis and its shifts, 135); reward-lick axis:
+>= 5 units and a held-out AH-vs-SL d' >= 0.3 on the group's own axis (as 015). Both: >= 3 sessions in each cohort. Two-way ANOVA
+(type II sums of squares) value ~ cohort x area on session x area values; p of the cohort and cohort x area F by permuting cohort labels
+across mice (2,000; keeps all of a mouse's areas together); per area R+ vs R- Mann-Whitney with Benjamini-Hochberg q over area groups.
+x axis clipped to the means +- 1.5 median s.e.m. (error bars may extend beyond).
+Supplementary figure: the hit - miss row for the auditory responses (b, c, e).
+Outputs: figures/publication/165_two_axes_figure.{svg,pdf,png}, 165_two_axes_auditory.{svg,pdf,png}; 165_stats.csv
 Run (haas, repo root): python .../165_two_axes_figure.py
 """
 from __future__ import annotations
@@ -36,8 +46,11 @@ sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
 COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
 PL = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/within_day/sl_stable/cd_shift_null")
-N_PERM = 2000
+EV = {"W": "#f7b519", "A": "#2c2cdb", "WH": "#f7b519", "SL": "#262626", "D": "#b07e00"}
+N_PERM_A, N_PERM_I = 2000, 10000
 plt.rcParams.update({"svg.fonttype": "none", "pdf.fonttype": 42})
+Q1 = "real − shifted axes:\nΔ(post − pre) per neuron"
+Q2 = "real − shifted CDs:\nslope over the session per neuron"
 
 
 def area_colors():
@@ -72,102 +85,176 @@ def bh(p):
 
 
 def anova_perm(D, val, rng):
-    """two-way ANOVA val ~ cohort x area (sum-of-squares F), cohort labels permuted across mice"""
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
     D = D.dropna(subset=[val]).copy()
+
     def fstats(d):
         a = sm.stats.anova_lm(smf.ols(f"{val} ~ C(cohort) * C(area)", d).fit(), typ=2)
         return a.loc["C(cohort)", "F"], a.loc["C(cohort):C(area)", "F"]
     f0 = fstats(D)
     mice = D.mouse_id.unique(); mc = D.groupby("mouse_id").cohort.first().reindex(mice).to_numpy()
     idx = pd.Index(mice).get_indexer(D.mouse_id)
-    null = []
-    for _ in range(N_PERM):
-        d = D.assign(cohort=rng.permutation(mc)[idx])
-        try:
-            null.append(fstats(d))
-        except Exception:  # noqa: BLE001
-            continue
-    null = np.asarray(null)
+    null = np.asarray([fstats(D.assign(cohort=rng.permutation(mc)[idx])) for _ in range(N_PERM_A)])
     return [(1 + np.sum(null[:, j] >= f0[j])) / (1 + len(null)) for j in range(2)]
 
 
-def change_panel(ax, items, R, row, ylab, xt):
-    """items: list of (label, {cohort: (real (sessions x points), null (sessions x points))}); points relative to the first (= 0)"""
+def interaction_perm(D, c1, c2, rng):
+    """(mean c1 - mean c2)(R+) - (...)(R-), cohort labels permuted across mice (one session per mouse)"""
+    d = (D[c1] - D[c2]).to_numpy(float); ok = np.isfinite(d); d = d[ok]; coh = D.cohort.to_numpy()[ok]
+    obs = d[coh == "R+"].mean() - d[coh == "R-"].mean()
+    null = np.empty(N_PERM_I)
+    for i in range(N_PERM_I):
+        c = rng.permutation(coh); null[i] = d[c == "R+"].mean() - d[c == "R-"].mean()
+    return obs, (1 + np.sum(np.abs(null) >= abs(obs))) / (1 + N_PERM_I)
+
+
+# ---------------------------------------------------------------- panels
+def example_hm(axs, Ex, s_):
+    for ax, c in zip(axs, COH):
+        e = Ex[(Ex.cohort == c) & (Ex.stim == s_)]
+        rng = np.random.default_rng(0)
+        for j, ep in enumerate(("passive_pre", "passive_post")):
+            d = e[e.epoch == ep]
+            for off, col, mfc in ((-0.15, "real", EV[s_]), (0.15, "null", "white")):
+                x = j + off + rng.uniform(-0.06, 0.06, len(d))
+                ax.plot(x, d[col], "o", ms=1.8, mfc=mfc, mec=EV[s_], mew=0.5, alpha=0.7)
+                ax.plot([j + off - 0.12, j + off + 0.12], [d[col].mean()] * 2, color="black" if col == "real" else "0.5", lw=1.4)
+        for col, ls in (("real", "-"), ("null", (0, (2.5, 1.5)))):
+            m = [e[e.epoch == ep][col].mean() for ep in ("passive_pre", "passive_post")]
+            off = -0.15 if col == "real" else 0.15
+            ax.plot([off, 1 + off], m, color="0.2", lw=0.8, ls=ls)
+        ax.axhline(0, color="0.8", lw=0.5)
+        ax.set_xticks([0, 1]); ax.set_xticklabels(["pre", "post"], fontsize=5); ax.set_xlim(-0.5, 1.5)
+        ax.set_title(f"{c.replace('-', '−')} example\n{e.session_id.iloc[0]}", color=COL[c], fontsize=5.2)
+    axs[0].set_ylabel("passive trial projection\n(per neuron)")
+
+
+def example_pl(axs, Ex):
+    for ax, c in zip(axs, COH):
+        e = Ex[Ex.cohort == c]
+        for cl in ("SL", "WH"):
+            d = e[e.cls == cl].dropna(subset=["real", "null"])
+            ax.plot(d.tau, d.real, "o", ms=1.5 if cl == "SL" else 2.2, color=EV[cl], alpha=0.35 if cl == "SL" else 0.75, mew=0)
+            for col, ls in (("real", "-"), ("null", (0, (2.5, 1.5)))):
+                b = np.polyfit(d.tau, d[col], 1); xx = np.r_[0, 1]
+                ax.plot(xx, np.polyval(b, xx), color=EV[cl], lw=1.4 if cl == "WH" else 1.0, ls=ls)
+        ax.set_xlabel("time in session τ", fontsize=5)
+        ax.set_title(f"{c.replace('-', '−')} example\n{e.session_id.iloc[0]}", color=COL[c], fontsize=5.2)
+    axs[0].set_ylabel("trial projection on CD\n(per neuron)")
+
+
+def change_panel(ax, items, ylab, xt):
     nx = len(xt)
-    for j, (lab, dd) in enumerate(items):
+    for j, (lab, col_ev, dd) in enumerate(items):
         off = j * (nx + 0.8)
         for c in COH:
             real, null = dd[c]
             for arr, ls, mfc in ((real, "-", COL[c]), (null, (0, (2.5, 1.5)), "white")):
-                m, s = np.nanmean(arr, 0), np.array([H.sem(arr[:, i]) for i in range(arr.shape[1])])
+                m = np.nanmean(arr, 0); s = np.array([H.sem(arr[:, i]) for i in range(arr.shape[1])])
                 ax.errorbar(off + np.arange(nx), m, yerr=s, fmt="o", ls=ls, ms=2.8, color=COL[c], mfc=mfc, lw=1, capsize=0)
-        ax.text(off + (nx - 1) / 2, 1.0, lab, transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=5.5)
+        ax.text(off + (nx - 1) / 2, 1.0, lab, transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=5.5, color=col_ev)
     ax.axhline(0, color="0.7", lw=0.5, ls=(0, (2, 2)))
     ax.set_xticks([j * (nx + 0.8) + i for j in range(len(items)) for i in range(nx)]); ax.set_xticklabels(xt * len(items), fontsize=4.8)
     ax.set_ylabel(ylab)
 
 
-def excess_panel(ax, D, cols, labs, R, row):
-    for i, (col, lab) in enumerate(zip(cols, labs)):
+def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
+    for k, (col, lab, cc) in enumerate(zip(cols, labs, colors)):
         v = {c: D[D.cohort == c][col].to_numpy(float) for c in COH}
-        for k, c in enumerate(COH):
-            p = wil(v[c])
-            ax.errorbar(i + (k - 0.5) * 0.3, np.nanmean(v[c]), H.sem(v[c]), fmt="o", ms=3.4, color=COL[c],
-                        mfc=COL[c] if p < 0.05 else "white", lw=1.1, capsize=0)
-            R.append(dict(row=row, panel="d", measure=col, cohort=c, n=int(np.isfinite(v[c]).sum()), mean=np.nanmean(v[c]), p_nonparam=p))
+        m = [np.nanmean(v[c]) for c in COH]; s = [H.sem(v[c]) for c in COH]
+        x = np.arange(2) + (k - 0.5) * 0.08
+        ax.errorbar(x, m, yerr=s, fmt="-o", ms=3.4, color=cc, lw=1.3, capsize=0, label=lab)
+        for i, c in enumerate(COH):
+            p0 = wil(v[c])
+            if p0 < 0.05:
+                ax.plot(x[i], m[i], "o", ms=5.5, mfc="none", mec="0.2", mew=0.6)
+            R.append(dict(row=row, panel="d", measure=col, cohort=c, n=int(np.isfinite(v[c]).sum()), mean=m[i], p_vs0=p0))
         pm = mwu(v["R+"], v["R-"])
-        ax.text(i, 1.0, pn(pm), transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=4.8)
         R.append(dict(row=row, panel="d", measure=col, cohort="R+ vs R-", p_nonparam=pm))
+        ax.text(1.04, m[1], f"{lab}: {pn(pm)}", color=cc if cc != "#f7b519" else "#b07e00", fontsize=4.8, va="center",
+                transform=ax.get_yaxis_transform())
+    obs, pi = interaction_perm(D, cols[0], cols[1], rng)
+    R.append(dict(row=row, panel="d", measure=f"interaction {cols[0]} - {cols[1]}", cohort="R+ vs R-", mean=obs, p_perm=pi))
     ax.axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
-    ax.set_xticks(range(len(cols))); ax.set_xticklabels(labs, fontsize=5); ax.set_xlim(-0.5, len(cols) - 0.5)
-    ax.set_ylabel("excess beyond session time\n(real − shifted, per neuron)")
+    ax.set_xticks([0, 1]); ax.set_xticklabels(["R+", "R−"]); ax.set_xlim(-0.4, 1.4)
+    for t, c in zip(ax.get_xticklabels(), COH):
+        t.set_color(COL[c])
+    ax.set_ylabel(ylab, fontsize=5.5)
+    ax.set_title(f"cohort × {'modality' if row == 'hit-miss' else 'lick type'}: p = {pi:.3g}\n(mouse-level permutation)", fontsize=5.5, pad=6)
+    ax.legend(frameon=False, fontsize=4.8, loc="best", handlelength=1.2)
 
 
-def area_panel(ax, D, val, R, row, title, rng, AC):
+def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
     n = D.dropna(subset=[val]).groupby(["area", "cohort"]).size().unstack().fillna(0)
-    areas = [a for a in n.index if min(n.loc[a].get("R+", 0), n.loc[a].get("R-", 0)) >= 3]
-    areas = sorted(areas, key=lambda a: -n.loc[a].sum())
+    areas = sorted([a for a in n.index if min(n.loc[a].get("R+", 0), n.loc[a].get("R-", 0)) >= 3], key=lambda a: -n.loc[a].sum())
     Dq = D[D.area.isin(areas)]
     p_coh, p_int = anova_perm(Dq, val, rng)
-    ps = []
+    ps, ms, ss = [], [], []
     for i, a in enumerate(areas):
         v = {c: Dq[(Dq.area == a) & (Dq.cohort == c)][val].dropna().to_numpy(float) for c in COH}
         for k, c in enumerate(COH):
-            p0 = wil(v[c])
-            ax.errorbar(np.nanmean(v[c]), i + (k - 0.5) * 0.3, xerr=H.sem(v[c]), fmt="o", ms=2.8, color=COL[c],
-                        mfc=COL[c] if p0 < 0.05 else "white", lw=0.9, capsize=0)
+            p0 = wil(v[c]); m, s = np.nanmean(v[c]), H.sem(v[c]); ms.append(m); ss.append(s)
+            ax.errorbar(m, i + (k - 0.5) * 0.3, xerr=s, fmt="o", ms=2.8, color=COL[c], mfc=COL[c] if p0 < 0.05 else "white", lw=0.9, capsize=0)
         ps.append(mwu(v["R+"], v["R-"]))
     q = bh(ps)
     for i, (a, p, qq) in enumerate(zip(areas, ps, q)):
         ax.text(1.02, i, f"{H.pnum(p)} (q {H.pnum(qq)})", transform=ax.get_yaxis_transform(), va="center", fontsize=4.4,
                 weight="bold" if qq < 0.05 else "normal")
-        R.append(dict(row=row, panel="e", measure=val, area=a, n_Rp=int(n.loc[a].get("R+", 0)), n_Rm=int(n.loc[a].get("R-", 0)),
-                      p_nonparam=p, q_BH=qq))
+        R.append(dict(row=row, panel="e", measure=val, area=a, n_Rp=int(n.loc[a]["R+"]), n_Rm=int(n.loc[a]["R-"]), p_nonparam=p, q_BH=qq))
     R.append(dict(row=row, panel="e", measure=val, area="ANOVA", p_cohort_perm=p_coh, p_cohort_x_area_perm=p_int))
+    pad = 1.5 * np.nanmedian(ss)
+    ax.set_xlim(np.nanmin(ms) - pad, np.nanmax(ms) + pad)
     ax.axvline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
     ax.set_yticks(range(len(areas))); ax.set_yticklabels([f"{a} ({int(n.loc[a]['R+'])}/{int(n.loc[a]['R-'])})" for a in areas], fontsize=4.8)
     for t, a in zip(ax.get_yticklabels(), areas):
         t.set_color(AC.get(a, "black"))
     ax.set_ylim(len(areas) - 0.5, -0.5)
-    ax.set_xlabel("excess (per neuron)")
-    ax.set_title(f"{title}\nANOVA: cohort {pn(p_coh)}, cohort × area {pn(p_int)}", fontsize=5.8)
+    ax.set_xlabel(xlab, fontsize=5)
+    ax.set_title(f"{title}\nANOVA (permutation): cohort {pn(p_coh)}, cohort × area {pn(p_int)}", fontsize=5.6)
 
 
+# ---------------------------------------------------------------- data
 def load_hm():
     A = pd.read_parquet(EA / "135_alignment_epochs_tracked_harm.parquet")
     A = A[A.skipped_reason.isna()]; A = A[H.mouse_of(A).isin(H.learners())].copy()
     A["cohort"] = A.reward_group
-    A["excess_W"], A["excess_A"], A["excess_WA"] = A.shift_excess_dWP, A.shift_excess_dAP, A.shift_excess_dWAP
-    return A
+    for s_ in ("W", "A"):
+        A[f"q_{s_}"] = A[f"shift_excess_d{s_}P"]
+    return A, pd.read_csv(EA / "166_example_trials.csv")
 
 
 def load_pl():
-    S = pd.read_csv(PL / "sessions_areas.csv"); B = pd.read_csv(PL / "bins.csv")
+    S = pd.read_csv(PL / "sessions_areas.csv"); B = pd.read_csv(PL / "bins.csv"); Ex = pd.read_csv(PL / "example_trials.csv")
     L = H.learners()
     S = S[(S.stage == "learning") & S.mouse_id.isin(L)].copy(); B = B[(B.stage == "learning") & B.mouse_id.isin(L)].copy()
-    return S, B
+    return S, B, Ex
+
+
+def frame(fig, spec, txt):
+    ax = fig.add_subplot(spec); ax.set_xticks([]); ax.set_yticks([])
+    for sp in ax.spines.values():
+        sp.set_color("0.85"); sp.set_visible(True)
+    ax.text(0.5, 0.5, txt, ha="center", va="center", fontsize=6, color="0.6", transform=ax.transAxes)
+
+
+def hm_row(fig, gs, r, A, Ex, s_, R, rng, AC, with_d=True):
+    W = A[A.area == "All units"].dropna(subset=[f"shift_null_post_{s_}_mean"])
+    sub = gs[r, 1].subgridspec(1, 2, wspace=0.15)
+    example_hm([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[0, 1])], Ex, s_)
+    dd = {}
+    for c in COH:
+        d = W[W.cohort == c]
+        dd[c] = (np.c_[np.zeros(len(d)), (d[f"shift_real_post_{s_}"] - d[f"shift_real_pre_{s_}"]).to_numpy()],
+                 np.c_[np.zeros(len(d)), (d[f"shift_null_post_{s_}_mean"] - d[f"shift_null_pre_{s_}_mean"]).to_numpy()])
+    lab = "passive whisker" if s_ == "W" else "passive auditory"
+    ax = fig.add_subplot(gs[r, 2])
+    change_panel(ax, [(lab, EV[s_], dd)], "projection on hit − miss axis\n(per neuron, relative to pre)", ["pre", "post"])
+    ax.set_title("pre → post: real axis (solid) vs\nshifted-label axes (dashed)", fontsize=5.6, pad=12)
+    if with_d:
+        cohort_lines(fig.add_subplot(gs[r, 3]), W, ["q_W", "q_A"], ["whisker", "auditory"], [EV["W"], EV["A"]], Q1, R, "hit-miss", rng)
+    area_panel(fig.add_subplot(gs[r, 5]), A[A.area != "All units"], f"q_{s_}", R, "hit-miss" if s_ == "W" else "hit-miss auditory",
+               f"areas: {lab}", rng, AC, Q1.replace("\n", " "))
 
 
 def main():
@@ -175,56 +262,52 @@ def main():
     rng = np.random.default_rng(0)
     AC = area_colors()
     R = []
-    A = load_hm(); S, B = load_pl()
-    fig = plt.figure(figsize=(11.6, 5.0))
-    gs = fig.add_gridspec(2, 6, width_ratios=[1, 1, 1.25, 0.85, 0.12, 1.25], wspace=0.55, hspace=0.75, left=0.03, right=0.94, top=0.9, bottom=0.08)
-    for r, (row, txt) in enumerate((("hit − miss axis", "stimulus onset"), ("reward-lick axis", "pre-lick"))):
-        for j, t in enumerate(("a  schematic (author)", "b  example session (163 / 085)")):
-            ax = fig.add_subplot(gs[r, j]); ax.set_xticks([]); ax.set_yticks([])
-            for sp in ax.spines.values():
-                sp.set_color("0.85"); sp.set_visible(True)
-            ax.text(0.5, 0.5, t, ha="center", va="center", fontsize=6, color="0.6", transform=ax.transAxes)
-        fig.text(0.005, 0.93 - r * 0.47, f"{row} ({txt})", fontsize=8, weight="bold")
-    # ---- row 1
-    W = A[A.area == "All units"].dropna(subset=["shift_null_post_W_mean"])
-    items = []
-    for s_, lab in (("W", "passive whisker"), ("A", "passive auditory")):
-        dd = {}
-        for c in COH:
-            d = W[W.cohort == c]
-            real = np.c_[np.zeros(len(d)), (d[f"shift_real_post_{s_}"] - d[f"shift_real_pre_{s_}"]).to_numpy()]
-            null = np.c_[np.zeros(len(d)), (d[f"shift_null_post_{s_}_mean"] - d[f"shift_null_pre_{s_}_mean"]).to_numpy()]
-            dd[c] = (real, null)
-        items.append((lab, dd))
-    ax = fig.add_subplot(gs[0, 2]); change_panel(ax, items, R, "hit-miss", "projection on hit − miss axis\n(per neuron, relative to pre)", ["pre", "post"])
-    ax.set_title("c  pre → post: real (solid) vs shifted-label axes (dashed)", fontsize=5.8, pad=12)
-    ax = fig.add_subplot(gs[0, 3]); excess_panel(ax, W, ["excess_W", "excess_A", "excess_WA"], ["whisker", "auditory", "W − A"], R, "hit-miss")
-    ax.set_title("d  beyond session time", fontsize=5.8, pad=12)
-    ax = fig.add_subplot(gs[0, 5]); area_panel(ax, A[A.area != "All units"], "excess_WA", R, "hit-miss", "e  areas: whisker − auditory", rng, AC)
-    # ---- row 2
+    A, ExH = load_hm(); S, B, ExP = load_pl()
+    S["q_WH"], S["q_SL"], S["q_D"] = S.excess_pu, S.excessSL_pu, S.excessC_pu
+    from matplotlib.lines import Line2D
+    leg = ([Line2D([], [], color=COL["R+"], marker="o", ms=3), Line2D([], [], color=COL["R-"], marker="o", ms=3),
+            Line2D([], [], color="0.3", ls="-"), Line2D([], [], color="0.3", ls=(0, (2.5, 1.5)))],
+           ["R+", "R−", "real axis", "shifted-label axes (mean over shifts)"])
+    # ------------------------------------------------ main figure
+    fig = plt.figure(figsize=(12.4, 5.2))
+    gs = fig.add_gridspec(2, 6, width_ratios=[0.9, 1.35, 0.85, 0.95, 0.15, 1.3], wspace=0.6, hspace=0.85, left=0.03, right=0.93, top=0.88, bottom=0.09)
+    for r, t in enumerate(("hit − miss axis (stimulus onset, 5–35 ms; passive whisker responses)", "reward-lick axis (100 ms before the first lick; whisker hits)")):
+        frame(fig, gs[r, 0], "a  schematic"); fig.text(0.005, 0.94 - r * 0.47, t, fontsize=7.5, weight="bold")
+    hm_row(fig, gs, 0, A, ExH, "W", R, rng, AC)
+    sub = gs[1, 1].subgridspec(1, 2, wspace=0.25)
+    example_pl([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[0, 1])], ExP)
     Sw = S[S.area == "whole_brain"]
     items = []
-    for c_, lab in (("WH", "whisker hits"), ("SL", "spontaneous licks")):
+    for lab, col_ev, f in (("whisker hits", EV["WH"], lambda b: b["WH"]), ("WH − SL distance", EV["D"], lambda b: b["WH"] - b["SL"])):
         dd = {}
         for c in COH:
-            b = B[(B.cls == c_) & (B.cohort == c)]
-            real = b.pivot_table(index="session_id", columns="bin", values="real").to_numpy()
-            null = b.pivot_table(index="session_id", columns="bin", values="null").to_numpy()
-            dd[c] = (real - real[:, :1], null - null[:, :1])
-        items.append((lab, dd))
-    ax = fig.add_subplot(gs[1, 2]); change_panel(ax, items, R, "reward-lick", "projection on reward-lick CD\n(per neuron, relative to start)",
-                                                 ["1", "2", "3", "4", "5"])
+            arr = {}
+            for kind in ("real", "null"):
+                piv = {cl: B[(B.cls == cl) & (B.cohort == c)].pivot_table(index="session_id", columns="bin", values=kind) for cl in ("WH", "SL")}
+                idx = piv["WH"].index.intersection(piv["SL"].index)
+                v = f({cl: piv[cl].loc[idx].to_numpy() for cl in piv})
+                arr[kind] = v - v[:, :1]
+            dd[c] = (arr["real"], arr["null"])
+        items.append((lab, col_ev, dd))
+    ax = fig.add_subplot(gs[1, 2])
+    change_panel(ax, items, "projection on reward-lick CD\n(per neuron, relative to first fifth)", ["1", "2", "3", "4", "5"])
     ax.set_xlabel("fifth of the session", fontsize=5)
-    ax.set_title("c  across the session: real CD (solid) vs shifted-label CDs (dashed)", fontsize=5.8, pad=12)
-    ax = fig.add_subplot(gs[1, 3]); excess_panel(ax, Sw, ["excess_pu", "excessSL_pu", "excessC_pu"], ["WH", "SL", "WH − SL"], R, "reward-lick")
-    ax.set_title("d  beyond session time (slopes)", fontsize=5.8, pad=12)
-    ax = fig.add_subplot(gs[1, 5]); area_panel(ax, S[S.area != "whole_brain"], "excessC_pu", R, "reward-lick", "e  areas: WH − SL", rng, AC)
-    from matplotlib.lines import Line2D
-    fig.legend([Line2D([], [], color=COL["R+"], marker="o", ms=3), Line2D([], [], color=COL["R-"], marker="o", ms=3),
-                Line2D([], [], color="0.3", ls="-"), Line2D([], [], color="0.3", ls=(0, (2.5, 1.5)))],
-               ["R+", "R−", "real axis", "shifted-label axes"], loc="upper right", ncol=4, frameon=False, fontsize=6)
+    ax.set_title("across the session: real CD (solid) vs\nshifted-label CDs (dashed)", fontsize=5.6, pad=12)
+    cohort_lines(fig.add_subplot(gs[1, 3]), Sw, ["q_WH", "q_SL"], ["whisker hits", "spont. licks"], [EV["WH"], EV["SL"]], Q2, R, "reward-lick", rng)
+    area_panel(fig.add_subplot(gs[1, 5]), S[S.area != "whole_brain"], "q_D", R, "reward-lick",
+               "areas: distance whisker hit − spontaneous lick", rng, AC, Q2.replace("\n", " ") + " (WH − SL)")
+    fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=6)
     for ext in ("svg", "pdf", "png"):
         fig.savefig(FIGDIR / f"165_two_axes_figure.{ext}", dpi=300)
+    # ------------------------------------------------ auditory (supplementary)
+    fig = plt.figure(figsize=(12.4, 2.7))
+    gs = fig.add_gridspec(1, 6, width_ratios=[0.9, 1.35, 0.85, 0.95, 0.15, 1.3], wspace=0.6, left=0.03, right=0.93, top=0.78, bottom=0.17)
+    frame(fig, gs[0, 0], "")
+    fig.text(0.005, 0.93, "hit − miss axis: passive auditory responses (control)", fontsize=7.5, weight="bold")
+    hm_row(fig, gs, 0, A, ExH, "A", R, rng, AC, with_d=False)
+    fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=6)
+    for ext in ("svg", "pdf", "png"):
+        fig.savefig(FIGDIR / f"165_two_axes_auditory.{ext}", dpi=300)
     pd.DataFrame(R).to_csv(EA / "165_stats.csv", index=False)
     print(pd.DataFrame(R).round(4).to_string())
     print("ALL DONE", FIGDIR / "165_two_axes_figure.png")

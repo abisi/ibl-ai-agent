@@ -34,6 +34,7 @@ m51 = importlib.import_module("051_roc_prelick")
 m002 = importlib.import_module("002_trial_slopes")
 OUT = m51.WITHIN / "cd_shift_null"
 N_SHIFT, FRAC, N_BINS = 20, (0.10, 0.50), 5
+EXAMPLES = ("AB138", "MH008")                                  # example sessions (learning day): per-trial projections saved
 COH = {"R+": "#00B400", "R-": "#C800C8"}
 
 
@@ -68,7 +69,9 @@ def one_axis(Xe, lab, tau, seed):
     pw, ph, sep, dp = cv_projection(Xe, y_idx, y, w_idx, seed)
     sl = y_idx[y == 0]
     r = dict(sep_unit=sep, dprime=dp, bWH=np.polyfit(tau[w_idx], pw, 1)[0], bSL=np.polyfit(tau[sl], ph[y == 0], 1)[0],
-             binsWH=binned(tau[w_idx], pw), binsSL=binned(tau[sl], ph[y == 0]))
+             binsWH=binned(tau[w_idx], pw), binsSL=binned(tau[sl], ph[y == 0]),
+             trWH=(tau[w_idx], pw), trSL=(tau[sl], ph[y == 0], sl))
+    nsum_w, nsum_s, ncnt_s = np.zeros(len(w_idx)), {}, {}
     n = len(y_idx); ks = np.unique(np.linspace(FRAC[0] * n, FRAC[1] * n, N_SHIFT // 2).astype(int))
     nWH, nSL, bWH, bSL = [], [], [], []
     for k in np.r_[ks, -ks]:
@@ -79,10 +82,14 @@ def one_axis(Xe, lab, tau, seed):
         pk, phk, _, _ = cv_projection(Xe, xi, ys, w_idx, seed)
         slk = lab[xi] == "FA"                                       # real spontaneous licks among the shifted-axis events
         nWH.append(np.polyfit(tau[w_idx], pk, 1)[0]); nSL.append(np.polyfit(tau[xi[slk]], phk[slk], 1)[0])
+        nsum_w += pk
+        for ev, v in zip(xi[slk], phk[slk]):
+            nsum_s[ev] = nsum_s.get(ev, 0.0) + v; ncnt_s[ev] = ncnt_s.get(ev, 0) + 1
         bWH.append(binned(tau[w_idx], pk)); bSL.append(binned(tau[xi[slk]], phk[slk]))
     if len(nWH) < 5:
         return None
-    r.update(nWH=np.asarray(nWH), nSL=np.asarray(nSL), nbinsWH=np.nanmean(bWH, 0), nbinsSL=np.nanmean(bSL, 0))
+    r.update(nWH=np.asarray(nWH), nSL=np.asarray(nSL), nbinsWH=np.nanmean(bWH, 0), nbinsSL=np.nanmean(bSL, 0),
+             trWH_null=nsum_w / len(nWH), trSL_null=np.array([nsum_s[e] / ncnt_s[e] if e in ncnt_s else np.nan for e in r["trSL"][2]]))
     return r
 
 
@@ -111,7 +118,7 @@ def session(args):
     if ok.sum() < m002.MIN_UNITS:
         return None
     tau = (t - t.min()) / max(t.max() - t.min(), 1e-9)
-    rows, bins = [], []
+    rows, bins, trials = [], [], []
     groups = [("whole_brain", ok)] + [(g, ok & (K.area_group == g).to_numpy()) for g in sorted(K.area_group.dropna().unique())]
     for area, m in groups:
         if m.sum() < m002.MIN_UNITS:
@@ -123,10 +130,13 @@ def session(args):
                          **summarise(r, int(m.sum()))))
         if area == "whole_brain":
             s_ = np.sqrt(m.sum())
+            if meta["mouse_id"] in EXAMPLES and meta["stage"] == "learning":
+                for c, (tt, real), null in (("WH", r["trWH"], r["trWH_null"]), ("SL", r["trSL"][:2], r["trSL_null"])):
+                    trials += [dict(meta, cls=c, tau=a_, real=b_ / s_, null=c_ / s_) for a_, b_, c_ in zip(tt, real, null)]
             for c in ("WH", "SL"):
                 for i in range(N_BINS):
                     bins.append(dict(meta, cls=c, bin=i, real=r[f"bins{c}"][i] / s_, null=r[f"nbins{c}"][i] / s_))
-    return (rows, bins) if rows and rows[0]["area"] == "whole_brain" else None
+    return (rows, bins, trials) if rows and rows[0]["area"] == "whole_brain" else None
 
 
 def tests(D):
@@ -205,6 +215,7 @@ def main(a):
             res = [r for r in pool.imap_unordered(session, jobs) if r]
         DA = pd.DataFrame([x for r in res for x in r[0]]); DA.to_csv(OUT / "sessions_areas.csv", index=False)
         pd.DataFrame([x for r in res for x in r[1]]).to_csv(OUT / "bins.csv", index=False)
+        pd.DataFrame([x for r in res for x in r[2]]).to_csv(OUT / "example_trials.csv", index=False)
         D = DA[DA.area == "whole_brain"].copy(); D.to_csv(OUT / "sessions.csv", index=False)
     D = m61.learner_filter(D)
     T = tests(D); T.to_csv(OUT / "tests.csv", index=False)

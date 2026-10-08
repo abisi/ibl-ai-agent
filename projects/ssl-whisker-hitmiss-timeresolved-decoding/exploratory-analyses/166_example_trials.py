@@ -1,0 +1,92 @@
+"""166 -- Per-trial passive projections on the hit / miss axis for the example sessions (user 2026-10-08: "include the example sessions that
+show what is being quantified").
+Example sessions: those of 163 (learners, >= 300 tracked units: R+ closest to the R+ median change, R- most negative change).
+Harmonised scaling (as 135 with SSL_135_HARM=1): 5-35 ms response minus the epoch's mean baseline (-55 to -20 ms), unit mean / SD from the
+active trials. Real axis u = unit(mean_z(active whisker hits) - mean_z(misses)) from all active whisker trials (active trials with a
+lick before 35 ms excluded). Every passive trial (whisker and auditory, pre and post) is projected on u, per neuron (/ sqrt(N)).
+Shifted-label axes: hit / miss labels shifted by k = 10-50 % of the time-ordered active whisker trials (non-wrapping, both directions,
+20 shifts, >= 10 trials per class), axis rebuilt, the same passive trials projected; null = mean over shifts per trial.
+Output: 166_example_trials.csv (session, cohort, epoch, stim, trial index, real, null). Run (haas, repo root): python .../166_example_trials.py
+"""
+from __future__ import annotations
+
+import importlib
+import os
+import sys
+import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+warnings.filterwarnings("ignore")
+EA = Path(__file__).resolve().parent
+SCRIPTS = str(EA.parents[2] / "scripts")
+sys.path[:0] = [str(EA), SCRIPTS]
+M135 = importlib.import_module("135_whisker_lick_alignment_epochs")
+M163 = importlib.import_module("163_example_state_space")
+WIN, BASE, DZ = M135.WIN, M135.BASE, M135.DZ
+N_SHIFT, FRAC, MIN_CLASS = 20, (0.10, 0.50), 10
+
+
+def unit(v):
+    n = np.linalg.norm(v)
+    return v / n if n > 0 else v
+
+
+def run(sid, coh):
+    os.chdir(EA.parents[2])
+    from ibl_ai_agent.data_locations import resolve_dataset_dir
+    import ssl_timeresolved_decoding as T
+    M132 = importlib.import_module("132_modality_stim_passive_active")
+    root = resolve_dataset_dir("ssl_ephys")
+    st, tt = pd.read_parquet(root / "metadata" / "sessions.parquet"), pd.read_parquet(root / "metadata" / "trials.parquet")
+    labels = T.add_whole_brain_column(pd.read_parquet(T.AREA_LABELS_PATH))
+    trs = M132.session_trials(sid, st, tt, T)
+    act = trs["active"].reset_index(drop=True)
+    rt = (act.lick_time - act.response_window_start_time).to_numpy()
+    licked = (act.lick_flag == 1).to_numpy() & np.isfinite(rt)
+    keep = ~licked | (rt > WIN[1]); act = act[keep].reset_index(drop=True); licked = licked[keep]
+    trs = dict(trs, active=act)
+    spikes = T.load_session_unit_spikes(root, sid)
+    ids = importlib.import_module("tracked_units").load("stable").get(sid, np.array([], dtype=np.int64))
+    units = np.intersect1d(T.area_units(sid, "whole_brain", "All units", labels), ids)
+    X = {}
+    for e in ("passive_pre", "active", "passive_post"):
+        t0 = trs[e].start_time.to_numpy()
+        r, b = T.sliding_bin_population_matrices(spikes, units, t0, np.ones(len(t0), bool), [WIN, BASE], dead_zone=DZ)
+        X[e] = r - np.nanmean(b, 0, keepdims=True)
+    mu, sd = X["active"].mean(0), X["active"].std(0); ok = sd > 0
+    Z = {e: (v[:, ok] - mu[ok]) / sd[ok] for e, v in X.items()}
+    E = {e: v[:, ok] / sd[ok] for e, v in X.items()}
+    N = int(ok.sum())
+    isw = (act.trial_type == "whisker_trial").to_numpy()
+    widx = np.where(isw)[0]; widx = widx[np.argsort(act.start_time.to_numpy()[widx], kind="stable")]
+    y = licked[widx]
+    u = unit(Z["active"][widx[y]].mean(0) - Z["active"][widx[~y]].mean(0))
+    n = len(widx); ks = np.unique(np.linspace(FRAC[0] * n, FRAC[1] * n, N_SHIFT // 2).astype(int))
+    us = []
+    for k in np.r_[ks, -ks]:
+        i = np.arange(max(0, -k), min(n, n - k)); ys, xi = y[i], widx[i + k]
+        if min(ys.sum(), (~ys).sum()) >= MIN_CLASS:
+            us.append(unit(Z["active"][xi[ys]].mean(0) - Z["active"][xi[~ys]].mean(0)))
+    rows = []
+    for e in ("passive_pre", "passive_post"):
+        stim = np.where((trs[e].trial_type == "whisker_trial").to_numpy(), "W", "A")
+        real = E[e] @ u / np.sqrt(N)
+        null = np.mean([E[e] @ uk for uk in us], 0) / np.sqrt(N)
+        rows += [dict(session_id=sid, cohort=coh, epoch=e, stim=s_, trial=j, real=a, null=b) for j, (s_, a, b) in enumerate(zip(stim, real, null))]
+    print(sid, coh, N, "units,", len(us), "shifts", flush=True)
+    return rows
+
+
+def main():
+    rows = []
+    for sid, _, coh in M163.pick():
+        rows += run(sid, coh)
+    pd.DataFrame(rows).to_csv(EA / "166_example_trials.csv", index=False)
+    print("ALL DONE", EA / "166_example_trials.csv")
+
+
+if __name__ == "__main__":
+    main()
