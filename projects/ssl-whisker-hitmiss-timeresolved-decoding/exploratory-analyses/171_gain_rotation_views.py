@@ -37,9 +37,10 @@ def xy(d, ep, null=False):
     return a, np.sqrt(np.clip(r ** 2 - a ** 2, 0, None))
 
 
-def polar(ax, d, c, s_):
+def polar(ax, d, c, s_, small=False):
+    """small: compact version for 165 (short labels, smaller symbols)"""
     for ep, fc in (("pre", "0.65"), ("post", COL[c])):
-        x, y = xy(d, ep); ax.plot(x, y, "o", ms=2, color=fc, alpha=0.35, mew=0)
+        x, y = xy(d, ep); ax.plot(x, y, "o", ms=1.4 if small else 2, color=fc, alpha=0.35, mew=0)
     m = {ep: np.array([np.nanmean(v) for v in xy(d, ep)]) for ep in ("pre", "post")}
     mn = {ep: np.array([np.nanmean(v) for v in xy(d, ep, True)]) for ep in ("pre", "post")}
     th_pre = np.arctan2(m["pre"][1], m["pre"][0]); th_post = np.arctan2(m["post"][1], m["post"][0])
@@ -47,12 +48,12 @@ def polar(ax, d, c, s_):
     L = 1.15 * max(np.hypot(*m["pre"]), rp)
     ax.plot([0, L * np.cos(th_pre)], [0, L * np.sin(th_pre)], color="0.5", lw=0.7, ls=(0, (4, 2)))          # pure-gain path
     gpt = rp * np.r_[np.cos(th_pre), np.sin(th_pre)]
-    ax.plot(*gpt, "D", ms=4.5, mfc="white", mec="0.2", mew=0.8, zorder=6)
+    ax.plot(*gpt, "D", ms=3.5 if small else 4.5, mfc="white", mec="0.2", mew=0.8, zorder=6)
     tt = np.linspace(th_pre, th_post, 30); ax.plot(rp * np.cos(tt), rp * np.sin(tt), color="0.2", lw=0.9, ls=":", zorder=6)   # rotation
     ax.annotate("", mn["post"], mn["pre"], arrowprops=dict(arrowstyle="-|>", color="0.6", lw=1.1, ls=(0, (2, 1.2)), shrinkA=2, shrinkB=2))
     for ep, fc in (("pre", "0.65"), ("post", COL[c])):
-        ax.plot(*m[ep], "o", ms=6, mfc=fc, mec="black", mew=0.8, zorder=7)
-        ax.plot(*mn[ep], "o", ms=3.5, mfc="white", mec="0.6", mew=0.8, zorder=5)
+        ax.plot(*m[ep], "o", ms=4.5 if small else 6, mfc=fc, mec="black", mew=0.8, zorder=7)
+        ax.plot(*mn[ep], "o", ms=2.8 if small else 3.5, mfc="white", mec="0.6", mew=0.8, zorder=5)
     ax.annotate("", m["post"], m["pre"], arrowprops=dict(arrowstyle="-|>", color="black", lw=1.3, shrinkA=3, shrinkB=3), zorder=8)
     ax.axhline(0, color="0.85", lw=0.5); ax.axvline(0, color="0.85", lw=0.5)
     P = np.vstack([np.c_[xy(d, ep)] for ep in ("pre", "post")]); P = P[np.isfinite(P).all(1)]
@@ -61,6 +62,11 @@ def polar(ax, d, c, s_):
     pad = 0.12 * (hi - lo).max(); lo, hi = lo - pad, hi + pad; span = (hi - lo).max()
     ctr = (lo + hi) / 2; ax.set_xlim(ctr[0] - span / 2, ctr[0] + span / 2); ax.set_ylim(ctr[1] - span / 2, ctr[1] + span / 2)
     ax.set_aspect("equal", adjustable="box")
+    if small:
+        ax.set_xlabel("along axis ρ cos θ (→ hit)", fontsize=5); ax.set_ylabel("orthogonal ρ sin θ", fontsize=5)
+        ax.text(0.03, 0.97, f"{c.replace('-', '−')}  θ {np.degrees(th_pre):.0f}°→{np.degrees(th_post):.0f}°\nρ {np.hypot(*m['pre']):.2f}→{rp:.2f}",
+                transform=ax.transAxes, va="top", fontsize=4.6, color=COL[c])
+        return
     ax.set_xlabel("along hit − miss axis  ρ cos θ  (→ hit)", fontsize=6)
     ax.set_ylabel("orthogonal to the axis  ρ sin θ", fontsize=6)
     ax.set_title(f"{c.replace('-', '−')}, passive {'whisker' if s_ == 'W' else 'auditory'} (n = {len(d)})\n"
@@ -68,18 +74,21 @@ def polar(ax, d, c, s_):
                  color=COL[c], fontsize=6)
 
 
-def stacked(ax, D):
+def stacked(ax, D, small=False):
     xs, labs = [], []
+    from scipy import stats as st_
     for i, s_ in enumerate(("W", "A")):
         for j, c in enumerate(COH):
             d = D[(D.stim == s_) & (D.reward_group == c)]
-            x = i * 2.6 + j; xs.append(x); labs.append(f"{c.replace('-', '−')}\n{'whisker' if s_ == 'W' else 'auditory'}")
+            x = i * 2.6 + j; xs.append(x)
+            labs.append(c.replace('-', '−') if small else f"{c.replace('-', '−')}\n{'whisker' if s_ == 'W' else 'auditory'}")
             pos = neg = 0.0
             for q, col, hatch in (("gain_exc", "0.55", None), ("rot_exc", COL[c], None)):
                 v = np.nanmean(d[q]); se = H.sem(d[q].to_numpy(float))
                 base = pos if v >= 0 else neg
                 ax.bar(x, v, bottom=base, width=0.6, color=col, alpha=0.85 if q == "rot_exc" else 0.6, edgecolor="black", lw=0.5)
-                ax.text(x + 0.33, base + v / 2, f"{'gain' if q == 'gain_exc' else 'rot.'} {v:+.3f}\n±{se:.3f}", fontsize=4.6, va="center")
+                if not small:
+                    ax.text(x + 0.33, base + v / 2, f"{'gain' if q == 'gain_exc' else 'rot.'} {v:+.3f}\n±{se:.3f}", fontsize=4.6, va="center")
                 if v >= 0:
                     pos += v
                 else:
@@ -87,6 +96,19 @@ def stacked(ax, D):
             t = d.d_along_exc.to_numpy(float)
             ax.errorbar(x, np.nanmean(t), H.sem(t), fmt="o", color="black", ms=3.5, capsize=0, zorder=5)
     ax.axhline(0, color="0.5", lw=0.6)
+    if small:                                                      # p of R+ vs R- per part (Mann-Whitney), per modality
+        for i, s_ in enumerate(("W", "A")):
+            d = D[D.stim == s_]
+            pp = {q: st_.mannwhitneyu(*(d[d.reward_group == c][q].dropna() for c in COH)).pvalue for q in ("gain_exc", "rot_exc")}
+            f = lambda p_: "n.s." if p_ >= 0.05 else f"p = {p_:.3f}"
+            ax.text(i * 2.6 + 0.5, 1.0, f"{'whisker' if s_ == 'W' else 'auditory'}\ngain {f(pp['gain_exc'])}\nrot. {f(pp['rot_exc'])}",
+                    transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=4.5,
+                    color=EV[s_] if s_ == "A" else "#b07e00")
+        ax.set_xticks(xs); ax.set_xticklabels(labs, fontsize=5); ax.set_xlim(-0.6, xs[-1] + 0.6)
+        for t, c in zip(ax.get_xticklabels(), list(COH) * 2):
+            t.set_color(COL[c])
+        ax.set_ylabel("Δ along axis, real − shifted\n(gain grey + rotation colour)", fontsize=5)
+        return
     ax.set_xticks(xs); ax.set_xticklabels(labs, fontsize=5.5); ax.set_xlim(-0.6, xs[-1] + 1.2)
     ax.set_ylabel("Δ along the hit − miss axis, real − shifted\n(post − pre, per neuron)", fontsize=6)
     ax.set_title("gain (grey) + rotation (colour) = total (black ± s.e.m.)", fontsize=6)

@@ -35,7 +35,10 @@ Variant SSL_165_PSTH=1 (2026-10-08): an extra column after the schematic with th
   outputs 165_two_axes_figure_psth[_<area>].{svg,pdf,png}
 Compact variant SSL_165_COMPACT=1 (2026-10-08): built at print size (180 mm wide); same panels as the main figure (b-e), the time
 courses small under the schematic (R+ and R- side by side), no spacer column; per-line p values in the legend of d; short area names,
-q < 0.05 marked * (exact p / q in the _stats.csv); ring / marker conventions go in the caption. Output 165_two_axes_compact[_<area>].{svg,pdf,png}
+q < 0.05 marked * (exact p / q in the _stats.csv); ring / marker conventions go in the caption.
+Polar variant SSL_165_POLAR=1 (2026-10-08, compact): row 1 b = polar state space of the passive whisker response (169 / 171: along the
+axis vs orthogonal, R+ above R-, pure-gain ray, gain prediction, rotation arc, shifted axes in grey); row 1 c = real - shifted change
+along the axis split into gain and rotation parts (whisker, auditory; R+ vs R- Mann-Whitney per part). Output 165_two_axes_compact_polar.* Output 165_two_axes_compact[_<area>].{svg,pdf,png}
 Outputs: figures/publication/165_two_axes_figure.{svg,pdf,png}, 165_two_axes_auditory.{svg,pdf,png}; 165_stats.csv
 Run (haas, repo root): python .../165_two_axes_figure.py
 """
@@ -61,7 +64,8 @@ PL = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-conver
 EV = {"W": "#f7b519", "A": "#2c2cdb", "WH": "#f7b519", "AH": "#2c2cdb", "SL": "#262626", "D": "#b07e00"}
 N_PERM_A, N_PERM_I = 2000, 10000
 import os  # noqa: E402
-COMPACT = bool(os.environ.get("SSL_165_COMPACT"))
+POLAR = bool(os.environ.get("SSL_165_POLAR"))                 # compact layout, row 1 b / c = 171 polar views + gain / rotation bars
+COMPACT = bool(os.environ.get("SSL_165_COMPACT")) or POLAR
 PSTH = bool(os.environ.get("SSL_165_PSTH")) or COMPACT
 SHORT = {"Motor areas": "Motor", "Somatosensory-whisker": "S1 whisker", "Somatosensory-orofacial": "S1 orofacial", "Frontal areas": "Frontal",
          "Retrosplenial areas": "Retrosplenial", "Auditory areas": "Auditory", "Lateral septal complex": "Lat. septum",
@@ -382,7 +386,16 @@ def pl_psth(fig, spec):
 
 def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
     W = A[A.area == "All units"].dropna(subset=[f"shift_null_post_{s_}_mean"])
-    if COMPACT:                                                    # examples stacked (R+ above R-)
+    if POLAR and s_ == "W":                                        # 169 / 171 polar views instead of the examples
+        M171 = importlib.import_module("171_gain_rotation_views")
+        P = M171.M170.part_a(pd.read_parquet(EA / "169_along_orthogonal.parquet").pipe(lambda d: d[H.mouse_of(d).isin(H.learners())]))
+        sub = gs[r, 1 + o].subgridspec(2, 1, hspace=0.35)
+        for i_, c in enumerate(COH):
+            axp = fig.add_subplot(sub[i_, 0])
+            M171.polar(axp, P[(P.stim == "W") & (P.reward_group == c)], c, "W", small=True)
+            if i_ == 0:
+                axp.set_xlabel("")
+    elif COMPACT:                                                  # examples stacked (R+ above R-)
         sub = gs[r, 1 + o].subgridspec(2, 1, hspace=0.32)
         example_hm([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[1, 0])], Ex, Sh, s_)
     else:
@@ -395,8 +408,12 @@ def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
                  d[[f"shift_null_pre_{s_}_mean", f"shift_null_post_{s_}_mean"]].to_numpy(float))
     lab = "passive whisker" if s_ == "W" else "passive auditory"
     ax = fig.add_subplot(gs[r, 2 + o])
-    change_panel(ax, [(lab, EV[s_], dd)], "projection on hit − miss axis\n(per neuron)", ["pre", "post"])
-    ax.set_title("passive pre and post: real (solid)\nvs shifted axes (grey dashed)", fontsize=5.6, pad=12)
+    if POLAR and s_ == "W":
+        M171.stacked(ax, P, small=True)
+        ax.set_title("change along the axis:\ngain + rotation", fontsize=5.6, pad=24)
+    else:
+        change_panel(ax, [(lab, EV[s_], dd)], "projection on hit − miss axis\n(per neuron)", ["pre", "post"])
+        ax.set_title("passive pre and post: real (solid)\nvs shifted axes (grey dashed)", fontsize=5.6, pad=12)
     if with_d:
         cohort_lines(fig.add_subplot(gs[r, 3 + o]), W, ["q_W", "q_A"], ["whisker", "auditory"], [EV["W"], EV["A"]], Q1, R, "hit-miss", rng)
     area_panel(fig.add_subplot(gs[r, (4 if COMPACT else 5) + o]), A[A.area != "All units"], f"q_{s_}", R, "hit-miss" if s_ == "W" else "hit-miss auditory",
@@ -465,7 +482,7 @@ def main():
     area_panel(fig.add_subplot(gs[1, (4 if COMPACT else 5) + o]), S[S.area != "whole_brain"], "q_D", R, "reward-lick",
                "areas: distance whisker hit − spontaneous lick", rng, AC, Q2.replace("\n", " ") + " (WH − SL)")
     fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=5 if COMPACT else 6)
-    name = ("165_two_axes_compact" + PSFX[5:]) if COMPACT else f"165_two_axes_figure{PSFX if PSTH else ''}"
+    name = ("165_two_axes_compact" + ("_polar" if POLAR else "") + PSFX[5:]) if COMPACT else f"165_two_axes_figure{PSFX if PSTH else ''}"
     for ext in ("svg", "pdf", "png"):
         savefig(fig, FIGDIR / f"{name}.{ext}")
     if PSTH:                                                       # the variants change only the main figure
