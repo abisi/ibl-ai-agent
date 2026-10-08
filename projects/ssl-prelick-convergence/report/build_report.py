@@ -153,6 +153,7 @@ MAIN = [
     ("fig-area-matrix", WD / "area_cd_drift" / POP / "area_cd_drift_matrix.png", "within_day 015 + 017"),
     ("fig-specificity", WD / "cohort_specificity" / POP / "cohort_specificity.png", "within_day 014"),
     ("fig-day0-expert", WD / "day0_predicts_expert" / POP / "day0_predicts_expert.png", "within_day 016"),
+    ("fig-along", P1 / "along_vs_orthogonal.png", "084 (within_day 025 + 057)"),
     ("fig-cosyne-day0", WD / "cosyne" / POP / "COSYNE_day0_v2.png", "within_day 019")]
 SUPP1 = [  # Part I supplements, learners
     ("fig-s-converging", P1 / "Fig2S_converging_neurons.png", "062 fig2_supplement"),
@@ -178,6 +179,10 @@ SUPP2 = [  # Part II supplements, learners
     ("fig-s-oddeven", WD / "halves" / POP / "within_session_oddeven.png", "within_day 001"),
     ("fig-s-controls", WD / "halves" / POP / "within_session_controls.png", "within_day 001"),
     ("fig-s-decschemes", WD / "cosyne" / "decoder_schemes.png", "within_day 010"),
+    ("fig-s-cdnorm-schem", WD / "cd_normalisation" / "cd_normalisation_schematic.png", "within_day 025"),
+    ("fig-s-cdnorm", WD / "cd_normalisation" / POP / "cd_normalisation_drifts.png", "within_day 025"),
+    ("fig-s-geom-schem", WD / "cd_normalisation" / "cd_normalisation_geometry_schematic.png", "within_day 025"),
+    ("fig-s-geom", WD / "cd_normalisation" / POP / "cd_normalisation_geometry.png", "within_day 025"),
     ("fig-s-epochs-n4", WD / "epochs_n4" / POP / "epoch_comparison.png", "within_day 003 (4 events per class)")]
 ALLM = []                                   # all-mice duplicates removed (2026-10-08)
 FILE = {a_: f_ for a_, f_, *_ in MAIN + SUPP1 + SUPP2}
@@ -287,6 +292,11 @@ def captions_part2(C):
     """captions of the Part II figures (one per analysis) and their supplements"""
     C.update({
         "fig-cd": f"Reward-lick coding direction within sessions, learning day and expert sessions ({POP}). Every event's score on the session's 5-fold CD ({ref('eq-cd')}; SL = 0, AH = 1). (a–d) Score of WH, AH and SL in five bins of normalised session time τ, per cohort and stage; mean ± s.e.m. over sessions (n sessions in the titles). (e–h) Score differences across the session, day 0 (dashed, open) vs expert (solid): WH − SL (e, f) and AH − WH, the distance of WH to AH (g, h). (i–l) Per-session drifts ({ref('eq-drift')}) β_WH − β_SL and β_WH − β_AH and the class slopes β_WH and β_SL ({ref('eq-ols')}); open: day 0, filled: expert; large symbol: mean ± s.e.m.; brackets: Mann-Whitney U (day 0 vs expert per cohort; expert R+ vs R−); titles: cohort × stage interaction ({ref('eq-interaction')}), cohort labels permuted across mice. (m) Slope of the AH score. (n) Mixed-model drift estimates ({ref('eq-mixed')}; all mice) ± 95 % CI, both references and stages.",
+        "fig-along": f"Along the reward-lick axis or orthogonal to it ({POP}). (a) Geometry: v = WH − SL and Δ = AH − SL (pre-lick population means), λ = v·Δ/|Δ|² = ρ cos θ (along), ω = ρ sin θ (orthogonal), ρ = |v|/|Δ|, θ the angle to the axis; cross-validated dot products. (b–d) Signatures of moving along the axis, rotating / orthogonalising and amplifying. (e, f) Within day 0 and within expert sessions: mean (λ, ω) of whisker hits in the early (open) and late (filled) half of the session (025: WH split at τ = 0.5, ≥ 3 WH per half; AH and SL from the whole session, 20 random A/B splits), mean ± s.e.m. over sessions. (g, h) Late − early change of λ, ω, ρ and θ / 45° per cohort (filled: Wilcoxon p < 0.05); top: R+ vs R− (day 0: mouse-level permutation; expert: Mann-Whitney U). (i) Across days: day-0 (open) and expert (filled) session means from the split-half cross-validated distances of Part I ({ref('eq-cvd')}). (j) Expert − day-0 change per cohort (filled: Mann-Whitney p < 0.05); top: cohort × stage, mouse-level permutation. (k) Summary. Within-day and across-day positions come from different estimators (halves with few WH vs whole sessions): compare changes, not positions.",
+        "fig-s-cdnorm-schem": "Normalisation of the within-day CD score (025). (a) Geometry of one session: p = |v| cos θ, o = |v| sin θ. (b) Scores of each variant and their drifts; within a session the variants differ by one positive factor. (c) Three simulated within-session WH paths: growing at a fixed angle, rotating at a fixed length, moving orthogonally. (d) Estimated c of WH trials for the three paths (30 simulated sessions, N = 100 units; dotted: true ρ cos θ): growth and rotation give the same c. (e) Ground truth ρ and θ. (f) Scale of each variant with the number of units (same geometry). (g) Effect of the number of AH / SL events: the unit-axis projection shrinks with axis noise; the not-normalised dot product and the SL = 0 / AH = 1 score are unbiased.",
+        "fig-s-cdnorm": f"Within-day drift under six normalisations of the CD score ({POP}; same folds, events and sessions): SL = 0 / AH = 1 (current), unit axis (z units), unit axis / √N, not normalised (· Δ), noise units (d′), and SL = 0 / AH = 1 without z-scoring (Hz). Rows 1–2: D_SL and D_AH, mean ± s.e.m. per cohort, day 0 and expert; top: R+ vs R− Mann-Whitney p and rank-biserial r. Row 3: per-session D_AH of each variant vs the current score (Spearman, fraction of sessions with the same sign), and the axis separation and d′ against the number of units.",
+        "fig-s-geom-schem": "Quantities of the half geometry (025): projection p on the unit CD u, length |v| of the WH displacement from SL, orthogonal o² = |v|² − p², angle θ, separation s = (AH − SL)·u, c = p / s and ρ = |v| / |Δ|; illustrated day-0 patterns of R+ (turns toward the CD) and R− (grows orthogonally); estimation with independent random halves of the AH and SL events in every product.",
+        "fig-s-geom": f"Cross-validated geometry of whisker hits relative to SL in the early vs late half of each session ({POP}; ≥ 3 WH per half): projection p, length |v|, orthogonal o², angle θ to the CD, c = p / s and ρ = |v| / |Δ|; day 0 (top) and expert (bottom), mean ± s.e.m. over sessions; titles: R+ vs R− Mann-Whitney p of the late − early change.",
         "fig-psth-halves": f"First-lick-aligned activity per session half, all four groups ({POP}). Rows: R+ and R−; columns: day-0 early half, day-0 late half, expert early half, expert late half; WH, AH, SL; rate − baseline, mean over units per session, mean ± s.e.m. over sessions (sessions with ≥ 3 events of the class in the half; 10-ms bins, 30-ms boxcar); shaded: pre-lick window. Right column: WH − SL difference trace, early (dashed) vs late (solid) half, day 0 (dark) and expert (light).",
         "fig-change": f"Within-session change on the learning day and in expert sessions, R+ and R− at equal weight ({POP}). (a–c) Whisker-hit, auditory-hit and spontaneous-lick rates (events / min) in five bins of session time, mean ± s.e.m. over sessions; day 0 dashed / open, expert solid. (d, e) Common footing (003, 4 events per class, 150 units): Δd / d(AH, SL) and position on the SL → AH axis per half, mean over mice with 95 % hierarchical-bootstrap CI. (f–h) Size of the within-session change |late − early| per session for the normalised distance, the position and the decoder transfer, day 0 (D0) vs expert (E) per cohort; dots: sessions; p: hierarchical bootstrap of the day 0 − expert difference.",
         "fig-area-day0": f"Day-0 drift per area group ({POP}): the CD built from the units of one area group (≥ 5 units, held-out d′ ≥ 0.3) and the drifts of {ref('eq-drift')}; area groups with ≥ 3 sessions in every cohort × stage condition. R+ and R− mean ± s.e.m. over sessions; filled: drift ≠ 0 (Wilcoxon p < 0.05). Columns: R+ vs R− mouse-level permutation p, its Benjamini-Hochberg q over the area groups shown (bold: q < 0.05), Mann-Whitney U and Welch p. Titles: two-way ANOVA drift ~ cohort × area (cohort terms by cohort-label permutation across mice; area: F test).",
@@ -923,6 +933,19 @@ Per mouse ({num('m16_rp', int(nm.get('R+', 0)))} R+ and {num('m16_rm', int(nm.ge
 {pv('m16_best_p', best.spearman_p)}, uncorrected over {len(D16)} tests). The samples are too small to conclude.
 
 {figure('fig-day0-expert', FILE['fig-day0-expert'], CAP['fig-day0-expert'])}
+
+## Along the axis or orthogonal to it?
+
+A score on the CD is a projection, λ = ρ cos θ: it cannot separate a longer whisker-hit displacement from one rotated
+toward the axis ({ref('fig-s-cdnorm-schem')}). Splitting the displacement into a component along the SL → AH axis and an
+orthogonal one ({ref('fig-along')}; quantities in {ref('fig-s-geom-schem')}, per-half values in {ref('fig-s-geom')}) shows
+that on the learning day R+ whisker hits move along the axis more than R− whisker hits, whereas R− whisker hits mostly
+grow orthogonally to it; across days, R+ whisker hits grow both along and orthogonal to the axis with no detectable change
+of angle (amplification rather than rotation), and R− whisker hits do not change. The within-day drift does not depend on
+how the score is normalised: every variant rescales a session's score by one positive factor, so per-session drifts keep
+their sign, and the cohort differences hold for all variants on z-scored units ({ref('fig-s-cdnorm')}).
+
+{figure('fig-along', FILE['fig-along'], CAP['fig-along'])}
 
 ## Summary figures
 

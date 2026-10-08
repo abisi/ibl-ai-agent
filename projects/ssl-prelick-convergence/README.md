@@ -39,7 +39,7 @@ headline results, caveats and open TODOs are in `LOCKED.md`.
 | single-session decoders with linear-shift null | 068, 069 | `decoder_shift/`, `decoder_transfer_shift/` |
 | recap across iterations | 070 | `recap/` |
 | SL timing control | 071 | `sl_timing/` |
-| article (per reference × population) | build_article.py (haas) + render.sh (local Quarto/typst) | `publication/<pop>/prelick_convergence_<ref>_<pop>.pdf` |
+| report (Part I + II) | report/build_report.py (haas) + report/render.sh (local) | `report/`, `report_stable/` (older per-variant articles: exploratory-analyses/archive/reports_pre_merge/) |
 
 ## Part II: within days (formerly ssl-within-day-remapping)
 

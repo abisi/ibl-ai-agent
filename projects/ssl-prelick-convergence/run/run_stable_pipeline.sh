@@ -87,6 +87,7 @@ part2() {
   run w022 $WD/022_wh_trial_trajectories.py
   run w023 $WD/023_cd_cohorts_by_stage.py
   run w024 $WD/024_drift_compact.py
+  run w025 $WD/025_cd_normalisation.py --n-proc 40
   echo "$(date '+%F %T') PART II DONE" >> $STATUS
 }
 
@@ -95,5 +96,6 @@ P1=$!
 part2 &
 P2=$!
 wait $P1 $P2
+run 084 $EA/084_along_vs_orthogonal.py          # needs 057 (part 1) and w025 (part 2)
 run w021 $WD/021_figure_index.py
 echo "$(date '+%F %T') PIPELINE DONE" >> $STATUS
