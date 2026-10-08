@@ -113,3 +113,4 @@
 - 2026-10-08: 160 COSYNE figure, decoder version of 158 (user): 146 standardised choice-decoder readout per epoch (whisker, auditory; active hit / miss levels) and the excess over the decoder linear-shift null; epoch-baseline (main) and per-trial-baseline variants.
 - 2026-10-08: 161 vector schematic of the two coding directions in a 3-neuron state space (SVG text as text); 162 per-area breakdown of the passive whisker shift along the hit / miss axis (native scale; post - pre, beyond session time, W - A; BH over areas).
 - 2026-10-08: 163 example sessions in state space for the hit / miss axis (passive whisker / auditory trajectories only; x = hit - miss axis, y = pre whisker pattern orthogonal to it, z = remaining PC); 162 area labels in the custom area-group palette.
+- 2026-10-08: 164 real vs shifted-label axes for the passive whisker / auditory pre -> post change (135 values), unit-norm and per-unit scales; same layout as prelick 026.
