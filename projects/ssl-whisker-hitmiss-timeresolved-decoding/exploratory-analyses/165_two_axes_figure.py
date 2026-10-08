@@ -38,7 +38,14 @@ courses small under the schematic (R+ and R- side by side), no spacer column; pe
 q < 0.05 marked * (exact p / q in the _stats.csv); ring / marker conventions go in the caption.
 Polar variant SSL_165_POLAR=1 (2026-10-08, compact): row 1 b = polar state space of the passive whisker response (169 / 171: along the
 axis vs orthogonal, R+ above R-, pure-gain ray, gain prediction, rotation arc, shifted axes in grey); row 1 c = real - shifted change
-along the axis split into gain and rotation parts (whisker, auditory; R+ vs R- Mann-Whitney per part). Output 165_two_axes_compact_polar.* Output 165_two_axes_compact[_<area>].{svg,pdf,png}
+along the axis split into gain and rotation parts (whisker, auditory; R+ vs R- Mann-Whitney per part). Output 165_two_axes_compact_polar.*
+Angle variant SSL_165_ANGLE=1 (2026-10-08, compact; user: "per-session angles and difference in angles; show both projection and
+angle"): row 1 b = per-session angle theta between the passive whisker response and the hit - miss axis, pre -> post (169: theta =
+arccos(a / rho), rho cross-validated), R+ above R-, thin lines sessions, bold mean +- s.e.m., grey dashed: mean on the shifted axes,
+dotted: 90 deg (orthogonal); c = change of angle, real - shifted (post - pre), cohort x modality as d (mouse-level permutation of the
+interaction); d = change along the axis (projection, as before); e = areas (projection). Extra statistics in the _stats.csv: the
+angle change weighted by response size (WLS, weights rho_pre), and an equivalence test (TOST, +-10 deg) of R- post angle vs 90 deg.
+Output 165_two_axes_compact_angle.* Output 165_two_axes_compact[_<area>].{svg,pdf,png}
 Outputs: figures/publication/165_two_axes_figure.{svg,pdf,png}, 165_two_axes_auditory.{svg,pdf,png}; 165_stats.csv
 Run (haas, repo root): python .../165_two_axes_figure.py
 """
@@ -64,8 +71,9 @@ PL = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-conver
 EV = {"W": "#f7b519", "A": "#2c2cdb", "WH": "#f7b519", "AH": "#2c2cdb", "SL": "#262626", "D": "#b07e00"}
 N_PERM_A, N_PERM_I = 2000, 10000
 import os  # noqa: E402
+ANGLE = bool(os.environ.get("SSL_165_ANGLE"))                 # compact layout, row 1: angle (b, c) and projection (d, e)
 POLAR = bool(os.environ.get("SSL_165_POLAR"))                 # compact layout, row 1 b / c = 171 polar views + gain / rotation bars
-COMPACT = bool(os.environ.get("SSL_165_COMPACT")) or POLAR
+COMPACT = bool(os.environ.get("SSL_165_COMPACT")) or POLAR or ANGLE
 PSTH = bool(os.environ.get("SSL_165_PSTH")) or COMPACT
 SHORT = {"Motor areas": "Motor", "Somatosensory-whisker": "S1 whisker", "Somatosensory-orofacial": "S1 orofacial", "Frontal areas": "Frontal",
          "Retrosplenial areas": "Retrosplenial", "Auditory areas": "Auditory", "Lateral septal complex": "Lat. septum",
@@ -115,6 +123,8 @@ def anova_perm(D, val, rng):
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
     D = D.dropna(subset=[val]).sort_values(["session_id", "area"]).copy()   # fixed order: reproducible permutation p
+    import zlib
+    rng = np.random.default_rng(zlib.crc32(f"anova|{val}|{len(D)}".encode()))   # own seed: p independent of the other panels
 
     def fstats(d):
         a = sm.stats.anova_lm(smf.ols(f"{val} ~ C(cohort) * C(area)", d).fit(), typ=2)
@@ -129,6 +139,8 @@ def anova_perm(D, val, rng):
 def interaction_perm(D, c1, c2, rng):
     """(mean c1 - mean c2)(R+) - (...)(R-), cohort labels permuted across mice (one session per mouse)"""
     D = D.sort_values("session_id")                                # row order fixed, so the permutation p is reproducible
+    import zlib
+    rng = np.random.default_rng(zlib.crc32(f"interaction|{c1}|{c2}|{len(D)}".encode()))   # own seed: p independent of the other panels
     d = (D[c1] - D[c2]).to_numpy(float); ok = np.isfinite(d); d = d[ok]; coh = D.cohort.to_numpy()[ok]
     obs = d[coh == "R+"].mean() - d[coh == "R-"].mean()
     null = np.empty(N_PERM_I)
@@ -243,7 +255,7 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
     for t, c in zip(ax.get_xticklabels(), COH):
         t.set_color(COL[c])
     ax.set_ylabel(ylab, fontsize=5.5)
-    ttl = f"cohort × {'modality' if row == 'hit-miss' else 'lick type'}: p = {pi:.3g}"
+    ttl = f"cohort × {'modality' if row.startswith('hit-miss') else 'lick type'}: p = {pi:.3g}"
     if COMPACT:                                                    # interaction p as the legend title, above the axes
         lg = ax.legend(frameon=False, fontsize=4.6, loc="lower center", bbox_to_anchor=(0.5, 1.0), handlelength=1.2, borderaxespad=0.1,
                        title=ttl, title_fontsize=5.3)
@@ -384,8 +396,60 @@ def pl_psth(fig, spec):
         ax.set_ylabel("projection" if COMPACT else "projection on\nreward-lick CD", fontsize=5)
 
 
+def load_angle():
+    """per-session angle to the hit - miss axis (169), degrees; columns per stimulus: th_pre_, th_post_ (real, _null), q_th (real - shifted change)"""
+    P = pd.read_parquet(EA / "169_along_orthogonal.parquet"); P = P[H.mouse_of(P).isin(H.learners())].copy()
+    th = lambda c: np.degrees(np.arccos(np.clip(c, -1, 1)))
+    for k in ("pre", "post"):
+        P[f"th_{k}"], P[f"th_{k}_null"] = th(P[f"cos_{k}"]), th(P[f"cos_{k}_null"])
+    P["q_th"] = (P.th_post - P.th_pre) - (P.th_post_null - P.th_pre_null)
+    T_ = P.pivot_table(index=["session_id", "mouse_id", "reward_group"], columns="stim", values=["q_th", "rho_pre"]).reset_index()
+    T_.columns = [a if not b else f"{a}_{b}" for a, b in T_.columns]
+    return P, T_.rename(columns={"reward_group": "cohort"})
+
+
+def angle_slopes(axs, P):
+    for ax, c in zip(axs, COH):
+        d = P[(P.stim == "W") & (P.reward_group == c)]
+        for _, r_ in d.iterrows():
+            ax.plot([0, 1], [r_.th_pre, r_.th_post], color=COL[c], lw=0.4, alpha=0.35)
+        for cols, col, ls, mk in ((["th_pre", "th_post"], COL[c], "-", "o"), (["th_pre_null", "th_post_null"], "0.55", (0, (2.5, 1.5)), "o")):
+            m = d[cols].mean().to_numpy(); se = d[cols].sem().to_numpy()
+            ax.errorbar([0, 1], m, se, color=col, ls=ls, lw=1.4, marker=mk, ms=3.2, mfc=col if col != "0.55" else "white", capsize=0, zorder=5)
+        ax.axhline(90, color="0.5", lw=0.6, ls=":")
+        ax.text(1.02, 90, "90°", fontsize=4.5, color="0.4", va="center", transform=ax.get_yaxis_transform())
+        ax.set_xlim(-0.25, 1.25); ax.set_xticks([0, 1]); ax.set_xticklabels(["pre", "post"] if c == "R-" else ["", ""])
+        ax.set_ylabel("angle to axis θ (°)", fontsize=5)
+        ax.text(0.03, 0.04, f"{c.replace('-', '−')} (n = {len(d)})", transform=ax.transAxes, fontsize=4.8, color=COL[c])
+
+
+def angle_extra_stats(T_, P, R):
+    import statsmodels.formula.api as smf
+    d = T_.dropna(subset=["q_th_W", "rho_pre_W"])
+    m = smf.wls("q_th_W ~ C(cohort)", d, weights=d.rho_pre_W).fit()
+    k = [x for x in m.params.index if "cohort" in x][0]
+    R.append(dict(row="hit-miss angle", panel="c", measure="q_th_W weighted by rho_pre (WLS)", cohort="R- minus R+", mean=m.params[k], p_param=m.pvalues[k]))
+    w = P[(P.stim == "W") & (P.reward_group == "R-")].th_post.dropna().to_numpy()
+    n_, mu, se = len(w), w.mean(), w.std(ddof=1) / np.sqrt(len(w))
+    p_lo = 1 - stats.t.cdf((mu - 80) / se, n_ - 1); p_hi = stats.t.cdf((mu - 100) / se, n_ - 1)
+    R.append(dict(row="hit-miss angle", panel="b", measure="R- post angle within 90 +- 10 deg (TOST)", cohort="R-", n=n_, mean=mu, p_tost=max(p_lo, p_hi)))
+    for c in COH:
+        v = P[(P.stim == "W") & (P.reward_group == c)]
+        R.append(dict(row="hit-miss angle", panel="b", measure="theta pre / post (deg)", cohort=c, n=len(v), mean=v.th_pre.mean(), mean_post=v.th_post.mean()))
+
+
 def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
     W = A[A.area == "All units"].dropna(subset=[f"shift_null_post_{s_}_mean"])
+    if ANGLE and s_ == "W":                                        # angle (b, c) + projection (d, e)
+        P, T_ = load_angle()
+        sub = gs[r, 1 + o].subgridspec(2, 1, hspace=0.25)
+        angle_slopes([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[1, 0])], P)
+        cohort_lines(fig.add_subplot(gs[r, 2 + o]), T_, ["q_th_W", "q_th_A"], ["whisker", "auditory"], [EV["W"], EV["A"]],
+                     "real − shifted axes:\nΔθ (post − pre, °)", R, "hit-miss angle", rng)
+        angle_extra_stats(T_, P, R)
+        cohort_lines(fig.add_subplot(gs[r, 3 + o]), W, ["q_W", "q_A"], ["whisker", "auditory"], [EV["W"], EV["A"]], Q1, R, "hit-miss", rng)
+        area_panel(fig.add_subplot(gs[r, 4 + o]), A[A.area != "All units"], f"q_{s_}", R, "hit-miss", "areas: passive whisker", rng, AC, Q1.replace("\n", " "))
+        return
     if POLAR and s_ == "W":                                        # 169 / 171 polar views instead of the examples
         M171 = importlib.import_module("171_gain_rotation_views")
         P = M171.M170.part_a(pd.read_parquet(EA / "169_along_orthogonal.parquet").pipe(lambda d: d[H.mouse_of(d).isin(H.learners())]))
@@ -482,7 +546,7 @@ def main():
     area_panel(fig.add_subplot(gs[1, (4 if COMPACT else 5) + o]), S[S.area != "whole_brain"], "q_D", R, "reward-lick",
                "areas: distance whisker hit − spontaneous lick", rng, AC, Q2.replace("\n", " ") + " (WH − SL)")
     fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=5 if COMPACT else 6)
-    name = ("165_two_axes_compact" + ("_polar" if POLAR else "") + PSFX[5:]) if COMPACT else f"165_two_axes_figure{PSFX if PSTH else ''}"
+    name = ("165_two_axes_compact" + ("_angle" if ANGLE else "_polar" if POLAR else "") + PSFX[5:]) if COMPACT else f"165_two_axes_figure{PSFX if PSTH else ''}"
     for ext in ("svg", "pdf", "png"):
         savefig(fig, FIGDIR / f"{name}.{ext}")
     if PSTH:                                                       # the variants change only the main figure
