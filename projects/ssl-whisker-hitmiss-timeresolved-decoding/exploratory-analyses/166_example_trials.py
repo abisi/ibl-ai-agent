@@ -8,6 +8,8 @@ Shifted-label axes: hit / miss labels shifted by k = 10-50 % of the time-ordered
 20 shifts, >= 10 trials per class), axis rebuilt, the same passive trials projected; null = mean over shifts per trial.
 State space (2026-10-08): y = the passive-pre whisker pattern (mean evoked response over the pre whisker trials) orthogonalised to u,
 unit length; each pre whisker trial uses the pattern of the other pre whisker trials (leave-one-out), so it is not projected on itself.
+Alternative y2 (2026-10-08): the passive whisker change pattern (mean post - mean pre) orthogonalised to u (uses all trials, so
+trials are not left out: illustration only).
 Shifted axes: the same y; x on each shifted axis u_k; per shift the mean (x, y) of each epoch x stimulus (166_example_shifts.csv).
 Output: 166_example_trials.csv (session, cohort, epoch, stim, trial index, real, null, y), 166_example_shifts.csv. Run (haas, repo root): python .../166_example_trials.py
 """
@@ -80,6 +82,8 @@ def run(sid, coh):
         v = pat - (pat @ u) * u
         return v / np.linalg.norm(v)
     y_all = yax(S_ / npw)
+    isw_post = (trs["passive_post"].trial_type == "whisker_trial").to_numpy()
+    y2 = yax(E["passive_post"][isw_post].mean(0) - S_ / npw)
     for e in ("passive_pre", "passive_post"):
         stim = np.where((trs[e].trial_type == "whisker_trial").to_numpy(), "W", "A")
         real = E[e] @ u / np.sqrt(N)
@@ -88,13 +92,14 @@ def run(sid, coh):
         if e == "passive_pre":                                       # leave-one-out y for the pre whisker trials
             for jj, j in enumerate(np.where(isw_pre)[0]):
                 ycoord[j] = E[e][j] @ yax((S_ - Epw[jj]) / (npw - 1)) / np.sqrt(N)
-        rows += [dict(session_id=sid, cohort=coh, epoch=e, stim=s_, trial=j, real=a, null=b, y=c_)
-                 for j, (s_, a, b, c_) in enumerate(zip(stim, real, null, ycoord))]
+        y2c = E[e] @ y2 / np.sqrt(N)
+        rows += [dict(session_id=sid, cohort=coh, epoch=e, stim=s_, trial=j, real=a, null=b, y=c_, y2=d_)
+                 for j, (s_, a, b, c_, d_) in enumerate(zip(stim, real, null, ycoord, y2c))]
         for k, uk in enumerate(us):
             xk = E[e] @ uk / np.sqrt(N)
             for s_ in ("W", "A"):
                 m = stim == s_
-                srows.append(dict(session_id=sid, cohort=coh, shift=k, epoch=e, stim=s_, x=xk[m].mean(), y=ycoord[m].mean()))
+                srows.append(dict(session_id=sid, cohort=coh, shift=k, epoch=e, stim=s_, x=xk[m].mean(), y=ycoord[m].mean(), y2=y2c[m].mean()))
     print(sid, coh, N, "units,", len(us), "shifts", flush=True)
     return rows, srows
 

@@ -50,6 +50,8 @@ COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
 PL = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/within_day/sl_stable/cd_shift_null")
 EV = {"W": "#f7b519", "A": "#2c2cdb", "WH": "#f7b519", "AH": "#2c2cdb", "SL": "#262626", "D": "#b07e00"}
 N_PERM_A, N_PERM_I = 2000, 10000
+YVAR = __import__("os").environ.get("SSL_165_Y", "y")             # y (pre whisker pattern) | y2 (post - pre whisker change), example
+YSFX = "" if YVAR == "y" else "_ydiff"
 plt.rcParams.update({"svg.fonttype": "none", "pdf.fonttype": 42})
 Q1 = "real − shifted axes:\nΔ(post − pre) per neuron"
 Q2 = "real − shifted CDs:\nslope over the session per neuron"
@@ -117,19 +119,19 @@ def example_hm(axs, Ex, Sh, s_):
         e = Ex[(Ex.cohort == c) & (Ex.stim == s_)]; sh = Sh[(Sh.cohort == c) & (Sh.stim == s_)]
         for k, g in sh.groupby("shift"):
             a = g.set_index("epoch")
-            ax.annotate("", (a.loc["passive_post", "x"], a.loc["passive_post", "y"]), (a.loc["passive_pre", "x"], a.loc["passive_pre", "y"]),
+            ax.annotate("", (a.loc["passive_post", "x"], a.loc["passive_post", YVAR]), (a.loc["passive_pre", "x"], a.loc["passive_pre", YVAR]),
                         arrowprops=dict(arrowstyle="-|>", color="0.75", lw=0.6, shrinkA=0, shrinkB=0, mutation_scale=5))
         m = {}
         for ep, mk in (("passive_pre", "o"), ("passive_post", "o")):
             d = e[e.epoch == ep]
-            ax.plot(d.real, d.y, mk, ms=2.2, mfc="white" if ep == "passive_pre" else EV[s_], mec=EV[s_], mew=0.5, alpha=0.6)
-            m[ep] = (d.real.mean(), d.y.mean())
+            ax.plot(d.real, d[YVAR], mk, ms=2.2, mfc="white" if ep == "passive_pre" else EV[s_], mec=EV[s_], mew=0.5, alpha=0.6)
+            m[ep] = (d.real.mean(), d[YVAR].mean())
             ax.plot(*m[ep], "o", ms=5.5, mfc="white" if ep == "passive_pre" else EV[s_], mec="black", mew=0.8, zorder=5)
         ax.annotate("", m["passive_post"], m["passive_pre"], arrowprops=dict(arrowstyle="-|>", color="black", lw=1.2, shrinkA=3, shrinkB=3))
         ax.axvline(0, color="0.85", lw=0.5); ax.axhline(0, color="0.85", lw=0.5)
         ax.set_xlabel("hit − miss axis (→ hit)", fontsize=5)
         ax.set_title(f"{c.replace('-', '−')} example\n{e.session_id.iloc[0]}", color=COL[c], fontsize=5.2)
-    axs[0].set_ylabel("pre whisker pattern\n(orthogonal; per neuron)")
+    axs[0].set_ylabel("pre whisker pattern\n(orthogonal; per neuron)" if YVAR == "y" else "whisker post − pre change\n(orthogonal; per neuron)")
     axs[1].text(0.98, 0.02, "open: pre, filled: post\ngrey: shifted-label axes", transform=axs[1].transAxes, ha="right", fontsize=4.2, color="0.4")
 
 
@@ -319,7 +321,7 @@ def main():
                "areas: distance whisker hit − spontaneous lick", rng, AC, Q2.replace("\n", " ") + " (WH − SL)")
     fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=6)
     for ext in ("svg", "pdf", "png"):
-        savefig(fig, FIGDIR / f"165_two_axes_figure.{ext}")
+        savefig(fig, FIGDIR / f"165_two_axes_figure{YSFX}.{ext}")
     # ------------------------------------------------ auditory (supplementary)
     fig = plt.figure(figsize=(12.4, 2.7))
     gs = fig.add_gridspec(1, 6, width_ratios=[0.9, 1.45, 0.85, 0.95, 0.25, 0.9], wspace=0.6, left=0.03, right=0.93, top=0.78, bottom=0.17)
@@ -328,7 +330,7 @@ def main():
     hm_row(fig, gs, 0, A, ExH, ShH, "A", R, rng, AC, with_d=False)
     fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=6)
     for ext in ("svg", "pdf", "png"):
-        savefig(fig, FIGDIR / f"165_two_axes_auditory.{ext}")
+        savefig(fig, FIGDIR / f"165_two_axes_auditory{YSFX}.{ext}")
     pd.DataFrame(R).to_csv(EA / "165_stats.csv", index=False)
     print(pd.DataFrame(R).round(4).to_string())
     print("ALL DONE", FIGDIR / "165_two_axes_figure.png")

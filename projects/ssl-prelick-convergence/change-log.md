@@ -44,3 +44,4 @@
 - 2026-10-08: within_day 026 extended: SL slopes on real / shifted CDs (held-out), WH - SL contrast, binned time courses (real vs shifted), per-area axes (sessions_areas.csv, bins.csv).
 - 2026-10-08: within_day 026 saves per-trial real / shifted projections of the example sessions (example_trials.csv).
 - 2026-10-08: 026 example trials include AH (real / shifted held-out projections).
+- 2026-10-08: 086 reward-lick CD definition on real data (AB138: AH / SL trajectories from a common start, before / after orthogonalising the whisker-hit direction).
