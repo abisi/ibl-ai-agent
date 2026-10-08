@@ -70,8 +70,8 @@ def one_axis(Xe, lab, tau, seed):
     sl = y_idx[y == 0]
     r = dict(sep_unit=sep, dprime=dp, bWH=np.polyfit(tau[w_idx], pw, 1)[0], bSL=np.polyfit(tau[sl], ph[y == 0], 1)[0],
              binsWH=binned(tau[w_idx], pw), binsSL=binned(tau[sl], ph[y == 0]),
-             trWH=(tau[w_idx], pw), trSL=(tau[sl], ph[y == 0], sl))
-    nsum_w, nsum_s, ncnt_s = np.zeros(len(w_idx)), {}, {}
+             trWH=(tau[w_idx], pw), trSL=(tau[sl], ph[y == 0], sl), trAH=(tau[y_idx[y == 1]], ph[y == 1], y_idx[y == 1]))
+    nsum_w, nsum_s, ncnt_s = np.zeros(len(w_idx)), {}, {}                 # per-event sums over shifts (SL and AH events)
     n = len(y_idx); ks = np.unique(np.linspace(FRAC[0] * n, FRAC[1] * n, N_SHIFT // 2).astype(int))
     nWH, nSL, bWH, bSL = [], [], [], []
     for k in np.r_[ks, -ks]:
@@ -83,13 +83,14 @@ def one_axis(Xe, lab, tau, seed):
         slk = lab[xi] == "FA"                                       # real spontaneous licks among the shifted-axis events
         nWH.append(np.polyfit(tau[w_idx], pk, 1)[0]); nSL.append(np.polyfit(tau[xi[slk]], phk[slk], 1)[0])
         nsum_w += pk
-        for ev, v in zip(xi[slk], phk[slk]):
+        for ev, v in zip(xi, phk):
             nsum_s[ev] = nsum_s.get(ev, 0.0) + v; ncnt_s[ev] = ncnt_s.get(ev, 0) + 1
         bWH.append(binned(tau[w_idx], pk)); bSL.append(binned(tau[xi[slk]], phk[slk]))
     if len(nWH) < 5:
         return None
     r.update(nWH=np.asarray(nWH), nSL=np.asarray(nSL), nbinsWH=np.nanmean(bWH, 0), nbinsSL=np.nanmean(bSL, 0),
-             trWH_null=nsum_w / len(nWH), trSL_null=np.array([nsum_s[e] / ncnt_s[e] if e in ncnt_s else np.nan for e in r["trSL"][2]]))
+             trWH_null=nsum_w / len(nWH), trSL_null=np.array([nsum_s[e] / ncnt_s[e] if e in ncnt_s else np.nan for e in r["trSL"][2]]),
+             trAH_null=np.array([nsum_s[e] / ncnt_s[e] if e in ncnt_s else np.nan for e in r["trAH"][2]]))
     return r
 
 
@@ -131,7 +132,8 @@ def session(args):
         if area == "whole_brain":
             s_ = np.sqrt(m.sum())
             if meta["mouse_id"] in EXAMPLES and meta["stage"] == "learning":
-                for c, (tt, real), null in (("WH", r["trWH"], r["trWH_null"]), ("SL", r["trSL"][:2], r["trSL_null"])):
+                for c, (tt, real), null in (("WH", r["trWH"], r["trWH_null"]), ("SL", r["trSL"][:2], r["trSL_null"]),
+                                            ("AH", r["trAH"][:2], r["trAH_null"])):
                     trials += [dict(meta, cls=c, tau=a_, real=b_ / s_, null=c_ / s_) for a_, b_, c_ in zip(tt, real, null)]
             for c in ("WH", "SL"):
                 for i in range(N_BINS):

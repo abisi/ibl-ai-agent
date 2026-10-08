@@ -222,7 +222,7 @@ def process(args):
             continue
         P = X["active"] if HARM else np.vstack(list(X.values()))
         mu, sd = P.mean(0), P.std(0)
-        keep = sd > 0
+        keep = sd > (1e-6 if HARM else 0)          # HARM: units silent in every active window have a float-residue SD (2026-10-08)
         if keep.sum() < MIN_UNITS:
             continue
         Z = {e: (v[:, keep] - mu[keep]) / sd[keep] for e, v in X.items()}

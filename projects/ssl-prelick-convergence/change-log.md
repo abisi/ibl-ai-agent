@@ -43,3 +43,4 @@
 - 2026-10-08: within_day 026 linear-shift null for the within-session WH drift (AH / SL labels shifted 10-50 % against the time-ordered AH + SL events, axis rebuilt, WH projected; unit-norm and per-unit scales).
 - 2026-10-08: within_day 026 extended: SL slopes on real / shifted CDs (held-out), WH - SL contrast, binned time courses (real vs shifted), per-area axes (sessions_areas.csv, bins.csv).
 - 2026-10-08: within_day 026 saves per-trial real / shifted projections of the example sessions (example_trials.csv).
+- 2026-10-08: 026 example trials include AH (real / shifted held-out projections).
