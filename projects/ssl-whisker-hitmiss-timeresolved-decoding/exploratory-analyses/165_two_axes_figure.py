@@ -6,7 +6,8 @@ Row 1, hit - miss axis (stimulus onset 5-35 ms; 135 SSL_135_HARM=1 and 166):
   b  example sessions (R+, R-) in state space (166): x = hit - miss axis, y = passive-pre whisker pattern orthogonal to x (leave-one-out
      for the pre trials); dots: passive whisker trials, pre (grey) and post (coloured); large symbols: means; black arrow: pre -> post
      on the real axis; grey dashed arrow: mean over the shifted-label axes (x on the shifted axis, same y)
-  c  passive whisker projection in passive pre and passive post, each as real axis - mean over shifted axes; mean +- s.e.m.
+  c  passive whisker projection in passive pre and passive post on the real axis (solid) and the mean over shifted axes (grey dashed);
+     mean +- s.e.m. (2026-10-08: shifted values shown, as in row 2)
   d  quantity: (post - pre on the real axis) - (mean post - pre on the shifted axes), per cohort (x), whisker and auditory (lines); per
      line R+ vs R- Mann-Whitney; cohort x modality interaction = difference of the whisker - auditory values between cohorts, cohort labels
      permuted across mice (10,000)
@@ -109,7 +110,7 @@ def bh(p):
 def anova_perm(D, val, rng):
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
-    D = D.dropna(subset=[val]).copy()
+    D = D.dropna(subset=[val]).sort_values(["session_id", "area"]).copy()   # fixed order: reproducible permutation p
 
     def fstats(d):
         a = sm.stats.anova_lm(smf.ols(f"{val} ~ C(cohort) * C(area)", d).fit(), typ=2)
@@ -123,6 +124,7 @@ def anova_perm(D, val, rng):
 
 def interaction_perm(D, c1, c2, rng):
     """(mean c1 - mean c2)(R+) - (...)(R-), cohort labels permuted across mice (one session per mouse)"""
+    D = D.sort_values("session_id")                                # row order fixed, so the permutation p is reproducible
     d = (D[c1] - D[c2]).to_numpy(float); ok = np.isfinite(d); d = d[ok]; coh = D.cohort.to_numpy()[ok]
     obs = d[coh == "R+"].mean() - d[coh == "R-"].mean()
     null = np.empty(N_PERM_I)
@@ -205,6 +207,9 @@ def change_panel(ax, items, ylab, xt):
                 m = np.nanmean(arr, 0); s = np.array([H.sem(arr[:, i]) for i in range(arr.shape[1])])
                 ax.errorbar(off + np.arange(nx), m, yerr=s, fmt="o", ls=ls, ms=2.8, color=lc, mfc=mfc, mec=COL[c], lw=1, capsize=0)
         ax.text(off + (nx - 1) / 2, 1.0, lab, transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=5.5, color=col_ev)
+    r0 = items[0][2]                                                # sample sizes go in the x label (no overlap with the data)
+    ax.set_xlabel("n = " + ", ".join(f"{int(np.isfinite(r0[c][0]).all(1).sum())} {c.replace('-', '−')}" for c in COH) + " sessions",
+                  fontsize=5)
     ax.axhline(0, color="0.7", lw=0.5, ls=(0, (2, 2)))
     ax.set_xticks([j * (nx + 0.8) + i for j in range(len(items)) for i in range(nx)]); ax.set_xticklabels(xt * len(items), fontsize=4.8)
     ax.set_ylabel(ylab)
@@ -229,7 +234,8 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
     obs, pi = interaction_perm(D, cols[0], cols[1], rng)
     R.append(dict(row=row, panel="d", measure=f"interaction {cols[0]} - {cols[1]}", cohort="R+ vs R-", mean=obs, p_perm=pi))
     ax.axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
-    ax.set_xticks([0, 1]); ax.set_xticklabels(["R+", "R−"]); ax.set_xlim(-0.4, 1.4)
+    nn = {c: int(D[D.cohort == c][cols].notna().all(1).sum()) for c in COH}
+    ax.set_xticks([0, 1]); ax.set_xticklabels([f"R+\n(n = {nn['R+']})", f"R−\n(n = {nn['R-']})"]); ax.set_xlim(-0.4, 1.4)
     for t, c in zip(ax.get_xticklabels(), COH):
         t.set_color(COL[c])
     ax.set_ylabel(ylab, fontsize=5.5)
@@ -268,7 +274,9 @@ def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
     ax.set_xlim(np.nanmin(ms) - pad, np.nanmax(ms) + pad)
     ax.axvline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
     if COMPACT:
-        ax.set_yticks(range(len(areas))); ax.set_yticklabels([SHORT.get(a, a) + (" *" if qq < 0.05 else "") for a, qq in zip(areas, q)], fontsize=4.8)
+        ax.set_yticks(range(len(areas)))
+        ax.set_yticklabels([f"{SHORT.get(a, a)}{' *' if qq < 0.05 else ''} ({int(n.loc[a]['R+'])}/{int(n.loc[a]['R-'])})" for a, qq in zip(areas, q)],
+                           fontsize=4.6)
     else:
         ax.set_yticks(range(len(areas))); ax.set_yticklabels([f"{a} ({int(n.loc[a]['R+'])}/{int(n.loc[a]['R-'])})" for a in areas], fontsize=4.8)
     for t, a in zip(ax.get_yticklabels(), areas):
@@ -383,14 +391,12 @@ def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
     dd = {}
     for c in COH:
         d = W[W.cohort == c]
-        dd[c] = (np.c_[(d[f"shift_real_pre_{s_}"] - d[f"shift_null_pre_{s_}_mean"]).to_numpy(),
-                       (d[f"shift_real_post_{s_}"] - d[f"shift_null_post_{s_}_mean"]).to_numpy()], None)
+        dd[c] = (d[[f"shift_real_pre_{s_}", f"shift_real_post_{s_}"]].to_numpy(float),
+                 d[[f"shift_null_pre_{s_}_mean", f"shift_null_post_{s_}_mean"]].to_numpy(float))
     lab = "passive whisker" if s_ == "W" else "passive auditory"
     ax = fig.add_subplot(gs[r, 2 + o])
-    change_panel(ax, [(lab, EV[s_], dd)], "real − shifted axes\n(per neuron)" if COMPACT else "projection: real − shifted axes\n(per neuron)",
-                 ["pre", "post"])
-    ax.set_title("passive pre and post,\nreal − shifted axes" if COMPACT else "passive pre and post,\nreal axis − mean of shifted axes",
-                 fontsize=5.6, pad=12)
+    change_panel(ax, [(lab, EV[s_], dd)], "projection on hit − miss axis\n(per neuron)", ["pre", "post"])
+    ax.set_title("passive pre and post: real (solid)\nvs shifted axes (grey dashed)", fontsize=5.6, pad=12)
     if with_d:
         cohort_lines(fig.add_subplot(gs[r, 3 + o]), W, ["q_W", "q_A"], ["whisker", "auditory"], [EV["W"], EV["A"]], Q1, R, "hit-miss", rng)
     area_panel(fig.add_subplot(gs[r, (4 if COMPACT else 5) + o]), A[A.area != "All units"], f"q_{s_}", R, "hit-miss" if s_ == "W" else "hit-miss auditory",
@@ -452,7 +458,7 @@ def main():
     ax = fig.add_subplot(gs[1, 2 + o])
     change_panel(ax, items, "relative to first fifth\n(per neuron)" if COMPACT else "projection on reward-lick CD\n(per neuron, relative to first fifth)",
                  ["1", "2", "3", "4", "5"])
-    ax.set_xlabel("fifth of the session", fontsize=5)
+    ax.set_xlabel("fifth of the session (" + ax.get_xlabel() + ")", fontsize=5)
     ax.set_title("across the session: real (solid)\nvs shifted CDs (grey dashed)" if COMPACT else
                  "across the session: real CD (solid) vs\nshifted-label CDs (grey dashed)", fontsize=5.6, pad=12)
     cohort_lines(fig.add_subplot(gs[1, 3 + o]), Sw, ["q_WH", "q_SL"], ["whisker hits", "spont. licks"], [EV["WH"], EV["SL"]], Q2, R, "reward-lick", rng)

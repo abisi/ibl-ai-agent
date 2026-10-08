@@ -35,6 +35,9 @@ m002 = importlib.import_module("002_trial_slopes")
 OUT = m51.WITHIN / "cd_shift_null"
 N_SHIFT, FRAC, N_BINS = 50, (0.10, 0.50), 5           # 50 shifts (as 135; was 20 until 2026-10-08)
 EXAMPLES = ("AB138", "MH008")                                  # example sessions (learning day): per-trial projections saved
+# 2026-10-08 (user: "use representative examples"): when a previous sessions.csv exists, the examples are re-picked from it before the
+# run: per cohort, the learner's learning-day session whose excess_pu (real - mean shifted WH slope, per neuron) is closest to the
+# cohort mean, among sessions with >= 20 WH and |null_pu| < 0.03 (the shifted CDs alone give a small slope). Override: SSL_026_EXAMPLES.
 COH = {"R+": "#00B400", "R-": "#C800C8"}
 
 
@@ -195,10 +198,31 @@ def figure(D, T, out):
         fig.savefig(out / f"cd_shift_null_learners.{ext}", dpi=300, bbox_inches="tight")
 
 
+def pick_examples(m61):
+    import os
+    if os.environ.get("SSL_026_EXAMPLES"):
+        return tuple(os.environ["SSL_026_EXAMPLES"].split(","))
+    if not (OUT / "sessions.csv").exists():
+        return EXAMPLES
+    D = m61.learner_filter(pd.read_csv(OUT / "sessions.csv"))
+    D = D[D.stage == "learning"]
+    out = []
+    for c in ("R+", "R-"):
+        d = D[D.cohort == c]; mean = d.excess_pu.mean()
+        e = d[(d.n_WH >= 20) & (d.null_pu.abs() < 0.03)]
+        r = e.iloc[(e.excess_pu - mean).abs().argsort().iloc[0]]
+        print("example", c, r.session_id, "excess_pu %.3f null_pu %.3f cohort mean %.3f" % (r.excess_pu, r.null_pu, mean), flush=True)
+        out.append(r.mouse_id)
+    return tuple(out)
+
+
 def main(a):
+    global EXAMPLES
     st26 = importlib.import_module("026_roc_rates_all_sessions")
     m61 = importlib.import_module("061_roc_prelick_learners")
     OUT.mkdir(parents=True, exist_ok=True)
+    if not a.replot:
+        EXAMPLES = pick_examples(m61)                          # set before the pool forks
     if a.replot:
         D = pd.read_csv(OUT / "sessions.csv")
     else:

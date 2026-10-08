@@ -47,3 +47,4 @@
 - 2026-10-08: 086 reward-lick CD definition on real data (AB138: AH / SL trajectories from a common start, before / after orthogonalising the whisker-hit direction).
 - 2026-10-08: within_day 026 uses 50 linear shifts (as hit/miss 135; was 20); 086 redrawn in 3D (u = AH - SL, w = WH - SL, d = WH late - early half; common start offset; before / after orthogonalisation; no grid / panes).
 - 2026-10-08: within_day 027 time-resolved projection on the reward-lick CD (026 folds and units; held-out AH / SL, WH on every fold; -400 to +200 ms around the first lick; within_day/<ref>/cd_psth/cd_psth_projection.parquet).
+- 2026-10-08: 026 example sessions re-picked as representative (closest to the cohort mean excess, >= 20 WH, |null| < 0.03; SSL_026_EXAMPLES override).
