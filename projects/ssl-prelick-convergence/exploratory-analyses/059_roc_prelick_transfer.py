@@ -187,7 +187,9 @@ def figure(L, T):
     # permutation for false alarms), restricted to the sessions of L (population filter applied by the caller)
     nl = "shift"
     fdec = m51.OUTROOT / f"decoder_transfer_{nl}" / "sessions.csv"
-    DC = pd.read_csv(fdec) if fdec.exists() else pd.DataFrame(columns=["session_id", "level"])
+    DC = pd.read_csv(fdec) if fdec.exists() else pd.DataFrame(columns=["session_id", "mouse_id", "cohort", "stage", "level"])
+    if "cohort" not in DC and "reward_group" in DC:                 # reward_group serves as cohort (user 2026-10-08)
+        DC["cohort"] = DC.reward_group
     DC = DC[(DC.level == "all") & DC.session_id.isin(L.session_id)]
     panels = [
         (gs[0, 0], wb["all"], "likeness", "AH-likeness c (mean)", "a  reward-lick neurons: AH-likeness"),

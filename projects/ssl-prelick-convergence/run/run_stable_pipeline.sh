@@ -3,7 +3,7 @@
 # Results: combined_results_ks4/ssl-prelick-convergence/{across_days,within_day}/sl_stable/ (the good + mua results in sl/
 # stay untouched as records). 051 (per-event rates + per-unit ROC) is unit-set independent and is not rerun; 053 rebuilds
 # prelick_units.parquet with non-stable units relabelled "unstable". 077 (quiet windows + behaviour, unit independent)
-# is not rerun: its performance table is copied. Part I and Part II run as two parallel chains after 053 / 061.
+# is not rerun: its performance table is copied. Part I and Part II run as two parallel chains after 053 (learner mice come from the behaviour table, not from 061 outputs).
 # Usage (haas):  nohup bash run_stable_pipeline.sh > ~/stable_run.log 2>&1 &
 # Status: one line per step in $STATUS (start / end / exit code).
 set -u
@@ -28,23 +28,21 @@ echo "$(date '+%F %T') PIPELINE START (PRELICK_UNITS=stable)" >> $STATUS
 run 053 $EA/053_roc_prelick_table.py
 mkdir -p $B/across_days/sl_stable/extras $B/within_day/sl_stable/cosyne   # 010 writes into cosyne/ before 005 creates it
 cp $B/across_days/sl/extras/performance_sessions.csv $B/across_days/sl_stable/extras/ 2>/dev/null
-run 061 $EA/061_roc_prelick_learners.py
+# 061 runs in part1 after 057 / 059 (needs lambda_sessions.csv)
 
 part1() {
-  run 054 $EA/054_roc_prelick_convergence.py
-  run 055 $EA/055_roc_prelick_stage_summary.py
+  # 054 / 055 / 058 dropped 2026-10-08: superseded summaries (need the removed long_rt variant)
   run 056 $EA/056_roc_prelick_psth.py
   run 057 $EA/057_roc_prelick_lambda.py
-  run 058 $EA/058_roc_prelick_convergence_summary.py
-  run 059 $EA/059_roc_prelick_transfer.py
   run 060 $EA/060_roc_prelick_lambda_lda.py
-  run 061b $EA/061_roc_prelick_learners.py
   run 063 $EA/063_decoder_sweep.py
   run 065 $EA/065_generalizing_units_location.py
   run 066 $EA/066_area_attrition.py
   run 067 $EA/067_generalizing_density_maps.py
   run 068 $EA/068_decoder_linear_shift.py --n-proc 40
   run 069 $EA/069_decoder_transfer_shift.py --n-proc 40
+  run 059 $EA/059_roc_prelick_transfer.py     # after 069 (decoder panels)
+  run 061 $EA/061_roc_prelick_learners.py     # after 057 and 059
   run 071 $EA/071_sl_timing_control.py
   run 074 $EA/074_geometry_normalisation.py
   run 076 $EA/076_session_geometry_extras.py --n-proc 30
