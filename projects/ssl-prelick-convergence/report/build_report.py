@@ -947,10 +947,10 @@ At the single-neuron level, the convergence is carried by neurons excited before
 come to fire before whisker hits in R+ mice, whereas neurons suppressed before rewarded licks do not change. This is what a
 reward-expectation signal recruited by the whisker stimulus would produce.
 
-The geometry says more about how the change happens. The angle between the whisker-hit and auditory-hit displacements from
-the spontaneous-lick state did not change; the whisker-hit displacement grew. In R+ mice, learning amplifies an existing
-direction of whisker-hit activity, which is partly shared with auditory hits, rather than rotating it onto the auditory-hit
-direction. The orthogonal component also grew, so whisker hits do not become auditory hits: they become more distinct from
+The geometry says more about how the change happens. The whisker-hit displacement from the spontaneous-lick state grew,
+whereas no rotation toward the auditory-hit direction was detected (the confidence interval of the angle change is wide,
+so a moderate rotation cannot be excluded). In R+ mice, learning amplifies an existing direction of whisker-hit activity,
+which is partly shared with auditory hits. Whisker hits do not become auditory hits: they become more distinct from
 spontaneous licks, partly along the reward-lick axis.
 
 Within days, the change starts during the learning session, in the direction of the contingency, and continues in expert
@@ -960,6 +960,116 @@ consolidation between sessions.
 The measures track behaviour: sessions with higher whisker hit rates show stronger convergence. This is expected if the
 representation underlies the behaviour, but it also means that the difference between cohorts and stages is partly a
 difference in performance.
+"""
+
+
+def literature():
+    return """
+# Relation to the literature
+
+**Outcome-defined convergence.** In R+ mice, a stimulus that has become reward-predictive acquires part of the pre-action
+state of an already rewarded action. This is the neural counterpart of stimulus substitution and acquired equivalence in
+learning theory: stimuli that predict the same outcome come to share a representation. In the rodent hippocampus,
+outcome-related reorganisation of activity has been described as remapping toward goal locations (Dupret et al., 2010) and
+as a dedicated population of reward cells reused across environments (Gauthier and Tank, 2018). The present result extends
+this to the moment just before the action, and across most of the recorded brain.
+
+**A distributed expected-value signal.** The spontaneous-lick to auditory-hit axis separates licks with and without an
+expected reward, so AH-likeness behaves like a reward-expectation or value code rather than a motor code. A value code for
+reward-predicting cues that is evenly distributed across frontal cortex, appears with learning and then stays stable was
+reported by Ottenheimer et al. (2023), and brain-wide recordings show that choice, action, engagement and prior signals
+are spread across many areas (Steinmetz et al., 2019; International Brain Laboratory, 2025; Findling et al., 2025). Global,
+cortex-wide representations of a goal-directed lick decision were also found with imaging (Allen et al., 2017), and thirst
+changes brain-wide population dynamics (Allen et al., 2019). Here, the effect has the same sign in most area groups, no
+single group survives correction, and the cohort × stage × area term is not significant: the convergence looks broadcast
+rather than local. The convergence is not concentrated where whisker and auditory cortical projections overlap
+(ssl-sensory-spatial-maps 008, at the 90 % and the stricter 50 % contour), which argues against a feed-forward anatomical
+convergence of the two sensory streams and favours a shared state signal; axonal projection density, however, is a coarse
+proxy for synaptic input.
+
+**Whisker detection learning.** In the same family of whisker-to-lick tasks, learning creates fast whisker-evoked signals in
+medial prefrontal cortex and dorsal hippocampus (Le Merre et al., 2018), recruits secondary whisker motor cortex and
+suppresses orofacial cortex (Esmaeili et al., 2021), and produces decision signals in sensory, prefrontal and motor cortex,
+with prefrontal decision neurons responding little on miss trials and to spontaneous licks (Oryshchuk et al., 2024). In
+dorsolateral striatum, direct-pathway neurons carry a whisker-evoked go signal (Sippy et al., 2015), and corticostriatal
+synapses from auditory cortex are selectively potentiated during auditory discrimination learning (Xiong et al., 2015).
+These studies describe stimulus-evoked activity; the present analysis adds a pre-action, outcome-referenced measure that
+contrasts the same movement with and without expected reward, and a cohort in which the whisker lick is not rewarded.
+
+**Fast learning within the first session.** The within-day drift is in the direction of the contingency in both cohorts
+already on the learning day. This fits evidence that animals acquire task contingencies faster than their performance
+shows (Kuchibhotla et al., 2019) and that mice can learn abruptly (Rosenberg et al., 2021), and it agrees with the
+across-days change being partly present at the start of expert sessions.
+
+**Geometry: reuse of an existing direction.** Growth of the whisker-hit displacement without detected rotation resembles
+learning that first reuses existing population activity patterns before creating new ones, as in brain-computer
+interface experiments (Sadtler et al., 2014; Golub et al., 2018). In low-rank recurrent network models, a small,
+structured change of connectivity aligned with an output direction moves a new input onto an existing readout
+(Mastrogiuseppe and Ostojic, 2018; Dubreuil et al., 2022). Such models predict that learning acts mainly along the
+reward-lick axis, while the orthogonal components change little; the length / angle / orthogonal decomposition used here
+can test this directly.
+
+**Pre-lick motor preparation and movement confounds.** Anterior lateral motor cortex carries preparatory activity along a
+coding direction before licking (Li et al., 2016; Inagaki et al., 2019; Svoboda and Li, 2018), and a midbrain-thalamus-cortex
+pathway switches cortex from preparation to movement (Inagaki et al., 2022). Comparing three first licks in the same window
+removes the shared lick command. Reward expectation, however, also changes anticipatory orofacial movements and arousal,
+which dominate activity across the brain (Musall et al., 2019; Stringer et al., 2019). Part of AH-likeness may therefore
+reflect anticipatory movement or arousal rather than an internal value state; lick-matched comparisons and regressing out
+face motion or pupil would separate the two.
+
+# References
+
+- Allen WE, Kauvar IV, Chen MZ, Richman EB, Yang SJ, Chan K, Gradinaru V, Deverman BE, Luo L, Deisseroth K (2017). Global
+  representations of goal-directed behavior in distinct cell types of mouse neocortex. *Neuron* 94:891–907.
+- Allen WE, Chen MZ, Pichamoorthy N, Tien RH, Pachitariu M, Luo L, Deisseroth K (2019). Thirst regulates motivated
+  behavior through modulation of brainwide neural population dynamics. *Science* 364:eaav3932.
+- Dubreuil A, Valente A, Beiran M, Mastrogiuseppe F, Ostojic S (2022). The role of population structure in computations
+  through neural dynamics. *Nat Neurosci* 25:783–794.
+- Dupret D, O'Neill J, Pleydell-Bouverie B, Csicsvari J (2010). The reorganization and reactivation of hippocampal maps
+  predict spatial memory performance. *Nat Neurosci* 13:995–1002.
+- Esmaeili V, Tamura K, Muscinelli SP, Modirshanechi A, Boscaglia M, Lee AB, Oryshchuk A, Foustoukos G, Liu Y, Crochet S,
+  Gerstner W, Petersen CCH (2021). Rapid suppression and sustained activation of distinct cortical regions for a delayed
+  sensory-triggered motor response. *Neuron* 109:2183–2201.
+- Findling C, et al., International Brain Laboratory (2025). Brain-wide representations of prior information in mouse
+  decision-making. *Nature* 645.
+- Gauthier JL, Tank DW (2018). A dedicated population for reward coding in the hippocampus. *Neuron* 99:179–193.
+- Golub MD, Sadtler PT, Oby ER, Quick KM, Ryu SI, Tyler-Kabara EC, Batista AP, Chase SM, Yu BM (2018). Learning by neural
+  reassociation. *Nat Neurosci* 21:607–616.
+- Inagaki HK, Fontolan L, Romani S, Svoboda K (2019). Discrete attractor dynamics underlies persistent activity in the
+  frontal cortex. *Nature* 566:212–217.
+- Inagaki HK, Chen S, Ridder MC, Sah P, Li N, Yang Z, Hasanbegovic H, Gao Z, Gerfen CR, Svoboda K (2022). A
+  midbrain-thalamus-cortex circuit reorganizes cortical dynamics to initiate movement. *Cell* 185:1065–1081.
+- International Brain Laboratory (2025). A brain-wide map of neural activity during complex behaviour. *Nature* 645.
+- Kuchibhotla KV, Hindmarsh Sten T, Papadoyannis ES, Elnozahy S, Fogelson KA, Kumar R, Boubenec Y, Holland PC, Ostojic S,
+  Froemke RC (2019). Dissociating task acquisition from expression during learning reveals latent knowledge. *Nat
+  Commun* 10:2151.
+- Le Merre P, Esmaeili V, Charrière E, Galan K, Salin PA, Petersen CCH, Crochet S (2018). Reward-based learning drives rapid
+  sensory signals in medial prefrontal cortex and dorsal hippocampus necessary for goal-directed behavior. *Neuron*
+  97:83–91.
+- Li N, Daie K, Svoboda K, Druckmann S (2016). Robust neuronal dynamics in premotor cortex during motor planning. *Nature*
+  532:459–464.
+- Mastrogiuseppe F, Ostojic S (2018). Linking connectivity, dynamics, and computations in low-rank recurrent neural
+  networks. *Neuron* 99:609–623.
+- Musall S, Kaufman MT, Juavinett AL, Gluf S, Churchland AK (2019). Single-trial neural dynamics are dominated by richly
+  varied movements. *Nat Neurosci* 22:1677–1686.
+- Oryshchuk A, Sourmpis C, Weverbergh J, Asri R, Esmaeili V, Modirshanechi A, Gerstner W, Petersen CCH, Crochet S (2024).
+  Distributed and specific encoding of sensory, motor, and decision information in the mouse neocortex during
+  goal-directed behavior. *Cell Rep* 43:113618.
+- Ottenheimer DJ, Hjort MM, Bowen AJ, Steinmetz NA, Stuber GD (2023). A stable, distributed code for cue value in mouse
+  cortex during reward learning. *eLife* 12:RP84604.
+- Rosenberg M, Zhang T, Perona P, Meister M (2021). Mice in a labyrinth show rapid learning, sudden insight, and efficient
+  exploration. *eLife* 10:e66175.
+- Sadtler PT, Quick KM, Golub MD, Chase SM, Ryu SI, Tyler-Kabara EC, Yu BM, Batista AP (2014). Neural constraints on
+  learning. *Nature* 512:423–426.
+- Sippy T, Lapray D, Crochet S, Petersen CCH (2015). Cell-type-specific sensorimotor processing in striatal projection
+  neurons during goal-directed behavior. *Neuron* 88:298–305.
+- Steinmetz NA, Zatka-Haas P, Carandini M, Harris KD (2019). Distributed coding of choice, action and engagement across the
+  mouse brain. *Nature* 576:266–273.
+- Stringer C, Pachitariu M, Steinmetz N, Reddy CB, Carandini M, Harris KD (2019). Spontaneous behaviors drive
+  multidimensional, brainwide activity. *Science* 364:eaav7893.
+- Svoboda K, Li N (2018). Neural mechanisms of movement planning: motor cortex and beyond. *Curr Opin Neurobiol* 49:33–41.
+- Xiong Q, Znamenskiy P, Zador AM (2015). Selective corticostriatal plasticity during acquisition of an auditory
+  discrimination task. *Nature* 521:348–351.
 """
 
 
@@ -1074,7 +1184,7 @@ def main():
     if missing:
         raise SystemExit("missing figures:\n  " + "\n  ".join(missing))
     T, TA = sizes()
-    md = front(T) + intro() + methods() + part1() + part2() + discussion() + caveats() + supp(T, TA) + appendix()
+    md = front(T) + intro() + methods() + part1() + part2() + discussion() + literature() + caveats() + supp(T, TA) + appendix()
     R.write(OUT, md)
 
 

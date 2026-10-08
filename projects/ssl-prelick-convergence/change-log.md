@@ -33,3 +33,4 @@
 - Cleanup (user request): superseded within-day scripts 005, 006, 007, 018 moved to within_day/archive/ (README); stable driver updated (022-024, 080-083 added; archived scripts removed).
 - Reports rebuilt without redundant figures (old COSYNE versions, timelines, non-strict area variants, unit-sampling variants removed); report/ (good + mua record) and report_stable/.
 - Projection colocation (ssl-sensory-spatial-maps 008) now follows PRELICK_UNITS; stricter contours run (002 at ZONE_PCT=50 and 30; 008 at 50 on stable units). 50 % chosen as the strict level (30 % leaves too few units in some groups).
+- Report: Relation to the literature section + reference list (citations checked online); discussion wording on the angle aligned with 083 (no detectable rotation). Both reports rebuilt and rendered.
