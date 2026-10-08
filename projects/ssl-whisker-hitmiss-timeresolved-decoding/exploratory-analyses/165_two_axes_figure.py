@@ -285,9 +285,9 @@ class _Cols:
         return self.g[2 * r, 2 * k]
 
 
-def compact_grid(fig_w_extra=0.3):
-    h = 1.0                                                        # row height = side of the quantification squares (in)
-    widths = [0.85, 0.5, 0.45, 0.7, h, 0.7, h, 0.8, 0.65]          # schematic | gap | examples | gap | c | gap | d | gap | areas
+def compact_grid(fig_w_extra=0.3, h=1.0, widths=None):
+    """h: row height = side of the quantification squares (in); widths: panel / gap columns (default: 165 layout)"""
+    widths = widths or [0.85, 0.5, 0.45, 0.7, h, 0.7, h, 0.8, 0.65]   # schematic | gap | examples | gap | c | gap | d | gap | areas
     left, top, gap_r, bottom = 0.55, 0.62, 0.9, 0.45
     W = left + sum(widths) + fig_w_extra; Hf = top + h + gap_r + h + bottom
     fig = plt.figure(figsize=(W, Hf))
