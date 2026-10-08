@@ -331,6 +331,91 @@ def fig_schematic(plt, out):
     plt.close(fig)
 
 
+def fig_geometry_schematic(plt, out):
+    """explains every quantity of cd_normalisation_geometry (illustration, not data)"""
+    m62 = importlib.import_module("062_pub_convergence_figures")
+    CL = m62.CL
+    OR, GR = "#d94801", "0.35"
+    fig = plt.figure(figsize=(m62.W_IN, m62.W_IN * 0.4))
+    gs = fig.add_gridspec(1, 4, wspace=0.18, left=0.02, right=0.99, top=0.86, bottom=0.04, width_ratios=[1.25, 0.9, 0.9, 1.25])
+
+    def base(ax, xl=(-0.12, 1.2), yl=(-0.32, 0.85)):
+        ax.set_xlim(*xl); ax.set_ylim(*yl); ax.set_aspect("equal"); ax.axis("off")
+        ax.annotate("", (1, 0), (0, 0), arrowprops=dict(arrowstyle="->", color=CL["AH"], lw=1.1))
+        ax.plot(0, 0, "o", color=CL["FA"], ms=4.5, zorder=5); ax.plot(1, 0, "o", color=CL["AH"], ms=4.5, zorder=5)
+        ax.text(-0.02, -0.08, "SL", fontsize=5.5, ha="center", va="top", color=CL["FA"])
+        ax.text(1.0, -0.08, "AH", fontsize=5.5, ha="center", va="top", color=CL["AH"])
+
+    def wh(ax, W, filled=True, lab=None, th_r=0.16, show_th=True, col_th=GR):
+        ax.annotate("", W, (0, 0), arrowprops=dict(arrowstyle="->", color=CL["WH"], lw=1.1, ls="-" if filled else "--"))
+        ax.plot(*W, "o", ms=4.5, mfc=CL["WH"] if filled else "white", mec=CL["WH"], mew=1, zorder=5)
+        ax.plot([W[0], W[0]], [0, W[1]], ":", color=GR, lw=0.8)
+        if show_th:
+            a = np.linspace(0, np.arctan2(W[1], W[0]), 30)
+            ax.plot(th_r * np.cos(a), th_r * np.sin(a), color=col_th, lw=0.7, ls="-" if filled else "--")
+        if lab:
+            ax.text(W[0] + 0.04, W[1] + 0.03, lab, fontsize=5.2, color="#b07e00")
+
+    # a: one half, every quantity
+    ax = fig.add_subplot(gs[0, 0]); base(ax)
+    W = np.r_[0.55, 0.5]
+    wh(ax, W, lab="WH (mean of the half)")
+    ax.plot([0, W[0]], [-0.035, -0.035], color=OR, lw=2.2, solid_capstyle="butt")
+    ax.text(W[0] / 2, -0.12, "p = |v| cos θ", fontsize=5, color=OR, ha="center", va="top")
+    ax.annotate("", (1, -0.2), (0, -0.2), arrowprops=dict(arrowstyle="<->", color=CL["AH"], lw=0.7))
+    ax.text(0.5, -0.23, "separation s = (AH − SL) · u  (≈ |Δ|)", fontsize=4.8, color=CL["AH"], ha="center", va="top")
+    ax.text(W[0] + 0.03, W[1] / 2, "o = |v| sin θ\no² = |v|² − p²", fontsize=4.8, color=GR, va="center")
+    ax.text(0.17, 0.33, "|v|", fontsize=5.5, color="#b07e00")
+    ax.text(0.19, 0.05, "θ", fontsize=5.8, color=GR)
+    ax.text(0.78, 0.03, "u (CD)", fontsize=5, color=CL["AH"])
+    ax.text(-0.1, 0.84, "c = p / s   (0 = SL, 1 = AH)\nρ = |v| / |Δ|   (length relative to AH)\ncos θ = p / |v|", fontsize=5,
+            va="top", bbox=dict(fc="white", ec="0.75", lw=0.5, boxstyle="round,pad=0.3"))
+    ax.set_title("Quantities of one session half", fontsize=6)
+
+    # b: R+-like pattern (day 0): projection grows, angle shrinks
+    ax = fig.add_subplot(gs[0, 1]); base(ax)
+    E, L = np.r_[0.2, 0.55], np.r_[0.5, 0.55]
+    wh(ax, E, filled=False, lab="early", th_r=0.12)
+    wh(ax, L, filled=True, lab="late", th_r=0.2)
+    ax.plot([0, E[0]], [-0.03, -0.03], color=OR, lw=1.6, alpha=0.5)
+    ax.plot([0, L[0]], [-0.07, -0.07], color=OR, lw=1.6)
+    ax.text(0.5, -0.2, "p ↑, θ ↓, c ↑\n|v| ↑ a little, o ≈ same", fontsize=4.9, ha="center", va="top")
+    ax.set_title("R+ day-0 pattern\n(turns toward the CD)", fontsize=5.6, color=m62.COH["R+"])
+
+    # c: R- like pattern (day 0): length grows orthogonally, projection flat
+    ax = fig.add_subplot(gs[0, 2]); base(ax)
+    E, L = np.r_[0.25, 0.35], np.r_[0.25, 0.65]
+    wh(ax, E, filled=False, lab="early", th_r=0.12)
+    wh(ax, L, filled=True, lab="late", th_r=0.2)
+    ax.plot([0, E[0]], [-0.05, -0.05], color=OR, lw=1.6)
+    ax.text(0.5, -0.2, "p ≈ same, θ ↑, c ≈ same\n|v| ↑, o² ↑ (orthogonal)", fontsize=4.9, ha="center", va="top")
+    ax.set_title("R− day-0 pattern\n(grows orthogonally)", fontsize=5.6, color=m62.COH["R-"])
+
+    # d: how each quantity is estimated
+    ax = fig.add_subplot(gs[0, 3]); ax.axis("off")
+    txt = [r"$\bf{Estimation}$ (per session; units z-scored on AH + SL)",
+           "Halves: early τ < 0.5, late τ ≥ 0.5 (≥ 3 WH each);",
+           "AH and SL trials split at random into A / B (20 splits)",
+           r"$u = (\bar z_{AH,A} - \bar z_{SL,A})\,/\,|\cdot|$",
+           r"$p = \mathrm{mean}_i\,(w_i - \bar z_{SL,B})\cdot u$",
+           r"$|v|^2 = \mathrm{mean}_{i\neq j}\,(w_i - \bar z_{SL,A})\cdot(w_j - \bar z_{SL,B})$",
+           r"$|\Delta|^2 = (\bar z_{AH,A} - \bar z_{SL,A})\cdot(\bar z_{AH,B} - \bar z_{SL,B})$",
+           r"$s = (\bar z_{AH,B} - \bar z_{SL,B})\cdot u$",
+           r"$o^2 = |v|^2 - p^2,\ \ \theta = \arccos(p/|v|)$",
+           r"$c = p/s,\ \ \rho = |v|/|\Delta|$",
+           "Independent halves in every product: no noise bias in",
+           "|v|², |Δ|²; axis noise shrinks p (θ biased up), equally",
+           "in both halves. Units: p, |v| in z (SD) units; o² in z²."]
+    for i, t in enumerate(txt):
+        ax.text(0, 1 - i * 0.077, t, fontsize=4.9, va="top", transform=ax.transAxes)
+    for a, Lt in zip(fig.axes, "abcd"):
+        bb = a.get_position()
+        fig.text(bb.x0, 0.97, Lt, fontsize=8, fontweight="bold", va="top")
+    for ext in ("png", "pdf", "svg"):
+        fig.savefig(out / f"cd_normalisation_geometry_schematic.{ext}", dpi=300)
+    plt.close(fig)
+
+
 def fig_data(plt, D, T, out, pop):
     m62 = importlib.import_module("062_pub_convergence_figures")
     COH = m62.COH
@@ -447,6 +532,7 @@ def main(a):
         D.to_csv(OUT / "sessions.csv", index=False)
     plt = m62.setup()
     fig_schematic(plt, OUT)
+    fig_geometry_schematic(plt, OUT)
     for pop in ("learners", "all"):
         Dp = m61.learner_filter(D) if pop == "learners" else D
         o = OUT / pop; o.mkdir(exist_ok=True)
