@@ -1,11 +1,12 @@
 """166 -- Per-trial passive projections on the hit / miss axis for the example sessions (user 2026-10-08: "include the example sessions that
 show what is being quantified").
-Example sessions: those of 163 (learners, >= 300 tracked units: R+ closest to the R+ median change, R- most negative change).
+Example sessions (2026-10-08, representative instead of extreme): learners, >= 300 tracked units, per cohort the session whose
+null-corrected passive whisker change (real - mean shifted, post minus pre; 135 harmonised run) is closest to the cohort median.
 Harmonised scaling (as 135 with SSL_135_HARM=1): 5-35 ms response minus the epoch's mean baseline (-55 to -20 ms), unit mean / SD from the
 active trials. Real axis u = unit(mean_z(active whisker hits) - mean_z(misses)) from all active whisker trials (active trials with a
 lick before 35 ms excluded). Every passive trial (whisker and auditory, pre and post) is projected on u, per neuron (/ sqrt(N)).
 Shifted-label axes: hit / miss labels shifted by k = 10-50 % of the time-ordered active whisker trials (non-wrapping, both directions,
-20 shifts, >= 10 trials per class), axis rebuilt, the same passive trials projected; null = mean over shifts per trial.
+50 shifts as in 135, >= 10 trials per class), axis rebuilt, the same passive trials projected; null = mean over shifts per trial.
 State space (2026-10-08): y = the passive-pre whisker pattern (mean evoked response over the pre whisker trials) orthogonalised to u,
 unit length; each pre whisker trial uses the pattern of the other pre whisker trials (leave-one-out), so it is not projected on itself.
 Alternative y2 (2026-10-08): the passive whisker change pattern (mean post - mean pre) orthogonalised to u (uses all trials, so
@@ -31,7 +32,7 @@ sys.path[:0] = [str(EA), SCRIPTS]
 M135 = importlib.import_module("135_whisker_lick_alignment_epochs")
 M163 = importlib.import_module("163_example_state_space")
 WIN, BASE, DZ = M135.WIN, M135.BASE, M135.DZ
-N_SHIFT, FRAC, MIN_CLASS = 20, (0.10, 0.50), 10
+N_SHIFT, FRAC, MIN_CLASS = 50, (0.10, 0.50), 10
 
 
 def unit(v):
@@ -104,9 +105,24 @@ def run(sid, coh):
     return rows, srows
 
 
+def pick():
+    A = pd.read_parquet(EA / "135_alignment_epochs_tracked_harm.parquet")
+    A = A[(A.area == "All units") & A.skipped_reason.isna() & (A.n_units >= 300)]
+    A = A[M163.H.mouse_of(A).isin(M163.H.learners())].copy()
+    A["exc"] = (A.shift_real_post_W - A.shift_null_post_W_mean) - (A.shift_real_pre_W - A.shift_null_pre_W_mean)
+    out = []
+    for c in ("R+", "R-"):
+        d = A[(A.reward_group == c) & A.exc.notna()]
+        med = A[(A.reward_group == c)].exc.median()
+        r = d.iloc[(d.exc - med).abs().argsort().iloc[0]]
+        print("example", c, r.session_id, int(r.n_units), "exc", round(r.exc, 4), "median", round(med, 4), flush=True)
+        out.append((r.session_id, r.mouse_id, c))
+    return out
+
+
 def main():
     rows, srows = [], []
-    for sid, _, coh in M163.pick():
+    for sid, _, coh in pick():
         a, b = run(sid, coh); rows += a; srows += b
     pd.DataFrame(rows).to_csv(EA / "166_example_trials.csv", index=False)
     pd.DataFrame(srows).to_csv(EA / "166_example_shifts.csv", index=False)

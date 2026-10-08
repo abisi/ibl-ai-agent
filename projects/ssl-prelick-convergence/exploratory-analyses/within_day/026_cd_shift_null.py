@@ -33,7 +33,7 @@ sys.path[:0] = [str(HERE), str(HERE.parent)]
 m51 = importlib.import_module("051_roc_prelick")
 m002 = importlib.import_module("002_trial_slopes")
 OUT = m51.WITHIN / "cd_shift_null"
-N_SHIFT, FRAC, N_BINS = 20, (0.10, 0.50), 5
+N_SHIFT, FRAC, N_BINS = 50, (0.10, 0.50), 5           # 50 shifts (as 135; was 20 until 2026-10-08)
 EXAMPLES = ("AB138", "MH008")                                  # example sessions (learning day): per-trial projections saved
 COH = {"R+": "#00B400", "R-": "#C800C8"}
 

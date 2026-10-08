@@ -45,3 +45,4 @@
 - 2026-10-08: within_day 026 saves per-trial real / shifted projections of the example sessions (example_trials.csv).
 - 2026-10-08: 026 example trials include AH (real / shifted held-out projections).
 - 2026-10-08: 086 reward-lick CD definition on real data (AB138: AH / SL trajectories from a common start, before / after orthogonalising the whisker-hit direction).
+- 2026-10-08: within_day 026 uses 50 linear shifts (as hit/miss 135; was 20); 086 redrawn in 3D (u = AH - SL, w = WH - SL, d = WH late - early half; common start offset; before / after orthogonalisation; no grid / panes).
