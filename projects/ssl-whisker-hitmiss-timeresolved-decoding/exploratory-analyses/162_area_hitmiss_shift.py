@@ -36,7 +36,8 @@ MEAS = [("dW", "Whisker: post − pre\n(projection, per unit)"), ("shift_excess_
 
 def area_colors():
     try:
-        from ephys_utilities import allen_utils
+        sys.path.insert(0, str(Path.home() / "code" / "ephys_utilities"))
+        from ephys_utilities.allen_utils import allen_utils
         return allen_utils.get_custom_area_groups_colors()
     except Exception:  # noqa: BLE001
         return {}
