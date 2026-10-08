@@ -32,6 +32,9 @@ Variant SSL_165_PSTH=1 (2026-10-08): an extra column after the schematic with th
   group SSL_165_PSTH_AREA (default whole brain); shaded: 5-35 ms; gap: artefact window
   row 2 (027 of ssl-prelick-convergence): AH, SL (held-out folds) and WH, -400 to +200 ms from the first lick; shaded: [-100, 0) ms
   outputs 165_two_axes_figure_psth[_<area>].{svg,pdf,png}
+Compact variant SSL_165_COMPACT=1 (2026-10-08): built at print size (180 mm wide); same panels as the main figure (b-e), the time
+courses small under the schematic (R+ and R- side by side), no spacer column; per-line p values in the legend of d; short area names,
+q < 0.05 marked * (exact p / q in the _stats.csv); ring / marker conventions go in the caption. Output 165_two_axes_compact[_<area>].{svg,pdf,png}
 Outputs: figures/publication/165_two_axes_figure.{svg,pdf,png}, 165_two_axes_auditory.{svg,pdf,png}; 165_stats.csv
 Run (haas, repo root): python .../165_two_axes_figure.py
 """
@@ -57,7 +60,12 @@ PL = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-conver
 EV = {"W": "#f7b519", "A": "#2c2cdb", "WH": "#f7b519", "AH": "#2c2cdb", "SL": "#262626", "D": "#b07e00"}
 N_PERM_A, N_PERM_I = 2000, 10000
 import os  # noqa: E402
-PSTH = bool(os.environ.get("SSL_165_PSTH"))
+COMPACT = bool(os.environ.get("SSL_165_COMPACT"))
+PSTH = bool(os.environ.get("SSL_165_PSTH")) or COMPACT
+SHORT = {"Motor areas": "Motor", "Somatosensory-whisker": "S1 whisker", "Somatosensory-orofacial": "S1 orofacial", "Frontal areas": "Frontal",
+         "Retrosplenial areas": "Retrosplenial", "Auditory areas": "Auditory", "Lateral septal complex": "Lat. septum",
+         "Posterior parietal areas": "Post. parietal", "Visual areas": "Visual", "Insular areas": "Insular", "Olfactory areas": "Olfactory",
+         "Hippocampus": "Hippocampus"}
 PSTH_AREA = os.environ.get("SSL_165_PSTH_AREA", "All units")
 PSFX = "_psth" + ("" if PSTH_AREA == "All units" else "_" + PSTH_AREA.split()[0].lower())
 PL_PSTH = PL.parent / "cd_psth" / "cd_psth_projection.parquet"
@@ -140,9 +148,11 @@ def example_hm(axs, Ex, Sh, s_):
         ax.annotate("", m["passive_post"], m["passive_pre"], arrowprops=dict(arrowstyle="-|>", color="black", lw=1.2, shrinkA=3, shrinkB=3), zorder=6)
         ax.axvline(0, color="0.85", lw=0.5); ax.axhline(0, color="0.85", lw=0.5)
         ax.set_xlabel("hit − miss axis (→ hit)", fontsize=5)
-        ax.set_title(f"{c.replace('-', '−')} example\n{e.session_id.iloc[0]}", color=COL[c], fontsize=5.2)
+        ax.set_title(f"{c.replace('-', '−')} {e.session_id.iloc[0][:5]}" if COMPACT else f"{c.replace('-', '−')} example\n{e.session_id.iloc[0]}",
+                     color=COL[c], fontsize=5.2)
     axs[0].set_ylabel("pre whisker pattern\n(orthogonal; per neuron)")
-    axs[1].text(0.98, 0.02, "grey: pre, coloured: post\nblack arrow: real axis\ngrey dashed: mean of shifted axes", transform=axs[1].transAxes, ha="right", fontsize=4.2, color="0.4")
+    if not COMPACT:
+        axs[1].text(0.98, 0.02, "grey: pre, coloured: post\nblack arrow: real axis\ngrey dashed: mean of shifted axes", transform=axs[1].transAxes, ha="right", fontsize=4.2, color="0.4")
 
 
 def example_pl(axs, Ex):
@@ -162,7 +172,8 @@ def example_pl(axs, Ex):
                 txt.append(("WH shifted", bn[0]))
         ax.text(0.02, 0.98, "\n".join(f"β {k}: {v:+.2f}" for k, v in txt), transform=ax.transAxes, va="top", fontsize=4.3)
         ax.set_xlabel("time in session τ", fontsize=5)
-        ax.set_title(f"{c.replace('-', '−')} example\n{e.session_id.iloc[0]}", color=COL[c], fontsize=5.2)
+        ax.set_title(f"{c.replace('-', '−')} {e.session_id.iloc[0][:5]}" if COMPACT else f"{c.replace('-', '−')} example\n{e.session_id.iloc[0]}",
+                     color=COL[c], fontsize=5.2)
     axs[0].set_ylabel("trial projection on CD\n(per neuron)")
 
 
@@ -188,15 +199,16 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
         v = {c: D[D.cohort == c][col].to_numpy(float) for c in COH}
         m = [np.nanmean(v[c]) for c in COH]; s = [H.sem(v[c]) for c in COH]
         x = np.arange(2) + (k - 0.5) * 0.08
-        ax.errorbar(x, m, yerr=s, fmt="-o", ms=3.4, color=cc, lw=1.3, capsize=0, label=lab)
+        pm = mwu(v["R+"], v["R-"])
+        ax.errorbar(x, m, yerr=s, fmt="-o", ms=3.4, color=cc, lw=1.3, capsize=0, label=f"{lab}: {pn(pm)}" if COMPACT else lab)
         for i, c in enumerate(COH):
             p0 = wil(v[c])
             if p0 < 0.05:
                 ax.plot(x[i], m[i], "o", ms=5.5, mfc="none", mec="0.2", mew=0.6)
             R.append(dict(row=row, panel="d", measure=col, cohort=c, n=int(np.isfinite(v[c]).sum()), mean=m[i], p_vs0=p0))
-        pm = mwu(v["R+"], v["R-"])
         R.append(dict(row=row, panel="d", measure=col, cohort="R+ vs R-", p_nonparam=pm))
-        ax.text(1.04, m[1], f"{lab}: {pn(pm)}", color=cc if cc != "#f7b519" else "#b07e00", fontsize=4.8, va="center",
+        if not COMPACT:
+            ax.text(1.04, m[1], f"{lab}: {pn(pm)}", color=cc if cc != "#f7b519" else "#b07e00", fontsize=4.8, va="center",
                 transform=ax.get_yaxis_transform())
     obs, pi = interaction_perm(D, cols[0], cols[1], rng)
     R.append(dict(row=row, panel="d", measure=f"interaction {cols[0]} - {cols[1]}", cohort="R+ vs R-", mean=obs, p_perm=pi))
@@ -205,9 +217,16 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
     for t, c in zip(ax.get_xticklabels(), COH):
         t.set_color(COL[c])
     ax.set_ylabel(ylab, fontsize=5.5)
-    ax.set_title(f"cohort × {'modality' if row == 'hit-miss' else 'lick type'}: p = {pi:.3g}\n(mouse-level permutation)", fontsize=5.5, pad=6)
-    ax.legend(frameon=False, fontsize=4.8, loc="best", handlelength=1.2)
-    ax.text(0.02, 0.02, "ring: ≠ 0 within cohort (Wilcoxon p < 0.05)", transform=ax.transAxes, fontsize=4.2, color="0.4")
+    ttl = f"cohort × {'modality' if row == 'hit-miss' else 'lick type'}: p = {pi:.3g}"
+    if COMPACT:                                                    # interaction p as the legend title, above the axes
+        lg = ax.legend(frameon=False, fontsize=4.6, loc="lower center", bbox_to_anchor=(0.5, 1.0), handlelength=1.2, borderaxespad=0.1,
+                       title=ttl, title_fontsize=5.3)
+        lg._legend_box.align = "left"
+    else:
+        ax.set_title(ttl + "\n(mouse-level permutation)", fontsize=5.5, pad=6)
+        ax.legend(frameon=False, fontsize=4.8, loc="best", handlelength=1.2)
+    if not COMPACT:
+        ax.text(0.02, 0.02, "ring: ≠ 0 within cohort (Wilcoxon p < 0.05)", transform=ax.transAxes, fontsize=4.2, color="0.4")
 
 
 def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
@@ -224,19 +243,24 @@ def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
         ps.append(mwu(v["R+"], v["R-"]))
     q = bh(ps)
     for i, (a, p, qq) in enumerate(zip(areas, ps, q)):
-        ax.text(1.02, i, f"{H.pnum(p)} (q {H.pnum(qq)})", transform=ax.get_yaxis_transform(), va="center", fontsize=4.4,
+        if not COMPACT:
+            ax.text(1.02, i, f"{H.pnum(p)} (q {H.pnum(qq)})", transform=ax.get_yaxis_transform(), va="center", fontsize=4.4,
                 weight="bold" if qq < 0.05 else "normal")
         R.append(dict(row=row, panel="e", measure=val, area=a, n_Rp=int(n.loc[a]["R+"]), n_Rm=int(n.loc[a]["R-"]), p_nonparam=p, q_BH=qq))
     R.append(dict(row=row, panel="e", measure=val, area="ANOVA", p_cohort_perm=p_coh, p_cohort_x_area_perm=p_int))
     pad = 1.5 * np.nanmedian(ss)
     ax.set_xlim(np.nanmin(ms) - pad, np.nanmax(ms) + pad)
     ax.axvline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
-    ax.set_yticks(range(len(areas))); ax.set_yticklabels([f"{a} ({int(n.loc[a]['R+'])}/{int(n.loc[a]['R-'])})" for a in areas], fontsize=4.8)
+    if COMPACT:
+        ax.set_yticks(range(len(areas))); ax.set_yticklabels([SHORT.get(a, a) + (" *" if qq < 0.05 else "") for a, qq in zip(areas, q)], fontsize=4.8)
+    else:
+        ax.set_yticks(range(len(areas))); ax.set_yticklabels([f"{a} ({int(n.loc[a]['R+'])}/{int(n.loc[a]['R-'])})" for a in areas], fontsize=4.8)
     for t, a in zip(ax.get_yticklabels(), areas):
         t.set_color(AC.get(a, "black"))
     ax.set_ylim(len(areas) - 0.5, -0.5)
-    ax.set_xlabel(xlab, fontsize=5)
-    ax.set_title(f"{title}\nANOVA (permutation): cohort {pn(p_coh)}, cohort × area {pn(p_int)}", fontsize=5.6)
+    ax.set_xlabel("real − shifted (per neuron)" if COMPACT else xlab, fontsize=5)
+    ax.set_title(f"ANOVA cohort {pn(p_coh)}\ncohort × area {pn(p_int)}" if COMPACT else
+                 f"{title}\nANOVA (permutation): cohort {pn(p_coh)}, cohort × area {pn(p_int)}", fontsize=5.6)
 
 
 def savefig(fig, path):
@@ -273,10 +297,10 @@ def frame(fig, spec, txt):
 
 def psth_panels(fig, spec, D, classes, win, xlab, lim):
     """time course of the projection per cohort: D long (session_id, cohort, cls, t, value); classes: (cls, colour, ls, label)"""
-    sub = spec.subgridspec(2, 1, hspace=0.45)
+    sub = spec.subgridspec(1, 2, wspace=0.12) if COMPACT else spec.subgridspec(2, 1, hspace=0.45)
     axs = []
     for i, c in enumerate(COH):
-        ax = fig.add_subplot(sub[i, 0], sharey=axs[0] if axs else None); axs.append(ax)
+        ax = fig.add_subplot(sub[0, i] if COMPACT else sub[i, 0], sharey=axs[0] if axs else None); axs.append(ax)
         ax.axvspan(*win, color="0.92", lw=0, zorder=0); ax.axvline(0, color="0.6", lw=0.5, ls=":")
         ax.axhline(0, color="0.85", lw=0.5)
         d = D[D.cohort == c]
@@ -286,12 +310,28 @@ def psth_panels(fig, spec, D, classes, win, xlab, lim):
             ax.plot(piv.columns, m, color=col, ls=ls, lw=1.0, label=lab)
             ax.fill_between(piv.columns, m - se, m + se, color=col, alpha=0.2, lw=0)
         n = d.session_id.nunique()
-        ax.set_title(f"{c.replace('-', '−')} (n = {n} sessions)", color=COL[c], fontsize=5.4, pad=2)
-        ax.set_xlim(*lim); ax.tick_params(labelsize=5)
-        if i == 0:
+        if COMPACT:                                                # cohort label inside; legend goes above the panels
+            ax.text(0.04, 0.97, f"{c.replace('-', '−')} ({n})", color=COL[c], fontsize=4.6, ha="left", va="top", transform=ax.transAxes)
+        else:
+            ax.set_title(f"{c.replace('-', '−')} (n = {n} sessions)", color=COL[c], fontsize=5.4, pad=2)
+        ax.set_xlim(*lim); ax.tick_params(labelsize=4.5 if COMPACT else 5)
+        if COMPACT:
+            ax.set_xticks([lim[0], 0] if i == 0 else [0, lim[1]])
+            if i == 1:
+                ax.tick_params(labelleft=False)
+        elif i == 0:
             ax.tick_params(labelbottom=False)
-    axs[-1].set_xlabel(xlab, fontsize=5)
-    axs[-1].legend(frameon=False, fontsize=4.2, loc="upper left", handlelength=1.4, ncol=1, borderaxespad=0.2)   # R- panel: empty top left
+    if COMPACT:
+        fig.text(0.5 * (axs[0].get_position().x0 + axs[1].get_position().x1), axs[0].get_position().y0 - 0.045, xlab,
+                 ha="center", va="top", fontsize=4.8)
+        axs[0].legend(frameon=False, fontsize=4.2, loc="lower left", bbox_to_anchor=(-0.05, 1.0), handlelength=1.2, ncol=2,
+                      columnspacing=0.6, borderaxespad=0.1, handletextpad=0.4)
+    else:
+        axs[-1].set_xlabel(xlab, fontsize=5)
+    if COMPACT:
+        pass
+    else:
+        axs[-1].legend(frameon=False, fontsize=4.2, loc="upper left", handlelength=1.4, ncol=1, borderaxespad=0.2)   # R- panel: empty top left
     return axs
 
 
@@ -301,9 +341,10 @@ def hm_psth(fig, spec):
     axs = psth_panels(fig, spec, D, [("hit", "0.1", "-", "active hit"), ("miss", "0.6", "-", "active miss"),
                                      ("pre_W", EV["W"], (0, (2, 1.2)), "passive pre"), ("post_W", EV["W"], "-", "passive post")],
                       (0.005, 0.035), "time from stimulus (s)", (-0.1, 0.2))
-    for ax in axs:
-        ax.set_ylabel("projection on\nhit − miss axis", fontsize=5)
-    axs[0].text(1.0, 1.25, "whole brain" if PSTH_AREA == "All units" else PSTH_AREA, transform=axs[0].transAxes, ha="right", fontsize=5, color="0.4")
+    for ax in axs[:1] if COMPACT else axs:
+        ax.set_ylabel(("projection" + (f"\n({PSTH_AREA})" if PSTH_AREA != "All units" else "")) if COMPACT else "projection on\nhit − miss axis", fontsize=5)
+    if not COMPACT:
+        axs[0].text(1.0, 1.25, "whole brain" if PSTH_AREA == "All units" else PSTH_AREA, transform=axs[0].transAxes, ha="right", fontsize=5, color="0.4")
 
 
 def pl_psth(fig, spec):
@@ -311,13 +352,13 @@ def pl_psth(fig, spec):
     D = D[(D.stage == "learning") & D.mouse_id.isin(H.learners())]
     axs = psth_panels(fig, spec, D, [("AH", EV["AH"], "-", "auditory hit"), ("SL", EV["SL"], "-", "spont. lick"), ("WH", EV["WH"], "-", "whisker hit")],
                       (-0.1, 0.0), "time from first lick (s)", (-0.4, 0.2))
-    for ax in axs:
-        ax.set_ylabel("projection on\nreward-lick CD", fontsize=5)
+    for ax in axs[:1] if COMPACT else axs:
+        ax.set_ylabel("projection" if COMPACT else "projection on\nreward-lick CD", fontsize=5)
 
 
 def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
     W = A[A.area == "All units"].dropna(subset=[f"shift_null_post_{s_}_mean"])
-    sub = gs[r, 1 + o].subgridspec(1, 2, wspace=0.15)
+    sub = gs[r, 1 + o].subgridspec(1, 2, wspace=0.4 if COMPACT else 0.15)
     example_hm([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[0, 1])], Ex, Sh, s_)
     dd = {}
     for c in COH:
@@ -327,10 +368,11 @@ def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
     lab = "passive whisker" if s_ == "W" else "passive auditory"
     ax = fig.add_subplot(gs[r, 2 + o])
     change_panel(ax, [(lab, EV[s_], dd)], "projection: real − shifted axes\n(per neuron)", ["pre", "post"])
-    ax.set_title("passive pre and post,\nreal axis − mean of shifted axes", fontsize=5.6, pad=12)
+    ax.set_title("passive pre and post,\nreal − shifted axes" if COMPACT else "passive pre and post,\nreal axis − mean of shifted axes",
+                 fontsize=5.6, pad=12)
     if with_d:
         cohort_lines(fig.add_subplot(gs[r, 3 + o]), W, ["q_W", "q_A"], ["whisker", "auditory"], [EV["W"], EV["A"]], Q1, R, "hit-miss", rng)
-    area_panel(fig.add_subplot(gs[r, 5 + o]), A[A.area != "All units"], f"q_{s_}", R, "hit-miss" if s_ == "W" else "hit-miss auditory",
+    area_panel(fig.add_subplot(gs[r, (4 if COMPACT else 5) + o]), A[A.area != "All units"], f"q_{s_}", R, "hit-miss" if s_ == "W" else "hit-miss auditory",
                f"areas: {lab}", rng, AC, Q1.replace("\n", " "))
 
 
@@ -346,20 +388,32 @@ def main():
             Line2D([], [], color="0.3", ls="-"), Line2D([], [], color="0.6", ls=(0, (2.5, 1.5)))],
            ["R+", "R−", "real axis", "shifted-label axes (mean over shifts; grey)"])
     # ------------------------------------------------ main figure
-    o = 1 if PSTH else 0
-    fig = plt.figure(figsize=(12.4 + 1.6 * o, 5.2))
-    wr = [0.9] + ([1.0] if PSTH else []) + [1.45, 0.85, 0.95, 0.25, 0.9]
-    gs = fig.add_gridspec(2, 6 + o, width_ratios=wr, wspace=0.6, hspace=0.85, left=0.03, right=0.93, top=0.88, bottom=0.09)
-    for r, t in enumerate(("hit − miss axis (stimulus onset, 5–35 ms; passive whisker responses)", "reward-lick axis (100 ms before the first lick; whisker hits)")):
-        frame(fig, gs[r, 0], "a  schematic"); fig.text(0.005, 0.94 - r * 0.47, t, fontsize=7.5, weight="bold")
+    o = 1 if PSTH and not COMPACT else 0
+    if COMPACT:
+        plt.rcParams.update({"font.size": 5.5, "axes.labelsize": 5.5, "xtick.labelsize": 5, "ytick.labelsize": 5, "axes.linewidth": 0.6,
+                             "xtick.major.size": 2, "ytick.major.size": 2})
+        fig = plt.figure(figsize=(7.1, 4.8))
+        gs = fig.add_gridspec(2, 5, width_ratios=[0.95, 1.4, 0.62, 0.68, 0.78], wspace=0.6, hspace=0.62, left=0.075, right=0.99, top=0.87, bottom=0.08)
+        for r, t in enumerate(("hit − miss axis", "reward-lick axis")):
+            sc = gs[r, 0].subgridspec(2, 1, height_ratios=[1.25, 1], hspace=0.55)
+            frame(fig, sc[0, 0], "a  schematic")
+            (hm_psth if r == 0 else pl_psth)(fig, sc[1, 0])
+            fig.text(0.004, 0.68 - r * 0.45, t, fontsize=7, weight="bold", rotation=90, va="center")
+    else:
+        fig = plt.figure(figsize=(12.4 + 1.6 * o, 5.2))
+        wr = [0.9] + ([1.0] if PSTH else []) + [1.45, 0.85, 0.95, 0.25, 0.9]
+        gs = fig.add_gridspec(2, 6 + o, width_ratios=wr, wspace=0.6, hspace=0.85, left=0.03, right=0.93, top=0.88, bottom=0.09)
+        for r, t in enumerate(("hit − miss axis (stimulus onset, 5–35 ms; passive whisker responses)", "reward-lick axis (100 ms before the first lick; whisker hits)")):
+            frame(fig, gs[r, 0], "a  schematic"); fig.text(0.005, 0.94 - r * 0.47, t, fontsize=7.5, weight="bold")
     hm_row(fig, gs, 0, A, ExH, ShH, "W", R, rng, AC, o=o)
-    if PSTH:
+    if PSTH and not COMPACT:
         hm_psth(fig, gs[0, 1]); pl_psth(fig, gs[1, 1])
-    sub = gs[1, 1 + o].subgridspec(1, 2, wspace=0.25)
+    sub = gs[1, 1 + o].subgridspec(1, 2, wspace=0.4 if COMPACT else 0.25)
     example_pl([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[0, 1])], ExP)
     Sw = S[S.area == "whole_brain"]
     items = []
-    for lab, col_ev, f in (("whisker hits", EV["WH"], lambda b: b["WH"]), ("WH − SL distance", EV["D"], lambda b: b["WH"] - b["SL"])):
+    for lab, col_ev, f in (("WH" if COMPACT else "whisker hits", EV["WH"], lambda b: b["WH"]),
+                           ("WH − SL" if COMPACT else "WH − SL distance", EV["D"], lambda b: b["WH"] - b["SL"])):
         dd = {}
         for c in COH:
             arr = {}
@@ -373,15 +427,18 @@ def main():
     ax = fig.add_subplot(gs[1, 2 + o])
     change_panel(ax, items, "projection on reward-lick CD\n(per neuron, relative to first fifth)", ["1", "2", "3", "4", "5"])
     ax.set_xlabel("fifth of the session", fontsize=5)
-    ax.set_title("across the session: real CD (solid) vs\nshifted-label CDs (grey dashed)", fontsize=5.6, pad=12)
+    ax.set_title("across the session: real (solid)\nvs shifted CDs (grey dashed)" if COMPACT else
+                 "across the session: real CD (solid) vs\nshifted-label CDs (grey dashed)", fontsize=5.6, pad=12)
     cohort_lines(fig.add_subplot(gs[1, 3 + o]), Sw, ["q_WH", "q_SL"], ["whisker hits", "spont. licks"], [EV["WH"], EV["SL"]], Q2, R, "reward-lick", rng)
-    area_panel(fig.add_subplot(gs[1, 5 + o]), S[S.area != "whole_brain"], "q_D", R, "reward-lick",
+    area_panel(fig.add_subplot(gs[1, (4 if COMPACT else 5) + o]), S[S.area != "whole_brain"], "q_D", R, "reward-lick",
                "areas: distance whisker hit − spontaneous lick", rng, AC, Q2.replace("\n", " ") + " (WH − SL)")
-    fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=6)
+    fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=5 if COMPACT else 6)
+    name = ("165_two_axes_compact" + PSFX[5:]) if COMPACT else f"165_two_axes_figure{PSFX if PSTH else ''}"
     for ext in ("svg", "pdf", "png"):
-        savefig(fig, FIGDIR / f"165_two_axes_figure{PSFX if PSTH else ''}.{ext}")
-    if PSTH:                                                       # the variant changes only the main figure
-        print("ALL DONE", FIGDIR / f"165_two_axes_figure{PSFX}.png"); return
+        savefig(fig, FIGDIR / f"{name}.{ext}")
+    if PSTH:                                                       # the variants change only the main figure
+        pd.DataFrame(R).to_csv(EA / f"{name}_stats.csv", index=False)
+        print("ALL DONE", FIGDIR / f"{name}.png"); return
     # ------------------------------------------------ auditory (supplementary)
     fig = plt.figure(figsize=(12.4, 2.7))
     gs = fig.add_gridspec(1, 6, width_ratios=[0.9, 1.45, 0.85, 0.95, 0.25, 0.9], wspace=0.6, left=0.03, right=0.93, top=0.78, bottom=0.17)
