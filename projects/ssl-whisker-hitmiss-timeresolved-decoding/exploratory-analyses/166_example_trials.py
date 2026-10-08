@@ -1,9 +1,9 @@
 """166 -- Per-trial passive projections on the hit / miss axis for the example sessions (user 2026-10-08: "include the example sessions that
 show what is being quantified").
-Example sessions (2026-10-08, matching the population trend, i.e. a larger decrease for R-): per cohort, the learner session whose
-null-corrected passive whisker change (real - mean shifted, post minus pre; 135 harmonised run) is closest to the cohort mean (the
-quantity of panel c, all sessions), among sessions with >= 500 tracked units and a small shifted-axes change (|null| < 0.015 per
-neuron, so the example's change is not mostly time in session). Override: SSL_166_EXAMPLES="sid_R+,sid_R-".
+Example sessions (2026-10-08): learner sessions with >= 500 tracked units and a small shifted-axes change (|null| < 0.015 per neuron,
+so the example's change is not mostly time in session); null-corrected passive whisker change = real - mean shifted, post minus pre
+(135 harmonised run). R+: the session closest to the R+ mean (about no change); R-: the largest decrease (user: "an R- example where
+the negative shift along the hit - miss axis is quite large"; an upper example of the R- distribution, not a typical one). Override: SSL_166_EXAMPLES="sid_R+,sid_R-".
 Harmonised scaling (as 135 with SSL_135_HARM=1): 5-35 ms response minus the epoch's mean baseline (-55 to -20 ms), unit mean / SD from the
 active trials. Real axis u = unit(mean_z(active whisker hits) - mean_z(misses)) from all active whisker trials (active trials with a
 lick before 35 ms excluded). Every passive trial (whisker and auditory, pre and post) is projected on u, per neuron (/ sqrt(N)).
@@ -118,7 +118,12 @@ def pick():
     for i, c in enumerate(("R+", "R-")):
         mean = A[A.reward_group == c].exc.mean()
         d = A[(A.reward_group == c) & A.exc.notna() & (A.n_units >= 500) & (A.null.abs() < 0.015)]
-        r = (A[A.session_id == force[i]].iloc[0] if len(force) == 2 else d.iloc[(d.exc - mean).abs().argsort().iloc[0]])
+        if len(force) == 2:
+            r = A[A.session_id == force[i]].iloc[0]
+        elif c == "R+":                                           # R+: at the cohort mean (no change)
+            r = d.iloc[(d.exc - mean).abs().argsort().iloc[0]]
+        else:                                                     # R-: a clearly visible decrease (user 2026-10-08)
+            r = d.sort_values("exc").iloc[0]
         print("example", c, r.session_id, int(r.n_units), "exc", round(r.exc, 4), "null", round(r.null, 4), "cohort mean", round(mean, 4), flush=True)
         out.append((r.session_id, r.mouse_id, c))
     return out
