@@ -45,6 +45,8 @@ arccos(a / rho), rho cross-validated), R+ above R-, thin lines sessions, bold me
 dotted: 90 deg (orthogonal); c = change of angle, real - shifted (post - pre), cohort x modality as d (mouse-level permutation of the
 interaction); d = change along the axis (projection, as before); e = areas (projection). Extra statistics in the _stats.csv: the
 angle change weighted by response size (WLS, weights rho_pre), and an equivalence test (TOST, +-10 deg) of R- post angle vs 90 deg.
+Common session sets (2026-10-08): every panel of a row uses the same sessions (row 1: sessions with the whisker shifted-label null,
+angle and time course; row 2: 026 sessions with a time course); auditory values where defined; session-time bins without events skipped.
 Output 165_two_axes_compact_angle.* Output 165_two_axes_compact[_<area>].{svg,pdf,png}
 Outputs: figures/publication/165_two_axes_figure.{svg,pdf,png}, 165_two_axes_auditory.{svg,pdf,png}; 165_stats.csv
 Run (haas, repo root): python .../165_two_axes_figure.py
@@ -84,8 +86,11 @@ PSFX = "_psth" + ("" if PSTH_AREA == "All units" else "_" + PSTH_AREA.split()[0]
 PL_PSTH = PL.parent / "cd_psth" / "cd_psth_projection.parquet"
 
 plt.rcParams.update({"svg.fonttype": "none", "pdf.fonttype": 42})
-Q1 = "real − shifted axes:\nΔ(post − pre) per neuron"
-Q2 = "real − shifted CDs:\nslope over the session per neuron"
+Q1 = "Δ projection on hit − miss axis\n(post − pre, per neuron; real − shifted)"
+Q2 = "slope of projection on reward-lick CD\n(over the session, per neuron; real − shifted)"
+AREA_X = {"hit-miss": "Δ projection (post − pre)\nper neuron, real − shifted",
+          "reward-lick": "WH − SL slope on CD\nper neuron, real − shifted"}
+ROWSET = {}                  # common session set per row (main): every panel of a row uses the same sessions (2026-10-08)
 
 
 def area_colors():
@@ -202,7 +207,7 @@ def example_pl(axs, Ex):
                     transform=ax.transAxes)
             if ax is axs[-1]:
                 ax.set_xlabel("time in session τ", fontsize=5)
-            ax.set_ylabel("projection on CD", fontsize=5)
+            ax.set_ylabel("projection on\nreward-lick CD", fontsize=5)
         else:
             ax.text(0.02, 0.98, "\n".join(f"β {k}: {v:+.2f}" for k, v in txt), transform=ax.transAxes, va="top", fontsize=4.3)
             ax.set_xlabel("time in session τ", fontsize=5)
@@ -224,7 +229,7 @@ def change_panel(ax, items, ylab, xt):
                 ax.errorbar(off + np.arange(nx), m, yerr=s, fmt="o", ls=ls, ms=2.8, color=lc, mfc=mfc, mec=COL[c], lw=1, capsize=0)
         ax.text(off + (nx - 1) / 2, 1.0, lab, transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=5.5, color=col_ev)
     r0 = items[0][2]                                                # sample sizes go in the x label (no overlap with the data)
-    ax.set_xlabel("n = " + ", ".join(f"{int(np.isfinite(r0[c][0]).all(1).sum())} {c.replace('-', '−')}" for c in COH) + " sessions",
+    ax.set_xlabel("n = " + ", ".join(f"{int(np.isfinite(r0[c][0]).any(1).sum())} {c.replace('-', '−')}" for c in COH) + " sessions",
                   fontsize=5)
     ax.axhline(0, color="0.7", lw=0.5, ls=(0, (2, 2)))
     ax.set_xticks([j * (nx + 0.8) + i for j in range(len(items)) for i in range(nx)]); ax.set_xticklabels(xt * len(items), fontsize=4.8)
@@ -237,7 +242,9 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
         m = [np.nanmean(v[c]) for c in COH]; s = [H.sem(v[c]) for c in COH]
         x = np.arange(2) + (k - 0.5) * 0.08
         pm = mwu(v["R+"], v["R-"])
-        ax.errorbar(x, m, yerr=s, fmt="-o", ms=3.4, color=cc, lw=1.3, capsize=0, label=f"{lab}: {pn(pm)}" if COMPACT else lab)
+        n_k = {c: int(np.isfinite(v[c]).sum()) for c in COH}; n_0 = {c: int(D[D.cohort == c][cols[0]].notna().sum()) for c in COH}
+        extra = f" (n = {n_k['R+']}/{n_k['R-']})" if n_k != n_0 else ""
+        ax.errorbar(x, m, yerr=s, fmt="-o", ms=3.4, color=cc, lw=1.3, capsize=0, label=f"{lab}: {pn(pm)}{extra}" if COMPACT else lab)
         for i, c in enumerate(COH):
             p0 = wil(v[c])
             if p0 < 0.05:
@@ -250,7 +257,7 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
     obs, pi = interaction_perm(D, cols[0], cols[1], rng)
     R.append(dict(row=row, panel="d", measure=f"interaction {cols[0]} - {cols[1]}", cohort="R+ vs R-", mean=obs, p_perm=pi))
     ax.axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
-    nn = {c: int(D[D.cohort == c][cols].notna().all(1).sum()) for c in COH}
+    nn = {c: int(D[D.cohort == c][cols[0]].notna().sum()) for c in COH}
     ax.set_xticks([0, 1]); ax.set_xticklabels([f"R+\n(n = {nn['R+']})", f"R−\n(n = {nn['R-']})"]); ax.set_xlim(-0.4, 1.4)
     for t, c in zip(ax.get_xticklabels(), COH):
         t.set_color(COL[c])
@@ -298,7 +305,7 @@ def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
     for t, a in zip(ax.get_yticklabels(), areas):
         t.set_color(AC.get(a, "black"))
     ax.set_ylim(len(areas) - 0.5, -0.5)
-    ax.set_xlabel("real − shifted (per neuron)" if COMPACT else xlab, fontsize=5)
+    ax.set_xlabel(AREA_X.get(row, xlab) if COMPACT else xlab, fontsize=5)
     ax.set_title(f"ANOVA cohort {pn(p_coh)}\ncohort × area {pn(p_int)}" if COMPACT else
                  f"{title}\nANOVA (permutation): cohort {pn(p_coh)}, cohort × area {pn(p_int)}", fontsize=5.6)
 
@@ -378,11 +385,13 @@ def psth_panels(fig, spec, D, classes, win, xlab, lim):
 def hm_psth(fig, spec):
     D = pd.read_parquet(EA / "168_cd_psth_projection.parquet")
     D = D[(D.area == PSTH_AREA) & H.mouse_of(D).isin(H.learners())].rename(columns={"reward_group": "cohort"})
+    if "hm" in ROWSET:
+        D = D[D.session_id.isin(ROWSET["hm"])]
     axs = psth_panels(fig, spec, D, [("hit", "0.1", "-", "active hit"), ("miss", "0.6", "-", "active miss"),
                                      ("pre_W", EV["W"], (0, (2, 1.2)), "passive pre"), ("post_W", EV["W"], "-", "passive post")],
                       (0.005, 0.035), "time from stimulus (s)", (-0.1, 0.2))
     for ax in axs[:1] if COMPACT else axs:
-        ax.set_ylabel(("projection" + (f"\n({PSTH_AREA})" if PSTH_AREA != "All units" else "")) if COMPACT else "projection on\nhit − miss axis", fontsize=5)
+        ax.set_ylabel(("projection on\nhit − miss axis" + (f" ({PSTH_AREA})" if PSTH_AREA != "All units" else "")), fontsize=5)
     if not COMPACT:
         axs[0].text(1.0, 1.25, "whole brain" if PSTH_AREA == "All units" else PSTH_AREA, transform=axs[0].transAxes, ha="right", fontsize=5, color="0.4")
 
@@ -390,15 +399,19 @@ def hm_psth(fig, spec):
 def pl_psth(fig, spec):
     D = pd.read_parquet(PL_PSTH)
     D = D[(D.stage == "learning") & D.mouse_id.isin(H.learners())]
+    if "pl" in ROWSET:
+        D = D[D.session_id.isin(ROWSET["pl"])]
     axs = psth_panels(fig, spec, D, [("AH", EV["AH"], "-", "auditory hit"), ("SL", EV["SL"], "-", "spont. lick"), ("WH", EV["WH"], "-", "whisker hit")],
                       (-0.1, 0.0), "time from first lick (s)", (-0.4, 0.2))
     for ax in axs[:1] if COMPACT else axs:
-        ax.set_ylabel("projection" if COMPACT else "projection on\nreward-lick CD", fontsize=5)
+        ax.set_ylabel("projection on\nreward-lick CD", fontsize=5)
 
 
 def load_angle():
     """per-session angle to the hit - miss axis (169), degrees; columns per stimulus: th_pre_, th_post_ (real, _null), q_th (real - shifted change)"""
     P = pd.read_parquet(EA / "169_along_orthogonal.parquet"); P = P[H.mouse_of(P).isin(H.learners())].copy()
+    if "hm" in ROWSET:
+        P = P[P.session_id.isin(ROWSET["hm"])]
     th = lambda c: np.degrees(np.arccos(np.clip(c, -1, 1)))
     for k in ("pre", "post"):
         P[f"th_{k}"], P[f"th_{k}_null"] = th(P[f"cos_{k}"]), th(P[f"cos_{k}_null"])
@@ -419,7 +432,9 @@ def angle_slopes(axs, P):
         ax.axhline(90, color="0.5", lw=0.6, ls=":")
         ax.text(1.02, 90, "90°", fontsize=4.5, color="0.4", va="center", transform=ax.get_yaxis_transform())
         ax.set_xlim(-0.25, 1.25); ax.set_xticks([0, 1]); ax.set_xticklabels(["pre", "post"] if c == "R-" else ["", ""])
-        ax.set_ylabel("angle to axis θ (°)", fontsize=5)
+        if c == "R-":
+            ax.set_ylabel("angle θ between whisker response\nand hit − miss axis (°)", fontsize=5)
+            ax.yaxis.set_label_coords(-0.3, 1.1)
         ax.text(0.03, 0.04, f"{c.replace('-', '−')} (n = {len(d)})", transform=ax.transAxes, fontsize=4.8, color=COL[c])
 
 
@@ -445,7 +460,7 @@ def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
         sub = gs[r, 1 + o].subgridspec(2, 1, hspace=0.25)
         angle_slopes([fig.add_subplot(sub[0, 0]), fig.add_subplot(sub[1, 0])], P)
         cohort_lines(fig.add_subplot(gs[r, 2 + o]), T_, ["q_th_W", "q_th_A"], ["whisker", "auditory"], [EV["W"], EV["A"]],
-                     "real − shifted axes:\nΔθ (post − pre, °)", R, "hit-miss angle", rng)
+                     "Δ angle θ to hit − miss axis\n(post − pre, °; real − shifted)", R, "hit-miss angle", rng)
         angle_extra_stats(T_, P, R)
         cohort_lines(fig.add_subplot(gs[r, 3 + o]), W, ["q_W", "q_A"], ["whisker", "auditory"], [EV["W"], EV["A"]], Q1, R, "hit-miss", rng)
         area_panel(fig.add_subplot(gs[r, 4 + o]), A[A.area != "All units"], f"q_{s_}", R, "hit-miss", "areas: passive whisker", rng, AC, Q1.replace("\n", " "))
@@ -490,6 +505,17 @@ def main():
     AC = area_colors()
     R = []
     A, ExH = load_hm(); S, B, ExP = load_pl(); ShH = pd.read_csv(EA / "166_example_shifts.csv")
+    # one session set per row: sessions with every whisker quantity of the row (shifted-label null needs >= 10 hits / misses after
+    # shifting; the angle needs a cross-validated response size > 0); auditory lines use the same sessions where defined
+    G = pd.read_parquet(EA / "169_along_orthogonal.parquet")
+    hm = set(A[(A.area == "All units")].dropna(subset=["shift_null_pre_W_mean", "shift_null_post_W_mean"]).session_id)
+    hm &= set(G[G.stim == "W"].dropna(subset=["cos_pre", "cos_post", "cos_pre_null", "cos_post_null"]).session_id)
+    hm &= set(pd.read_parquet(EA / "168_cd_psth_projection.parquet", columns=["session_id"]).session_id)
+    ROWSET["hm"] = hm
+    ROWSET["pl"] = set(S[S.area == "whole_brain"].session_id) & set(pd.read_parquet(PL_PSTH, columns=["session_id"]).session_id)
+    A = A[A.session_id.isin(ROWSET["hm"])]; S = S[S.session_id.isin(ROWSET["pl"])]; B = B[B.session_id.isin(ROWSET["pl"])]
+    for k, v in ROWSET.items():
+        print("row set", k, len(v), flush=True)
     S["q_WH"], S["q_SL"], S["q_D"] = S.excess_pu, S.excessSL_pu, S.excessC_pu
     from matplotlib.lines import Line2D
     leg = ([Line2D([], [], color=COL["R+"], marker="o", ms=3), Line2D([], [], color=COL["R-"], marker="o", ms=3),
@@ -537,7 +563,7 @@ def main():
             dd[c] = (arr["real"], arr["null"])
         items.append((lab, col_ev, dd))
     ax = fig.add_subplot(gs[1, 2 + o])
-    change_panel(ax, items, "relative to first fifth\n(per neuron)" if COMPACT else "projection on reward-lick CD\n(per neuron, relative to first fifth)",
+    change_panel(ax, items, "projection on reward-lick CD\n(rel. to first fifth, per neuron)" if COMPACT else "projection on reward-lick CD\n(per neuron, relative to first fifth)",
                  ["1", "2", "3", "4", "5"])
     ax.set_xlabel("fifth of the session (" + ax.get_xlabel() + ")", fontsize=5)
     ax.set_title("across the session: real (solid)\nvs shifted CDs (grey dashed)" if COMPACT else
