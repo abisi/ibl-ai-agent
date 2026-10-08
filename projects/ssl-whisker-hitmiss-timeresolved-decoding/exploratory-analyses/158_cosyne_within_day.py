@@ -13,6 +13,11 @@ Learners only; whole brain; shared tracked stable units (137b); evoked 5-35 ms r
      auditory and whisker - auditory projection; mean +- s.e.m.; filled: Wilcoxon vs 0 p < 0.05; top: R+ vs R- Mann-Whitney
   e1, e2  state-space summary per cohort (146): passive pre -> post displacement of the whisker and auditory responses, active hit /
      miss positions for reference
+Variant SSL_158_ANCHOR=1 (user 2026-10-08, "a scaled coding direction like in the prelick"): projections anchored on the session's
+held-out active hit and miss projections on the same axis (135 with SSL_135_ANCHOR=1): c = (pi - pi_miss) / (pi_hit - pi_miss),
+0 = like an active miss, 1 = like an active hit; the excess over the linear-shift null is divided by the same separation (real-label
+anchor, as the anchored decoder readout of 146); sessions kept if the held-out hit-vs-miss d' on the axis >= MIN_DPRIME (0.3).
+Outputs carry the suffix _anchor.
 Statistics non-parametric only (session = unit, one learning session per mouse); uncorrected.
 Outputs: figures/publication/158_cosyne_within_day_learners.{png,pdf,svg}; 158_stats_learners.csv
 Run (haas, repo root): python .../158_cosyne_within_day.py
@@ -36,6 +41,10 @@ sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
 COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
 WC, AC = "#f7b519", "#2c2cdb"
+ANCHOR = bool(__import__("os").environ.get("SSL_158_ANCHOR"))
+SFX = "_anchor" if ANCHOR else ""
+MIN_DPRIME = 0.3
+YLAB = "position on hit − miss axis\n(0 = miss, 1 = hit)" if ANCHOR else "projection on hit − miss axis\n(per unit)"
 EPOCHS = [("passive_pre", "passive\npre"), ("active_1", "active\n1st"), ("active_2", "active\n2nd"), ("passive_post", "passive\npost")]
 
 
@@ -55,8 +64,18 @@ def mwu(x, y):
 
 def load():
     L = H.learners()
-    A = pd.read_parquet(EA / "135_alignment_epochs_tracked.parquet")
+    A = pd.read_parquet(EA / f"135_alignment_epochs_tracked{SFX}.parquet")
     A = A[(A.area == "All units") & A.skipped_reason.isna()]; A = A[H.mouse_of(A).isin(L)]
+    if ANCHOR:
+        n0 = len(A)
+        A = A[A.anchor_dprime >= MIN_DPRIME].copy()
+        print(f"anchor: {len(A)} / {n0} sessions with held-out hit-vs-miss d' >= {MIN_DPRIME}", flush=True)
+        sep = A.anchor_hit_proj - A.anchor_miss_proj
+        for e, _ in EPOCHS:
+            for s_ in ("W", "A"):
+                A[f"evoked{s_}_proj_{e}"] = (A[f"evoked{s_}_proj_{e}"] - A.anchor_miss_proj) / sep
+        for m in ("dWP", "dAP", "dWAP"):
+            A[f"shift_excess_{m}"] = A[f"shift_excess_{m}"] / sep
     D = pd.read_parquet(EA / "146_choice_axis_readout.parquet")
     D = D[D.skipped_reason.isna() & (D.area == "whole_brain") & (D.unit_set == "stable") & (D.response == "epochbase")]
     D = D[H.mouse_of(D).isin(L)]
@@ -107,7 +126,10 @@ def panel_epochs(ax, A, s, title, R, key):
             va="bottom", fontsize=4.8)
     ax.axhline(0, color="0.7", lw=0.5, ls=(0, (2, 2)))
     ax.set_xticks(x); ax.set_xticklabels([l for _, l in EPOCHS], fontsize=5); ax.set_xlim(-0.4, len(EPOCHS) - 0.6)
-    ax.set_ylabel("projection on hit − miss axis\n(per unit)" if s == "W" else "")
+    ax.set_ylabel(YLAB if s == "W" else "")
+    if ANCHOR:
+        for yv, t in ((0, "miss"), (1, "hit")):
+            ax.axhline(yv, color="0.75", lw=0.6, ls=(0, (1, 1.5)))
     ax.set_title(title, pad=17)
     if s == "W":
         ax.legend(frameon=False, fontsize=4.8, loc="lower left", handlelength=1.2)
@@ -131,7 +153,7 @@ def panel_d(ax, A, R):
         R.append(dict(panel="d", measure=col, cohort="R+ vs R-", mean_a=np.nanmean(v["R+"]), mean_b=np.nanmean(v["R-"]), p_nonparam=pm))
     ax.axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
     ax.set_xticks(range(len(items))); ax.set_xticklabels([l for _, l in items], fontsize=5); ax.set_xlim(-0.5, len(items) - 0.5)
-    ax.set_ylabel("pre → post change\nbeyond session time")
+    ax.set_ylabel("pre → post change\nbeyond session time" + ("\n(hit − miss units)" if ANCHOR else ""))
     ax.set_title("Beyond session time\n(R+ vs R−; filled: ≠ 0)", pad=9)
 
 
@@ -182,10 +204,10 @@ def main():
     fig.text(axs[4].get_position().x0 - 0.035, 0.965, "e", fontsize=9, weight="bold")
     FIGDIR.mkdir(parents=True, exist_ok=True)
     for ext in ("png", "pdf", "svg"):
-        fig.savefig(FIGDIR / f"158_cosyne_within_day_learners.{ext}", dpi=300)
-    S = pd.DataFrame(R); S.to_csv(EA / "158_stats_learners.csv", index=False)
+        fig.savefig(FIGDIR / f"158_cosyne_within_day_learners{SFX}.{ext}", dpi=300)
+    S = pd.DataFrame(R); S.to_csv(EA / f"158_stats_learners{SFX}.csv", index=False)
     print(S.round(4).to_string())
-    print("ALL DONE", FIGDIR / "158_cosyne_within_day_learners.png")
+    print("ALL DONE", FIGDIR / f"158_cosyne_within_day_learners{SFX}.png")
 
 
 if __name__ == "__main__":

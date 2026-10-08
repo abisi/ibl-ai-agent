@@ -57,6 +57,11 @@ TAG = TAG + (f"_{UNITSET}" if UNITSET else "")
 # 2026-10-05: SSL_STAGE=expert runs the same analysis on expert sessions (control); outputs carry the suffix _expert
 STAGE = os.environ.get("SSL_STAGE", "learning")
 STAGE_SFX = "" if STAGE == "learning" else f"_{STAGE}"
+# 2026-10-08 (user): SSL_135_ANCHOR=1 also stores the anchors of the projection: the held-out active hit and miss projections on the
+# same split's lick axis (V half, never used to build the axis) and their d'; outputs carry the suffix _anchor. No extra random
+# draws, so every other column equals the run without anchors (same seeds).
+ANCHOR = bool(os.environ.get("SSL_135_ANCHOR"))
+TAG = TAG + ("_anchor" if ANCHOR else "")
 OUT_PATH = OUT / f"135_alignment_epochs{TAG}{STAGE_SFX}.parquet"
 SET_IDS = {}
 
@@ -219,6 +224,7 @@ def process(args):
             continue
         rng = np.random.default_rng(zlib.crc32(f"{sid}|{area}|135".encode()))
         acc = {e: dict(cab=[], rw=[], rl=[], cW=[], rW=[], cA=[], rA=[], pW=[], pA=[]) for e in EP4}
+        anc = dict(hit=[], miss=[], dprime=[])                     # anchors (SSL_135_ANCHOR)
         for _ in range(N_SPLIT):
             # split ALL active trials (stratified by type x lick) into L (lick-axis) and V (whisker-axis) sets
             Lset, Vset = [], []
@@ -236,6 +242,13 @@ def process(args):
             lick2 = Z["active"][lw2].mean(0) - Z["active"][ln2].mean(0)
             rel_l = cos(lick1, lick2)
             lick = Z["active"][lw].mean(0) - Z["active"][ln].mean(0)
+            if ANCHOR:                                             # held-out active hits / misses on this split's axis
+                vh, vm = np.intersect1d(V, wl), np.intersect1d(V, wn)
+                ph = E["active"][vh] @ unit(lick) / np.sqrt(E["active"].shape[1])
+                pm = E["active"][vm] @ unit(lick) / np.sqrt(E["active"].shape[1])
+                anc["hit"].append(float(ph.mean())); anc["miss"].append(float(pm.mean()))
+                sp = np.sqrt(0.5 * (ph.var(ddof=1) + pm.var(ddof=1))) if min(len(ph), len(pm)) > 1 else np.nan
+                anc["dprime"].append(float((ph.mean() - pm.mean()) / sp) if sp and sp > 0 else np.nan)
             for e in EP4:
                 if e.startswith("active"):
                     h = int(e[-1]) - 1
@@ -258,6 +271,9 @@ def process(args):
                     acc[e][f"r{key}"].append(cos(Ee[h1].mean(0), Ee[h2].mean(0)))
                     acc[e][f"p{key}"].append(float(Ee[idx_].mean(0) @ unit(lick)) / np.sqrt(Ee.shape[1]))  # projection / sqrt(n)
         row = dict(base, area=area, n_units=int(keep.sum()), n_wh_licked=len(wl), n_wh_unlicked=len(wn), skipped_reason=None)
+        if ANCHOR and anc["hit"]:
+            row.update(anchor_hit_proj=float(np.nanmean(anc["hit"])), anchor_miss_proj=float(np.nanmean(anc["miss"])),
+                       anchor_dprime=float(np.nanmean(anc["dprime"])))
         for e in EP4:
             if not acc[e]["cab"]:
                 continue
