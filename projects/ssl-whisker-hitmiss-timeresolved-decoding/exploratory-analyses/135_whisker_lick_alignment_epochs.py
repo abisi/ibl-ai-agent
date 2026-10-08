@@ -62,6 +62,11 @@ STAGE_SFX = "" if STAGE == "learning" else f"_{STAGE}"
 # draws, so every other column equals the run without anchors (same seeds).
 ANCHOR = bool(os.environ.get("SSL_135_ANCHOR"))
 TAG = TAG + ("_anchor" if ANCHOR else "")
+# 2026-10-08 (user, harmonised with the pre-lick CD): SSL_135_HARM=1 takes each unit's mean / SD from the active trials only (the
+# trials that build the axis) instead of all epochs pooled, and also stores the real and null passive pre / post projections
+# (shift_real_pre_W, shift_null_pre_W_mean, ...); outputs carry the suffix _harm.
+HARM = bool(os.environ.get("SSL_135_HARM"))
+TAG = TAG + ("_harm" if HARM else "")
 OUT_PATH = OUT / f"135_alignment_epochs{TAG}{STAGE_SFX}.parquet"
 SET_IDS = {}
 
@@ -134,6 +139,7 @@ def shift_null(Z, E, isw, licked, act, acc, rng):
     p_r = {(e, k): np.nanmean(acc[e][f"p{k}"]) for e in PAS for k in ("W", "A")}
     real = metrics(c_r, p_r, rl_real)
     null, n_floor = {m: [] for m in real}, 0
+    null_pp = {(e, k): [] for e in PAS for k in ("W", "A")}
     for j in rng.permutation(len(valid))[:N_SHIFT]:
         ys, pos, _ = SN.cut(y, *valid[j])
         tr = widx[pos]
@@ -151,9 +157,16 @@ def shift_null(Z, E, isw, licked, act, acc, rng):
                     p.setdefault((e, k), []).append(float(pats[e][k] @ u) / np.sqrt(n_u))
         rl = float(np.nanmean(rls)); n_floor += rl < 0.05
         d = metrics({kk: np.nanmean(v) for kk, v in c.items()}, {kk: np.nanmean(v) for kk, v in p.items()}, rl)
+        for kk in null_pp:
+            null_pp[kk].append(float(np.nanmean(p[kk])))
         for m, v in d.items():
             null[m].append(v)
     out = SN.summarize(real, null)
+    if HARM:
+        for (e, k), v in null_pp.items():
+            ee = "pre" if e == "passive_pre" else "post"
+            out[f"shift_real_{ee}_{k}"] = float(p_r[(e, k)])
+            out[f"shift_null_{ee}_{k}_mean"] = float(np.nanmean(v)) if v else np.nan
     out.update(shift_n_valid=len(valid), shift_n=len(null["WN"]), shift_frac_rel_floor=n_floor / max(len(null["WN"]), 1),
                rel_lick_real=float(rl_real))
     return out
@@ -207,7 +220,7 @@ def process(args):
             X[e] = r - np.nanmean(b, 0, keepdims=True)
         if any(np.isnan(v).any() for v in X.values()):
             continue
-        P = np.vstack(list(X.values()))
+        P = X["active"] if HARM else np.vstack(list(X.values()))
         mu, sd = P.mean(0), P.std(0)
         keep = sd > 0
         if keep.sum() < MIN_UNITS:
