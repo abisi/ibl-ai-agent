@@ -8,7 +8,8 @@ Categories: shared core (L <= CORE, default 0.5), shared shell (CORE < L <= 0.9)
 (90 % zones), outside both.
 Units: ROC stage analysis (_roc_stage_analysis: units.parquet + roc_long.parquet), good + mua; UNITS=stable (default)
 keeps the tracked stable units (hit/miss 137, via the pre-lick table's `stable` column), UNITS=all keeps all.
-ROC: every analysis type; per unit sig (pos / neg) and |sel|.
+ROC: every analysis type; per unit sig (pos / neg) and |sel|. Bimodal neurons (003 classes): fraction bimodal among
+sensory-responsive units, same tests.
 Quantities (per analysis type): fraction significant (total, positive, negative) and mean |sel| per category and per
 shared-level bin; enrichment = core vs rest of brain.
 Tests (core vs rest; session = unit of analysis): per-session difference (sessions with >= MIN_UNITS units in the core and
@@ -98,7 +99,27 @@ def load():
                           "zone_cat", "L_bin"]], on=KEYS, how="inner")
     for c in ("sig", "pos", "neg"):
         D[c] = D[c].astype(float)
+    B = m3.bimodal_classes()[KEYS + ["bimodal_cat"]]
+    B["cluster_id"] = B.cluster_id.astype(str)
+    U = U.merge(B, on=KEYS, how="left")
+    U["bimodal_cat"] = U.bimodal_cat.fillna(-1).astype(int)
     return U, D
+
+
+def bimodal(U):
+    """bimodal fraction among sensory-responsive units (003 classes: whisker / auditory / both, Bonferroni over tests),
+    shared core vs rest (session-level Wilcoxon / t, area-stratified Mantel-Haenszel), per category and per L bin"""
+    R = U[U.bimodal_cat > 0].copy()
+    R["sig"] = (R.bimodal_cat == 3).astype(float)
+    r = dict(analysis_type="bimodal among responsive", measure="sig", n_core=int((R.zone_cat == "shared core").sum()),
+             n_rest=int((R.zone_cat != "shared core").sum()), core=float(R.loc[R.zone_cat == "shared core", "sig"].mean()),
+             rest=float(R.loc[R.zone_cat != "shared core", "sig"].mean()))
+    r.update(session_test(R, "sig"))
+    r["or_mh"], r["p_cmh"], r["n_strata"] = cmh(R, "sig")
+    cat = R.groupby("zone_cat").sig.agg(["mean", "size"]).reindex(CATS)
+    lb = R.groupby("L_bin", observed=True).sig.agg(["mean", "size"]).reindex(BIN_LAB)
+    grp = R.groupby(["cohort", "stage", R.zone_cat == "shared core"]).sig.agg(["mean", "size"])
+    return pd.DataFrame([r]), cat, lb, grp
 
 
 def bh(p):
@@ -296,6 +317,12 @@ def main():
     T = run_tests(D)
     C, B, Gr = tables(D)
     T.to_csv(OUTD / "core_vs_rest_tests.csv", index=False)
+    Bt, Bc, Bl, Bg = bimodal(U)
+    Bt.to_csv(OUTD / "bimodal_core_vs_rest.csv", index=False)
+    Bc.to_csv(OUTD / "bimodal_zone_categories.csv")
+    Bl.to_csv(OUTD / "bimodal_shared_level_bins.csv")
+    Bg.to_csv(OUTD / "bimodal_per_group.csv")
+    print(Bt.round(4).to_string()); print(Bc.round(3).to_string()); print(Bl.round(3).to_string()); print(Bg.round(3).to_string())
     C.to_csv(OUTD / "zone_category_fractions.csv", index=False)
     B.to_csv(OUTD / "shared_level_bins.csv", index=False)
     Gr.to_csv(OUTD / "per_group_core_vs_rest.csv", index=False)
