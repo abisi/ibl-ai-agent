@@ -58,7 +58,7 @@ report/
    reference; tables for per-area numbers.
 6. **Discussion**: interpretation, relation to other projects, alternative explanations.
 7. **Caveats and limitations**; **open questions / next steps**.
-8. **Figures** (main) and **Supplementary figures** (controls, per-area, variants), numbered, each with a full caption
+8. **Figures** (main) and **Supplementary figures** (only controls and robustness checks the text cites), numbered, each with a full caption
    (what is plotted, n, statistics, colour code); main figures are the publication-style figures of the project.
 9. **Appendix**: parameter table, file / script index (paths of results and code), version history of major changes.
 
@@ -92,8 +92,9 @@ version-history appendix).
 - **Thorough captions.** Every caption states what is plotted in each panel, the data (epoch, trials, n sessions / mice /
   units or areas), the statistic (mean ± what, error bars, bands), the test and n, the colour / marker code, and the
   sampling (iterations, shuffles) -- readable without the main text.
-- **All generated figures appear.** Every figure an analysis script writes ends up in the report, at least as a
-  supplementary figure; promote a supplementary figure to the main text only when the argument needs it.
+- **Selected figures, not every figure.** A figure enters the report only if the text states a result that needs it
+  (see "Concise and navigable" below). Everything else stays in the result folders and is listed, by folder, in the
+  appendix's figure index.
 - **Sample sizes.** A supplementary table with the number of sessions, mice and units per area (and per condition /
   epoch / level analysed), cited from the Methods.
 - **Order follows the argument** the user sets (e.g. control condition before the condition of interest, then their
@@ -106,6 +107,28 @@ version-history appendix).
   exact per area group, shades for areas -- skills/ssl-valid-data; other project rules in the project README / memory).
   Change figures in the analysis scripts, show them, and wait for the user's confirmation before rebuilding the report
   when the user is reviewing figures.
+
+### Concise and navigable (user, 2026-10-08: "prevent general accumulation of materials in the report")
+
+Reports grow by accretion: every rerun, variant and talk figure tends to be appended. Prevent it.
+
+- **One figure per question.** Each Results subsection has one main figure (two at most). A variant (other window,
+  threshold, unit sampling, estimator, reference, population) is a sentence with its number and the result-folder path,
+  or one row of a robustness table, not another figure.
+- **No summary or talk figures.** Conference / COSYNE / slide figures re-assemble panels that are already in the report;
+  they live in the result folders and decks, never in the report.
+- **No per-item figure series.** One figure per area group, session, mouse or parameter value is not included; show the
+  across-items summary (matrix, forest, table) and point to the folder for the per-item figures.
+- **Supplement only what the text cites for a claim** (a control that changes the interpretation, the robustness check
+  a reviewer would ask for). A supplementary figure that only repeats a main figure in another layout is removed.
+- **Budget.** Aim for <= 8 main figures per part of the report and <= 1.5 supplementary figures per main figure; when
+  adding a figure would exceed the budget, merge or drop one first and say which in the change log.
+- **Prune at every rebuild.** Before building, list the figures and remove superseded versions, duplicates (same data,
+  other layout), variants and results no longer discussed. Report to the user what was removed and why.
+- **Navigation.** Keep the table of contents; section titles state the question or the finding; the appendix has a
+  figure index of the result folders (what else exists and where), a script-to-figure provenance table, and nothing that
+  the main text does not need.
+- **Text follows the same rule**: one paragraph per result; methods of variants that are not shown are one sentence.
 
 ### Generator mechanics: `skills/project-report/report_lib.py` (use it in every `build_report.py`)
 
@@ -145,6 +168,8 @@ R.write(OUT, md)       # checks; figures -> report/figures/<anchor>.png (stale r
 - [ ] `report/` rebuilds from its own contents; PDF, md and html agree; all numbers from `numbers.json`.
 - [ ] Article structure complete: introduction, methods (equations, parameters, tests), results, discussion, caveats,
       main + supplementary figures with captions.
-- [ ] Every figure and table cited and linked in the text; every generated figure included (main or supplementary);
-      sample-size table present; paragraphs separated; captions complete.
+- [ ] Every figure and table cited and linked in the text; sample-size table present; paragraphs separated; captions
+      complete.
+- [ ] Concise: one figure per question, no summary / talk figures, no per-item series, no layout duplicates, within the
+      figure budget; pruned at this rebuild (removals listed in `change-log.md`); appendix figure index points to the rest.
 - [ ] Published to the private reports repo (pdf, md, html only).
