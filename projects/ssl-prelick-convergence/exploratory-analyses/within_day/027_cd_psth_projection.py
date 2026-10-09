@@ -26,7 +26,9 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path[:0] = [str(HERE), str(HERE.parent)]
 m51 = importlib.import_module("051_roc_prelick")
 m002 = importlib.import_module("002_trial_slopes")
-OUT = m51.WITHIN / "cd_psth"
+import os  # noqa: E402
+RAW = bool(os.environ.get("SSL_026_RAW"))                      # 2026-10-09: no z-scoring (as 026 raw); output cd_psth_raw
+OUT = m51.WITHIN / ("cd_psth_raw" if RAW else "cd_psth")
 WIN_T, BIN, SIG = (-0.400, 0.200), 0.010, 2.0
 EDGES = np.round(np.arange(WIN_T[0], WIN_T[1] + BIN / 2, BIN), 3)
 TC = (EDGES[:-1] + EDGES[1:]) / 2
@@ -64,6 +66,8 @@ def session(args):
     hold = np.full((len(y_idx), len(TC)), np.nan); pw = []
     for tr, te in StratifiedKFold(5, shuffle=True, random_state=seed).split(y_idx, y):     # as 026 cv_projection
         A = X[:, y_idx[tr]].T; mu, sd = A.mean(0), A.std(0); sd[sd == 0] = 1
+        if RAW:
+            sd = np.ones_like(sd)
         d = ((A[y[tr] == 1] - mu) / sd).mean(0) - ((A[y[tr] == 0] - mu) / sd).mean(0)
         u = d / max(np.linalg.norm(d), 1e-12)
         zt = lambda idx: np.einsum("uet,u->et", (P[:, idx] - mu[:, None, None]) / sd[:, None, None], u)

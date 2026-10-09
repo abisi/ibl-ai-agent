@@ -44,7 +44,8 @@ WIN, BASE, DZ = M135.WIN, M135.BASE, M135.DZ
 N_SHIFT, FRAC, MIN_CLASS, N_HALF, MIN_UNITS = 50, (0.10, 0.50), 10, 50, 20
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "30"))
 STAGE = os.environ.get("SSL_STAGE", "learning")             # 2026-10-08: SSL_STAGE=expert for the across-days port; suffix _expert
-OUT_P = EA / ("169_along_orthogonal.parquet" if STAGE == "learning" else f"169_along_orthogonal_{STAGE}.parquet")
+RAW = bool(os.environ.get("SSL_169_RAW"))                      # 2026-10-09: raw rates, no SD scaling; suffix _raw
+OUT_P = EA / (("169_along_orthogonal" if STAGE == "learning" else f"169_along_orthogonal_{STAGE}") + ("_raw" if RAW else "") + ".parquet")
 SET_IDS = {}
 
 
@@ -90,6 +91,8 @@ def process(args):
         r, b = T.sliding_bin_population_matrices(spikes, units, t0, np.ones(len(t0), bool), [WIN, BASE], dead_zone=DZ)
         X[e] = r - np.nanmean(b, 0, keepdims=True)
     mu, sd = X["active"].mean(0), X["active"].std(0); ok = sd > 1e-6
+    if RAW:
+        sd = np.ones_like(sd)
     if ok.sum() < MIN_UNITS:
         return []
     Z = {e: (v[:, ok] - mu[ok]) / sd[ok] for e, v in X.items()}

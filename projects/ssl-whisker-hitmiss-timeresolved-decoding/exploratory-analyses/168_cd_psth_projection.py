@@ -39,6 +39,8 @@ N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "30"))
 TAB = EA                                                      # sync_results.sh moves tables to the NAS tables/ and symlinks them
 STAGE = os.environ.get("SSL_STAGE", "learning")             # 2026-10-08: SSL_STAGE=expert for the across-days port; suffix _expert
 SFX = "" if STAGE == "learning" else f"_{STAGE}"
+RAW = bool(os.environ.get("SSL_168_RAW"))                      # 2026-10-09: raw rates, no SD scaling; suffix _raw
+SFX = SFX + ("_raw" if RAW else "")
 OUT_P, OUT_S = TAB / f"168_cd_psth_projection{SFX}.parquet", TAB / f"168_cd_psth_separation{SFX}.parquet"
 SET_IDS = {}
 
@@ -93,7 +95,7 @@ def process(args):
         sd = X["active"][:, m].std(0); ok = sd > 1e-6
         if ok.sum() < MIN_UNITS:
             continue
-        cols = np.where(m)[0][ok]; s_ = sd[ok]; N = len(cols)
+        cols = np.where(m)[0][ok]; s_ = np.ones(int(ok.sum())) if RAW else sd[ok]; N = len(cols)
         E = X["active"][:, cols] / s_
         Tr = {e: TR[e][:, :, cols] / s_ for e in TR}                   # time x trials x units
         rng = np.random.default_rng(zlib.crc32(f"{sid}|{area}|168".encode()))

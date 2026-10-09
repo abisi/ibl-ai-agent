@@ -69,7 +69,9 @@ EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
 COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
-PL = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/within_day/sl_stable/cd_shift_null")
+RAWV = bool(__import__("os").environ.get("SSL_165_RAW"))   # 2026-10-09: axes from raw rates (no z-scoring): 135 _raw, 168 / 169 _raw, 026 / 027 _raw
+RS = "_raw" if RAWV else ""
+PL = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/within_day/sl_stable/cd_shift_null" + RS)
 EV = {"W": "#f7b519", "A": "#2c2cdb", "WH": "#f7b519", "AH": "#2c2cdb", "SL": "#262626", "D": "#b07e00"}
 N_PERM_A, N_PERM_I = 2000, 10000
 import os  # noqa: E402
@@ -83,7 +85,7 @@ SHORT = {"Motor areas": "Motor", "Somatosensory-whisker": "S1 whisker", "Somatos
          "Hippocampus": "Hippocampus"}
 PSTH_AREA = os.environ.get("SSL_165_PSTH_AREA", "All units")
 PSFX = "_psth" + ("" if PSTH_AREA == "All units" else "_" + PSTH_AREA.split()[0].lower())
-PL_PSTH = PL.parent / "cd_psth" / "cd_psth_projection.parquet"
+PL_PSTH = PL.parent / ("cd_psth" + RS) / "cd_psth_projection.parquet"
 
 plt.rcParams.update({"svg.fonttype": "none", "pdf.fonttype": 42})
 Q1 = "Δ projection on hit − miss axis\n(post − pre, per neuron; real − shifted)"
@@ -343,7 +345,7 @@ def savefig(fig, path):
 
 # ---------------------------------------------------------------- data
 def load_hm():
-    A = pd.read_parquet(EA / "135_alignment_epochs_tracked_harm.parquet")
+    A = pd.read_parquet(EA / f"135_alignment_epochs_tracked_harm{RS}.parquet")
     A = A[A.skipped_reason.isna()]; A = A[H.mouse_of(A).isin(H.learners())].copy()
     A["cohort"] = A.reward_group
     for s_ in ("W", "A"):
@@ -407,7 +409,7 @@ def psth_panels(fig, spec, D, classes, win, xlab, lim):
 
 
 def hm_psth(fig, spec):
-    D = pd.read_parquet(EA / "168_cd_psth_projection.parquet")
+    D = pd.read_parquet(EA / f"168_cd_psth_projection{RS}.parquet")
     D = D[(D.area == PSTH_AREA) & H.mouse_of(D).isin(H.learners())].rename(columns={"reward_group": "cohort"})
     if "hm" in ROWSET:
         D = D[D.session_id.isin(ROWSET["hm"])]
@@ -433,7 +435,7 @@ def pl_psth(fig, spec):
 
 def load_angle():
     """per-session angle to the hit - miss axis (169), degrees; columns per stimulus: th_pre_, th_post_ (real, _null), q_th (real - shifted change)"""
-    P = pd.read_parquet(EA / "169_along_orthogonal.parquet"); P = P[H.mouse_of(P).isin(H.learners())].copy()
+    P = pd.read_parquet(EA / f"169_along_orthogonal{RS}.parquet"); P = P[H.mouse_of(P).isin(H.learners())].copy()
     if "hm" in ROWSET:
         P = P[P.session_id.isin(ROWSET["hm"])]
     th = lambda c: np.degrees(np.arccos(np.clip(c, -1, 1)))
@@ -491,7 +493,7 @@ def hm_row(fig, gs, r, A, Ex, Sh, s_, R, rng, AC, with_d=True, o=0):
         return
     if POLAR and s_ == "W":                                        # 169 / 171 polar views instead of the examples
         M171 = importlib.import_module("171_gain_rotation_views")
-        P = M171.M170.part_a(pd.read_parquet(EA / "169_along_orthogonal.parquet").pipe(lambda d: d[H.mouse_of(d).isin(H.learners())]))
+        P = M171.M170.part_a(pd.read_parquet(EA / f"169_along_orthogonal{RS}.parquet").pipe(lambda d: d[H.mouse_of(d).isin(H.learners())]))
         sub = gs[r, 1 + o].subgridspec(2, 1, hspace=0.35)
         for i_, c in enumerate(COH):
             axp = fig.add_subplot(sub[i_, 0])
@@ -531,10 +533,10 @@ def main():
     A, ExH = load_hm(); S, B, ExP = load_pl(); ShH = pd.read_csv(EA / "166_example_shifts.csv")
     # one session set per row: sessions with every whisker quantity of the row (shifted-label null needs >= 10 hits / misses after
     # shifting; the angle needs a cross-validated response size > 0); auditory lines use the same sessions where defined
-    G = pd.read_parquet(EA / "169_along_orthogonal.parquet")
+    G = pd.read_parquet(EA / f"169_along_orthogonal{RS}.parquet")
     hm = set(A[(A.area == "All units")].dropna(subset=["shift_null_pre_W_mean", "shift_null_post_W_mean"]).session_id)
     hm &= set(G[G.stim == "W"].dropna(subset=["cos_pre", "cos_post", "cos_pre_null", "cos_post_null"]).session_id)
-    hm &= set(pd.read_parquet(EA / "168_cd_psth_projection.parquet", columns=["session_id"]).session_id)
+    hm &= set(pd.read_parquet(EA / f"168_cd_psth_projection{RS}.parquet", columns=["session_id"]).session_id)
     ROWSET["hm"] = hm
     ROWSET["pl"] = set(S[S.area == "whole_brain"].session_id) & set(pd.read_parquet(PL_PSTH, columns=["session_id"]).session_id)
     A = A[A.session_id.isin(ROWSET["hm"])]; S = S[S.session_id.isin(ROWSET["pl"])]; B = B[B.session_id.isin(ROWSET["pl"])]
@@ -602,6 +604,7 @@ def main():
                 a_.set_box_aspect(1)
     fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=5 if COMPACT else 6)
     name = ("165_two_axes_compact" + ("_angle" if ANGLE else "_polar" if POLAR else "") + PSFX[5:]) if COMPACT else f"165_two_axes_figure{PSFX if PSTH else ''}"
+    name += RS
     for ext in ("svg", "pdf", "png"):
         savefig(fig, FIGDIR / f"{name}.{ext}")
     if PSTH:                                                       # the variants change only the main figure

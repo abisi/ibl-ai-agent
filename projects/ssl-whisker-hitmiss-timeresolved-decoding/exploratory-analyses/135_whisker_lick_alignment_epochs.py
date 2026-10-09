@@ -67,6 +67,10 @@ TAG = TAG + ("_anchor" if ANCHOR else "")
 # (shift_real_pre_W, shift_null_pre_W_mean, ...); outputs carry the suffix _harm.
 HARM = bool(os.environ.get("SSL_135_HARM"))
 TAG = TAG + ("_harm" if HARM else "")
+# 2026-10-09 (user: "without z-scoring the population vectors to construct the CD"): SSL_135_RAW=1 keeps the evoked rates in spikes/s
+# (no division by the unit SD; the class means are still differenced, so centring does not matter); suffix _raw.
+RAW = bool(os.environ.get("SSL_135_RAW"))
+TAG = TAG + ("_raw" if RAW else "")
 OUT_PATH = OUT / f"135_alignment_epochs{TAG}{STAGE_SFX}.parquet"
 SET_IDS = {}
 
@@ -223,6 +227,8 @@ def process(args):
         P = X["active"] if HARM else np.vstack(list(X.values()))
         mu, sd = P.mean(0), P.std(0)
         keep = sd > (1e-6 if HARM else 0)          # HARM: units silent in every active window have a float-residue SD (2026-10-08)
+        if RAW:
+            sd = np.ones_like(sd)                  # raw rates (spikes/s); the same units are kept
         if keep.sum() < MIN_UNITS:
             continue
         Z = {e: (v[:, keep] - mu[keep]) / sd[keep] for e, v in X.items()}

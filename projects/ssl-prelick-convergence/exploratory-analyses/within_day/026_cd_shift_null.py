@@ -32,7 +32,9 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path[:0] = [str(HERE), str(HERE.parent)]
 m51 = importlib.import_module("051_roc_prelick")
 m002 = importlib.import_module("002_trial_slopes")
-OUT = m51.WITHIN / "cd_shift_null"
+import os  # noqa: E402
+RAW = bool(os.environ.get("SSL_026_RAW"))                      # 2026-10-09: no z-scoring (units only centred); output cd_shift_null_raw
+OUT = m51.WITHIN / ("cd_shift_null_raw" if RAW else "cd_shift_null")
 N_SHIFT, FRAC, N_BINS = 50, (0.10, 0.50), 5           # 50 shifts (as 135; was 20 until 2026-10-08)
 EXAMPLES = ("AB138", "MH008")                                  # example sessions (learning day): per-trial projections saved
 # 2026-10-08 (user: "use representative examples"): when a previous sessions.csv exists, the examples are re-picked from it before the
@@ -49,6 +51,8 @@ def cv_projection(X, y_idx, y, w_idx, seed=0):
     ph = np.full(len(y_idx), np.nan)
     for tr, te in StratifiedKFold(5, shuffle=True, random_state=seed).split(y_idx, y):
         A = X[y_idx[tr]]; mu, sd = A.mean(0), A.std(0); sd[sd == 0] = 1
+        if RAW:
+            sd = np.ones_like(sd)
         z = lambda q: (q - mu) / sd
         d = z(A[y[tr] == 1]).mean(0) - z(A[y[tr] == 0]).mean(0)
         u = d / max(np.linalg.norm(d), 1e-12)
