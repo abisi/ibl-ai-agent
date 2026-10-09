@@ -50,3 +50,4 @@
 - 2026-10-08: 026 example sessions re-picked as representative (closest to the cohort mean excess, >= 20 WH, |null| < 0.03; SSL_026_EXAMPLES override).
 - 2026-10-08: 087 across days with the within-day metric definitions (026 folds / scaling; per-neuron WH - SL position on the unit-norm CD, lambda, cross-validated angle and length; cohort x stage mouse permutation); across_days/<ref>/harmonised/.
 - 2026-10-09: within_day 026 / 027 SSL_026_RAW=1: CD from centred but unscaled rates (no z-scoring); outputs cd_shift_null_raw, cd_psth_raw (examples AB147 / MH062 via SSL_026_EXAMPLES).
+- 2026-10-09: 088 COSYNE across days v2 (083 kept): example neurons (raster + PSTH), whisker-hit modulation index MI = (|WH - SL| - |WH - AH|) / (|WH - SL| + |WH - AH|) replaces AH-likeness (no class squares), class-square legend on the converging fraction, day-0 R+ vs R- brackets, population geometry / lambda / angle / length / per-area change from 087 (current CD definition).
