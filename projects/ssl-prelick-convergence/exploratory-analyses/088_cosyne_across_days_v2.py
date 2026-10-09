@@ -14,11 +14,11 @@ Row 2  b  first-lick-aligned population PSTHs, all tested neurons (as 083 a)
           m = the neuron's mean baseline-corrected pre-lick rate per event class ([-100, 0) ms before the first lick, 051);
           MI = +1: whisker hits evoke the auditory-hit response; -1: they evoke the spontaneous-lick response; 0: halfway
 Row 3 (current CD definition, 087: 026 folds, units z-scored over AH + SL, unit-norm axis, per neuron)
-       f  group geometry: SL at the origin, AH at (separation d_AS, 0), WH at (d_WS, sqrt(rho^2 - d_WS^2)); group means; day 0 open /
-          dashed, expert filled / solid
-       g  whisker-hit position lambda = d_WS / d_AS (0 = SL, 1 = AH)
+       f  session-mean projections of the three event classes on the CD (per neuron; 0 = mean of the AH + SL events), mean +- s.e.m.
+          over sessions; day 0 open, expert filled (2026-10-09: replaces the geometry plane and the 0-1 normalised lambda)
+       g  whisker hits relative to spontaneous licks on the CD, d_WS = p_WH - p_SL (per neuron), session means
        h  angle theta between WH - SL and the CD, and length rho of WH - SL (cross-validated, per neuron)
-       i  per area group: change of d_WS (expert - day 0), R+ and R-; * = BH q < 0.05 of the per-area cohort x stage interaction (mouse
+       i  per area group: change of d_WS (expert - day 0, learners rule), R+ and R-; * = BH q < 0.05 of the per-area cohort x stage interaction (mouse
           permutation); title: ANOVA d_WS ~ cohort x stage x area (cohort labels permuted across mice)
 Brackets (Mann-Whitney U): day 0 vs expert within cohort; R+ vs R- at day 0; R+ vs R- at expert. Titles: cohort x stage interaction
 (mouse-level permutation). Learners rule (day-0 sessions of non-learners dropped); unit = session.
@@ -118,6 +118,28 @@ def triangles(axs, P):
     axs[-1].set_xlabel("along the CD, SL → AH (per neuron)", fontsize=4.4)
 
 
+def proj_levels(ax, P):
+    """session-mean projection of each class on the CD, per cohort x stage"""
+    for c, (x0, x1) in {"R+": (0.0, 1.0), "R-": (2.4, 3.4)}.items():
+        for k, (cl, col) in enumerate((("SL", "p_SL"), ("AH", "p_AH"), ("WH", "p_WH"))):
+            key = "FA" if cl == "SL" else cl
+            mm, ee = [], []
+            for s_ in ("learning", "expert"):
+                v = P[(P.cohort == c) & (P.stage == s_)][col].dropna()
+                mm.append(v.mean()); ee.append(v.sem())
+            dx = (k - 1) * 0.12
+            ax.plot([x0 + dx, x1 + dx], mm, color=CL[key], lw=1.0)
+            for x, m_, e_, s_ in zip((x0 + dx, x1 + dx), mm, ee, ("learning", "expert")):
+                ax.errorbar(x, m_, e_, fmt="o", ms=3.2, color=CL[key], mfc="white" if s_ == "learning" else CL[key], lw=0.9, capsize=0)
+    ax.axhline(0, color="0.8", lw=0.5, ls=(0, (2, 2)))
+    ax.set_xticks([0, 1, 2.4, 3.4], ["D0", "E", "D0", "E"]); ax.set_xlim(-0.5, 3.9)
+    for x, c in [(0.5, "R+"), (2.9, "R-")]:
+        ax.annotate(c.replace("-", "−"), xy=(x, 0), xycoords=ax.get_xaxis_transform(), xytext=(0, -11), textcoords="offset points",
+                    ha="center", va="top", fontsize=5.5, color=COH[c], weight="bold")
+    ax.set_ylabel("session-mean projection on CD\n(per neuron)")
+    ax.set_title("Mean projection per event class\n(0 = mean of AH + SL events)", fontsize=5.2, pad=3)
+
+
 def small_panel(ax, P, col, ylab, rng, title):
     S = m62.group_stats(P, col, title, rng, f"088 {col}")
     for c, (x0, x1) in {"R+": (0.0, 0.6), "R-": (1.6, 2.2)}.items():
@@ -161,7 +183,7 @@ def area_panel(ax, PA, rows, rng):
     ax.set_yticks(y, [m83.m62_short(g) + (" *" if q_ < 0.05 else "") for g, q_ in zip(order, qv)], fontsize=4.6)
     for tl, g in zip(ax.get_yticklabels(), order):
         tl.set_color(gcol.get(g, "k"))
-    ax.set_xlabel("Δ WH position on CD, d_WS\n(expert − day 0, per neuron)", fontsize=5)
+    ax.set_xlabel("Δ WH − SL projection on CD\n(expert − day 0, per neuron)", fontsize=5)
     AN = m62.area_anova(LA, order, col="d_WS")
     rows.append(dict(panel="i ANOVA", **{f"{k} p_perm": v["p_perm"] for k, v in (AN or {}).items()}, n_areas=len(order)))
     ax.set_title(f"Per area: cohort × stage × area\n{m62.fmt_p(AN['cohort x stage x area']['p_perm'])}; * q < 0.05", fontsize=4.8, pad=2)
@@ -245,11 +267,9 @@ def main(a):
         ax = fig.add_subplot(gs[1, 3]); ax.set_box_aspect(1); letters.append(ax)
         mean_panel2(ax, S, "mi", "Whisker-hit modulation index MI\n(−1 SL-like … +1 AH-like)", rng, "088 mi", "Whisker hits like auditory hits", ref=0)
         # row 3: current CD definition
-        gf = gs[2, 0].subgridspec(2, 1, hspace=0.55)
-        axs_f = [fig.add_subplot(gf[i]) for i in range(2)]; triangles(axs_f, P); letters.append(axs_f[0])
-        cell_title(gs[2, 0], "Geometry on the reward-lick CD")
+        ax = fig.add_subplot(gs[2, 0]); ax.set_box_aspect(1); letters.append(ax); proj_levels(ax, P)
         ax = fig.add_subplot(gs[2, 1]); ax.set_box_aspect(1); letters.append(ax)
-        mean_panel2(ax, P, "lam", "WH position on CD, λ\n(0 = SL, 1 = AH)", rng, "088 lam", "WH move toward AH", ref=0)
+        mean_panel2(ax, P, "d_WS", "WH − SL projection on CD\n(per neuron)", rng, "088 d_WS", "WH move toward AH", ref=0)
         gh = gs[2, 2].subgridspec(1, 2, wspace=1.1)
         ah = [fig.add_subplot(gh[i]) for i in range(2)]
         small_panel(ah[0], P, "theta", "θ (°)", rng, "Angle θ")
