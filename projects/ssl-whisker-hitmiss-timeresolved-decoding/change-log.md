@@ -133,3 +133,4 @@
 - 2026-10-08: 165 compact: square subplots (except areas), wider column spacing, shorter tick labels, shorter reward-lick labels.
 - 2026-10-08: 165 compact: inch-based layout (gap columns / rows): every panel of a row has the same height, quantification squares 1.0 in, stacked examples fit the row height; 168 / 169 accept SSL_STAGE=expert (suffix _expert).
 - 2026-10-08: 173 COSYNE-style across-days figure with the harmonised metrics (hit - miss axis: angle pre / post and within-session change of angle and projection, day 0 vs expert; reward-lick CD (087): lambda, angle, length, per-area change; cohort x stage mouse permutation); 165 compact_grid takes h / widths.
+- 2026-10-09: 174 schematic of the linear-shift (shifted-label) control for both within-day axes (synthetic illustration).
