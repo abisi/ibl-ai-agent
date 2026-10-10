@@ -9,7 +9,7 @@ Row 1, hit - miss axis (passive whisker, within each session, as 165 / 169; 135 
   expert sessions need >= 10 licked and >= 10 unlicked whisker trials to build the axis: few at expert (R+ lick almost always, R-
   almost never), so the expert row is underpowered (n in the panels)
 Row 2, reward-lick CD (087: 026 folds / scaling, per neuron):
-  b  position of whisker hits between spontaneous licks (0) and auditory hits (1) on the CD, lambda, day 0 vs expert
+  b  whisker hits relative to spontaneous licks on the CD, d_WS = p_WH - p_SL (per neuron; no 0-1 scaling, 2026-10-10), day 0 vs expert
   c  angle theta between the whisker hit - spontaneous lick difference and the CD
   d  length rho of the whisker hit - spontaneous lick difference (per neuron, cross-validated)
   e  per area group: change of the native whisker-hit position d_WS (expert - day 0) per cohort, mean +- combined s.e.m.; * = BH q < 0.05
@@ -168,7 +168,7 @@ def main():
     angle_four(fig.add_subplot(gs[0, 1]), D)
     stage_lines(fig.add_subplot(gs[0, 2]), D, "q_th", "Δ angle θ to hit − miss axis\n(post − pre, °; real − shifted)", "hit-miss", ref=0)
     stage_lines(fig.add_subplot(gs[0, 3]), D, "shift_excess_dWP", "Δ projection on hit − miss axis\n(post − pre, per neuron; real − shifted)", "hit-miss", ref=0)
-    stage_lines(fig.add_subplot(gs[1, 1]), Pw, "lam", "WH position on reward-lick CD, λ\n(0 = spont. lick, 1 = auditory hit)", "reward-lick", ref=0)
+    stage_lines(fig.add_subplot(gs[1, 1]), Pw, "d_WS", "WH − SL projection on reward-lick CD\n(per neuron)", "reward-lick", ref=0)
     stage_lines(fig.add_subplot(gs[1, 2]), Pw, "theta", "angle θ between WH − SL\nand reward-lick CD (°)", "reward-lick")
     stage_lines(fig.add_subplot(gs[1, 3]), Pw, "rho_v", "length of WH − SL difference ρ\n(per neuron, cross-validated)", "reward-lick")
     area_change(fig.add_subplot(gs[1, 4]), P, AC)
