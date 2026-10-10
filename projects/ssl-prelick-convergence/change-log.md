@@ -54,3 +54,4 @@
 - 2026-10-09: 088: f = session-mean projections of WH / AH / SL on the CD (replaces the geometry plane), g = WH - SL projection (per neuron; replaces the 0-1 normalised lambda), i labelled as the change of the WH - SL projection.
 - 2026-10-10: 089 COSYNE across days v3 (083 / 088 kept): row 1 PSTHs, example converging non-sensory neuron, converging population PSTH, fraction of reward-lick neurons, converging fraction; row 2 schematic slot, CD projection time courses at both stages (027 SSL_027_ALLSTAGES=1), WH - SL projection, angle / length decomposition, per-area change; projections only, no 0-1 scaling.
 - 2026-10-10: 088 / 089: number of sessions under each group tick (D0 / E per cohort).
+- 2026-10-10: 090 exploratory RT adjustments of the reward-lick CD across days (WH / AH with RT >= 150 ms; WH vs AH RT-matched in 20-ms bins, 10 draws; spontaneous licks unchanged); across_days/<ref>/rt_adjusted/.
