@@ -57,3 +57,4 @@
 - 2026-10-10: 090 exploratory RT adjustments of the reward-lick CD across days (WH / AH with RT >= 150 ms; WH vs AH RT-matched in 20-ms bins, 10 draws; spontaneous licks unchanged); across_days/<ref>/rt_adjusted/.
 - 2026-10-10: 091 single-cell modality invariance (area-proportional Euler diagrams of converging / lick-gated / sensory; modality-invariant fraction, all and strictly non-sensory; converging-lick-gated overlap; bimodal sensory control); 092 time-resolved pre-lick ROC (50-ms windows, 5-ms stride, -500..+200 ms, reward-lick neurons + control sample); 093 its figure with selectivity onsets.
 - 2026-10-10: 094 time-resolved WH vs SL selectivity of reward-lick neurons selected on AH vs SL only (cohort-difference version of 093; windows -300..-100 and -100..0 ms, generalisation ratio).
+- 2026-10-10: 095 time-resolved selectivity with split spontaneous licks (selection on AH vs SL-A, permutation; measurement vs SL-B) to remove the shared-reference bias of 094.
