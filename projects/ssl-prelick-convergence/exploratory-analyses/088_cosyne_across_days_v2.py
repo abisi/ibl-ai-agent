@@ -88,9 +88,9 @@ def mean_panel2(ax, d, col, ylabel, rng, panel, title, ref=None):
             lab = m62.fmt_p(S[name][0]) + (" (D0)" if name.startswith("learning") else " (E)" if name.startswith("expert") else "")
             ax.text((x0 + x1) / 2, yb + 0.01 * r_, lab, ha="center", va="bottom", fontsize=4.5, color=c)
     ax.set_ylim(lo, hi + 0.72 * r_); ax.set_xlim(-0.5, 3.9)
-    ax.set_xticks([0, 1, 2.4, 3.4], ["D0", "E", "D0", "E"])
+    ax.set_xticks([0, 1, 2.4, 3.4], [f"{l}\n({S['n'][g]})" for l, g in zip(["D0", "E", "D0", "E"], GROUPS)], fontsize=4.6)   # n sessions
     for x, c in [(0.5, "R+"), (2.9, "R-")]:
-        ax.annotate(c.replace("-", "−"), xy=(x, 0), xycoords=ax.get_xaxis_transform(), xytext=(0, -11), textcoords="offset points",
+        ax.annotate(c.replace("-", "−"), xy=(x, 0), xycoords=ax.get_xaxis_transform(), xytext=(0, -17), textcoords="offset points",
                     ha="center", va="top", fontsize=5.5, color=COH[c], weight="bold")
     ax.set_ylabel(ylabel)
     ax.set_title(f"{title}\ncohort × stage {m62.fmt_p(S['interaction'][1])}", fontsize=5.2, pad=3)
@@ -150,7 +150,7 @@ def small_panel(ax, P, col, ylab, rng, title):
     p = lambda k: m62.fmt_p(S[k][0]) if k in S else "n/a"
     ax.set_title(f"{title}\nc×s {m62.fmt_p(S['interaction'][1])}\nD0 R+/R− {p('learning R+ vs R-')}\nE R+/R− {p('expert R+ vs R-')}",
                  fontsize=4.3, pad=2)
-    ax.set_xticks([0.3, 1.9], ["R+", "R−"], fontsize=4.8)
+    ax.set_xticks([0.3, 1.9], [f"{c.replace('-', '−')}\n({S['n'][(c, 'learning')]}/{S['n'][(c, 'expert')]})" for c in ("R+", "R-")], fontsize=4.4)
     for t, c in zip(ax.get_xticklabels(), ("R+", "R-")):
         t.set_color(COH[c])
     ax.set_xlim(-0.4, 2.6); ax.set_ylabel(ylab, fontsize=4.6); ax.tick_params(labelsize=4.4); ax.margins(y=0.15)
