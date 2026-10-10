@@ -135,3 +135,4 @@
 - 2026-10-08: 173 COSYNE-style across-days figure with the harmonised metrics (hit - miss axis: angle pre / post and within-session change of angle and projection, day 0 vs expert; reward-lick CD (087): lambda, angle, length, per-area change; cohort x stage mouse permutation); 165 compact_grid takes h / widths.
 - 2026-10-09: 174 schematic of the linear-shift (shifted-label) control for both within-day axes (synthetic illustration).
 - 2026-10-09: raw-rate variant (no z-scoring of the units before building the axes): 135 SSL_135_RAW, 168 SSL_168_RAW, 169 SSL_169_RAW (suffix _raw); 165 SSL_165_RAW=1 builds the figure from them (165_two_axes_compact_angle_raw).
+- 2026-10-10: 173 row 2 b: WH - SL projection per neuron (d_WS) instead of the 0-1 normalised lambda.
