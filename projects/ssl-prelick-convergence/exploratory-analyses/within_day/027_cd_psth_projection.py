@@ -29,6 +29,8 @@ m002 = importlib.import_module("002_trial_slopes")
 import os  # noqa: E402
 RAW = bool(os.environ.get("SSL_026_RAW"))                      # 2026-10-09: no z-scoring (as 026 raw); output cd_psth_raw
 OUT = m51.WITHIN / ("cd_psth_raw" if RAW else "cd_psth")
+ALLST = bool(os.environ.get("SSL_027_ALLSTAGES"))               # 2026-10-10: learning and expert sessions
+FNAME = "cd_psth_projection_allstages.parquet" if ALLST else "cd_psth_projection.parquet"
 WIN_T, BIN, SIG = (-0.400, 0.200), 0.010, 2.0
 EDGES = np.round(np.arange(WIN_T[0], WIN_T[1] + BIN / 2, BIN), 3)
 TC = (EDGES[:-1] + EDGES[1:]) / 2
@@ -42,7 +44,7 @@ def session(args):
     o = np.argsort(z["trial_start"], kind="stable")
     X, raw, lab = z["rates"].astype(float)[:, o], z["raw"].astype(float)[:, o], z["cls"][o]
     ev = (z["trial_start"].astype(float) + np.nan_to_num(z["rt"].astype(float)))[o]   # first lick (SL: the lick itself)
-    if meta["stage"] != "learning" or (lab == "WH").sum() < m002.MIN_WH or min((lab == c).sum() for c in ("AH", "FA")) < m002.MIN_EV:
+    if (meta["stage"] != "learning" and not ALLST) or (lab == "WH").sum() < m002.MIN_WH or min((lab == c).sum() for c in ("AH", "FA")) < m002.MIN_EV:
         return []
     K = pd.DataFrame(dict(electrode_group=z["electrode_group"].astype(str), cluster_id=z["cluster_id"].astype(str)))
     K = K.merge(W_s, on=["electrode_group", "cluster_id"], how="left")
@@ -87,7 +89,7 @@ def main(a):
     for i, r in enumerate(ss.itertuples()):
         f = r.file.parent / f"{r.mouse}_roc_prelick{m51.TAG}_trials.npz"
         Ws = W[W.session_id == r.session_id]
-        if f.exists() and (Ws.stage == "learning").any():
+        if f.exists() and (ALLST or (Ws.stage == "learning").any()):
             jobs.append((r.session_id, f, dict(session_id=r.session_id, mouse_id=Ws.mouse_id.iloc[0], cohort=Ws.cohort.iloc[0],
                                                stage=Ws.stage.iloc[0]), Ws[["electrode_group", "cluster_id", "quality_label"]], i))
     print(len(jobs), "sessions", flush=True)
@@ -95,8 +97,8 @@ def main(a):
     with mp.get_context("fork").Pool(a.n_proc) as pool:
         for r in pool.imap_unordered(session, jobs):
             rows += r
-    pd.DataFrame(rows).to_parquet(OUT / "cd_psth_projection.parquet", index=False)
-    print("ALL DONE", OUT / "cd_psth_projection.parquet")
+    pd.DataFrame(rows).to_parquet(OUT / FNAME, index=False)
+    print("ALL DONE", OUT / FNAME)
 
 
 if __name__ == "__main__":
