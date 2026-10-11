@@ -61,3 +61,4 @@
 - 2026-10-10: 096 COSYNE across days v4: row 1 example neuron, split-SL time-resolved selectivity (095), WH vs SL, generalisation ratio, session-level correlation of the ratio with the population WH - SL projection; row 2 as 089.
 - 2026-10-11: 097 whisker-hit PSTHs per area group (stimulus- and lick-aligned; pre-stimulus baseline for both; spk/s and baseline-SD standardised), day 0 vs expert per cohort with per-bin MWU + BH.
 - 2026-10-11: 098 lick-aligned PSTHs per area group, R+ / R- blocks: direct (WH, AH, SL), WH - AH and WH - SL within session; [-100, 0) ms window tests (stage MWU, cohort x stage permutation, BH over areas); baseline reference table.
+- 2026-10-11: 099 per-area PSTHs including whisker misses (stimulus-aligned WH / WM / AH and WH - WM; lick-aligned with misses at a pseudo-lick = stimulus + median WH RT); same pre-stimulus baseline for all classes.
