@@ -262,7 +262,7 @@ def figure(pop):
     # per-area / equalised results: single-session decoding with 20-unit draws (114; user 2026-10-11 "keep single-session decoding"),
     # replacing the equalised pseudo-population of the first version of this figure (pseudo-population code kept above, not plotted)
     m114 = importlib.import_module("114_ccgp_cue_sessions_equalised")
-    Q = flt(pd.read_parquet(m114.OUT / "sessions.parquet")); QS = m114.stats_table(Q, "ex", m62, rng)
+    Q = flt(pd.read_parquet(m114.OUT / f"sessions{m114.SFX}.parquet")); QS = m114.stats_table(Q, "ex", m62, rng)
     H = flt(pd.read_csv(m51.OUTROOT / "harmonised" / "sessions_areas.csv")); H = H[H.area == "whole_brain"][["session_id", "theta"]]
     W = W.merge(H, on="session_id", how="left"); W["cos_theta"] = np.cos(np.radians(W.theta))
     with plt.rc_context({"font.size": 5.2, "axes.labelsize": 5.2, "xtick.labelsize": 4.7, "ytick.labelsize": 4.7}):
@@ -352,10 +352,10 @@ def figure(pop):
         for tl, a in zip(ax.get_yticklabels(), order):
             tl.set_color(gcol.get(a, "k")); tl.set_weight("bold" if a == "Whole brain" else "normal")
         ax.set_xlabel(f"CCGP − shift null (session mean ± SEM; {m114.N_SUB} units × {m114.R_SUB} draws)")
-        ax.set_title("Areas ranked by generalisation (R+ expert; groups with ≥ 3 sessions)", fontsize=5.2)
+        ax.set_title("Areas ranked by generalisation (R+ expert; groups with ≥ 3 sessions)", fontsize=5.2, loc="left", pad=9)
         from matplotlib.lines import Line2D
         ax.legend([Line2D([], [], marker="o", ls="", color=COH[c], mfc=COH[c] if s == "expert" else "white", ms=3) for c, s in GROUPS],
-                  ["R+ day 0", "R+ expert", "R− day 0", "R− expert"], frameon=False, fontsize=4.2, loc="lower right", handletextpad=0.2, ncol=2)
+                  ["R+ day 0", "R+ expert", "R− day 0", "R− expert"], frameon=False, fontsize=4.2, loc="lower right", bbox_to_anchor=(1.0, 1.0), handletextpad=0.2, ncol=4, borderaxespad=0.1)
         for j, (ttl, a_, b_, test, col) in enumerate((("R+: expert − day 0", "R+ expert", "R+ learning", "D0vsE R+", COH["R+"]),
                                                       ("Expert: R+ − R−", "R+ expert", "R- expert", "RpvsRm expert", "0.2"))):
             ax = fig.add_subplot(gs[3, 3 + j]); L.append(ax)

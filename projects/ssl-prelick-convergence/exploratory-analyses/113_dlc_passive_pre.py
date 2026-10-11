@@ -176,7 +176,7 @@ def figure(pop):
         for a in axs[i]:
             a.set_ylim(*lim)
     fig.subplots_adjust(left=0.15, right=0.96, top=0.93, bottom=0.12)
-    for ext in ("png", "pdf"):
+    for ext in ("png", "pdf", "svg"):
         fig.savefig(OUT / f"dlc_passive_pre_{pop}.{ext}", dpi=300)
     print(D.groupby(["stim", "measure", "cohort", "stage"]).session_id.nunique().unstack([2, 3]))
 

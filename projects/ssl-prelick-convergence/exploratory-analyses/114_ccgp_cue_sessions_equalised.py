@@ -11,6 +11,7 @@ Statistics (session = unit): per area, day 0 vs expert within cohort (Mann-Whitn
 cohort x stage interaction (mouse-level permutation, 062 group_stats); BH over areas per test. Area inclusion within cohort: >= 3 sessions
 at both stages; R+ vs R- and the interaction only where both cohorts pass.
 Output: across_days/<ref>/ccgp_sessions_eq/{sessions.parquet, stats_<pop>.csv, ccgp_sessions_eq_<pop>.{png,pdf}}
+N_SUB from env SSL_114_NSUB (default 40); files carry the suffix _n<N>.
 Run (haas): OMP_NUM_THREADS=1 PRELICK_REF=sl PRELICK_UNITS=stable python .../114_ccgp_cue_sessions_equalised.py [--n-proc 25] [--replot]
 """
 import argparse
@@ -31,7 +32,11 @@ sys.path.insert(0, str(HERE))
 m111 = importlib.import_module("111_ccgp_cue_pub")
 m105, m51 = m111.m105, m111.m51
 OUT = m51.OUTROOT / "ccgp_sessions_eq"
-N_SUB, R_SUB, N_SHIFT, MIN_SESS = 20, 50, 10, 3
+import os
+N_SUB = int(os.environ.get("SSL_114_NSUB", 40))   # units per draw; 2026-10-11: 20 / 40 / 60 compared, 40 chosen (effects grow, SEM
+#   unchanged, nearly all sessions kept; 60 drops sessions in frontal, striatum, hippocampus)
+R_SUB, N_SHIFT, MIN_SESS = 50, 10, 3
+SFX = f"_n{N_SUB}"
 GROUPS = m111.GROUPS
 
 
@@ -74,7 +79,7 @@ def compute(n_proc):
     with mp.get_context("fork").Pool(n_proc) as pool:
         res = [x for r in pool.imap_unordered(session, [(f,) for f in files]) for x in r]
     meta = pd.read_csv(m105.OUT / "sessions.csv")[["session_id", "mouse_id", "cohort", "stage"]]
-    D = pd.DataFrame(res).merge(meta, on="session_id"); D.to_parquet(OUT / "sessions.parquet", index=False)
+    D = pd.DataFrame(res).merge(meta, on="session_id"); D.to_parquet(OUT / f"sessions{SFX}.parquet", index=False)
     print("computed", len(D), "session x area rows", flush=True)
 
 
@@ -120,8 +125,8 @@ def figure(pop):
     m88 = importlib.import_module("088_cosyne_across_days_v2"); m62, m61 = m88.m62, m88.m61; COH = m88.COH
     import ephys_utilities.allen_utils.allen_utils as au
     gcol = au.get_custom_area_groups_colors(); plt = m62.setup(); rng = np.random.default_rng(0)
-    D = pd.read_parquet(OUT / "sessions.parquet"); D = m61.learner_filter(D) if pop == "learners" else D
-    ST = pd.concat([stats_table(D, c, m62, rng) for c in ("ex", "psx")]); ST.to_csv(OUT / f"stats_{pop}.csv", index=False)
+    D = pd.read_parquet(OUT / f"sessions{SFX}.parquet"); D = m61.learner_filter(D) if pop == "learners" else D
+    ST = pd.concat([stats_table(D, c, m62, rng) for c in ("ex", "psx")]); ST.to_csv(OUT / f"stats_{pop}{SFX}.csv", index=False)
     S = ST[ST.measure == "ex"].copy()
     order = ["Whole brain"] + S[S.area != "Whole brain"].sort_values("R+ expert", ascending=False).area.tolist()
     star = lambda q: "***" if q < 0.001 else "**" if q < 0.01 else "*" if q < 0.05 else ""
@@ -173,8 +178,8 @@ def figure(pop):
         fig.axes[1].set_ylim(-0.7, len(order) - 0.3)
         fig.suptitle(f"Cross-modal cue CCGP per session with equalised neuron count ({N_SUB} units; {pop}); "
                      "stars: MWU, BH over areas (whole brain uncorrected)", x=0.01, ha="left", fontsize=6, weight="bold")
-        for ext in ("png", "pdf"):
-            fig.savefig(OUT / f"ccgp_sessions_eq_{pop}.{ext}", dpi=300)
+        for ext in ("png", "pdf", "svg"):
+            fig.savefig(OUT / f"ccgp_sessions_eq_{pop}{SFX}.{ext}", dpi=300)
     pd.set_option("display.width", 300)
     cols = ["area"] + [f"{c} {s}" for c, s in GROUPS] + [f"n {c} {s}" for c, s in GROUPS] + \
         ["p_MWU D0vsE R+", "q_MWU D0vsE R+", "p_Welch D0vsE R+", "p_MWU D0vsE R-", "q_MWU D0vsE R-", "p_MWU RpvsRm expert", "q_MWU RpvsRm expert",
