@@ -71,3 +71,4 @@
 - 2026-10-11: 107 per-session per-area decoding (>= 10 units; AH vs SL -> WH and WH vs SL -> AH at [-100, 0) ms before the lick, AH vs CR -> W in the 50-150 ms stimulus window; balanced accuracy and transfer relative to 20 label shuffles) + whole-brain time courses with day 0 / expert overlaid.
 - 2026-10-11: 105 also stores false alarms (FA); 108 CCGP for the stimulus (whisker / none) x lick design (WH, WM, FA, CR; 50-150 ms window), parallelism scores, whisker-lick decoder transfer to AH vs CR, within-condition accuracies, all relative to label-shuffle chance.
 - 2026-10-11: 109 cross-modal CCGP of the cued-lick code (train WH vs SL-A, test AH vs SL-B, and back; lick-aligned [-100, 0) ms; time course), parallelism with separate SL halves, within-modality accuracies; label-shuffle chance.
+- 2026-10-11: 110 cross-modal cue CCGP and parallelism per area group (per session, >= 10 units), ranked by R+ expert.
