@@ -259,7 +259,10 @@ def figure(pop):
         A[f"{k}_ex"] = A[k] - A[f"{k}_null"]
     W = A[A.area == "Whole brain"].copy()
     T = flt(pd.read_parquet(OUT / "timecourse.parquet")); E = flt(pd.read_parquet(OUT / "examples.parquet"))
-    P = pd.read_parquet(OUT / f"pseudopop_{pop}.parquet"); BS = boot_stats(P); BS.to_csv(OUT / f"pseudopop_stats_{pop}.csv", index=False)
+    # per-area / equalised results: single-session decoding with 20-unit draws (114; user 2026-10-11 "keep single-session decoding"),
+    # replacing the equalised pseudo-population of the first version of this figure (pseudo-population code kept above, not plotted)
+    m114 = importlib.import_module("114_ccgp_cue_sessions_equalised")
+    Q = flt(pd.read_parquet(m114.OUT / "sessions.parquet")); QS = m114.stats_table(Q, "ex", m62, rng)
     H = flt(pd.read_csv(m51.OUTROOT / "harmonised" / "sessions_areas.csv")); H = H[H.area == "whole_brain"][["session_id", "theta"]]
     W = W.merge(H, on="session_id", how="left"); W["cos_theta"] = np.cos(np.radians(W.theta))
     with plt.rc_context({"font.size": 5.2, "axes.labelsize": 5.2, "xtick.labelsize": 4.7, "ytick.labelsize": 4.7}):
@@ -326,49 +329,50 @@ def figure(pop):
         scat(ax, W, "cos_theta", "CCGP_ex", "cos θ (WH − SL vs CD; 087)", "CCGP − shift null", "Same trials")
         ax = fig.add_subplot(gs[2, 2]); ax.set_box_aspect(1); L.append(ax)
         scat(ax, W, "PS_h1", "CCGP_h2", "parallelism, trial half 1", "CCGP, trial half 2", "Independent trial halves")
-        ax = fig.add_subplot(gs[2, 3:5]); L.append(ax)
-        Pw = P[P.area == "Whole brain"].assign(ex=lambda q: q.CCGP - q.CCGP_null)
-        for i, (c, s) in enumerate(GROUPS):
-            v = Pw[(Pw.cohort == c) & (Pw.stage == s)].ex.to_numpy()
-            parts = ax.violinplot(v, positions=[i], widths=0.7, showextrema=False)
-            for pc in parts["bodies"]:
-                pc.set_facecolor(COH[c]); pc.set_alpha(0.35 if s == "learning" else 0.7)
-            ax.plot(i, np.median(v), "o", color="white", mec=COH[c], ms=3.5)
-        r = BS[BS.area == "Whole brain"].iloc[0]
-        ax.set_xticks(range(4), ["R+ D0", "R+ E", "R− D0", "R− E"]); ax.axhline(0, color="0.6", lw=0.5, ls=":")
-        ax.set_ylabel("CCGP − shift null")
-        ax.set_title(f"Equalised pseudo-population, whole brain ({N_SESS} sessions × {N_NEUR} neurons)\n"
-                     f"R+ E−D0 p = {r['R+ E-D0 p']:.3f}; E R+−R− p = {r['E R+-R- p']:.3f}; interaction p = {r['interaction p']:.3f}", fontsize=5)
-        # ---- row 4: pseudo-pop per area
-        order = ["Whole brain"] + BS[BS.area != "Whole brain"].sort_values("R+ expert", ascending=False).area.tolist()
+        Qw = Q[Q.area == "Whole brain"]
+        ax = fig.add_subplot(gs[2, 3]); ax.set_box_aspect(1); L.append(ax)
+        m88.mean_panel2(ax, Qw, "ex", "CCGP − shift null", rng, "112 eq CCGP", f"Equalised: {m114.N_SUB} units" + chr(10) + f"× {m114.R_SUB} draws per session", ref=0)
+        ax = fig.add_subplot(gs[2, 4]); ax.set_box_aspect(1); L.append(ax)
+        m88.mean_panel2(ax, Qw, "psx", "cosine − shift null", rng, "112 eq PS", f"Parallelism, {m114.N_SUB} units", ref=0)
+        # ---- row 4: per area, single sessions with equalised unit count (114)
+        S4 = QS.set_index("area")
+        order = ["Whole brain"] + S4.drop("Whole brain").sort_values("R+ expert", ascending=False).index.tolist()
         y = np.arange(len(order))[::-1]
         ax = fig.add_subplot(gs[3, 0:3]); L.append(ax)
         off = {GROUPS[0]: 0.27, GROUPS[1]: 0.09, GROUPS[2]: -0.09, GROUPS[3]: -0.27}
         for i, a in enumerate(order):
-            r = BS[BS.area == a].iloc[0]
+            r = S4.loc[a]
             for k in GROUPS:
                 key = f"{k[0]} {k[1]}"
-                ax.errorbar(r[key], y[i] + off[k], xerr=[[r[key] - r[f"{key} lo"]], [r[f"{key} hi"] - r[key]]], fmt="o", ms=2.6, color=COH[k[0]],
-                            mfc=COH[k[0]] if k[1] == "expert" else "white", lw=0.8, capsize=0)
+                if r[f"n {key}"] >= m114.MIN_SESS:
+                    ax.errorbar(r[key], y[i] + off[k], xerr=r[f"sem {key}"], fmt="o", ms=2.6, color=COH[k[0]],
+                                mfc=COH[k[0]] if k[1] == "expert" else "white", lw=0.8, capsize=0, mew=0.6)
         ax.axvline(0, color="0.6", lw=0.5); ax.axhline(len(order) - 1.5, color="0.85", lw=0.5)
         ax.set_yticks(y); ax.set_yticklabels([m88.m83.m62_short(a) for a in order], fontsize=4.8)
         for tl, a in zip(ax.get_yticklabels(), order):
             tl.set_color(gcol.get(a, "k")); tl.set_weight("bold" if a == "Whole brain" else "normal")
-        ax.set_xlabel(f"CCGP − shift null (equalised pseudo-population; median, 95 % CI)")
-        ax.set_title("Areas ranked by generalisation (R+ expert)", fontsize=5.2)
+        ax.set_xlabel(f"CCGP − shift null (session mean ± SEM; {m114.N_SUB} units × {m114.R_SUB} draws)")
+        ax.set_title("Areas ranked by generalisation (R+ expert; groups with ≥ 3 sessions)", fontsize=5.2)
         from matplotlib.lines import Line2D
         ax.legend([Line2D([], [], marker="o", ls="", color=COH[c], mfc=COH[c] if s == "expert" else "white", ms=3) for c, s in GROUPS],
-                  ["R+ day 0", "R+ expert", "R− day 0", "R− expert"], frameon=False, fontsize=4.2, loc="lower right", handletextpad=0.2)
-        for j, (name, ttl) in enumerate((("R+ E-D0", "R+: expert − day 0"), ("E R+-R-", "Expert: R+ − R−"))):
+                  ["R+ day 0", "R+ expert", "R− day 0", "R− expert"], frameon=False, fontsize=4.2, loc="lower right", handletextpad=0.2, ncol=2)
+        for j, (ttl, a_, b_, test, col) in enumerate((("R+: expert − day 0", "R+ expert", "R+ learning", "D0vsE R+", COH["R+"]),
+                                                      ("Expert: R+ − R−", "R+ expert", "R- expert", "RpvsRm expert", "0.2"))):
             ax = fig.add_subplot(gs[3, 3 + j]); L.append(ax)
             for i, a in enumerate(order):
-                r = BS[BS.area == a].iloc[0]; col = COH["R+"] if name.startswith("R+") else "0.2"
-                ax.errorbar(r[name], y[i], xerr=[[r[name] - r[f"{name} lo"]], [r[f"{name} hi"] - r[name]]], fmt="o", ms=2.6, color=col,
-                            mfc=col if r[f"{name} p"] < 0.05 else "white", lw=0.8, capsize=0)
-            ax.axvline(0, color="0.6", lw=0.5); ax.axhline(len(order) - 1.5, color="0.85", lw=0.5)
-            ax.set_yticks(y); ax.set_yticklabels([]); ax.set_xlabel("Δ CCGP (median, 95 % CI)"); ax.set_title(f"{ttl}\nfilled: bootstrap p < 0.05", fontsize=5)
+                r = S4.loc[a]; p_ = r.get(f"p_MWU {test}", np.nan)
+                if not np.isfinite(p_):
+                    continue
+                q_ = p_ if a == "Whole brain" else r.get(f"q_MWU {test}", np.nan)
+                dv, se = r[a_] - r[b_], np.hypot(r[f"sem {a_}"], r[f"sem {b_}"])
+                ax.errorbar(dv, y[i], xerr=se, fmt="o", ms=2.6, color=col, mfc=col if q_ < 0.05 else "white", lw=0.8, capsize=0, mew=0.6)
+                if p_ < 0.05 and not q_ < 0.05:
+                    ax.text(dv + se, y[i], " †", fontsize=5, va="center", color=col)
+            ax.axvline(0, color="0.6", lw=0.5); ax.axhline(len(order) - 1.5, color="0.85", lw=0.5); ax.set_ylim(L[-1 - j - 1].get_ylim() if j else L[-2].get_ylim())
+            ax.set_yticks(y); ax.set_yticklabels([]); ax.set_xlabel("Δ CCGP − shift null (± SEM)")
+            ax.set_title(f"{ttl}" + chr(10) + "filled q < 0.05 (BH), † p < 0.05", fontsize=5)
         m62.letter_row(fig, L[:4], "abcd", dx_in=0.26, dy_in=0.14); m62.letter_row(fig, L[4:9], "efghi", dx_in=0.26, dy_in=0.14)
-        m62.letter_row(fig, L[9:13], "jklm", dx_in=0.26, dy_in=0.14); m62.letter_row(fig, L[13:], "nop", dx_in=0.26, dy_in=0.14)
+        m62.letter_row(fig, L[9:14], "jklmn", dx_in=0.26, dy_in=0.14); m62.letter_row(fig, L[14:], "opq", dx_in=0.26, dy_in=0.14)
         fig.suptitle(f"Whisker licks join the auditory reward-lick code: cross-modal generalisation ({pop})", x=0.02, y=0.997, ha="left", fontsize=7, weight="bold")
         for ext in ("png", "pdf", "svg"):
             fig.savefig(OUT / f"ccgp_cue_pub2_{pop}.{ext}", dpi=300)
@@ -376,8 +380,8 @@ def figure(pop):
     pd.set_option("display.width", 260)
     print(St[["panel", "mean_R+ learning", "mean_R+ expert", "mean_R− learning", "mean_R− expert", "interaction_p_perm", "R+ L vs E p_MWU",
               "learning R+ vs R- p_MWU", "expert R+ vs R- p_MWU"]].round(4).to_string())
-    print(BS[["area", "R+ learning", "R+ expert", "R- learning", "R- expert", "R+ E-D0", "R+ E-D0 p", "D0 R+-R-", "D0 R+-R- p", "E R+-R-", "E R+-R- p",
-              "interaction", "interaction p"]].sort_values("R+ expert", ascending=False).round(3).to_string(index=False))
+    print(QS[["area", "R+ learning", "R+ expert", "R- learning", "R- expert", "p_MWU D0vsE R+", "q_MWU D0vsE R+", "p_MWU RpvsRm expert",
+              "p_Welch RpvsRm expert", "q_MWU RpvsRm expert", "p_int"]].round(3).to_string(index=False))
 
 
 def main(a):
