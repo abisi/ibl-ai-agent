@@ -59,3 +59,4 @@
 - 2026-10-10: 094 time-resolved WH vs SL selectivity of reward-lick neurons selected on AH vs SL only (cohort-difference version of 093; windows -300..-100 and -100..0 ms, generalisation ratio).
 - 2026-10-10: 095 time-resolved selectivity with split spontaneous licks (selection on AH vs SL-A, permutation; measurement vs SL-B) to remove the shared-reference bias of 094.
 - 2026-10-10: 096 COSYNE across days v4: row 1 example neuron, split-SL time-resolved selectivity (095), WH vs SL, generalisation ratio, session-level correlation of the ratio with the population WH - SL projection; row 2 as 089.
+- 2026-10-11: 097 whisker-hit PSTHs per area group (stimulus- and lick-aligned; pre-stimulus baseline for both; spk/s and baseline-SD standardised), day 0 vs expert per cohort with per-bin MWU + BH.
