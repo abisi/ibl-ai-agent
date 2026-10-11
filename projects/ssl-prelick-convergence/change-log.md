@@ -66,3 +66,4 @@
 - 2026-10-11: 099 also stores psth_z (Δ rate / across-trial SD of the pre-stimulus baseline, floor 0.5 Hz); 101 heatmaps of z-scored responses per area (WH / WM / AH stimulus-aligned, WH / AH / SL lick-aligned; four cohort x stage rows + expert - day 0 rows; learners / all).
 - 2026-10-11: 102 early stimulus-evoked responses in the active task (WH / WM / AH, hits with RT >= 100 ms, lick-masked z-scored PSTHs; early window 5-50 ms; forest plot of early WH, WH - WM, WH - AH changes across learning).
 - 2026-10-11: 087 z-scoring on the training folds (as within-day 026; rho keeps a label-free z) and rerun; 103 COSYNE across days v5 (no correlation panel; per-area converging-fraction panel; --pop learners / all).
+- 2026-10-11: 104 per-neuron cross-validated similarity index SI = (|s_WS| - |s_WA|) / (|s_WS| + |s_WA|) of the 095 reward-lick neurons (held-out SL-B), session mean and fraction SI > 0; COSYNE across days v6 = v5 with panel c = SI.
