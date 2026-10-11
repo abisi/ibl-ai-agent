@@ -10,10 +10,12 @@ DLC series (NWB processing/behavior/BehavioralTimeSeries, each with its own time
   tip likelihood ignored, near 0 in MH sessions); velocity recomputed as d(angle)/dt from the
   timestamps (deg/s; np.gradient), not taken from the stored per-frame velocity (that scales with the frame rate); |velocity| also kept
   jaw opening: jaw_distance (side camera), frames with jaw_likelihood < LIK masked; pixel scale differs between rigs (~15 vs ~470 px),
-  so the figure shows it divided by the session's 5-95 percentile range (raw px kept in traces.parquet)
+  but baseline-subtracted delta px is comparable (median auditory peak ~9 px AB vs ~25 px MH); the figure shows delta px, the version
+  divided by the session's 5-95 percentile range is kept in traces.parquet ("jaw opening (norm.)")
 Each trial is interpolated onto a common grid (GRID_DT = 5 ms, -0.5 .. +1.0 s from the stimulus; linear interpolation between valid
 frames, gaps > MAX_GAP left NaN) and baseline-corrected (mean over [-0.2, 0) s). Per session: mean over trials of the trial type (>= 3).
-Figure: rows |whisker velocity|, whisker velocity, jaw opening; columns whisker trials, auditory trials; day 0 dashed, expert solid; R+ green,
+Figure (compact, 2026-10-11): rows whisker speed |d angle/dt| (deg/s) and jaw opening (delta px; rigs differ ~2x in delta px, AB vs MH), columns
+  whisker / auditory x day 0 / expert, R+ and R- overlaid, session mean +- SEM, 25-ms boxcar for display. Older layout:
 R- magenta; mean +- s.e.m. over sessions. Per-session camera frame intervals saved and printed.
 Output: across_days/<ref>/dlc_passive_pre/{traces.parquet, sessions.csv, dlc_passive_pre_<pop>.{png,pdf}}
 Run (haas): PRELICK_REF=sl PRELICK_UNITS=stable python .../113_dlc_passive_pre.py [--n-proc 20] [--replot] [--pop learners]
@@ -134,45 +136,45 @@ def compute(n_proc):
 
 
 def figure(pop):
+    """compact figure (user 2026-10-11): rows |whisker velocity| (deg/s) and jaw opening (delta px); columns whisker / auditory x day 0 / expert;
+    R+ and R- overlaid; session mean +- SEM; display smoothing 25-ms boxcar"""
     m88 = importlib.import_module("088_cosyne_across_days_v2"); m62, m61 = m88.m62, m88.m61; COH = m88.COH
     plt = m62.setup()
     flt = m61.learner_filter if pop == "learners" else (lambda d: d)
     D = flt(pd.read_parquet(OUT / "traces.parquet")); S = pd.read_csv(OUT / "sessions.csv")
-    meas = ["|whisker velocity|", "whisker velocity", "jaw opening (norm.)"]; ylab = {"|whisker velocity|": "|Δ velocity| (°/s)", "whisker velocity": "Δ velocity (°/s)",
-                                                                              "jaw opening (norm.)": "Δ jaw distance (norm.)"}
-    fig, axs = plt.subplots(len(meas), 4, figsize=(7.2, 5.0), sharex=True)
-    tms = GRID * 1e3
-    for i, mz in enumerate(meas):
-        for j, (stim, coh) in enumerate((("whisker", "R+"), ("whisker", "R-"), ("auditory", "R+"), ("auditory", "R-"))):
+    meas = [("|whisker velocity|", "whisker speed (Δ°/s)"), ("jaw opening", "jaw opening (Δ px)")]
+    cols = [("whisker", "learning"), ("whisker", "expert"), ("auditory", "learning"), ("auditory", "expert")]
+    tms = GRID * 1e3; keep = (tms >= -200) & (tms <= 800); k = np.ones(5) / 5
+    sm = lambda x: np.convolve(np.nan_to_num(x), k, "same")
+    fig, axs = plt.subplots(2, 4, figsize=(5.6, 2.7), sharex=True, gridspec_kw=dict(wspace=0.35, hspace=0.35))
+    for i, (mz, yl) in enumerate(meas):
+        for j, (stim, st) in enumerate(cols):
             ax = axs[i, j]
-            for st, ls in (("learning", (0, (2.5, 1.5))), ("expert", "-")):
+            for coh in ("R+", "R-"):
                 d = D[(D.measure == mz) & (D.stim == stim) & (D.cohort == coh) & (D.stage == st)]
                 if not len(d):
                     continue
-                A = np.stack(d.trace.apply(np.asarray).to_numpy()); mu, se = np.nanmean(A, 0), np.nanstd(A, 0) / np.sqrt(np.isfinite(A).sum(0))
-                ax.fill_between(tms, mu - se, mu + se, color=COH[coh], alpha=0.15, lw=0)
-                ax.plot(tms, mu, color=COH[coh], ls=ls, lw=0.9, label=f"{'day 0' if st == 'learning' else 'expert'} ({len(d)})")
-            ax.axvline(0, color="0.4", lw=0.4, ls=":"); ax.axhline(0, color="0.85", lw=0.4); ax.set_box_aspect(0.8); ax.tick_params(labelsize=4.6)
+                A = np.stack(d.trace.apply(np.asarray).to_numpy()); A = np.stack([sm(a) for a in A])
+                mu, se = A.mean(0), A.std(0, ddof=1) / np.sqrt(len(A))
+                ax.fill_between(tms[keep], (mu - se)[keep], (mu + se)[keep], color=COH[coh], alpha=0.2, lw=0)
+                ax.plot(tms[keep], mu[keep], color=COH[coh], lw=0.9, label=f"{coh.replace('-', '−')} (n = {len(d)})")
+            ax.axvline(0, color="0.4", lw=0.4, ls=":"); ax.axhline(0, color="0.8", lw=0.4)
+            ax.tick_params(labelsize=4.8); ax.set_xticks([0, 400, 800]); ax.set_xlim(-200, 800)
             if i == 0:
-                ax.set_title(f"{stim} stimulus, {coh.replace('-', '−')}", fontsize=5.4, color=COH[coh])
+                ax.set_title(f"{stim} stim., {'day 0' if st == 'learning' else 'expert'}", fontsize=5.6)
             if j == 0:
-                ax.set_ylabel(ylab[mz], fontsize=5)
-            if i == len(meas) - 1:
+                ax.set_ylabel(yl, fontsize=5.2)
+            else:
+                ax.tick_params(labelleft=False)
+            if i == 1:
                 ax.set_xlabel("time from stimulus (ms)", fontsize=5)
-            ax.legend(frameon=False, fontsize=3.8, loc="upper right")
+            ax.legend(frameon=False, fontsize=4.0, loc="upper right", handlelength=1.0, borderaxespad=0.1)
         lim = (min(a.get_ylim()[0] for a in axs[i]), max(a.get_ylim()[1] for a in axs[i]))
         for a in axs[i]:
             a.set_ylim(*lim)
-    dts = S[["dt_whisker", "dt_jaw"]].dropna()
-    fr = lambda c: ", ".join(f"{1 / v:.0f} Hz ({(np.isclose(dts[c], v, rtol=0.05)).sum()})" for v in sorted(dts[c].round(4).unique()))
-    fig.suptitle(f"Passive-pre DLC: whisker velocity (d angle / dt from timestamps) and jaw opening, baseline −200–0 ms ({pop})\n"
-                 f"frame rates — whisker camera: {fr('dt_whisker')}; jaw camera: {fr('dt_jaw')} (sessions); all resampled to 5 ms", fontsize=5.4, y=0.995)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.subplots_adjust(left=0.1, right=0.99, top=0.9, bottom=0.14)
     for ext in ("png", "pdf"):
         fig.savefig(OUT / f"dlc_passive_pre_{pop}.{ext}", dpi=300)
-    print(S[["dt_whisker", "dt_jaw"]].round(4).value_counts().head(10)); print("errors:", S.get("error", pd.Series(dtype=object)).notna().sum())
-    print(S.flag_whisker.value_counts().to_string()); print(S.flag_jaw.value_counts().to_string())
-    print(S[S.flag_whisker.str.startswith("excluded") | S.flag_jaw.str.startswith("excluded")][["session_id", "flag_whisker", "flag_jaw"]].to_string())
     print(D.groupby(["stim", "measure", "cohort", "stage"]).session_id.nunique().unstack([2, 3]))
 
 
