@@ -49,8 +49,9 @@ BASE_PUPIL = (-0.5, 0.0)
 EXTRA = {"tongue out": None, "nose movement": BASE, "pupil area": BASE_PUPIL}
 
 
-def to_grid(t, v, events, base=BASE):
+def to_grid(t, v, events, base=BASE, grid=None):
     """t, v: series (NaN = invalid); events: stimulus times -> trials x grid (linear interpolation over valid frames, gaps > MAX_GAP NaN)"""
+    GRID = globals()["GRID"] if grid is None else grid
     ok = np.isfinite(v); t, v = t[ok], v[ok]
     out = np.full((len(events), len(GRID)), np.nan)
     if len(t) < 10:
@@ -72,8 +73,8 @@ def to_grid(t, v, events, base=BASE):
     return out - np.nanmean(out[:, b], 1, keepdims=True)
 
 
-def session(args):
-    sid, = args
+def load_series(sid):
+    """DLC series of a session (also used by 116): returns info, trials table, {measure: (timestamps, values)}; trials None on error"""
     from pynwb import NWBHDF5IO
     try:
         with NWBHDF5IO(str(m51.NWB / f"{sid}.nwb"), "r", load_namespaces=True) as io:
@@ -108,15 +109,11 @@ def session(args):
                 l_ = get(lk, tw)[1] if lk else None
                 ext[name] = (t_, d_, l_ if (l_ is not None and t_ is not None and len(l_) == len(t_)) else None)
     except Exception as e:  # noqa: BLE001
-        return dict(session_id=sid, error=repr(e)[:150]), []
+        return dict(session_id=sid, error=repr(e)[:150]), None, {}
     info = dict(session_id=sid, dt_whisker=float(np.median(np.diff(tw))) if tw is not None else np.nan,
                 dt_jaw=float(np.median(np.diff(tj))) if tj is not None else np.nan,
                 flag_whisker=flags.get("whisker_angle", "missing"), flag_jaw=flags.get("jaw_distance", "missing"))
-    act = tr[tr.context == "active"]
-    if act.empty or "context" not in tr:
-        return dict(info, error="no active"), []
-    pre = tr[(tr.context == "passive") & (tr.start_time < act.start_time.min())]
-    rows = []
+    info_setup = np.nan
     series = {}
     if tw is not None:
         a = wa.copy()
@@ -149,6 +146,20 @@ def session(args):
         if l_ is not None:
             a[l_ < LIK] = np.nan
         series["pupil area"] = (t_, a)
+    info["setup"] = info_setup if tj is not None else np.nan
+    return info, tr, series
+
+
+def session(args):
+    sid, = args
+    info, tr, series = load_series(sid)
+    if tr is None:
+        return info, []
+    act = tr[tr.context == "active"] if "context" in tr else tr.iloc[:0]
+    if act.empty:
+        return dict(info, error="no active"), []
+    pre = tr[(tr.context == "passive") & (tr.start_time < act.start_time.min())]
+    rows = []
     for ttype, col, lab in (("whisker_trial", "whisker_stim_time", "whisker"), ("auditory_trial", "auditory_stim_time", "auditory")):
         d = pre[pre.trial_type == ttype]
         if len(d) < MIN_TR:
@@ -163,7 +174,6 @@ def session(args):
             okt = np.isfinite(G).mean(1) > 0.5
             if okt.sum() >= MIN_TR:
                 rows.append(dict(session_id=sid, stim=lab, measure=k, n_trials=int(okt.sum()), trace=np.nanmean(G[okt], 0).tolist()))
-    info["setup"] = info_setup if tj is not None else np.nan
     info["n_pre_whisker"] = int((pre.trial_type == "whisker_trial").sum()); info["n_pre_auditory"] = int((pre.trial_type == "auditory_trial").sum())
     return info, rows
 
