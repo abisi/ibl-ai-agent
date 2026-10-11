@@ -268,9 +268,8 @@ def figure(pop):
         L = []
         # ---- row 1: schematic + definition, example sessions, within accuracies
         sa = gs[0, 0:2].subgridspec(1, 2, wspace=0.35); a1, a2 = fig.add_subplot(sa[0]), fig.add_subplot(sa[1]); schematic(a1, a2); L.append(a1)
-        fig.text(0.07, 0.715, "CCGP: train a decoder of cued vs spontaneous lick with one cue modality, test it with the other\n"
-                 "(and the reverse); CCGP = mean balanced accuracy; above chance = modality-invariant code",
-                 fontsize=4.6, color="0.25", va="top")
+        a1.text(0.0, -0.3, "CCGP: train a cued- vs spontaneous-lick decoder with one cue modality,\ntest it with the other (and the reverse); "
+                "CCGP = mean balanced accuracy;\nabove chance = a modality-invariant code", fontsize=4.3, color="0.25", va="top", transform=a1.transAxes)
         for j, coh in enumerate(("R+", "R-")):
             ax = fig.add_subplot(gs[0, 2 + j]); ax.set_box_aspect(1); L.append(ax)
             d = W[(W.cohort == coh) & (W.stage == "expert")]
@@ -291,7 +290,7 @@ def figure(pop):
                 v = WW[(WW.k == k) & (WW.cohort == c) & (WW.stage == s)].v
                 ax.errorbar(x + (i - 0.5) * 0.25, v.mean(), v.sem(), fmt=mk, ms=3, color=COH[c], mfc=COH[c] if s == "expert" else "white", capsize=0, lw=0.8)
         ax.set_xticks([0, 1, 2.4, 3.4], ["D0", "E", "D0", "E"]); ax.axhline(0, color="0.6", lw=0.5, ls=":")
-        ax.set_ylabel("CV bal. acc. − shift null"); ax.set_title("Within modality\n(circles WH vs SL, squares AH vs SL)", fontsize=5)
+        ax.set_ylabel("CV bal. acc. − shift null"); ax.set_title("Within modality\n(● WH vs SL, ■ AH vs SL)", fontsize=5)
         # ---- row 2: time courses per cohort with shift control, CCGP, directions
         for j, coh in enumerate(("R+", "R-")):
             ax = fig.add_subplot(gs[1, j]); ax.set_box_aspect(1); L.append(ax)
