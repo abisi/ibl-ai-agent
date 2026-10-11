@@ -44,13 +44,16 @@ def metrics(X, lab, seed):
     from sklearn.model_selection import StratifiedKFold
     y_idx = np.where(np.isin(lab, ["AH", "FA"]))[0]; y = (lab[y_idx] == "AH").astype(int); w_idx = np.where(lab == "WH")[0]
     A = X[:, y_idx].T; mu, sd = A.mean(0), A.std(0); sd[sd == 0] = 1
-    Z = ((X.T - mu) / sd)                                              # events x units, z over AH + SL (label-free)
+    Z = ((X.T - mu) / sd)                                              # events x units, z over AH + SL (label-free); used for rho only
     N = Z.shape[1]; sN = np.sqrt(N)
     hold = np.full(len(y_idx), np.nan); pw = []
     for tr, te in StratifiedKFold(5, shuffle=True, random_state=seed).split(y_idx, y):
-        d = Z[y_idx[tr][y[tr] == 1]].mean(0) - Z[y_idx[tr][y[tr] == 0]].mean(0)
+        # 2026-10-11: z-scoring on the training folds only, exactly as within-day 026 (was: over all AH + SL events)
+        At = X[:, y_idx[tr]].T; mf, sf = At.mean(0), At.std(0); sf[sf == 0] = 1
+        Zf = (X.T - mf) / sf
+        d = Zf[y_idx[tr][y[tr] == 1]].mean(0) - Zf[y_idx[tr][y[tr] == 0]].mean(0)
         u = d / max(np.linalg.norm(d), 1e-12)
-        hold[te] = Z[y_idx[te]] @ u; pw.append(Z[w_idx] @ u)
+        hold[te] = Zf[y_idx[te]] @ u; pw.append(Zf[w_idx] @ u)
     pAH, pSL, pWH = hold[y == 1].mean() / sN, hold[y == 0].mean() / sN, np.mean(pw, 0).mean() / sN
     a, b = hold[y == 1], hold[y == 0]; spd = np.sqrt(0.5 * (a.var(ddof=1) + b.var(ddof=1)))
     rng = np.random.default_rng(seed); ww, ss = Z[w_idx], Z[y_idx[y == 0]]; prod = []
