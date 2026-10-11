@@ -17,7 +17,7 @@ Statistics (173): per cohort day 0 vs expert Mann-Whitney U (legend; Welch t in 
 [E - L](R+) - [E - L](R-), cohort labels permuted across mice (10,000; a mouse keeps its sessions).
 Output: figures/publication/175_across_days_passive_projection.{svg,pdf,png} + tables 175_across_days_passive_projection_{stats,sessions}.csv
 Run (haas, repo root; after 135 with SSL_MIN_CLASS=2 SSL_135_UNITSET=tracked SSL_135_HARM=1 for SSL_STAGE=learning and expert):
-  python .../175_across_days_passive_projection.py
+  python .../175_across_days_passive_projection.py [v2]   (v2: the figure with 088 panels; run with the ssl-prelick-convergence env)
 """
 from __future__ import annotations
 
@@ -100,5 +100,33 @@ def main():
     print(D.groupby(["cohort", "stage"]).agg(n=("session_id", "nunique"), hits=("n_wh_licked", "median"), misses=("n_wh_unlicked", "median")))
 
 
+def figure2():
+    """v2 (user 2026-10-11 "plot all of that into a figure"): b-e as the ssl-prelick-convergence panels (088 mean_panel2): day 0 vs
+    expert per cohort, R+ vs R- at day 0 and at expert (Mann-Whitney), cohort x stage (mouse permutation), n per group; dashed: 0"""
+    sys.path.insert(0, str(EA.parents[1] / "ssl-prelick-convergence" / "exploratory-analyses"))
+    m88 = importlib.import_module("088_cosyne_across_days_v2"); m62 = m88.m62
+    D = load(); rng = np.random.default_rng(0)
+    plt_ = m62.setup()
+    with plt_.rc_context({"font.size": 5.4, "axes.labelsize": 5.4, "xtick.labelsize": 4.8, "ytick.labelsize": 4.8, "svg.fonttype": "none"}):
+        fig = plt_.figure(figsize=(7.2, 2.15))
+        gs = fig.add_gridspec(1, 5, width_ratios=[1.3, 1, 1, 1, 1], wspace=0.75, left=0.065, right=0.99, top=0.74, bottom=0.2)
+        ax = fig.add_subplot(gs[0, 0]); four(ax, D); ax.set_box_aspect(1); L = [ax]
+        for j, (q, yl, tt) in enumerate((("pre_W_ex", "projection, real − shifted", "Passive pre (whisker)"),
+                                         ("post_W_ex", "projection, real − shifted", "Passive post (whisker)"),
+                                         ("dW_ex", "post − pre, real − shifted", "Within session (whisker)"),
+                                         ("dA_ex", "post − pre, real − shifted", "Within session (auditory)"))):
+            ax = fig.add_subplot(gs[0, 1 + j]); ax.set_box_aspect(1); L.append(ax)
+            m88.mean_panel2(ax, D, q, yl, rng, f"175 {q}", tt, ref=0)
+        m62.letter_row(fig, L, "abcde", dx_in=0.26, dy_in=0.14)
+        fig.suptitle("Passive whisker responses on each session's hit − miss axis (5–35 ms; per neuron; learners)", x=0.01, y=0.995,
+                     ha="left", fontsize=6.4, weight="bold")
+        for ext in ("svg", "pdf", "png"):
+            fig.savefig(FIGDIR / f"175_across_days_passive_projection_v2.{ext}", dpi=300)
+    St = pd.DataFrame([r for r in m62.STATS if str(r.get("panel", "")).startswith("175")])
+    St.to_csv(EA / "175_across_days_passive_projection_v2_stats.csv", index=False)
+    pd.set_option("display.width", 250)
+    print(St[[c for c in St.columns if c.startswith(("panel", "mean_", "n_", "interaction", "R+ L", "R- L", "learning R", "expert R"))]].round(4).to_string())
+
+
 if __name__ == "__main__":
-    main()
+    figure2() if sys.argv[1:] == ["v2"] else main()

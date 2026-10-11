@@ -137,3 +137,4 @@
 - 2026-10-09: raw-rate variant (no z-scoring of the units before building the axes): 135 SSL_135_RAW, 168 SSL_168_RAW, 169 SSL_169_RAW (suffix _raw); 165 SSL_165_RAW=1 builds the figure from them (165_two_axes_compact_angle_raw).
 - 2026-10-10: 173 row 2 b: WH - SL projection per neuron (d_WS) instead of the 0-1 normalised lambda.
 - 2026-10-11: 175 hit - miss axis across days: 135 rerun with SSL_MIN_CLASS=2 (>= 4 hits and misses; tables *_min2_tracked_harm[_expert]), passive whisker pre / post projections and post - pre change (real - shifted) day 0 vs expert, auditory control.
+- 2026-10-11: 175 v2 figure (088 panels: day 0 vs expert, R+ vs R- per stage, interaction, n) for pre, post, post - pre whisker and auditory.
