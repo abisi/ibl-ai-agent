@@ -33,11 +33,11 @@ OUT = m51.OUTROOT / "area_psth_contrasts"
 MIN_UNITS = 5
 
 
-def load():
+def load(learners=True):
     st26 = importlib.import_module("026_roc_rates_all_sessions")
     U = pd.read_parquet(m81.OUT / "units.parquet")
     U["electrode_group"] = U.electrode_group.astype(str); U["cluster_id"] = U.cluster_id.astype(str)
-    U = m61.learner_filter(U)
+    U = m61.learner_filter(U) if learners else U
     ss = st26.all_sessions(); ss = ss[ss.session_id.isin(U.session_id.unique())]
     rows, edges = [], None
     for r in ss.itertuples():
