@@ -79,3 +79,4 @@
 - 2026-10-11: 112 main figure: equalised pseudo-population panels replaced by the single-session results of 114 (whole-brain CCGP and parallelism with 20-unit draws, per-area ranking with session mean +- SEM, R+ expert - day 0 and expert R+ - R- with MWU BH q and uncorrected p); pseudo-population code kept, not plotted.
 - 2026-10-11: 114 units per draw compared at 20 / 40 / 60; default now 40 (files suffixed _n<N>); 112 main figure uses N = 40; svg output for 112-114.
 - 2026-10-11: 113 adds nose speed (|d nose_angle/dt|), P(tongue out) (tongue likelihood >= 0.5) and pupil area (% of the [-0.5, 0) s baseline, shown to +2 s); figure 2 x 5 (stimulus x measure), -200..400 ms, y limits fitted to the data shown. 114 also run at N = 50.
+- 2026-10-11: 113 jaw opening in mm (session setup from joint_probe_insertion_info.xlsx, scripts/ssl_dlc_calibration.py, skill ssl-dlc-units); px trace kept.

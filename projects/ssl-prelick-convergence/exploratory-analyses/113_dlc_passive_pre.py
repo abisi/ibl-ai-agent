@@ -9,7 +9,9 @@ DLC series (NWB processing/behavior/BehavioralTimeSeries, each with its own time
   whisker angle (top camera): frames with whisker_base likelihood < LIK (0.5) masked (2026-10-11: 0.9 masked most frames, DLC likelihoods are low;
   tip likelihood ignored, near 0 in MH sessions); velocity recomputed as d(angle)/dt from the
   timestamps (deg/s; np.gradient), not taken from the stored per-frame velocity (that scales with the frame rate); |velocity| also kept
-  jaw opening: jaw_distance (side camera), frames with jaw_likelihood < LIK masked; pixel scale differs between rigs (~15 vs ~470 px),
+  jaw opening: jaw_distance (side camera), frames with jaw_likelihood < LIK masked; 2026-10-11: converted to mm with the session's
+  setup calibration (scripts/ssl_dlc_calibration.py, skills/ssl-dlc-units: setup 1 side 33.4 px/mm, setup 2 side 28.8 px/mm); the px
+  trace is kept as "jaw opening (px)"; pixel scale differs between rigs (~15 vs ~470 px),
   but baseline-subtracted delta px is comparable (median auditory peak ~9 px AB vs ~25 px MH); the figure shows delta px, the version
   divided by the session's 5-95 percentile range is kept in traces.parquet ("jaw opening (norm.)")
 Each trial is interpolated onto a common grid (GRID_DT = 5 ms, -0.5 .. +1.0 s from the stimulus; linear interpolation between valid
@@ -33,6 +35,8 @@ import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parents[2] / "scripts"))
+import ssl_dlc_calibration as cal  # noqa: E402  pixel -> mm per setup and camera (skills/ssl-dlc-units)
 m105 = importlib.import_module("105_trial_rates")
 m51 = m105.m51
 OUT = m51.OUTROOT / "dlc_passive_pre"
@@ -124,7 +128,11 @@ def session(args):
         d = jd.copy()
         if jl is not None:
             d[jl < LIK] = np.nan
-        series["jaw opening"] = (tj, d)
+        series["jaw opening (px)"] = (tj, d)
+        try:
+            series["jaw opening"] = (tj, cal.to_mm(d, sid, "jaw_distance")); info_setup = cal.setup_of(sid)
+        except (KeyError, FileNotFoundError):
+            info_setup = np.nan                                            # no setup -> no mm trace (session listed in sessions.csv)
         lo_, hi_ = np.nanpercentile(d, [5, 95]); series["jaw opening (norm.)"] = (tj, d / max(hi_ - lo_, 1e-9))
     t_, d_, _ = ext["tongue"]
     if t_ is not None:
@@ -155,6 +163,7 @@ def session(args):
             okt = np.isfinite(G).mean(1) > 0.5
             if okt.sum() >= MIN_TR:
                 rows.append(dict(session_id=sid, stim=lab, measure=k, n_trials=int(okt.sum()), trace=np.nanmean(G[okt], 0).tolist()))
+    info["setup"] = info_setup if tj is not None else np.nan
     info["n_pre_whisker"] = int((pre.trial_type == "whisker_trial").sum()); info["n_pre_auditory"] = int((pre.trial_type == "auditory_trial").sum())
     return info, rows
 
@@ -177,7 +186,7 @@ def figure(pop):
     flt = m61.learner_filter if pop == "learners" else (lambda d: d)
     D = flt(pd.read_parquet(OUT / "traces.parquet"))
     meas = [("|whisker velocity|", "whisker speed (Δ°/s)", 400), ("nose movement", "nose speed (Δ°/s)", 400),
-            ("jaw opening", "jaw opening (Δ px)", 400), ("tongue out", "P(tongue out)", 400), ("pupil area", "pupil area (Δ %)", 2000)]
+            ("jaw opening", "jaw opening (Δ mm)", 400), ("tongue out", "P(tongue out)", 400), ("pupil area", "pupil area (Δ %)", 2000)]
     rows = ["whisker", "auditory"]
     tms = GRID * 1e3; k = np.ones(5) / 5
     sm = lambda x: np.convolve(np.nan_to_num(x), k, "same")
