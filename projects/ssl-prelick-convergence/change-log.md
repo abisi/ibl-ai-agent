@@ -81,3 +81,4 @@
 - 2026-10-11: 113 adds nose speed (|d nose_angle/dt|), P(tongue out) (tongue likelihood >= 0.5) and pupil area (% of the [-0.5, 0) s baseline, shown to +2 s); figure 2 x 5 (stimulus x measure), -200..400 ms, y limits fitted to the data shown. 114 also run at N = 50.
 - 2026-10-11: 113 jaw opening in mm (session setup from joint_probe_insertion_info.xlsx, scripts/ssl_dlc_calibration.py, skill ssl-dlc-units); px trace kept.
 - 2026-10-12: 113 loader refactored (load_series, to_grid grid argument). 116 pre-lick kinematics of the CD events (105 lick_t: WH, AH corrected first lick, SL piezo bout onsets): jaw opening (mm, minus session median), P(tongue out), whisker and nose speed, -500..+200 ms; WH - AH and WH - SL in [-100, 0) ms with 088 panels.
+- 2026-10-12: 117 alignment of the stimulus-onset hit - miss axis and the pre-lick CD in the same neurons (cos, noise-corrected cos, cross-projections, linear-shift null).
