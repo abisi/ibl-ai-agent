@@ -122,6 +122,7 @@ def load_series(sid):
         vel = np.gradient(a, tw)                                       # deg/s from the timestamps
         series["whisker velocity"] = (tw, vel); series["|whisker velocity|"] = (tw, np.abs(vel))
     if tj is not None:
+        series["jaw distance raw"] = (tj, jd.copy())                     # unmasked px (jaw onset detection, 118)
         d = jd.copy()
         if jl is not None:
             d[jl < LIK] = np.nan

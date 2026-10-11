@@ -58,7 +58,10 @@ NWB = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/NWB_ks4")
 # the pre-trial baseline. Piezo and trial clocks are treated as in sync (user, 2026-10-02). RT variants are not
 # defined for spontaneous licks -> only the "all" variant is run.
 REF = os.environ.get("PRELICK_REF", "fa")
-TAG = "" if REF == "fa" else f"_{REF}"
+# event alignment (user 2026-10-12): "lick" = corrected first lick / spontaneous-lick onset (default); "jaw" = DLC jaw-opening onset
+# preceding each lick (118_jaw_onset_events.py writes the per-event files with the "_jaw" tag; results in <ref><units>_jaw/)
+ALIGN = os.environ.get("PRELICK_ALIGN", "lick")
+TAG = ("" if REF == "fa" else f"_{REF}") + ("" if ALIGN == "lick" else f"_{ALIGN}")
 HOME = RES / "ssl-prelick-convergence"   # project results home (2026-10-07; old _roc_prelick{,_sl} / _within_day_sl are symlinks)
 # unit set (user 2026-10-07): "all" = good + mua (results of 2026-10-07 and before, kept as records in <ref>/);
 # "stable" = good + mua passing the stability criteria of 137_stable_units (coverage >= 0.9, presence >= 0.5, no probe-drift
@@ -67,8 +70,9 @@ HOME = RES / "ssl-prelick-convergence"   # project results home (2026-10-07; old
 # quality_label filter keeps stable units only.
 UNITS = os.environ.get("PRELICK_UNITS", "all")
 USUF = "" if UNITS == "all" else f"_{UNITS}"
-OUTROOT = HOME / "across_days" / f"{REF}{USUF}"   # across-day analyses (Part I), per reference (sl / fa) and unit set
-WITHIN = HOME / "within_day" / f"{REF}{USUF}"     # within-day analyses (Part II), per reference and unit set
+ASUF = "" if ALIGN == "lick" else f"_{ALIGN}"
+OUTROOT = HOME / "across_days" / f"{REF}{USUF}{ASUF}"   # across-day analyses (Part I), per reference (sl / fa), unit set, alignment
+WITHIN = HOME / "within_day" / f"{REF}{USUF}{ASUF}"     # within-day analyses (Part II), per reference, unit set, alignment
 SL_GAP = 1.0
 THREE_CLASS = False         # three-class ROC removed from the analyses (user 2026-10-03)
 SL_BASE = (-1.0, -0.5)
