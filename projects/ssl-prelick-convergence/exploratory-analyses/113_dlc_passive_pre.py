@@ -34,6 +34,7 @@ sys.path.insert(0, str(HERE))
 m105 = importlib.import_module("105_trial_rates")
 m51 = m105.m51
 OUT = m51.OUTROOT / "dlc_passive_pre"
+GROUPS = [("R+", "learning"), ("R+", "expert"), ("R-", "learning"), ("R-", "expert")]
 LIK, GRID_DT, MAX_GAP, MIN_TR = 0.5, 0.005, 0.05, 3
 GRID = np.round(np.arange(-0.5, 1.0 + 1e-9, GRID_DT), 4)
 BASE = (-0.2, 0.0)
@@ -137,42 +138,44 @@ def compute(n_proc):
 
 def figure(pop):
     """compact figure (user 2026-10-11): rows |whisker velocity| (deg/s) and jaw opening (delta px); columns whisker / auditory x day 0 / expert;
-    R+ and R- overlaid; session mean +- SEM; display smoothing 25-ms boxcar"""
+    2026-10-11 later: 2 x 2 (whisker / auditory), cohorts and stages overlaid (day 0 dashed, expert solid);
+    session mean +- SEM; display smoothing 25-ms boxcar"""
     m88 = importlib.import_module("088_cosyne_across_days_v2"); m62, m61 = m88.m62, m88.m61; COH = m88.COH
     plt = m62.setup()
     flt = m61.learner_filter if pop == "learners" else (lambda d: d)
     D = flt(pd.read_parquet(OUT / "traces.parquet")); S = pd.read_csv(OUT / "sessions.csv")
     meas = [("|whisker velocity|", "whisker speed (Δ°/s)"), ("jaw opening", "jaw opening (Δ px)")]
-    cols = [("whisker", "learning"), ("whisker", "expert"), ("auditory", "learning"), ("auditory", "expert")]
+    cols = ["whisker", "auditory"]
     tms = GRID * 1e3; keep = (tms >= -200) & (tms <= 800); k = np.ones(5) / 5
     sm = lambda x: np.convolve(np.nan_to_num(x), k, "same")
-    fig, axs = plt.subplots(2, 4, figsize=(5.6, 2.7), sharex=True, gridspec_kw=dict(wspace=0.35, hspace=0.35))
+    fig, axs = plt.subplots(2, 2, figsize=(3.4, 3.0), sharex=True, gridspec_kw=dict(wspace=0.3, hspace=0.3))
     for i, (mz, yl) in enumerate(meas):
-        for j, (stim, st) in enumerate(cols):
+        for j, stim in enumerate(cols):
             ax = axs[i, j]
-            for coh in ("R+", "R-"):
+            for coh, st in GROUPS:
                 d = D[(D.measure == mz) & (D.stim == stim) & (D.cohort == coh) & (D.stage == st)]
                 if not len(d):
                     continue
                 A = np.stack(d.trace.apply(np.asarray).to_numpy()); A = np.stack([sm(a) for a in A])
                 mu, se = A.mean(0), A.std(0, ddof=1) / np.sqrt(len(A))
                 ax.fill_between(tms[keep], (mu - se)[keep], (mu + se)[keep], color=COH[coh], alpha=0.2, lw=0)
-                ax.plot(tms[keep], mu[keep], color=COH[coh], lw=0.9, label=f"{coh.replace('-', '−')} (n = {len(d)})")
+                ax.plot(tms[keep], mu[keep], color=COH[coh], lw=0.9, ls="-" if st == "expert" else (0, (2.5, 1.5)),
+                        label=f"{coh.replace('-', '−')} {'day 0' if st == 'learning' else 'expert'} ({len(d)})")
             ax.axvline(0, color="0.4", lw=0.4, ls=":"); ax.axhline(0, color="0.8", lw=0.4)
             ax.tick_params(labelsize=4.8); ax.set_xticks([0, 400, 800]); ax.set_xlim(-200, 800)
             if i == 0:
-                ax.set_title(f"{stim} stim., {'day 0' if st == 'learning' else 'expert'}", fontsize=5.6)
+                ax.set_title(f"{stim} stimulus", fontsize=5.6)
             if j == 0:
                 ax.set_ylabel(yl, fontsize=5.2)
             else:
                 ax.tick_params(labelleft=False)
             if i == 1:
                 ax.set_xlabel("time from stimulus (ms)", fontsize=5)
-            ax.legend(frameon=False, fontsize=4.0, loc="upper right", handlelength=1.0, borderaxespad=0.1)
+            ax.legend(frameon=False, fontsize=3.8, loc="upper right", handlelength=1.6, borderaxespad=0.1, labelspacing=0.2)
         lim = (min(a.get_ylim()[0] for a in axs[i]), max(a.get_ylim()[1] for a in axs[i]))
         for a in axs[i]:
             a.set_ylim(*lim)
-    fig.subplots_adjust(left=0.1, right=0.99, top=0.9, bottom=0.14)
+    fig.subplots_adjust(left=0.15, right=0.96, top=0.93, bottom=0.12)
     for ext in ("png", "pdf"):
         fig.savefig(OUT / f"dlc_passive_pre_{pop}.{ext}", dpi=300)
     print(D.groupby(["stim", "measure", "cohort", "stage"]).session_id.nunique().unstack([2, 3]))
