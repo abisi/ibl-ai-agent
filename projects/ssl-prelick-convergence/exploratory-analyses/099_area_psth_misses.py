@@ -31,6 +31,7 @@ m51 = importlib.import_module("051_roc_prelick")
 m81 = importlib.import_module("081_single_unit_classes")
 OUT = m51.OUTROOT / "area_psth_misses"
 BIN, MIN_UNITS, BASE = 0.010, 5, (-1.0, -0.015)
+SD_MIN = 0.5                                   # 2026-10-11: psth_z = Δ rate / across-trial SD of the unit's pre-stimulus baseline (floor 0.5 Hz)
 WINS = {"stim": (-0.2, 0.5), "lick": (-0.5, 0.3)}
 TWIN = {"stim": (50, 200), "lick": (-100, 0)}
 
@@ -56,17 +57,20 @@ def session(args):
     for ag, g in U.groupby("area_group"):
         if len(g) < MIN_UNITS:
             continue
-        acc = {(w, c): [] for w in WINS for c in cls}
+        acc = {(w, c): [] for w in WINS for c in cls}; accz = {(w, c): [] for w in WINS for c in cls}
         for r in g.itertuples():
             s = np.sort(np.asarray(r.spike_times))
             for c, m in cls.items():
-                b = ((np.searchsorted(s, st[m] + BASE[1]) - np.searchsorted(s, st[m] + BASE[0])) / (BASE[1] - BASE[0])).mean()
+                bt = (np.searchsorted(s, st[m] + BASE[1]) - np.searchsorted(s, st[m] + BASE[0])) / (BASE[1] - BASE[0])
+                b, sd = bt.mean(), max(bt.std(), SD_MIN)
                 for w, (lo, hi) in WINS.items():
                     ev = (st if w == "stim" else lk)[m]; edges = np.arange(lo, hi + BIN / 2, BIN)
                     H = np.array([np.histogram(s[np.searchsorted(s, e + lo):np.searchsorted(s, e + hi)] - e, edges)[0] for e in ev]) / BIN
-                    acc[(w, c)].append(np.convolve(H.mean(0), np.ones(3) / 3, "same")[1:-1] - b)
+                    v_ = np.convolve(H.mean(0), np.ones(3) / 3, "same")[1:-1] - b
+                    acc[(w, c)].append(v_); accz[(w, c)].append(v_ / sd)
         for (w, c), v in acc.items():
-            rows.append(dict(session_id=sid, area_group=ag, align=w, cls=c, n_units=len(g), n_trials=int(cls[c].sum()), psth=np.mean(v, 0).tolist()))
+            rows.append(dict(session_id=sid, area_group=ag, align=w, cls=c, n_units=len(g), n_trials=int(cls[c].sum()), psth=np.mean(v, 0).tolist(),
+                             psth_z=np.mean(accz[(w, c)], 0).tolist()))
     return rows
 
 
