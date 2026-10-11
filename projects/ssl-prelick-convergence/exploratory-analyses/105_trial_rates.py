@@ -1,7 +1,8 @@
 """105 -- Per-trial rate matrices for the convergence / divergence analyses of 106 (user 2026-10-11: go / no-go remapping, decoding
 transfer over time, subspace overlap). Compute only.
 Per session (051 active selection; tested units of 081, stable run), events:
-  W   all whisker trials (hits and misses; is_hit flag, RT), AH auditory hits, CR correct rejections (no-stimulus trials, no lick)
+  W   all whisker trials (hits and misses; is_hit flag, RT), AH auditory hits, CR correct rejections (no-stimulus trials, no lick),
+      FA false alarms (no-stimulus trials with a lick; added 2026-10-11)
   WH, AH, SL for the lick-aligned data (SL: 051 spontaneous licks, bout onsets outside trial windows within the analysed epoch)
 Rates minus the event's own baseline (stimulus-aligned / WH / AH: mean rate in [-1, -0.015] s before trial start; SL: [-1, -0.5] s before
 the lick, as 051), in spikes/s:
@@ -50,11 +51,12 @@ def session(args):
     rt = (t.lick_time - t.response_window_start_time).to_numpy(); lick = (t.lick_flag == 1).to_numpy() & np.isfinite(rt)
     tt = t.trial_type.to_numpy(); st = t.start_time.to_numpy()
     iw = np.where(tt == "whisker_trial")[0]; ia = np.where((tt == "auditory_trial") & lick)[0]; ic = np.where((tt == "no_stim_trial") & ~lick)[0]
+    ifa = np.where((tt == "no_stim_trial") & lick)[0]                                   # false alarms (2026-10-11, for CCGP 108)
     U = U.assign(electrode_group=U.electrode_group.astype(str), cluster_id=U.cluster_id.astype(str)).merge(units, on=["electrode_group", "cluster_id"], how="inner")
     if len(U) < 5 or min(len(iw), len(ia), len(ic)) < 5:
         return dict(session_id=sid, error="too few units / events")
     spk = [np.sort(np.asarray(s)) for s in U.spike_times]
-    stim_ev = np.r_[iw, ia, ic]; stim_lab = np.r_[np.full(len(iw), "W"), np.full(len(ia), "AH"), np.full(len(ic), "CR")]
+    stim_ev = np.r_[iw, ia, ic, ifa]; stim_lab = np.r_[np.full(len(iw), "W"), np.full(len(ia), "AH"), np.full(len(ic), "CR"), np.full(len(ifa), "FA")]
     s0 = st[stim_ev]; rts = np.where(lick[stim_ev], rt[stim_ev], np.inf)
     is_hit = lick[stim_ev] & (stim_lab == "W")
     wh = iw[lick[iw]]; fl_wh, fl_ah = st[wh] + rt[wh], st[ia] + rt[ia]
@@ -80,7 +82,7 @@ def session(args):
     np.savez_compressed(OUT / f"{sid}.npz", electrode_group=U.electrode_group.to_numpy(), cluster_id=U.cluster_id.to_numpy(),
                         area_group=U.area_group.to_numpy(), stim_lab=stim_lab, is_hit=is_hit, stim_rt=rts, stim_t=s0, stimwin=stimwin,
                         stimbins=stimbins, stim_c=STIM_C, lick_lab=lick_lab, lick_t=lick_ev, lickbins=lickbins, lick_c=LICK_C)
-    return dict(session_id=sid, n_units=nu, n_W=len(iw), n_WH=int(lick[iw].sum()), n_AH=len(ia), n_CR=len(ic), n_SL=len(sl))
+    return dict(session_id=sid, n_units=nu, n_W=len(iw), n_WH=int(lick[iw].sum()), n_AH=len(ia), n_CR=len(ic), n_FA=len(ifa), n_SL=len(sl))
 
 
 def main(a):
