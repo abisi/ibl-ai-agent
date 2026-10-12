@@ -193,7 +193,7 @@ def area_forest(ax, S, order, Q, xlab, title, rng, rows, panel, gcol):
     for tl, g in zip(ax.get_yticklabels(), order):
         tl.set_color(gcol.get(g, "k"))
     ax.set_xlabel(xlab, fontsize=4.8)
-    ax.set_title(f"{title}\nc × s: * q < 0.05, (*) p < 0.05; – < {MIN_SESS_AREA} sessions", fontsize=4.6, pad=2)
+    ax.set_title(f"{title}\nc × s: * q < 0.05, (*) p < 0.05; – n < {MIN_SESS_AREA}", fontsize=4.6, pad=2)
 
 
 def hm_insets(fig, spec, P, rows):
