@@ -85,7 +85,7 @@ def example_neuron(fig, spec, r, rng):
             "whisker hit": t_all.start_time[(t_all.trial_type == "whisker_trial") & lick].to_numpy(),
             "auditory hit": t_all.start_time[(t_all.trial_type == "auditory_trial") & lick].to_numpy()}
     lk = {"WH": t_l.first_lick_time[t_l.cls == "WH"].to_numpy(), "AH": t_l.first_lick_time[t_l.cls == "AH"].to_numpy(), "SL": sl}
-    colors = {"whisker miss": "0.6", "whisker hit": CL["WH"], "auditory hit": CL["AH"], "WH": CL["WH"], "AH": CL["AH"], "SL": CL["FA"]}
+    colors = {"whisker miss": "#8C510A", "whisker hit": CL["WH"], "auditory hit": CL["AH"], "WH": CL["WH"], "AH": CL["AH"], "SL": CL["FA"]}
     sub = spec.subgridspec(1, 2, wspace=0.15)
     axs = [fig.add_subplot(sub[0]), fig.add_subplot(sub[1])]
     top = 0
@@ -114,7 +114,7 @@ def pick_clean(Wc, n_cand=8):
     af, wf = "auditory_hit_vs_fa_prelick@all", "whisker_hit_vs_fa_prelick@all"
     G = Wc[(Wc.quality_label == "good")].copy()
     G["fr"] = G[f"fr_window:{af}"]; G["score"] = (G[f"sel:{af}"].abs() + G[f"sel:{wf}"].abs()) * np.log1p(G.fr)
-    C = G[G.conv.fillna(False) & (G.nclass == "non-sensory") & (G.cohort == "R+") & (G.stage == "expert") & (G.fr >= 5)].nlargest(n_cand, "score")
+    C = G[G.conv.fillna(False) & (G.nclass != "sensory") & (G.cohort == "R+") & (G.stage == "expert") & (G.fr >= 5)].nlargest(n_cand, "score")
     best, val = None, np.inf
     for r in C.itertuples():
         with NWBHDF5IO(str(m51.NWB / f"{r.session_id}.nwb"), "r", load_namespaces=True) as io:
@@ -171,7 +171,7 @@ def hm_insets(fig, spec, P, rows):
     for j, g in enumerate(GROUPS):
         ax = fig.add_subplot(sub[j // 2, j % 2]); ax.set_box_aspect(1); axs.append(ax)
         d = P[(P.cohort == g[0]) & (P.stage == g[1])]
-        for cl, col, lab in (("miss", "0.6", "miss"), ("hit", CL["WH"], "hit"), ("pre_W", "k", "passive pre")):
+        for cl, col, lab in (("miss", "#8C510A", "whisker miss"), ("hit", CL["WH"], "whisker hit"), ("post_W", "k", "passive post")):
             piv = d[d.cls == cl].pivot_table(index="session_id", columns="t", values="value")
             x = piv.columns.to_numpy() * 1e3; m, se = piv.mean(0).to_numpy(), piv.sem(0).to_numpy()
             ax.fill_between(x, m - se, m + se, color=col, alpha=0.2, lw=0); ax.plot(x, m, color=col, lw=0.9, label=lab)
@@ -225,6 +225,23 @@ def hm_area_post(ax, rng, rows, gcol):
                 "Per area: passive post (whisker)", rng, rows, "d", gcol)
 
 
+def level_stats(ax, P, rows):
+    """day 0 vs expert per cohort and event class (Mann-Whitney; Welch in the csv), written above the panel"""
+    from scipy import stats
+    g = lambda p: m62.fmt_p(p).replace("p ", "").replace("= ", "")
+    lines = []
+    for c in ("R+", "R-"):
+        parts = []
+        for cl, col in (("WH", "p_WH"), ("AH", "p_AH"), ("SL", "p_SL")):
+            a, b = (P[(P.cohort == c) & (P.stage == s_)][col].dropna() for s_ in ("learning", "expert"))
+            p, pw = stats.mannwhitneyu(a, b).pvalue, stats.ttest_ind(a, b, equal_var=False).pvalue
+            rows.append(dict(panel="l", cohort=c, cls=cl, n_day0=len(a), n_expert=len(b), mean_day0=a.mean(), mean_expert=b.mean(), p_MWU=p, p_Welch=pw))
+            parts.append(f"{cl} {g(p)}")
+        lines.append(f"{c.replace('-', '−')} D0→E: " + ", ".join(parts))
+    ax.set_title("Mean projection per event class", fontsize=5.0, pad=12)
+    ax.text(0.5, 1.01, chr(10).join(lines), transform=ax.transAxes, fontsize=3.8, ha="center", va="bottom", color="0.25")
+
+
 def au_order():
     import ephys_utilities.allen_utils.allen_utils as au
     return au.get_area_group_custom_order()
@@ -259,7 +276,7 @@ def main(a):
     if "area_group" not in U:
         U = U.merge(W[["session_id", "electrode_group", "cluster_id", "area_group"]].drop_duplicates(), on=["session_id", "electrode_group", "cluster_id"], how="left")
     agg = lambda m: U[m].groupby(["session_id", "mouse_id", "cohort", "stage"]).agg(mi=("mi", "mean"), n=("mi", "size")).reset_index().query(f"n >= {m81.MIN_CLASS}")
-    S_all = agg(U.rl & U.nclass.isin(m81.CLASSES)); S_ns = agg(U.rl & (U.nclass == "non-sensory"))
+    S_all = agg(U.rl & U.nclass.isin(m81.CLASSES)); S_ns = agg(U.rl & U.nclass.isin(m81.CLASSES) & (U.nclass != "sensory"))   # non-sensory = neither whisker- nor auditory-sensory (user 2026-10-12)
     PA = m61.learner_filter(pd.read_csv(m88.H087)); P = PA[PA.area == "whole_brain"]
     m89 = importlib.import_module("089_cosyne_across_days_v3")
     TP = m61.learner_filter(pd.read_parquet(m89.PROJ_T)); TP = TP[TP.session_id.isin(P.session_id)]
@@ -294,32 +311,18 @@ def main(a):
         ig[0].set_title(f"Non-sensory reward-lick neuron (R+ E, {ex.get('area_acronym_custom', ex.get('area_group', ''))}, MI = {ex.mi:+.2f})",
                         fontsize=4.8, loc="left", pad=3)
         rows.append(dict(panel="g", session_id=ex.session_id, electrode_group=ex.electrode_group, cluster_id=ex.cluster_id, mi=ex.mi))
-        sh = r2[2].subgridspec(1, 2, wspace=0.9); ah = [fig.add_subplot(sh[i]) for i in range(2)]
-        m88.small_panel(ah[0], S_all, "mi", "MI", rng, "All reward-lick")
-        m88.small_panel(ah[1], S_ns, "mi", "MI", rng, "Non-sensory reward-lick")
-        for x in ah:
-            x.axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
-        L2.append(ah[0])
-        bb = r2[2].get_position(fig)
-        fig.text((bb.x0 + bb.x1) / 2, bb.y0 - 0.045, "MI = (|WH − SL| − |WH − AH|) / (|WH − SL| + |WH − AH|)\n"
-                 "+1: WH like AH, −1: WH like SL (whisker-hit modulation index)", fontsize=4.0, ha="center", va="top")
-        si = r2[3].subgridspec(1, 2, wspace=0.08); ai = [fig.add_subplot(si[i]) for i in range(2)]
-        sc_area_change(ai[0], U, "mi", "Δ MI", "All reward-lick", rng, rows, "i all")
-        U_ns = U[U.nclass == "non-sensory"]
-        sc_area_change(ai[1], U_ns, "mi", "Δ MI", "Non-sensory", rng, rows, "i non-sensory")
-        ai[1].set_yticklabels([]); ai[1].set_ylim(ai[0].get_ylim()); L2.append(ai[0])
-        for x, t_ in zip(ai, ("All reward-lick", "Non-sensory")):
-            x.set_title(t_, fontsize=4.8, pad=2)
-        bi = r2[3].get_position(fig)
-        fig.text((bi.x0 + bi.x1) / 2 + 0.02, bi.y1 + 0.035, "Per area: Δ MI (expert − day 0)\ncohort × stage: * q < 0.05, (*) p < 0.05",
-                 fontsize=4.6, ha="center", va="bottom")
+        ax = fig.add_subplot(r2[2]); ax.set_box_aspect(1); L2.append(ax)
+        m88.mean_panel2(ax, S_ns, "mi", "MI (−1 SL-like … +1 AH-like)", rng, "119 mi ns",
+                        "Non-sensory reward-lick neurons\nMI = (|WH−SL| − |WH−AH|) / (|WH−SL| + |WH−AH|)", ref=0)
+        ax = fig.add_subplot(r2[3]); L2.append(ax)
+        sc_area_change(ax, U[U.nclass != "sensory"], "mi", "Δ MI (expert − day 0)", "Per area: non-sensory reward-lick neurons", rng, rows, "i")
         # row 3: reward-lick CD
         ax = fig.add_subplot(r3[0]); ax.axis("off"); L3.append(ax)
         ip = m89.proj_insets(fig, r3[1], TP, rows)
         for x in ip:
             x.set_box_aspect(1)
         L3.append(ip[0])
-        ax = fig.add_subplot(r3[2]); ax.set_box_aspect(1); m88.proj_levels(ax, P); L3.append(ax)
+        ax = fig.add_subplot(r3[2]); ax.set_box_aspect(1); m88.proj_levels(ax, P); L3.append(ax); level_stats(ax, P, rows)
         from matplotlib.lines import Line2D
         ax.legend([Line2D([], [], color=CL[k_], lw=1.2, marker="o", ms=2.4) for k_ in ("WH", "AH", "FA")], ["WH", "AH", "SL"], frameon=False,
                   fontsize=4.2, ncol=1, loc="center right", handlelength=1.2)
