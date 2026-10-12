@@ -164,11 +164,81 @@ def area_forest(ax, S, col, order, xlab, title, rng, rows, panel, gcol):
     ax.set_title(f"{title}\ncohort × stage: * q < 0.05, (*) p < 0.05", fontsize=4.8, pad=2)
 
 
+def hm_insets(fig, spec, P, rows):
+    """168 (min2): held-out active hits / misses and passive-pre whisker trials projected on the hit - miss axis over time"""
+    sub = spec.subgridspec(2, 2, hspace=0.45, wspace=0.15)
+    axs = []
+    for j, g in enumerate(GROUPS):
+        ax = fig.add_subplot(sub[j // 2, j % 2]); ax.set_box_aspect(1); axs.append(ax)
+        d = P[(P.cohort == g[0]) & (P.stage == g[1])]
+        for cl, col, lab in (("miss", "0.6", "miss"), ("hit", CL["WH"], "hit"), ("pre_W", "k", "passive pre")):
+            piv = d[d.cls == cl].pivot_table(index="session_id", columns="t", values="value")
+            x = piv.columns.to_numpy() * 1e3; m, se = piv.mean(0).to_numpy(), piv.sem(0).to_numpy()
+            ax.fill_between(x, m - se, m + se, color=col, alpha=0.2, lw=0); ax.plot(x, m, color=col, lw=0.9, label=lab)
+        ax.axvspan(5, 35, color="#C6DBEF", alpha=0.6, lw=0, zorder=0); ax.axvline(0, color="0.3", lw=0.5, ls=(0, (2, 2)))
+        ax.axhline(0, color="0.85", lw=0.4); ax.set_xlim(-50, 150); ax.set_xticks([0, 100]); ax.set_xticklabels(["0", "100"] if j >= 2 else [])
+        n = d.session_id.nunique(); ax.set_title(f"{m88.GLAB[g]} ({n})", color=COH[g[0]], fontsize=4.6, pad=1.5)
+        rows.append(dict(panel="hm psth", group=m88.GLAB[g], n_sessions=n))
+    yl = (min(a.get_ylim()[0] for a in axs), max(a.get_ylim()[1] for a in axs))
+    for j, a in enumerate(axs):
+        a.set_ylim(*yl); a.tick_params(labelsize=4.2)
+        if j % 2:
+            a.set_yticklabels([])
+    axs[0].set_ylabel("proj. on hit − miss", fontsize=4.6); axs[2].set_ylabel("proj. on hit − miss", fontsize=4.6)
+    axs[0].legend(frameon=False, fontsize=3.5, loc="upper left", handlelength=1.0, borderaxespad=0.05, labelspacing=0.1)
+    return axs
+
+
+def four_stats(D, k, rows):
+    """within cohort pre vs post (paired Wilcoxon), R+ vs R- at pre and at post (Mann-Whitney), per stage; real - shifted values"""
+    from scipy import stats
+    f = m62.fmt_p; out = {}
+    for c in ("R+", "R-"):
+        for s_ in ("learning", "expert"):
+            d = D[(D.cohort == c) & (D.stage == s_)][[f"pre_{k}_ex", f"post_{k}_ex"]].dropna()
+            p = stats.wilcoxon(d.iloc[:, 0], d.iloc[:, 1]).pvalue if len(d) >= 5 else np.nan
+            out[("pp", c, s_)] = p; rows.append(dict(panel=f"four {k}", test="pre vs post (paired Wilcoxon)", cohort=c, stage=s_, n=len(d), p=p))
+    for e in ("pre", "post"):
+        for s_ in ("learning", "expert"):
+            a, b = (D[(D.cohort == c) & (D.stage == s_)][f"{e}_{k}_ex"].dropna() for c in ("R+", "R-"))
+            p, pw = stats.mannwhitneyu(a, b).pvalue, stats.ttest_ind(a, b, equal_var=False).pvalue
+            out[(e, s_)] = p; rows.append(dict(panel=f"four {k}", test=f"R+ vs R- at {e}", stage=s_, p_MWU=p, p_Welch=pw))
+    st = lambda s_: "D0" if s_ == "learning" else "E"
+    g = lambda p: f(p).replace("p ", "").replace("= ", "")
+    l1 = "pre→post: " + " | ".join(f"{c.replace('-', '−')} " + " · ".join(f"{st(s_)} {g(out[('pp', c, s_)])}" for s_ in ("learning", "expert"))
+                                    for c in ("R+", "R-"))
+    l2 = "R+ vs R−: " + " | ".join(f"{e} " + " · ".join(f"{st(s_)} {g(out[(e, s_)])}" for s_ in ("learning", "expert")) for e in ("pre", "post"))
+    return l1, l2
+
+
+def hm_area_post(ax, rng, rows, gcol):
+    T = []
+    for st_, sfx in (("learning", ""), ("expert", "_expert")):
+        A = pd.read_parquet(m115.HM / f"135_alignment_epochs_min2_tracked_harm{sfx}.parquet")
+        A = A[A.skipped_reason.isna() & (A.area != "All units")].copy(); A["stage"] = st_; T.append(A)
+    A = pd.concat(T).rename(columns={"reward_group": "cohort"})
+    A["post_W_ex"] = A.shift_real_post_W - A.shift_null_post_W_mean
+    A = m61.learner_filter(A)
+    n = A.groupby(["area", "cohort", "stage"]).session_id.nunique().unstack([1, 2]).fillna(0)
+    order = [g for g in au_order() if g in n.index and all(n.loc[g].get(k, 0) >= 3 for k in GROUPS)]
+    area_forest(ax, A, "post_W_ex", order, "Δ passive-post whisker projection\n(real − shifted; expert − day 0)",
+                "Per area: passive post (whisker)", rng, rows, "d", gcol)
+
+
+def au_order():
+    import ephys_utilities.allen_utils.allen_utils as au
+    return au.get_area_group_custom_order()
+
+
 def main(a):
     import ephys_utilities.allen_utils.allen_utils as au
     gcol = au.get_custom_area_groups_colors()
     plt = m62.setup(); rng = np.random.default_rng(0); rows = []
     HMD = pd.read_csv(m115.HM / "175_across_days_passive_projection_sessions.csv")
+    HP = []
+    for st_, sfx in (("learning", ""), ("expert", "_expert")):
+        q = pd.read_parquet(m115.HM / f"168_cd_psth_projection{sfx}_min2.parquet"); q = q[q.area == "All units"].copy(); q["stage"] = st_; HP.append(q)
+    HP = pd.concat(HP).rename(columns={"reward_group": "cohort"}); HP = HP[HP.session_id.isin(HMD.session_id)]
     # single neurons (as 088 main)
     MI = m88.all_mi(a.n_proc)
     U0 = pd.read_parquet(m81.OUT / "units.parquet")
@@ -188,61 +258,89 @@ def main(a):
     U = m61.learner_filter(U0)
     if "area_group" not in U:
         U = U.merge(W[["session_id", "electrode_group", "cluster_id", "area_group"]].drop_duplicates(), on=["session_id", "electrode_group", "cluster_id"], how="left")
-    S = U[U.rl & U.nclass.isin(m81.CLASSES)].groupby(["session_id", "mouse_id", "cohort", "stage"]).agg(mi=("mi", "mean"), n=("mi", "size")).reset_index()
-    S = S[S.n >= m81.MIN_CLASS]
+    agg = lambda m: U[m].groupby(["session_id", "mouse_id", "cohort", "stage"]).agg(mi=("mi", "mean"), n=("mi", "size")).reset_index().query(f"n >= {m81.MIN_CLASS}")
+    S_all = agg(U.rl & U.nclass.isin(m81.CLASSES)); S_ns = agg(U.rl & (U.nclass == "non-sensory"))
     PA = m61.learner_filter(pd.read_csv(m88.H087)); P = PA[PA.area == "whole_brain"]
+    m89 = importlib.import_module("089_cosyne_across_days_v3")
+    TP = m61.learner_filter(pd.read_parquet(m89.PROJ_T)); TP = TP[TP.session_id.isin(P.session_id)]
     with plt.rc_context({"font.size": 5.2, "axes.titlesize": 5.2, "axes.labelsize": 5.0, "xtick.labelsize": 4.6, "ytick.labelsize": 4.6,
                          "legend.fontsize": 4.4, "svg.fonttype": "none"}):
-        fig = plt.figure(figsize=(m62.W_IN, m62.W_IN * 0.66))
-        G = fig.add_gridspec(3, 1, hspace=0.75, left=0.06, right=0.985, top=0.92, bottom=0.07)
-        r1 = G[0].subgridspec(1, 5, wspace=0.75); r2 = G[1].subgridspec(1, 4, wspace=0.55, width_ratios=[1.1, 1.3, 1, 1]); r3 = G[2].subgridspec(1, 5, wspace=0.75)
+        fig = plt.figure(figsize=(m62.W_IN, m62.W_IN * 0.72))
+        G = fig.add_gridspec(3, 1, hspace=0.8, left=0.055, right=0.985, top=0.92, bottom=0.075)
+        r1 = G[0].subgridspec(1, 5, wspace=0.7, width_ratios=[0.9, 1.15, 1, 1, 1.15])
+        r2 = G[1].subgridspec(1, 4, wspace=0.5, width_ratios=[1.1, 1.4, 1.2, 1.5])
+        r3 = G[2].subgridspec(1, 4, wspace=0.6, width_ratios=[0.9, 1.15, 1, 1.15])
         L1, L2, L3 = [], [], []
-        # row 1
-        ax = fig.add_subplot(r1[0]); ax.axis("off"); ax.set_box_aspect(1); L1.append(ax)
-        ax = fig.add_subplot(r1[1]); ax.set_box_aspect(1); four(ax, HMD, "W", "Passive whisker"); L1.append(ax)
-        ax = fig.add_subplot(r1[2]); ax.set_box_aspect(1); four(ax, HMD, "A", "Passive auditory"); L1.append(ax)
-        for j, (k, tt) in enumerate((("dW_ex", "Within session, whisker"), ("dA_ex", "Within session, auditory"))):
-            ax = fig.add_subplot(r1[3 + j]); ax.set_box_aspect(1); L1.append(ax)
-            m88.mean_panel2(ax, HMD, k, "post − pre, real − shifted", rng, f"119 {k}", tt, ref=0)
-        # row 2
+        # row 1: hit - miss axis
+        ax = fig.add_subplot(r1[0]); ax.axis("off"); L1.append(ax)
+        ia = hm_insets(fig, r1[1], HP, rows); L1.append(ia[0])
+        for j, (k, tt) in enumerate((("W", "Passive whisker"), ("A", "Passive auditory"))):
+            ax = fig.add_subplot(r1[2 + j]); ax.set_box_aspect(1); L1.append(ax)
+            four(ax, HMD, k, tt)
+            l1, l2 = four_stats(HMD, k, rows)
+            ax.set_title(f"{tt} (grey: shifted axes)", fontsize=5.0, pad=12)
+            ax.text(0.5, 1.01, f"{l1}\n{l2}", transform=ax.transAxes, fontsize=3.6, ha="center", va="bottom", color="0.25")
+        ax = fig.add_subplot(r1[4]); L1.append(ax); hm_area_post(ax, rng, rows, gcol)
+        # row 2: single neurons
         tested = (Wc["sig:auditory_hit_vs_fa_prelick@all"].notna() & Wc["sig:whisker_hit_vs_fa_prelick@all"].notna()).to_numpy()
-        ib = m83.psth_insets(fig, r2[0], Wc, PB, tc, tested, "f", rows); L2.append(ib[0])
+        ib = m83.psth_insets(fig, r2[0], Wc, PB, tc, tested, "f", rows)
+        for x in ib:
+            x.set_box_aspect(1)
+        L2.append(ib[0])
         ex = pick_clean(Wc)
-        ia = example_neuron(fig, r2[1], ex, rng); L2.append(ia[0])
-        ia[0].set_title(f"Non-sensory reward-lick neuron (R+ expert, {ex.get('area_acronym_custom', ex.get('area_group', ''))}, MI = {ex.mi:+.2f})",
-                        fontsize=5.0, loc="left", pad=3)
+        ig = example_neuron(fig, r2[1], ex, rng); L2.append(ig[0])
+        ig[0].axvspan(5, 35, color="#C6DBEF", alpha=0.7, lw=0, zorder=0)
+        ig[0].text(38, 0.03, "sensory window\n5–35 ms", transform=ig[0].get_xaxis_transform(), fontsize=3.4, ha="left", va="bottom", color="#3182BD")
+        ig[0].set_title(f"Non-sensory reward-lick neuron (R+ E, {ex.get('area_acronym_custom', ex.get('area_group', ''))}, MI = {ex.mi:+.2f})",
+                        fontsize=4.8, loc="left", pad=3)
         rows.append(dict(panel="g", session_id=ex.session_id, electrode_group=ex.electrode_group, cluster_id=ex.cluster_id, mi=ex.mi))
-        ax = fig.add_subplot(r2[2]); ax.set_box_aspect(1); L2.append(ax)
-        m88.mean_panel2(ax, S, "mi", "MI (−1 SL-like … +1 AH-like)", rng, "119 mi", "Whisker-hit modulation index\n(reward-lick neurons)", ref=0)
-        ax = fig.add_subplot(r2[3]); L2.append(ax)
-        sc_area_change(ax, U, "mi", "Δ MI (expert − day 0)", "Per area: modulation index", rng, rows, "i")
-        # row 3
-        ax = fig.add_subplot(r3[0]); ax.set_box_aspect(1); m115.panel_cd(ax); L3.append(ax)
-        ax = fig.add_subplot(r3[1]); ax.set_box_aspect(1); m88.proj_levels(ax, P); L3.append(ax)
-        ax = fig.add_subplot(r3[2]); ax.set_box_aspect(1); L3.append(ax)
-        m88.mean_panel2(ax, P, "theta", "θ (°)", rng, "119 theta", "Angle θ of WH − SL to the CD", ref=90)
+        sh = r2[2].subgridspec(1, 2, wspace=0.9); ah = [fig.add_subplot(sh[i]) for i in range(2)]
+        m88.small_panel(ah[0], S_all, "mi", "MI", rng, "All reward-lick")
+        m88.small_panel(ah[1], S_ns, "mi", "MI", rng, "Non-sensory reward-lick")
+        for x in ah:
+            x.axhline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
+        L2.append(ah[0])
+        bb = r2[2].get_position(fig)
+        fig.text((bb.x0 + bb.x1) / 2, bb.y0 - 0.045, "MI = (|WH − SL| − |WH − AH|) / (|WH − SL| + |WH − AH|)\n"
+                 "+1: WH like AH, −1: WH like SL (whisker-hit modulation index)", fontsize=4.0, ha="center", va="top")
+        si = r2[3].subgridspec(1, 2, wspace=0.08); ai = [fig.add_subplot(si[i]) for i in range(2)]
+        sc_area_change(ai[0], U, "mi", "Δ MI", "All reward-lick", rng, rows, "i all")
+        U_ns = U[U.nclass == "non-sensory"]
+        sc_area_change(ai[1], U_ns, "mi", "Δ MI", "Non-sensory", rng, rows, "i non-sensory")
+        ai[1].set_yticklabels([]); ai[1].set_ylim(ai[0].get_ylim()); L2.append(ai[0])
+        for x, t_ in zip(ai, ("All reward-lick", "Non-sensory")):
+            x.set_title(t_, fontsize=4.8, pad=2)
+        bi = r2[3].get_position(fig)
+        fig.text((bi.x0 + bi.x1) / 2 + 0.02, bi.y1 + 0.035, "Per area: Δ MI (expert − day 0)\ncohort × stage: * q < 0.05, (*) p < 0.05",
+                 fontsize=4.6, ha="center", va="bottom")
+        # row 3: reward-lick CD
+        ax = fig.add_subplot(r3[0]); ax.axis("off"); L3.append(ax)
+        ip = m89.proj_insets(fig, r3[1], TP, rows)
+        for x in ip:
+            x.set_box_aspect(1)
+        L3.append(ip[0])
+        ax = fig.add_subplot(r3[2]); ax.set_box_aspect(1); m88.proj_levels(ax, P); L3.append(ax)
+        from matplotlib.lines import Line2D
+        ax.legend([Line2D([], [], color=CL[k_], lw=1.2, marker="o", ms=2.4) for k_ in ("WH", "AH", "FA")], ["WH", "AH", "SL"], frameon=False,
+                  fontsize=4.2, ncol=1, loc="center right", handlelength=1.2)
         LA = PA[PA.area != "whole_brain"]
         Q = m62.area_qualify(LA.rename(columns={"area": "region"}), col="d_WS")
         order = [g for g in au.get_area_group_custom_order() if g in Q["R+"] and g in Q["R-"]]
-        for j, (col, xl, tt, pn) in enumerate((("d_WS", "Δ WH − SL projection (per neuron)", "Per area: WH position on the CD", "m"),
-                                              ("theta", "Δ θ (°)", "Per area: angle θ", "n"))):
-            ax = fig.add_subplot(r3[3 + j]); L3.append(ax)
-            area_forest(ax, LA, col, order, xl, tt, rng, rows, pn, gcol)
-        from matplotlib.lines import Line2D
-        L3[1].legend([Line2D([], [], color=CL[k_], lw=1.2, marker="o", ms=2.4) for k_ in ("WH", "AH", "FA")],
-                     ["WH", "AH", "SL"], frameon=False, fontsize=4.2, ncol=1, loc="center right", handlelength=1.2)
-        m62.letter_row(fig, L1, "abcde", dx_in=0.28, dy_in=0.16); m62.letter_row(fig, L2, "fghi", dx_in=0.28, dy_in=0.16)
-        m62.letter_row(fig, L3, "jklmn", dx_in=0.28, dy_in=0.16)
+        ax = fig.add_subplot(r3[3]); L3.append(ax)
+        area_forest(ax, LA, "d_WS", order, "Δ WH − SL projection on the CD\n(per neuron; expert − day 0)", "Per area: WH position on the CD", rng, rows, "m", gcol)
+        m62.letter_row(fig, L1, "abcde", dx_in=0.25, dy_in=0.16); m62.letter_row(fig, L2, "fghi", dx_in=0.25, dy_in=0.16)
+        m62.letter_row(fig, L3, "jklm", dx_in=0.25, dy_in=0.16)
         fig.suptitle("Reward learning routes the whisker stimulus to a go state and recruits whisker licks into the reward-lick code",
                      x=0.01, y=0.998, ha="left", va="top", fontsize=6.6, weight="bold")
         out = m51.OUTROOT / "publication" / "learners"; out.mkdir(parents=True, exist_ok=True)
         for ext in ("png", "pdf", "svg"):
             fig.savefig(out / f"COSYNE_three_rows.{ext}", dpi=300)
-    R = pd.DataFrame(rows + [r for r in m62.STATS if str(r.get("panel", "")).startswith("119")]); R.to_csv(out / "COSYNE_three_rows_stats.csv", index=False)
-    St = pd.DataFrame([r for r in m62.STATS if str(r.get("panel", "")).startswith("119") and "area" not in str(r.get("panel", ""))])
+    R = pd.DataFrame(rows + [r for r in m62.STATS if str(r.get("panel", "")).startswith(("119", "088 mi"))]); R.to_csv(out / "COSYNE_three_rows_stats.csv", index=False)
     pd.set_option("display.width", 250)
-    print(St[["panel", "mean_R+ learning", "mean_R+ expert", "mean_R− learning", "mean_R− expert", "n_R+ learning", "n_R+ expert", "n_R− learning", "n_R− expert",
-              "interaction_p_perm", "R+ L vs E p_MWU", "R- L vs E p_MWU", "learning R+ vs R- p_MWU", "expert R+ vs R- p_MWU"]].round(4).to_string())
+    print(pd.DataFrame([r for r in rows if str(r.get("panel", "")).startswith("four")]).round(4).to_string())
+    print(pd.DataFrame([r for r in m62.STATS if str(r.get("panel", "")).startswith("088 mi")])[["panel", "measure", "mean_R+ learning", "mean_R+ expert",
+          "mean_R− learning", "mean_R− expert", "interaction_p_perm", "R+ L vs E p_MWU", "expert R+ vs R- p_MWU"]].round(4).to_string()
+          if any(str(r.get("panel", "")).startswith("088 mi") for r in m62.STATS) else "")
     print(pd.DataFrame([r for r in rows if str(r.get("panel", "")).endswith(" q")]).round(4).to_string())
     print("ALL DONE", out / "COSYNE_three_rows.png")
 

@@ -34,13 +34,15 @@ M135 = importlib.import_module("135_whisker_lick_alignment_epochs")
 WIN, BASE, DZ = M135.WIN, M135.BASE, M135.DZ
 TS = np.round(np.arange(-0.100, 0.1901, 0.005), 3)          # window starts; 10-ms windows
 TC = TS + 0.005                                               # window centres
-N_SPLIT, MIN_UNITS, MIN_CLASS = 10, 5, 5
+N_SPLIT, MIN_UNITS = 10, 5
+MIN_CLASS = int(os.environ.get("SSL_MIN_CLASS", "5"))   # per half; 2026-10-12: 2 (>= 4 hits / misses) for the 175 / COSYNE session set
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "30"))
 TAB = EA                                                      # sync_results.sh moves tables to the NAS tables/ and symlinks them
 STAGE = os.environ.get("SSL_STAGE", "learning")             # 2026-10-08: SSL_STAGE=expert for the across-days port; suffix _expert
 SFX = "" if STAGE == "learning" else f"_{STAGE}"
 RAW = bool(os.environ.get("SSL_168_RAW"))                      # 2026-10-09: raw rates, no SD scaling; suffix _raw
 SFX = SFX + ("_raw" if RAW else "")
+SFX = SFX + ("" if MIN_CLASS == 5 else f"_min{MIN_CLASS}")
 OUT_P, OUT_S = TAB / f"168_cd_psth_projection{SFX}.parquet", TAB / f"168_cd_psth_separation{SFX}.parquet"
 SET_IDS = {}
 
