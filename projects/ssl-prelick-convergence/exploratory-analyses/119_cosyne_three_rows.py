@@ -360,6 +360,10 @@ def main(a):
                    f"R+ vs R− post {g_(o[('post', 'learning')])}/{g_(o[('post', 'expert')])}")
             ax.text(0.5, 1.12, txt, transform=ax.transAxes, fontsize=3.1, ha="center", va="bottom", color="0.25", linespacing=1.1)
         ac[0].set_ylabel("projection on hit − miss axis\n(per neuron)", fontsize=4.6)
+        yl = (min(a.get_ylim()[0] for a in ac), max(a.get_ylim()[1] for a in ac))   # same y scale for whisker and auditory (user 2026-10-12)
+        for a in ac:
+            a.set_ylim(*yl)
+        ac[1].tick_params(labelleft=False)
         fig.text((xs[2] + S / 2) / W_, (y0[0] + S) / H_ + 0.52 / H_, "Passive projections (grey: shifted axes); p: D0/E",
                  fontsize=4.6, ha="center", va="bottom")
         ax = fig.add_axes(box(3, 0)); L1.append(ax)
