@@ -130,7 +130,7 @@ def pick_clean(Wc, n_cand=8):
     return best
 
 
-MIN_SESS_AREA = 2   # sessions per cohort at both stages (2026-10-12: 3 -> 2, user)
+MIN_SESS_AREA = 3   # sessions per cohort at both stages (2026-10-12: 2 tried, back to 3, user)
 
 
 def area_data_e():
@@ -358,7 +358,7 @@ def main(a):
                     rng, rows, "m", gcol)
         m62.letter_row(fig, L1, "abcde", dx_in=0.25, dy_in=0.16); m62.letter_row(fig, L2, "fghi", dx_in=0.25, dy_in=0.16)
         m62.letter_row(fig, L3, "jklm", dx_in=0.25, dy_in=0.16)
-        fig.suptitle("Reward learning routes whisker input into the reward-lick code",
+        fig.suptitle("Whisker-related activity shifts toward the reward-lick code with learning",
                      x=0.01, y=0.998, ha="left", va="top", fontsize=6.6, weight="bold")
         out = m51.OUTROOT / "publication" / "learners"; out.mkdir(parents=True, exist_ok=True)
         for ext in ("png", "pdf", "svg"):
