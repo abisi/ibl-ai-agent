@@ -50,7 +50,8 @@ def bh(p):
     return q
 
 
-def four(ax, D, k, title, show_x=True):
+def four(ax, D, k, title, show_x=True, show_n=None):
+    show_n = show_x if show_n is None else show_n
     xs = [0, 1, 2.4, 3.4]
     for j, c in enumerate(("R+", "R-")):
         for i, s_ in enumerate(("learning", "expert")):
@@ -58,13 +59,13 @@ def four(ax, D, k, title, show_x=True):
             for kind, col, ls in (("null", GREY, (0, (2, 1.5))), ("real", COH[c], "-")):
                 v = d[[f"pre_{k}_{kind}", f"post_{k}_{kind}"]]
                 ax.errorbar(x, v.mean(), v.sem(), fmt="o", ls=ls, ms=2.6, color=col, lw=1.0, capsize=0, mfc=col if s_ == "expert" else "white", mew=0.7)
-            if show_x:
-                ax.text(xs[2 * i] + 0.5, 0.92 - 0.12 * j, f"n = {len(d)}", color=COH[c], fontsize=3.8, ha="center", transform=ax.get_xaxis_transform())
+            if show_n:
+                ax.text(xs[2 * i] + 0.5, 0.94 - 0.07 * j, f"n = {len(d)}", color=COH[c], fontsize=3.8, ha="center", transform=ax.get_xaxis_transform())
     ax.axhline(0, color="0.6", lw=0.5, ls=":")
-    ax.set_xticks(xs, ["pre", "post", "pre", "post"] if show_x else [], fontsize=4.4)
+    ax.set_xticks(xs, ["pre", "post", "pre", "post"] if show_x else [], fontsize=3.9, rotation=90)
     if show_x:
         for x0, s_ in ((0.5, "day 0"), (2.9, "expert")):
-            ax.text(x0, -0.42, s_, ha="center", fontsize=4.6, transform=ax.get_xaxis_transform())
+            ax.text(x0, -0.2, s_, ha="center", fontsize=4.2, transform=ax.get_xaxis_transform())
     ax.set_title(title, fontsize=5.0, loc="left", pad=2)
 
 
@@ -200,7 +201,7 @@ def area_forest(ax, S, order, Q, xlab, title, rng, rows, panel, gcol):
     qv = bh(pv)
     for i, p_, q_ in zip(tested, pv, qv):
         rows.append(dict(panel=f"{panel} q", area=order[i], p_perm=p_, q_BH=q_))
-        mk = "*" if q_ < 0.05 else ("(*)" if p_ < 0.05 else "")
+        mk = "*" if q_ < 0.05 else ""                                   # post hoc: per-area cohort x stage, BH over areas
         if mk:
             ax.text(0.99, y[i], mk, transform=ax.get_yaxis_transform(), fontsize=5.5, va="center", ha="right", weight="bold")
     ax.axvline(0, color="0.6", lw=0.5); ax.set_ylim(-0.6, len(order) - 0.4)
@@ -208,7 +209,14 @@ def area_forest(ax, S, order, Q, xlab, title, rng, rows, panel, gcol):
     for tl, g in zip(ax.get_yticklabels(), order):
         tl.set_color(gcol.get(g, "k"))
     ax.set_xlabel(xlab, fontsize=4.8)
-    ax.set_title(f"{title}\nc × s: * q < 0.05, (*) p < 0.05; n ≥ {MIN_SESS_AREA}", fontsize=4.6, pad=2)
+    # omnibus (user 2026-10-12): v ~ cohort x stage x area (type II OLS), p by permuting cohort labels across mice (1,000);
+    # post hoc per area only as stars (cohort x stage, mouse permutation, BH q < 0.05)
+    AN = m62.area_anova(S[S.area.isin(order)].rename(columns={"area": "region"}), order, col="v", n_perm=1000) or {}
+    fp = lambda k: m62.fmt_p(AN[k]["p_perm"]) if k in AN else "n/a"
+    rows.append(dict(panel=f"{panel} ANOVA", n_areas=len(order), **{f"{k} p_perm": v["p_perm"] for k, v in AN.items()},
+                     **{f"{k} F": v["F"] for k, v in AN.items()}))
+    ax.set_title(f"{title}\nANOVA: cohort × stage {fp('cohort x stage')}\n× area {fp('cohort x stage x area')}; * post hoc q < 0.05",
+                 fontsize=4.4, pad=2)
 
 
 def hm_insets(fig, spec, P, rows):
@@ -329,7 +337,7 @@ def main(a):
         # 3 x 4 grid of equal square cells (user 2026-10-12); cells b, e, j: 2 x 2 insets; c, f: two stacked subpanels;
         # column 4 (area panels) has extra room A on its left for the area names
         S, GAP, L0, A, TOP, B = 1.2, 0.5, 0.45, 0.6, 0.15, 0.42
-        T = [0.45, 0.62, 0.42]                                               # space above each row
+        T = [0.72, 0.62, 0.55]                                               # space above each row
         xs = [L0 + c * (S + GAP) for c in range(3)] + [L0 + 2 * (S + GAP) + S + GAP + A]
         W_ = xs[3] + S + 0.1
         H_ = TOP + sum(T) + 3 * S + 3 * B
@@ -342,16 +350,17 @@ def main(a):
         # row 1: hit - miss axis
         ax = fig.add_axes(box(0, 0)); ax.axis("off"); L1.append(ax)
         ia = hm_insets(fig, spec(1, 0), HP, rows); L1.append(ia[0])
-        sc = spec(2, 0).subgridspec(2, 1, hspace=0.75); ac = [fig.add_subplot(sc[i]) for i in range(2)]; L1.append(ac[0])
+        sc = spec(2, 0).subgridspec(1, 2, wspace=0.45); ac = [fig.add_subplot(sc[i]) for i in range(2)]; L1.append(ac[0])
         for j, (k, tt) in enumerate((("W", "Whisker"), ("A", "Auditory"))):
-            ax = ac[j]; four(ax, HMD, k, tt, show_x=(j == 1))
+            ax = ac[j]; four(ax, HMD, k, tt, show_x=True, show_n=(j == 0))
             _, _, o = four_stats(HMD, k, rows)
-            txt = (f"pre→post R+ {g_(o[('pp', 'R+', 'learning')])}/{g_(o[('pp', 'R+', 'expert')])}, "
-                   f"R− {g_(o[('pp', 'R-', 'learning')])}/{g_(o[('pp', 'R-', 'expert')])}\n"
-                   f"R+ vs R− pre {g_(o[('pre', 'learning')])}/{g_(o[('pre', 'expert')])}, post {g_(o[('post', 'learning')])}/{g_(o[('post', 'expert')])}")
-            ax.text(1.0, 1.03, txt, transform=ax.transAxes, fontsize=3.2, ha="right", va="bottom", color="0.25")
-        ac[0].set_ylabel("projection on hit − miss axis (per neuron)", fontsize=4.6); ac[0].yaxis.set_label_coords(-0.2, -0.35)
-        fig.text((xs[2] + S / 2) / W_, (y0[0] + S) / H_ + 0.2 / H_, "Passive projections (grey: shifted axes); p: D0/E",
+            txt = (f"pre→post R+ {g_(o[('pp', 'R+', 'learning')])}/{g_(o[('pp', 'R+', 'expert')])}\n"
+                   f"pre→post R− {g_(o[('pp', 'R-', 'learning')])}/{g_(o[('pp', 'R-', 'expert')])}\n"
+                   f"R+ vs R− pre {g_(o[('pre', 'learning')])}/{g_(o[('pre', 'expert')])}\n"
+                   f"R+ vs R− post {g_(o[('post', 'learning')])}/{g_(o[('post', 'expert')])}")
+            ax.text(0.5, 1.12, txt, transform=ax.transAxes, fontsize=3.1, ha="center", va="bottom", color="0.25", linespacing=1.1)
+        ac[0].set_ylabel("projection on hit − miss axis\n(per neuron)", fontsize=4.6)
+        fig.text((xs[2] + S / 2) / W_, (y0[0] + S) / H_ + 0.52 / H_, "Passive projections (grey: shifted axes); p: D0/E",
                  fontsize=4.6, ha="center", va="bottom")
         ax = fig.add_axes(box(3, 0)); L1.append(ax)
         area_forest(ax, AD["e"], ORD["e"], AQ["e"], "Δ passive-post whisker projection\n(real − shifted; expert − day 0)",
@@ -374,7 +383,7 @@ def main(a):
         m88.mean_panel2(ax, S_ns, "si", "SI (−1 SL-like … +1 AH-like)", rng, "119 si ns",
                         "Non-sensory reward-lick neurons\nROC similarity index SI =\n(|s_WS| − |s_WA|) / (|s_WS| + |s_WA|)", ref=0)
         ax = fig.add_axes(box(3, 1)); L2.append(ax)
-        area_forest(ax, AD["i"], ORD["i"], AQ["i"], "Δ SI (expert − day 0)", "Per area: SI, non-sensory\nreward-lick neurons", rng, rows, "i", gcol)
+        area_forest(ax, AD["i"], ORD["i"], AQ["i"], "Δ SI (expert − day 0)", "Per area: SI (non-sensory)", rng, rows, "i", gcol)
         # row 3: reward-lick CD
         ax = fig.add_axes(box(0, 2)); ax.axis("off"); L3.append(ax)
         ip = m89.proj_insets(fig, spec(1, 2), TP, rows)
