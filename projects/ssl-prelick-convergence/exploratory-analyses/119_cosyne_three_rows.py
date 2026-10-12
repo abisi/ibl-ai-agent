@@ -333,7 +333,7 @@ def main(a):
         area_forest(ax, LA, "d_WS", order, "Δ WH − SL projection on the CD\n(per neuron; expert − day 0)", "Per area: WH position on the CD", rng, rows, "m", gcol)
         m62.letter_row(fig, L1, "abcde", dx_in=0.25, dy_in=0.16); m62.letter_row(fig, L2, "fghi", dx_in=0.25, dy_in=0.16)
         m62.letter_row(fig, L3, "jklm", dx_in=0.25, dy_in=0.16)
-        fig.suptitle("Reward learning routes the whisker stimulus to a go state and recruits whisker licks into the reward-lick code",
+        fig.suptitle("Reward learning routes whisker input into the reward-lick code",
                      x=0.01, y=0.998, ha="left", va="top", fontsize=6.6, weight="bold")
         out = m51.OUTROOT / "publication" / "learners"; out.mkdir(parents=True, exist_ok=True)
         for ext in ("png", "pdf", "svg"):
