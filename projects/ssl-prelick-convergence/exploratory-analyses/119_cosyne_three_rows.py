@@ -50,7 +50,7 @@ def bh(p):
     return q
 
 
-def four(ax, D, k, title):
+def four(ax, D, k, title, show_x=True):
     xs = [0, 1, 2.4, 3.4]
     for j, c in enumerate(("R+", "R-")):
         for i, s_ in enumerate(("learning", "expert")):
@@ -58,16 +58,17 @@ def four(ax, D, k, title):
             for kind, col, ls in (("null", GREY, (0, (2, 1.5))), ("real", COH[c], "-")):
                 v = d[[f"pre_{k}_{kind}", f"post_{k}_{kind}"]]
                 ax.errorbar(x, v.mean(), v.sem(), fmt="o", ls=ls, ms=2.6, color=col, lw=1.0, capsize=0, mfc=col if s_ == "expert" else "white", mew=0.7)
-            ax.text(xs[2 * i] + 0.5, 0.94 - 0.08 * j, f"n = {len(d)}", color=COH[c], fontsize=4.2, ha="center", transform=ax.get_xaxis_transform())
+            if show_x:
+                ax.text(xs[2 * i] + 0.5, 0.92 - 0.12 * j, f"n = {len(d)}", color=COH[c], fontsize=3.8, ha="center", transform=ax.get_xaxis_transform())
     ax.axhline(0, color="0.6", lw=0.5, ls=":")
-    ax.set_xticks(xs, ["pre", "post", "pre", "post"], fontsize=4.6)
-    for x0, s_ in ((0.5, "day 0"), (2.9, "expert")):
-        ax.text(x0, -0.27, s_, ha="center", fontsize=4.8, transform=ax.get_xaxis_transform())
-    ax.set_ylabel("projection on hit − miss axis\n(per neuron)")
-    ax.set_title(f"{title}\n(grey: shifted axes)", fontsize=5.2)
+    ax.set_xticks(xs, ["pre", "post", "pre", "post"] if show_x else [], fontsize=4.4)
+    if show_x:
+        for x0, s_ in ((0.5, "day 0"), (2.9, "expert")):
+            ax.text(x0, -0.42, s_, ha="center", fontsize=4.6, transform=ax.get_xaxis_transform())
+    ax.set_title(title, fontsize=5.0, loc="left", pad=2)
 
 
-def example_neuron(fig, spec, r, rng, wspace=0.15):
+def example_neuron(fig, spec, r, rng, wspace=0.15, stacked=False):
     """stimulus-aligned (W miss, W hit, A hit) and lick-aligned (WH, AH, SL) PSTHs of one unit"""
     from pynwb import NWBHDF5IO
     from scipy.ndimage import gaussian_filter1d
@@ -86,7 +87,7 @@ def example_neuron(fig, spec, r, rng, wspace=0.15):
             "auditory hit": t_all.start_time[(t_all.trial_type == "auditory_trial") & lick].to_numpy()}
     lk = {"WH": t_l.first_lick_time[t_l.cls == "WH"].to_numpy(), "AH": t_l.first_lick_time[t_l.cls == "AH"].to_numpy(), "SL": sl}
     colors = {"whisker miss": "#8C510A", "whisker hit": CL["WH"], "auditory hit": CL["AH"], "WH": CL["WH"], "AH": CL["AH"], "SL": CL["FA"]}
-    sub = spec.subgridspec(1, 2, wspace=wspace)
+    sub = spec.subgridspec(2, 1, hspace=wspace) if stacked else spec.subgridspec(1, 2, wspace=wspace)
     axs = [fig.add_subplot(sub[0]), fig.add_subplot(sub[1])]
     top = 0
     for ax, ev, win, xl in ((axs[0], stim, (-0.1, 0.3), "from stimulus (ms)"), (axs[1], lk, (-0.4, 0.2), "from lick (ms)")):
@@ -103,7 +104,11 @@ def example_neuron(fig, spec, r, rng, wspace=0.15):
     axs[1].axvspan(-100, 0, color="#FDD49E", alpha=0.5, lw=0, zorder=0)
     for ax in axs:
         ax.set_ylim(0, top * 1.35)
-    axs[1].tick_params(labelleft=False); axs[0].set_ylabel("spikes/s", fontsize=4.8)
+    if stacked:
+        for ax in axs:
+            ax.set_ylabel("spikes/s", fontsize=4.6); ax.xaxis.labelpad = 1
+    else:
+        axs[1].tick_params(labelleft=False); axs[0].set_ylabel("spikes/s", fontsize=4.8)
     return axs
 
 
@@ -251,7 +256,7 @@ def four_stats(D, k, rows):
     l1 = "pre→post: " + " | ".join(f"{c.replace('-', '−')} " + " · ".join(f"{st(s_)} {g(out[('pp', c, s_)])}" for s_ in ("learning", "expert"))
                                     for c in ("R+", "R-"))
     l2 = "R+ vs R−: " + " | ".join(f"{e} " + " · ".join(f"{st(s_)} {g(out[(e, s_)])}" for s_ in ("learning", "expert")) for e in ("pre", "post"))
-    return l1, l2
+    return l1, l2, out
 
 
 def level_stats(ax, P, rows):
@@ -321,29 +326,34 @@ def main(a):
         rows += [dict(panel=f"{k} n", area=a, **{f"n {c} {s_}": int(n.loc[a, (c, s_)]) for c, s_ in GROUPS}) for a in AREAS]
     with plt.rc_context({"font.size": 5.2, "axes.titlesize": 5.2, "axes.labelsize": 5.0, "xtick.labelsize": 4.6, "ytick.labelsize": 4.6,
                          "legend.fontsize": 4.4, "svg.fonttype": "none"}):
-        # fixed inch grid (user 2026-10-12: all panels the same square size and aligned; area panels may differ):
-        # five columns of side S; column 5 (area panels) has extra room A on its left for the area names
-        W_, S, GAP, L0, A, TOP, B = 7.5, 0.86, 0.5, 0.5, 0.6, 0.12, 0.36
-        T = [0.62, 0.55, 0.38]                                               # space above each row (titles / stats)
+        # 3 x 4 grid of equal square cells (user 2026-10-12); cells b, e, j: 2 x 2 insets; c, f: two stacked subpanels;
+        # column 4 (area panels) has extra room A on its left for the area names
+        S, GAP, L0, A, TOP, B = 1.2, 0.5, 0.45, 0.6, 0.15, 0.42
+        T = [0.45, 0.62, 0.42]                                               # space above each row
+        xs = [L0 + c * (S + GAP) for c in range(3)] + [L0 + 2 * (S + GAP) + S + GAP + A]
+        W_ = xs[3] + S + 0.1
         H_ = TOP + sum(T) + 3 * S + 3 * B
-        xs = [L0 + c * (S + GAP) for c in range(4)] + [L0 + 3 * (S + GAP) + S + GAP + A]
         y0 = [H_ - TOP - sum(T[:r + 1]) - r * (S + B) - S for r in range(3)]
         fig = plt.figure(figsize=(W_, H_))
-        box = lambda c, r, x=None, w=S: [(xs[c] if x is None else x) / W_, y0[r] / H_, w / W_, S / H_]
-        spec = lambda c, r, x=None, w=S: fig.add_gridspec(1, 1, left=(xs[c] if x is None else x) / W_, right=((xs[c] if x is None else x) + w) / W_,
-                                                          bottom=y0[r] / H_, top=(y0[r] + S) / H_)[0]
+        box = lambda c, r: [xs[c] / W_, y0[r] / H_, S / W_, S / H_]
+        spec = lambda c, r: fig.add_gridspec(1, 1, left=xs[c] / W_, right=(xs[c] + S) / W_, bottom=y0[r] / H_, top=(y0[r] + S) / H_)[0]
+        g_ = lambda p: m62.fmt_p(p).replace("p ", "").replace("= ", "").replace("0.", ".")
         L1, L2, L3 = [], [], []
         # row 1: hit - miss axis
         ax = fig.add_axes(box(0, 0)); ax.axis("off"); L1.append(ax)
         ia = hm_insets(fig, spec(1, 0), HP, rows); L1.append(ia[0])
-        for j, (k, tt) in enumerate((("W", "Passive whisker"), ("A", "Passive auditory"))):
-            ax = fig.add_axes(box(2 + j, 0)); L1.append(ax)
-            four(ax, HMD, k, tt)
-            l1, l2 = four_stats(HMD, k, rows)
-            ax.set_title(f"{tt}\n(grey: shifted axes)", fontsize=5.0, pad=20)
-            ax.text(0.5, 1.01, "\n".join(l1.split(" | ") + l2.split(" | ")).replace("R+ vs R−: ", "R+ vs R− "), transform=ax.transAxes,
-                    fontsize=3.5, ha="center", va="bottom", color="0.25")
-        ax = fig.add_axes(box(4, 0)); L1.append(ax)
+        sc = spec(2, 0).subgridspec(2, 1, hspace=0.75); ac = [fig.add_subplot(sc[i]) for i in range(2)]; L1.append(ac[0])
+        for j, (k, tt) in enumerate((("W", "Whisker"), ("A", "Auditory"))):
+            ax = ac[j]; four(ax, HMD, k, tt, show_x=(j == 1))
+            _, _, o = four_stats(HMD, k, rows)
+            txt = (f"pre→post R+ {g_(o[('pp', 'R+', 'learning')])}/{g_(o[('pp', 'R+', 'expert')])}, "
+                   f"R− {g_(o[('pp', 'R-', 'learning')])}/{g_(o[('pp', 'R-', 'expert')])}\n"
+                   f"R+ vs R− pre {g_(o[('pre', 'learning')])}/{g_(o[('pre', 'expert')])}, post {g_(o[('post', 'learning')])}/{g_(o[('post', 'expert')])}")
+            ax.text(1.0, 1.03, txt, transform=ax.transAxes, fontsize=3.2, ha="right", va="bottom", color="0.25")
+        ac[0].set_ylabel("projection on hit − miss axis (per neuron)", fontsize=4.6); ac[0].yaxis.set_label_coords(-0.2, -0.35)
+        fig.text((xs[2] + S / 2) / W_, (y0[0] + S) / H_ + 0.2 / H_, "Passive projections (grey: shifted axes); p: D0/E",
+                 fontsize=4.6, ha="center", va="bottom")
+        ax = fig.add_axes(box(3, 0)); L1.append(ax)
         area_forest(ax, AD["e"], ORD["e"], AQ["e"], "Δ passive-post whisker projection\n(real − shifted; expert − day 0)",
                     "Per area: passive post (whisker)", rng, rows, "e", gcol)
         # row 2: single neurons
@@ -353,18 +363,17 @@ def main(a):
             x.set_box_aspect(1)
         L2.append(ib[0])
         ex = pick_clean(Wc)
-        ig = example_neuron(fig, spec(1, 1, w=2 * S + GAP), ex, rng, wspace=GAP / S); L2.append(ig[0])
+        ig = example_neuron(fig, spec(1, 1), ex, rng, wspace=0.75, stacked=True); L2.append(ig[0])
         ig[0].axvspan(5, 35, color="#C6DBEF", alpha=0.7, lw=0, zorder=0)
-        ig[0].text(38, 0.03, "sensory window\n5–35 ms", transform=ig[0].get_xaxis_transform(), fontsize=3.4, ha="left", va="bottom", color="#3182BD")
+        ig[0].text(38, 0.3, "5–35 ms", transform=ig[0].get_xaxis_transform(), fontsize=3.4, ha="left", va="bottom", color="#3182BD")
         si_ex = SIU[(SIU.session_id == ex.session_id) & (SIU.electrode_group == str(ex.electrode_group)) & (SIU.cluster_id == str(ex.cluster_id))].SI
         si_txt = f", SI = {si_ex.iloc[0]:+.2f}" if len(si_ex) else ""
-        ig[0].set_title(f"Non-sensory reward-lick neuron (R+ expert, {ex.get('area_acronym_custom', ex.get('area_group', ''))}{si_txt})",
-                        fontsize=4.8, loc="left", pad=3)
+        ig[0].set_title(f"Non-sensory reward-lick neuron\n(R+ expert, {ex.get('area_acronym_custom', ex.get('area_group', ''))}{si_txt})", fontsize=4.8, pad=3)
         rows.append(dict(panel="g", session_id=ex.session_id, electrode_group=ex.electrode_group, cluster_id=ex.cluster_id))
-        ax = fig.add_axes(box(3, 1)); L2.append(ax)
+        ax = fig.add_axes(box(2, 1)); L2.append(ax)
         m88.mean_panel2(ax, S_ns, "si", "SI (−1 SL-like … +1 AH-like)", rng, "119 si ns",
                         "Non-sensory reward-lick neurons\nROC similarity index SI =\n(|s_WS| − |s_WA|) / (|s_WS| + |s_WA|)", ref=0)
-        ax = fig.add_axes(box(4, 1)); L2.append(ax)
+        ax = fig.add_axes(box(3, 1)); L2.append(ax)
         area_forest(ax, AD["i"], ORD["i"], AQ["i"], "Δ SI (expert − day 0)", "Per area: SI, non-sensory\nreward-lick neurons", rng, rows, "i", gcol)
         # row 3: reward-lick CD
         ax = fig.add_axes(box(0, 2)); ax.axis("off"); L3.append(ax)
@@ -376,11 +385,11 @@ def main(a):
         from matplotlib.lines import Line2D
         ax.legend([Line2D([], [], color=CL[k_], lw=1.2, marker="o", ms=2.4) for k_ in ("WH", "AH", "FA")], ["WH", "AH", "SL"], frameon=False,
                   fontsize=4.2, ncol=1, loc="center right", handlelength=1.2)
-        ax = fig.add_axes(box(3, 2, x=xs[3] + A, w=xs[4] + S - xs[3] - A)); L3.append(ax)
-        area_forest(ax, AD["m"], ORD["m"], AQ["m"], "Δ WH − SL projection on the CD (per neuron; expert − day 0)", "Per area: WH position on the CD",
+        ax = fig.add_axes(box(3, 2)); L3.append(ax)
+        area_forest(ax, AD["m"], ORD["m"], AQ["m"], "Δ WH − SL projection on the CD\n(per neuron; expert − day 0)", "Per area: WH position on the CD",
                     rng, rows, "m", gcol)
-        m62.letter_row(fig, L1, "abcde", dx_in=0.3, dy_in=0.12); m62.letter_row(fig, L2, "fghi", dx_in=0.3, dy_in=0.12)
-        m62.letter_row(fig, L3, "jklm", dx_in=0.3, dy_in=0.12)
+        m62.letter_row(fig, L1, "abcd", dx_in=0.3, dy_in=0.12); m62.letter_row(fig, L2, "efgh", dx_in=0.3, dy_in=0.12)
+        m62.letter_row(fig, L3, "ijkl", dx_in=0.3, dy_in=0.12)
         fig.suptitle("Whisker-related activity shifts toward the reward-lick code with learning",
                      x=0.01, y=0.998, ha="left", va="top", fontsize=6.6, weight="bold")
         out = m51.OUTROOT / "publication" / "learners"; out.mkdir(parents=True, exist_ok=True)
