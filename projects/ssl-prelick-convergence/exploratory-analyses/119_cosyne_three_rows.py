@@ -130,38 +130,70 @@ def pick_clean(Wc, n_cand=8):
     return best
 
 
-def sc_area_change(ax, U, col, xlab, title, rng, rows, panel):
-    import ephys_utilities.allen_utils.allen_utils as au
-    gcol = au.get_custom_area_groups_colors()
-    S = U[U.rl & U[col].notna()].groupby(["session_id", "mouse_id", "cohort", "stage", "area_group"]).agg(v=(col, "mean"), n=(col, "size")).reset_index()
-    S = S[S.n >= 3]
-    n = S.groupby(["area_group", "cohort", "stage"]).session_id.nunique().unstack([1, 2]).fillna(0)
-    order = [g for g in au.get_area_group_custom_order() if g in n.index and all(n.loc[g].get(k, 0) >= 3 for k in GROUPS)]
-    area_forest(ax, S.rename(columns={"area_group": "area"}), "v", order, xlab, title, rng, rows, panel, gcol)
+MIN_SESS_AREA = 2   # sessions per cohort at both stages (2026-10-12: 3 -> 2, user)
 
 
-def area_forest(ax, S, col, order, xlab, title, rng, rows, panel, gcol):
-    y = np.arange(len(order))[::-1]; pv = []
+def area_data_e():
+    """135 (min2) per-area passive-post whisker projection on the area's own hit - miss axis, real - shifted"""
+    T = []
+    for st_, sfx in (("learning", ""), ("expert", "_expert")):
+        A = pd.read_parquet(m115.HM / f"135_alignment_epochs_min2_tracked_harm{sfx}.parquet")
+        A = A[A.skipped_reason.isna() & (A.area != "All units")].copy(); A["stage"] = st_; T.append(A)
+    A = pd.concat(T).rename(columns={"reward_group": "cohort"})
+    A["v"] = A.shift_real_post_W - A.shift_null_post_W_mean
+    return m61.learner_filter(A)[["area", "session_id", "mouse_id", "cohort", "stage", "v"]].dropna()
+
+
+def area_data_i(U):
+    """session x area mean MI of non-sensory reward-lick neurons (>= 3 in the area)"""
+    d = U[U.rl & U.nclass.isin(m81.CLASSES) & (U.nclass != "sensory") & U.mi.notna()]
+    S = d.groupby(["session_id", "mouse_id", "cohort", "stage", "area_group"]).agg(v=("mi", "mean"), n=("mi", "size")).reset_index()
+    return S[S.n >= 3].rename(columns={"area_group": "area"})[["area", "session_id", "mouse_id", "cohort", "stage", "v"]]
+
+
+def area_data_m(PA):
+    """087 per-area d_WS (areas with >= 5 units and held-out AH-vs-SL d' >= 0.3 in the session)"""
+    return PA[PA.area != "whole_brain"].rename(columns={"d_WS": "v"})[["area", "session_id", "mouse_id", "cohort", "stage", "v"]].dropna()
+
+
+def area_counts(S):
+    return S.groupby(["area", "cohort", "stage"]).session_id.nunique().unstack([1, 2]).reindex(columns=pd.MultiIndex.from_tuples(GROUPS)).fillna(0).astype(int)
+
+
+def qualify(S):
+    """per cohort: areas with >= MIN_SESS_AREA sessions at both stages (memory rule: within cohort, not required across cohorts)"""
+    n = area_counts(S)
+    return {c: {a for a in n.index if n.loc[a, (c, "learning")] >= MIN_SESS_AREA and n.loc[a, (c, "expert")] >= MIN_SESS_AREA} for c in ("R+", "R-")}
+
+
+def area_forest(ax, S, order, Q, xlab, title, rng, rows, panel, gcol):
+    """fixed rows (allen_utils order); a cohort is drawn where it qualifies; cohort x stage test (mouse permutation) and BH only where both
+    cohorts qualify; '–' marks a cohort below MIN_SESS_AREA sessions at a stage"""
+    y = np.arange(len(order))[::-1]; pv, tested = [], []
     for i, g in enumerate(order):
-        d = S[S.area == g].dropna(subset=[col])
+        d = S[S.area == g]
         for k, c in enumerate(("R+", "R-")):
-            a, b = (d[(d.cohort == c) & (d.stage == s_)][col] for s_ in ("learning", "expert"))
-            ax.errorbar(b.mean() - a.mean(), y[i] + 0.16 - 0.32 * k, xerr=np.sqrt(a.sem() ** 2 + b.sem() ** 2), fmt="o", ms=2.6,
-                        color=COH[c], lw=0.8, capsize=0, mfc="white")
+            yy = y[i] + 0.16 - 0.32 * k
+            if g not in Q[c]:
+                ax.text(0.0, yy, "–", fontsize=4, color=COH[c], ha="center", va="center", alpha=0.6)
+                continue
+            a, b = (d[(d.cohort == c) & (d.stage == s_)].v for s_ in ("learning", "expert"))
+            ax.errorbar(b.mean() - a.mean(), yy, xerr=np.sqrt(a.sem() ** 2 + b.sem() ** 2), fmt="o", ms=2.6, color=COH[c], lw=0.8, capsize=0, mfc="white")
             rows.append(dict(panel=panel, area=g, cohort=c, change=b.mean() - a.mean(), n_day0=len(a), n_expert=len(b)))
-        pv.append(m62.group_stats(d, col, f"{panel} area {g}", rng, f"119 {panel} area")["interaction"][1])
+        if g in Q["R+"] and g in Q["R-"]:
+            pv.append(m62.group_stats(d, "v", f"{panel} area {g}", rng, f"119 {panel} area")["interaction"][1]); tested.append(i)
     qv = bh(pv)
-    for i, (g, p_, q_) in enumerate(zip(order, pv, qv)):
-        rows.append(dict(panel=f"{panel} q", area=g, p_perm=p_, q_BH=q_))
+    for i, p_, q_ in zip(tested, pv, qv):
+        rows.append(dict(panel=f"{panel} q", area=order[i], p_perm=p_, q_BH=q_))
         mk = "*" if q_ < 0.05 else ("(*)" if p_ < 0.05 else "")
         if mk:
             ax.text(0.99, y[i], mk, transform=ax.get_yaxis_transform(), fontsize=5.5, va="center", ha="right", weight="bold")
-    ax.axvline(0, color="0.6", lw=0.5)
+    ax.axvline(0, color="0.6", lw=0.5); ax.set_ylim(-0.6, len(order) - 0.4)
     ax.set_yticks(y, [m83.m62_short(g) for g in order], fontsize=4.4)
     for tl, g in zip(ax.get_yticklabels(), order):
         tl.set_color(gcol.get(g, "k"))
     ax.set_xlabel(xlab, fontsize=4.8)
-    ax.set_title(f"{title}\ncohort × stage: * q < 0.05, (*) p < 0.05", fontsize=4.8, pad=2)
+    ax.set_title(f"{title}\nc × s: * q < 0.05, (*) p < 0.05; – < {MIN_SESS_AREA} sessions", fontsize=4.6, pad=2)
 
 
 def hm_insets(fig, spec, P, rows):
@@ -209,20 +241,6 @@ def four_stats(D, k, rows):
                                     for c in ("R+", "R-"))
     l2 = "R+ vs R−: " + " | ".join(f"{e} " + " · ".join(f"{st(s_)} {g(out[(e, s_)])}" for s_ in ("learning", "expert")) for e in ("pre", "post"))
     return l1, l2
-
-
-def hm_area_post(ax, rng, rows, gcol):
-    T = []
-    for st_, sfx in (("learning", ""), ("expert", "_expert")):
-        A = pd.read_parquet(m115.HM / f"135_alignment_epochs_min2_tracked_harm{sfx}.parquet")
-        A = A[A.skipped_reason.isna() & (A.area != "All units")].copy(); A["stage"] = st_; T.append(A)
-    A = pd.concat(T).rename(columns={"reward_group": "cohort"})
-    A["post_W_ex"] = A.shift_real_post_W - A.shift_null_post_W_mean
-    A = m61.learner_filter(A)
-    n = A.groupby(["area", "cohort", "stage"]).session_id.nunique().unstack([1, 2]).fillna(0)
-    order = [g for g in au_order() if g in n.index and all(n.loc[g].get(k, 0) >= 3 for k in GROUPS)]
-    area_forest(ax, A, "post_W_ex", order, "Δ passive-post whisker projection\n(real − shifted; expert − day 0)",
-                "Per area: passive post (whisker)", rng, rows, "d", gcol)
 
 
 def level_stats(ax, P, rows):
@@ -280,6 +298,13 @@ def main(a):
     PA = m61.learner_filter(pd.read_csv(m88.H087)); P = PA[PA.area == "whole_brain"]
     m89 = importlib.import_module("089_cosyne_across_days_v3")
     TP = m61.learner_filter(pd.read_parquet(m89.PROJ_T)); TP = TP[TP.session_id.isin(P.session_id)]
+    AD = {"e": area_data_e(), "i": area_data_i(U), "m": area_data_m(PA)}
+    AQ = {k: qualify(v) for k, v in AD.items()}
+    AREAS = [g for g in au.get_area_group_custom_order() if any(g in AQ[k][c] for k in AQ for c in ("R+", "R-"))]
+    for k, v in AD.items():
+        n = area_counts(v).reindex(AREAS).fillna(0).astype(int)
+        print(f"[areas {k}] sessions per area (R+ D0, R+ E, R- D0, R- E):"); print(n.to_string())
+        rows += [dict(panel=f"{k} n", area=a, **{f"n {c} {s_}": int(n.loc[a, (c, s_)]) for c, s_ in GROUPS}) for a in AREAS]
     with plt.rc_context({"font.size": 5.2, "axes.titlesize": 5.2, "axes.labelsize": 5.0, "xtick.labelsize": 4.6, "ytick.labelsize": 4.6,
                          "legend.fontsize": 4.4, "svg.fonttype": "none"}):
         fig = plt.figure(figsize=(m62.W_IN, m62.W_IN * 0.72))
@@ -297,7 +322,9 @@ def main(a):
             l1, l2 = four_stats(HMD, k, rows)
             ax.set_title(f"{tt} (grey: shifted axes)", fontsize=5.0, pad=12)
             ax.text(0.5, 1.01, f"{l1}\n{l2}", transform=ax.transAxes, fontsize=3.6, ha="center", va="bottom", color="0.25")
-        ax = fig.add_subplot(r1[4]); L1.append(ax); hm_area_post(ax, rng, rows, gcol)
+        ax = fig.add_subplot(r1[4]); L1.append(ax)
+        area_forest(ax, AD["e"], AREAS, AQ["e"], "Δ passive-post whisker projection\n(real − shifted; expert − day 0)",
+                    "Per area: passive post (whisker)", rng, rows, "e", gcol)
         # row 2: single neurons
         tested = (Wc["sig:auditory_hit_vs_fa_prelick@all"].notna() & Wc["sig:whisker_hit_vs_fa_prelick@all"].notna()).to_numpy()
         ib = m83.psth_insets(fig, r2[0], Wc, PB, tc, tested, "f", rows)
@@ -315,7 +342,7 @@ def main(a):
         m88.mean_panel2(ax, S_ns, "mi", "MI (−1 SL-like … +1 AH-like)", rng, "119 mi ns",
                         "Non-sensory reward-lick neurons\nMI = (|WH−SL| − |WH−AH|) / (|WH−SL| + |WH−AH|)", ref=0)
         ax = fig.add_subplot(r2[3]); L2.append(ax)
-        sc_area_change(ax, U[U.nclass != "sensory"], "mi", "Δ MI (expert − day 0)", "Per area: non-sensory reward-lick neurons", rng, rows, "i")
+        area_forest(ax, AD["i"], AREAS, AQ["i"], "Δ MI (expert − day 0)", "Per area: non-sensory reward-lick neurons", rng, rows, "i", gcol)
         # row 3: reward-lick CD
         ax = fig.add_subplot(r3[0]); ax.axis("off"); L3.append(ax)
         ip = m89.proj_insets(fig, r3[1], TP, rows)
@@ -326,11 +353,9 @@ def main(a):
         from matplotlib.lines import Line2D
         ax.legend([Line2D([], [], color=CL[k_], lw=1.2, marker="o", ms=2.4) for k_ in ("WH", "AH", "FA")], ["WH", "AH", "SL"], frameon=False,
                   fontsize=4.2, ncol=1, loc="center right", handlelength=1.2)
-        LA = PA[PA.area != "whole_brain"]
-        Q = m62.area_qualify(LA.rename(columns={"area": "region"}), col="d_WS")
-        order = [g for g in au.get_area_group_custom_order() if g in Q["R+"] and g in Q["R-"]]
         ax = fig.add_subplot(r3[3]); L3.append(ax)
-        area_forest(ax, LA, "d_WS", order, "Δ WH − SL projection on the CD\n(per neuron; expert − day 0)", "Per area: WH position on the CD", rng, rows, "m", gcol)
+        area_forest(ax, AD["m"], AREAS, AQ["m"], "Δ WH − SL projection on the CD\n(per neuron; expert − day 0)", "Per area: WH position on the CD",
+                    rng, rows, "m", gcol)
         m62.letter_row(fig, L1, "abcde", dx_in=0.25, dy_in=0.16); m62.letter_row(fig, L2, "fghi", dx_in=0.25, dy_in=0.16)
         m62.letter_row(fig, L3, "jklm", dx_in=0.25, dy_in=0.16)
         fig.suptitle("Reward learning routes whisker input into the reward-lick code",
