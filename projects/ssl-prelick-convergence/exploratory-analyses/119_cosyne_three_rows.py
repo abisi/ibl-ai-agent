@@ -193,7 +193,7 @@ def area_forest(ax, S, order, Q, xlab, title, rng, rows, panel, gcol):
     for tl, g in zip(ax.get_yticklabels(), order):
         tl.set_color(gcol.get(g, "k"))
     ax.set_xlabel(xlab, fontsize=4.8)
-    ax.set_title(f"{title}\nc × s: * q < 0.05, (*) p < 0.05; – n < {MIN_SESS_AREA}", fontsize=4.6, pad=2)
+    ax.set_title(f"{title}\nc × s: * q < 0.05, (*) p < 0.05; n ≥ {MIN_SESS_AREA}", fontsize=4.6, pad=2)
 
 
 def hm_insets(fig, spec, P, rows):
@@ -211,11 +211,12 @@ def hm_insets(fig, spec, P, rows):
         ax.axhline(0, color="0.85", lw=0.4); ax.set_xlim(-50, 150); ax.set_xticks([0, 100]); ax.set_xticklabels(["0", "100"] if j >= 2 else [])
         n = d.session_id.nunique(); ax.set_title(f"{m88.GLAB[g]} ({n})", color=COH[g[0]], fontsize=4.6, pad=1.5)
         rows.append(dict(panel="hm psth", group=m88.GLAB[g], n_sessions=n))
-    yl = (min(a.get_ylim()[0] for a in axs), max(a.get_ylim()[1] for a in axs))
-    for j, a in enumerate(axs):
-        a.set_ylim(*yl); a.tick_params(labelsize=4.2)
-        if j % 2:
-            a.set_yticklabels([])
+    for pair, ticks in ((axs[:2], [0, 0.2]), (axs[2:], [0, 0.1])):          # R+ and R- rows scaled separately (user 2026-10-12)
+        yl = (min(a.get_ylim()[0] for a in pair), max(a.get_ylim()[1] for a in pair))
+        for k, a in enumerate(pair):
+            a.set_ylim(*yl); a.set_yticks(ticks); a.tick_params(labelsize=4.2)
+            if k:
+                a.set_yticklabels([])
     axs[0].set_ylabel("proj. on hit − miss", fontsize=4.6); axs[2].set_ylabel("proj. on hit − miss", fontsize=4.6)
     axs[0].legend(frameon=False, fontsize=3.5, loc="upper left", handlelength=1.0, borderaxespad=0.05, labelspacing=0.1)
     return axs
@@ -300,7 +301,8 @@ def main(a):
     TP = m61.learner_filter(pd.read_parquet(m89.PROJ_T)); TP = TP[TP.session_id.isin(P.session_id)]
     AD = {"e": area_data_e(), "i": area_data_i(U), "m": area_data_m(PA)}
     AQ = {k: qualify(v) for k, v in AD.items()}
-    AREAS = [g for g in au.get_area_group_custom_order() if any(g in AQ[k][c] for k in AQ for c in ("R+", "R-"))]
+    AREAS = [g for g in au.get_area_group_custom_order() if any(g in AQ[k][c] for k in AQ for c in ("R+", "R-"))]   # counts table only
+    ORD = {k: [g for g in au.get_area_group_custom_order() if g in AQ[k]["R+"] and g in AQ[k]["R-"]] for k in AQ}   # >= 3 sessions in all four groups (user 2026-10-12)
     for k, v in AD.items():
         n = area_counts(v).reindex(AREAS).fillna(0).astype(int)
         print(f"[areas {k}] sessions per area (R+ D0, R+ E, R- D0, R- E):"); print(n.to_string())
@@ -323,7 +325,7 @@ def main(a):
             ax.set_title(f"{tt} (grey: shifted axes)", fontsize=5.0, pad=12)
             ax.text(0.5, 1.01, f"{l1}\n{l2}", transform=ax.transAxes, fontsize=3.6, ha="center", va="bottom", color="0.25")
         ax = fig.add_subplot(r1[4]); L1.append(ax)
-        area_forest(ax, AD["e"], AREAS, AQ["e"], "Δ passive-post whisker projection\n(real − shifted; expert − day 0)",
+        area_forest(ax, AD["e"], ORD["e"], AQ["e"], "Δ passive-post whisker projection\n(real − shifted; expert − day 0)",
                     "Per area: passive post (whisker)", rng, rows, "e", gcol)
         # row 2: single neurons
         tested = (Wc["sig:auditory_hit_vs_fa_prelick@all"].notna() & Wc["sig:whisker_hit_vs_fa_prelick@all"].notna()).to_numpy()
@@ -342,7 +344,7 @@ def main(a):
         m88.mean_panel2(ax, S_ns, "mi", "MI (−1 SL-like … +1 AH-like)", rng, "119 mi ns",
                         "Non-sensory reward-lick neurons\nMI = (|WH−SL| − |WH−AH|) / (|WH−SL| + |WH−AH|)", ref=0)
         ax = fig.add_subplot(r2[3]); L2.append(ax)
-        area_forest(ax, AD["i"], AREAS, AQ["i"], "Δ MI (expert − day 0)", "Per area: non-sensory reward-lick neurons", rng, rows, "i", gcol)
+        area_forest(ax, AD["i"], ORD["i"], AQ["i"], "Δ MI (expert − day 0)", "Per area: non-sensory reward-lick neurons", rng, rows, "i", gcol)
         # row 3: reward-lick CD
         ax = fig.add_subplot(r3[0]); ax.axis("off"); L3.append(ax)
         ip = m89.proj_insets(fig, r3[1], TP, rows)
@@ -354,7 +356,7 @@ def main(a):
         ax.legend([Line2D([], [], color=CL[k_], lw=1.2, marker="o", ms=2.4) for k_ in ("WH", "AH", "FA")], ["WH", "AH", "SL"], frameon=False,
                   fontsize=4.2, ncol=1, loc="center right", handlelength=1.2)
         ax = fig.add_subplot(r3[3]); L3.append(ax)
-        area_forest(ax, AD["m"], AREAS, AQ["m"], "Δ WH − SL projection on the CD\n(per neuron; expert − day 0)", "Per area: WH position on the CD",
+        area_forest(ax, AD["m"], ORD["m"], AQ["m"], "Δ WH − SL projection on the CD\n(per neuron; expert − day 0)", "Per area: WH position on the CD",
                     rng, rows, "m", gcol)
         m62.letter_row(fig, L1, "abcde", dx_in=0.25, dy_in=0.16); m62.letter_row(fig, L2, "fghi", dx_in=0.25, dy_in=0.16)
         m62.letter_row(fig, L3, "jklm", dx_in=0.25, dy_in=0.16)
