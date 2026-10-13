@@ -104,6 +104,15 @@ def area_colors():
         return {}
 
 
+def area_order():
+    try:
+        sys.path.insert(0, str(Path.home() / "code" / "ephys_utilities"))
+        from ephys_utilities.allen_utils import allen_utils
+        return list(allen_utils.get_area_group_custom_order())
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def wil(x):
     x = np.asarray(x, float); x = x[np.isfinite(x)]
     return stats.wilcoxon(x).pvalue if len(x) > 5 else np.nan
@@ -301,7 +310,8 @@ def compact_grid(fig_w_extra=0.3, h=1.0, widths=None):
 def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
     ax._keep_aspect = True                                             # compact: area panels keep their shape (not squared)
     n = D.dropna(subset=[val]).groupby(["area", "cohort"]).size().unstack().fillna(0)
-    areas = sorted([a for a in n.index if min(n.loc[a].get("R+", 0), n.loc[a].get("R-", 0)) >= 3], key=lambda a: -n.loc[a].sum())
+    keep = [a for a in n.index if min(n.loc[a].get("R+", 0), n.loc[a].get("R-", 0)) >= 3]
+    areas = [a for a in area_order() if a in keep] + sorted(a for a in keep if a not in area_order())   # allen_utils default order (2026-10-13)
     Dq = D[D.area.isin(areas)]
     p_coh, p_int = anova_perm(Dq, val, rng)
     ps, ms, ss = [], [], []
@@ -309,7 +319,7 @@ def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
         v = {c: Dq[(Dq.area == a) & (Dq.cohort == c)][val].dropna().to_numpy(float) for c in COH}
         for k, c in enumerate(COH):
             p0 = wil(v[c]); m, s = np.nanmean(v[c]), H.sem(v[c]); ms.append(m); ss.append(s)
-            ax.errorbar(m, i + (k - 0.5) * 0.3, xerr=s, fmt="o", ms=2.8, color=COL[c], mfc=COL[c] if p0 < 0.05 else "white", lw=0.9, capsize=0)
+            ax.errorbar(m, i + (k - 0.5) * 0.3, xerr=s, fmt="o", ms=2.8, color=COL[c], mfc=COL[c], lw=0.9, capsize=0)   # all filled (2026-10-13)
         ps.append(mwu(v["R+"], v["R-"]))
     q = bh(ps)
     for i, (a, p, qq) in enumerate(zip(areas, ps, q)):
