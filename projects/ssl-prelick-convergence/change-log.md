@@ -92,3 +92,4 @@
 - 2026-10-12: 119 h / i use the 104 ROC similarity index (cross-validated) of non-sensory reward-lick neurons instead of the 088 rate-based MI; fixed inch grid (five square columns, area panels with label room; m spans two columns); example neuron picked from the strict non-sensory class.
 - 2026-10-12: 119 layout as a 3 x 4 grid of equal square cells (b, e, j: 2 x 2 insets; c, f: two stacked subpanels; area panels in column 4); letters a-l.
 - 2026-10-12: 119 area panels: omnibus ANOVA value ~ cohort x stage x area (type II OLS, p by 1,000 mouse-level cohort permutations; 062 area_anova) in the title, per-area cohort x stage post hoc only as stars (BH q < 0.05); panel c whisker / auditory side by side with four stats lines each.
+- 2026-10-13: 118 PRELICK_JAW_WIN=centered ([-50, +50) ms around jaw onset, roots _jawc) and binned rates around jaw onset; 087 / 026 rerun for jaw and jawc; 120 CD time course around jaw onset (held-out projections, d_WS(t)).
