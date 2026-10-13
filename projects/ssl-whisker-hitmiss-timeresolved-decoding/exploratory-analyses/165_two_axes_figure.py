@@ -79,7 +79,7 @@ ANGLE = bool(os.environ.get("SSL_165_ANGLE"))                 # compact layout, 
 POLAR = bool(os.environ.get("SSL_165_POLAR"))                 # compact layout, row 1 b / c = 171 polar views + gain / rotation bars
 COMPACT = bool(os.environ.get("SSL_165_COMPACT")) or POLAR or ANGLE
 PSTH = bool(os.environ.get("SSL_165_PSTH")) or COMPACT
-SHORT = {"Motor areas": "Motor", "Somatosensory-whisker": "S1 whisker", "Somatosensory-orofacial": "S1 orofacial", "Frontal areas": "Frontal",
+SHORT = {"Motor areas": "Motor", "Somatosensory-whisker": "SS-whisker", "Somatosensory-orofacial": "SS-orofacial", "Frontal areas": "Frontal",
          "Retrosplenial areas": "Retrosplenial", "Auditory areas": "Auditory", "Lateral septal complex": "Lat. septum",
          "Posterior parietal areas": "Post. parietal", "Visual areas": "Visual", "Insular areas": "Insular", "Olfactory areas": "Olfactory",
          "Hippocampus": "Hippocampus"}

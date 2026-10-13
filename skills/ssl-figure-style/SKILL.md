@@ -39,6 +39,10 @@ description: Use this skill whenever making publication, abstract (e.g. COSYNE) 
    with editable text (`pdf.fonttype = 42`, `svg.fonttype = "none"`).
 8. **Statistics shown**: never pick the best of several variants post hoc for display; state thresholds and
    corrections in the caption.
+9. **Area names** (user, 2026-10-13): somatosensory area groups are written `SS-orofacial`, `SS-whisker`, `SS-body`
+   (from `Somatosensory-orofacial` / `-whisker` / `-body`), never "S1 orofacial", "S1 whisker", "S1-whisker" or "wS1"
+   for the group. They are area groups, not single Allen areas, so "S1" is wrong. Fine areas keep their Allen
+   acronyms (e.g. SSp-bfd, SSp-m). The same applies to figure labels, captions, reports and abstract text.
 
 ## Implementation pointers
 - `062_pub_convergence_figures.py`: `setup()` (rcParams), `letter_row()` (aligned panel letters), `save()` (png / pdf /

@@ -32,7 +32,7 @@
       modality_stim 0.72 vs 0.49; modality_lick 0.59 vs 0.50.
 - [X] Pilot 3 (v2, liblinear; 10 mice x 20 neurons, T 100/100, 100 x 10 shifts): R+, 3 areas, 3 targets, 31 min on 30
       workers (~56 s per iteration x target). Onsets: hitmiss 50/50/130 ms, modality_stim 10/20/5 ms, modality_lick
-      -220/-155/-320 ms (whole brain / Motor / S1-whisker). Files renamed *_pilot3_10mice before the full run.
+      -220/-155/-320 ms (whole brain / Motor / SS-whisker). Files renamed *_pilot3_10mice before the full run.
 - [X] Balanced-reuse trial sampling + 20 mice per draw implemented; check: pool of 3 -> 33-34 uses each; one hitmiss
       iteration with 20 mice x 20 neurons = 66 s (load 173 s per task).
 - [X] FULL RUN DONE 2026-09-29 21:19 (R+ 16:51-19:01, R- 19:01-21:18), 20 mice x 10 neurons per session (a 20-neuron start at 16:45 was aborted, partial files *_aborted_n20); 003 summaries/figures and 005 overlays for both cohorts (exploratory-analyses/run_full.sh, log artifacts/002_full_log.txt; pilot 3 files renamed *_pilot3_10mice): R+ and R-, whole brain + all area groups, 3 targets.
