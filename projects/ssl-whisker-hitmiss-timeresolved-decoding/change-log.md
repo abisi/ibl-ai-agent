@@ -139,3 +139,4 @@
 - 2026-10-11: 175 hit - miss axis across days: 135 rerun with SSL_MIN_CLASS=2 (>= 4 hits and misses; tables *_min2_tracked_harm[_expert]), passive whisker pre / post projections and post - pre change (real - shifted) day 0 vs expert, auditory control.
 - 2026-10-11: 175 v2 figure (088 panels: day 0 vs expert, R+ vs R- per stage, interaction, n) for pre, post, post - pre whisker and auditory.
 - 2026-10-13: 165 area panels: rows in the allen_utils default area-group order (was: by session count), all dots filled (was: open where the per-cohort Wilcoxon vs 0 was n.s.); compact angle figures (z-scored and raw) regenerated.
+- 2026-10-13: 176 lagged cross-correlation of the class-residualised single-trial hit / miss decoder margin (123 v2) with the learning curves (whisker - FA, whisker P(lick); level and first difference), linear-shift null per session, BH over lags; readout around the 017 learning trial vs random pseudo-learning trials.
