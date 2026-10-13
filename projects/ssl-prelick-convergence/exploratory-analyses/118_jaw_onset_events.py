@@ -31,8 +31,16 @@ sys.path.insert(0, str(HERE))
 os.environ["PRELICK_ALIGN"] = "lick"                    # read the lick-aligned definitions, write the jaw-tagged files
 m51 = importlib.import_module("051_roc_prelick")
 m113 = importlib.import_module("113_dlc_passive_pre")
-TAG_JAW = m51.TAG + "_jaw"
-OUT = m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}_jaw" / "jaw_onsets"
+# 2026-10-13: PRELICK_JAW_WIN=centered -> rate window [-50, +50) ms around jaw onset (tag / roots "_jawc"; run 051-downstream
+# with PRELICK_ALIGN=jawc); default "pre" = [-100, 0) ms before jaw onset ("_jaw"). Both also store binned rates around jaw onset
+# (jbins: 50-ms windows, centres -300 .. +200 ms, 25-ms step, minus the event's baseline) for the time courses of 120.
+JWIN = os.environ.get("PRELICK_JAW_WIN", "pre")
+JSFX = "_jaw" if JWIN == "pre" else "_jawc"
+if JWIN == "centered":
+    m51.PRELICK = (-0.050, 0.050)
+TAG_JAW = m51.TAG + JSFX
+OUT = m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}{JSFX}" / "jaw_onsets"
+JB_C = np.round(np.arange(-0.300, 0.2001, 0.025), 3)
 K_SD, MIN_AFTER_STIM = 7.0, 0.05
 SL_BASE_JAW, SL_SEARCH = (-1.0, -0.5), 0.5
 OLD = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results")
@@ -79,7 +87,14 @@ def session(args):
     k = t[np.isfinite(on)].copy(); k["first_lick_time"] = k.jaw_onset
     spikes = [np.sort(np.asarray(s)) for s in units.spike_times]
     Wraw, X = m51.unit_rates(spikes, k)
+    on_k, blo, bhi = k.jaw_onset.to_numpy(), k.base_lo.to_numpy(), k.base_hi.to_numpy()
+    JB = np.zeros((len(spikes), len(k), len(JB_C)), np.float32)
+    for u, s_ in enumerate(spikes):
+        b = (np.searchsorted(s_, bhi) - np.searchsorted(s_, blo)) / (bhi - blo)
+        for j, c in enumerate(JB_C):
+            JB[u, :, j] = (np.searchsorted(s_, on_k + c + 0.025) - np.searchsorted(s_, on_k + c - 0.025)) / 0.05 - b
     np.savez_compressed(folder / f"{mouse}_roc_prelick{TAG_JAW}_trials.npz", rates=X.astype(np.float32), raw=Wraw.astype(np.float32),
+                        jbins=JB, jbins_c=JB_C,
                         cls=k.cls.to_numpy(), rt=k.reaction_time.to_numpy(), trial_start=k.start_time.to_numpy(),
                         electrode_group=units.electrode_group.astype(str).to_numpy(), cluster_id=units.cluster_id.astype(str).to_numpy(),
                         lick_time=k.lick_time_used.to_numpy(), jaw_onset=k.jaw_onset.to_numpy(), lead=(k.lick_time_used - k.jaw_onset).to_numpy())
@@ -126,7 +141,7 @@ def main(a):
               f"{np.nanmedian(ok[f'lead_med_{c}']) * 1e3:.0f} ms")
     V = validate(E); V.to_csv(OUT / "validation.csv", index=False)
     # same unit table for the jaw-aligned roots (identical unit sets)
-    for root in (m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}_jaw",):
+    for root in (m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}{JSFX}",):
         dst = root / "prelick_units.parquet"
         if not dst.exists():
             dst.symlink_to(m51.OUTROOT / "prelick_units.parquet")
