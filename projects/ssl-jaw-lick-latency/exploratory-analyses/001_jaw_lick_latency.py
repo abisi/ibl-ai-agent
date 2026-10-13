@@ -16,7 +16,9 @@ Analyses
      best a constant per-session offset can do). Error = predicted - actual jaw onset (ms); per event |error| and per session bias
      (median error)
 Outputs: combined_results_ks4/ssl-jaw-lick-latency/{tables/*.csv, figures/jaw_lick_latency.{png,pdf,svg}}
-Run (haas): PRELICK_REF=sl PRELICK_UNITS=stable python .../001_jaw_lick_latency.py
+SSL_JAW_POP=all (2026-10-13): every session with usable jaw video, no learners rule, outputs in all_sessions/; per-session estimates
+(tables/session_estimates.csv) and a within-session leave-one-out lead ~ RT model (each session on its own).
+Run (haas): [SSL_JAW_POP=all] PRELICK_REF=sl PRELICK_UNITS=stable python .../001_jaw_lick_latency.py
 """
 import importlib
 import pathlib
@@ -34,7 +36,10 @@ m113 = importlib.import_module("113_dlc_passive_pre")
 m51, m105 = m113.m51, m113.m105
 m61 = importlib.import_module("061_roc_prelick_learners")
 SRC = m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}_jaw" / "jaw_onsets"
-OUT = m51.RES / "ssl-jaw-lick-latency"
+OUT0 = m51.RES / "ssl-jaw-lick-latency"
+import os  # noqa: E402
+POP = os.environ.get("SSL_JAW_POP", "learners")          # 2026-10-13: "all" = every session with usable jaw video, no learners rule
+OUT = OUT0 if POP == "learners" else OUT0 / "all_sessions"
 CLS = ("WH", "AH", "SL")
 COLC = {"WH": "#f7b519", "AH": "#2c2cdb", "SL": "#262626"}
 COH = {"R+": "#00B400", "R-": "#C800C8"}
@@ -50,7 +55,9 @@ def load():
     E["censored"] = (E.cls != "SL") & ((E.jaw_onset - E.start_time) <= 0.05 + FRAME)
     meta = pd.read_csv(m105.OUT / "sessions.csv")[["session_id", "mouse_id", "cohort", "stage"]]
     S = pd.read_csv(SRC / "sessions.csv")[["session_id", "setup"]]
-    E = m61.learner_filter(E.merge(meta, on="session_id").merge(S, on="session_id", how="left"))
+    E = E.merge(meta, on="session_id").merge(S, on="session_id", how="left")
+    if POP == "learners":
+        E = m61.learner_filter(E)
     t0 = E.groupby("session_id").start_time.transform("min"); t1 = E.groupby("session_id").start_time.transform("max")
     E["tau"] = (E.start_time - t0) / (t1 - t0).clip(lower=1e-9)
     return E
@@ -90,6 +97,11 @@ def loso(E):
                 pred["stimulus-locked"] = g.rt.to_numpy() - (o.jaw_onset - o.start_time).median() * 1e3   # onset = stimulus + typical latency
             x = g.lead.to_numpy(); n = len(x)
             pred["session oracle"] = np.array([np.median(np.delete(x, i)) for i in range(n)]) if n > 1 else np.full(n, np.nan)
+            if c != "SL" and n >= 10:                                   # each session on its own: leave-one-out lead ~ RT within the session
+                rt = g.rt.to_numpy(); pr = np.full(n, np.nan)
+                for i in range(n):
+                    m_ = np.arange(n) != i; b_, a_ = np.polyfit(rt[m_], x[m_], 1); pr[i] = a_ + b_ * rt[i]
+                pred["within-session RT model"] = pr
             for k, p in pred.items():
                 out.append(pd.DataFrame(dict(session_id=sid, mouse_id=g.mouse_id.iloc[0], cls=c, scheme=k, err=x - p)))
     return pd.concat(out, ignore_index=True)
@@ -182,20 +194,22 @@ def figure(E, VC, P, Ssum, ex_sid):
     ax.set_title(f"Same mouse across days (n = {len(M)})\nSpearman {r_:.2f}", fontsize=5.4)
     # G inference error
     ax = fig.add_subplot(gs[1, 3]); L.append(ax)
-    sch = ["global", "same mouse", "stimulus-locked", "RT model", "session oracle"]
-    colS = {"global": "#999999", "same mouse": "#4C72B0", "stimulus-locked": "#2CA02C", "RT model": "#d94801", "session oracle": "k"}
+    sch = ["global", "same mouse", "stimulus-locked", "RT model", "session oracle", "within-session RT model"]
+    colS = {"global": "#999999", "same mouse": "#4C72B0", "stimulus-locked": "#2CA02C", "RT model": "#d94801", "session oracle": "k",
+            "within-session RT model": "#9467BD"}
     q = P[P.cls != "SL"]
     for k in sch:
         e = np.sort(np.abs(q[q.scheme == k].err.dropna().to_numpy()))
         ax.plot(e, np.arange(1, len(e) + 1) / len(e), color=colS[k], lw=0.9, label=f"{k} (median {np.median(e):.0f} ms)")
     for v in (25, 50):
         ax.axvline(v, color="0.75", lw=0.5, ls=":")
-    ax.set_xlim(0, 200); ax.set_xlabel("|predicted − actual jaw onset| (ms)"); ax.set_ylabel("cumulative fraction (WH + AH)")
-    ax.legend(frameon=False, fontsize=3.8, loc="lower right")
+    ax.set_xlabel("|predicted − actual jaw onset| (ms)"); ax.set_ylabel("cumulative fraction (WH + AH)")
+    ax.legend(frameon=False, fontsize=3.6, loc="lower right", bbox_to_anchor=(1.02, 0.0), handlelength=1.0, labelspacing=0.2)
+    ax.set_xlim(0, 250)
     ax.set_title("Inferring jaw onset from the lick\n(leave one session out)", fontsize=5.4)
     for ax, l in zip(L, "abcdefg"):
         ax.text(-0.3 if l != "c" else -0.12, 1.12, l, transform=ax.transAxes, fontsize=8, weight="bold")
-    fig.suptitle("How stable is the delay between jaw-opening onset and the first lick?", x=0.01, y=0.995, ha="left", fontsize=7, weight="bold")
+    fig.suptitle(f"How stable is the delay between jaw-opening onset and the first lick? ({'all sessions' if POP == 'all' else 'learners'})", x=0.01, y=0.995, ha="left", fontsize=7, weight="bold")
     (OUT / "figures").mkdir(parents=True, exist_ok=True)
     for ext in ("png", "pdf", "svg"):
         fig.savefig(OUT / "figures" / f"jaw_lick_latency.{ext}", dpi=300)
@@ -250,6 +264,24 @@ def main():
     S = E[E.cls != "SL"].groupby(["session_id", "cohort", "stage"]).lead.agg(["median", "size"]).reset_index()
     c = S[(S.cohort == "R+") & (S.stage == "expert") & (S["size"] >= 60)]
     ex = c.iloc[(c["median"] - E[E.cls != "SL"].lead.median()).abs().argsort().iloc[0]].session_id
+    # each session on its own (2026-10-13): per-session estimates and within-session predictability
+    rows = []
+    for (sid, c), g in E.groupby(["session_id", "cls"]):
+        r = dict(session_id=sid, mouse_id=g.mouse_id.iloc[0], cohort=g.cohort.iloc[0], stage=g.stage.iloc[0], setup=g.setup.iloc[0], cls=c,
+                 n=len(g), median=g.lead.median(), iqr=g.lead.quantile(0.75) - g.lead.quantile(0.25), sd=g.lead.std(),
+                 mad=np.median(np.abs(g.lead - g.lead.median())), frac_censored=g.censored.mean())
+        if c != "SL" and len(g) >= 10:
+            r["rt_slope"], r["rt_intercept"] = np.polyfit(g.rt, g.lead, 1); r["rt_spearman"] = stats.spearmanr(g.rt, g.lead)[0]
+            lat = (g.jaw_onset - g.start_time) * 1e3; r["sd_onset_from_stim"] = lat.std()
+        for k in ("session oracle", "within-session RT model"):
+            e = P[(P.session_id == sid) & (P.cls == c) & (P.scheme == k)].err.dropna()
+            if len(e):
+                r[f"abs_err_median {k}"], r[f"within50 {k}"] = np.median(np.abs(e)), np.mean(np.abs(e) <= 50)
+        rows.append(r)
+    SE = pd.DataFrame(rows); SE.to_csv(OUT / "tables" / "session_estimates.csv", index=False)
+    q = SE.groupby("cls")[[k for k in SE.columns if k not in ("session_id", "mouse_id", "cohort", "stage", "setup", "cls")]]
+    print("per-session estimates (median [IQR] across sessions):")
+    print(q.median().round(2).T.to_string()); print(q.quantile(0.25).round(2).T.add_suffix(" q25").to_string()); print(q.quantile(0.75).round(2).T.add_suffix(" q75").to_string())
     figure(E, VC, P, summ, ex)
     print("ALL DONE", OUT / "figures" / "jaw_lick_latency.png")
 
