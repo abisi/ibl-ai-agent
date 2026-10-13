@@ -333,8 +333,7 @@ def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
     ax.axvline(0, color="0.6", lw=0.5, ls=(0, (2, 2)))
     if COMPACT:
         ax.set_yticks(range(len(areas)))
-        ax.set_yticklabels([f"{SHORT.get(a, a)}{' *' if qq < 0.05 else ''} ({int(n.loc[a]['R+'])}/{int(n.loc[a]['R-'])})" for a, qq in zip(areas, q)],
-                           fontsize=4.6)
+        ax.set_yticklabels([f"{SHORT.get(a, a)}{' *' if qq < 0.05 else ''}" for a, qq in zip(areas, q)], fontsize=4.6)   # no session counts (2026-10-13)
     else:
         ax.set_yticks(range(len(areas))); ax.set_yticklabels([f"{a} ({int(n.loc[a]['R+'])}/{int(n.loc[a]['R-'])})" for a in areas], fontsize=4.8)
     for t, a in zip(ax.get_yticklabels(), areas):
