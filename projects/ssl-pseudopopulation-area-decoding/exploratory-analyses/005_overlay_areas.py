@@ -48,8 +48,8 @@ EXCLUDE = {"All units", "Amygdala and hypothalamus", "Cortical subplate", "Visua
            "Somatosensory-body", "Olfactory areas"}   # SS-body (2-4 mice) and olfactory excluded (user 2026-09-29)
 VIEW = {"hitmiss": (-200, 600), "modality_stim": (-10, 50), "modality_lick": (-600, 200)}   # ms shown
 POST_ONSET = {"hitmiss", "modality_stim"}
-ABBR = {"Motor areas": "Motor", "Frontal areas": "Frontal", "Somatosensory-orofacial": "SS-orofacial",
-        "Somatosensory-body": "SS-body", "Somatosensory-whisker": "SS-whisker", "Auditory areas": "Auditory",
+ABBR = {"Motor areas": "Motor", "Frontal areas": "Frontal", "Somatosensory-orofacial": "Ss-orofacial",
+        "Somatosensory-body": "SS-body", "Somatosensory-whisker": "Ss-whisker", "Auditory areas": "Auditory",
         "Retrosplenial areas": "RSP", "Posterior parietal areas": "PPC", "Visual areas": "Visual",
         "Insular areas": "Insular", "Hippocampus": "HPC", "Striatum": "Striatum", "Pallidum": "Pallidum",
         "Lateral septal complex": "LSX", "Thalamus": "Thalamus", "Midbrain": "Midbrain", "Olfactory areas": "Olfactory"}

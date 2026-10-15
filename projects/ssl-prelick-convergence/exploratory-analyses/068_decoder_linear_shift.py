@@ -199,7 +199,7 @@ def figure_and_stats(S):
                     ax.text(i - 0.2 + 0.4 * k, ax.get_ylim()[1] if False else max(a_.mean(), b_.mean()) + 0.06, "*",
                             ha="center", color=m62.COH[c], fontsize=8)
         ax.axhline(0, color="0.5", lw=0.5)
-        ax.set_xticks(range(len(order)), [g.replace(" areas", "").replace("Somatosensory-", "SS-") for g in order],
+        ax.set_xticks(range(len(order)), [g.replace(" areas", "").replace("Somatosensory-", "Ss-") for g in order],
                       rotation=30, ha="right")
         ax.set_ylabel("Balanced accuracy − chance\n(mean ± s.e.m. over sessions)")
         ax.set_title("Per area group: open = learning, filled = expert; left R+, right R−; * learning vs expert p < 0.05 "

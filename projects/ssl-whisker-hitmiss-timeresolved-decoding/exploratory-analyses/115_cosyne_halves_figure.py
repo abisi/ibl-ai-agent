@@ -45,8 +45,8 @@ COL = {"R+": "#00B400", "R-": "#C800C8"}
 HALF_STYLE = {"first": dict(ls="--", alpha=0.18), "second": dict(ls="-", alpha=0.28)}
 EXCLUDE = {"Olfactory areas", "Cortical subplate", "Pons and medulla", "Amygdala and hypothalamus", "Visual areas",
            "Somatosensory-body"}
-ABBR = {"Motor areas": "Motor", "Frontal areas": "Frontal", "Somatosensory-orofacial": "SS-orofacial",
-        "Somatosensory-whisker": "SS-whisker", "Auditory areas": "Auditory", "Retrosplenial areas": "RSP",
+ABBR = {"Motor areas": "Motor", "Frontal areas": "Frontal", "Somatosensory-orofacial": "Ss-orofacial",
+        "Somatosensory-whisker": "Ss-whisker", "Auditory areas": "Auditory", "Retrosplenial areas": "RSP",
         "Posterior parietal areas": "PPC", "Insular areas": "Insular", "Hippocampus": "HPC", "Striatum": "Striatum",
         "Pallidum": "Pallidum", "Lateral septal complex": "LSX", "Thalamus": "Thalamus", "Midbrain": "Midbrain"}
 STATS = []

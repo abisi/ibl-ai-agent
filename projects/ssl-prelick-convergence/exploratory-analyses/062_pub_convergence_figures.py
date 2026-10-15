@@ -1893,7 +1893,7 @@ def fig_cosyne3(plt, D, out, pop, rng, PR):
         # f: area heatmap
         Q = area_qualify(LA, col="dd")
         order = [g for g in au.get_area_group_custom_order() if g in Q["R+"] and g in Q["R-"]]
-        short = {g: g.replace(" areas", "").replace("Somatosensory-", "SS-").replace("Lateral septal complex", "LSX")
+        short = {g: g.replace(" areas", "").replace("Somatosensory-", "Ss-").replace("Lateral septal complex", "LSX")
                  .replace("Posterior parietal", "PPC").replace("Retrosplenial", "RSP").replace("Hippocampus", "HPF")
                  .replace("Amygdala and hypothalamus", "Amyg.") for g in order}
         ax_f = fig.add_subplot(gl[2])
@@ -2022,7 +2022,7 @@ def fig_cosyne2(plt, D, out, pop, rng, PR):
         # f: areas, heatmap of mean distance difference (areas included in both cohorts only)
         Q = area_qualify(LA, col="dd")
         order = [g for g in au.get_area_group_custom_order() if g in Q["R+"] and g in Q["R-"]]
-        short = {g: g.replace(" areas", "").replace("Somatosensory-", "SS-").replace("Lateral septal complex", "LSX")
+        short = {g: g.replace(" areas", "").replace("Somatosensory-", "Ss-").replace("Lateral septal complex", "LSX")
                  .replace("Posterior parietal", "PPC").replace("Retrosplenial", "RSP").replace("Hippocampus", "HPF")
                  .replace("Amygdala and hypothalamus", "Amyg.") for g in order}
         ax_f = fig.add_subplot(gl[0:2, 3])

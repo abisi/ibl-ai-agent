@@ -18,7 +18,7 @@ W, H = 13.333, 7.5
 M = 0.4                                   # side margin (in)
 TOP, FOOT = 1.15, 0.75                    # title band, footnote band
 GREY = RGBColor(0x55, 0x55, 0x55)
-LAT_GROUPS = ["SS-whisker", "Posterior parietal", "Auditory", "Midbrain", "Thalamus", "Motor", "Striatum"]
+LAT_GROUPS = ["Ss-whisker", "Posterior parietal", "Auditory", "Midbrain", "Thalamus", "Motor", "Striatum"]
 
 
 def pt(p):

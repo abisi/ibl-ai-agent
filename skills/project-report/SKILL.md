@@ -115,8 +115,14 @@ Reports grow by accretion: every rerun, variant and talk figure tends to be appe
 - **One figure per question.** Each Results subsection has one main figure (two at most). A variant (other window,
   threshold, unit sampling, estimator, reference, population) is a sentence with its number and the result-folder path,
   or one row of a robustness table, not another figure.
-- **No summary or talk figures.** Conference / COSYNE / slide figures re-assemble panels that are already in the report;
-  they live in the result folders and decks, never in the report.
+- **Conference and talk figures** (user, 2026-10-15). Iterations for an abstract or talk (e.g. COSYNE) usually hold the
+  most refined version of each panel: report figures are assembled from these latest panels and re-arranged into the
+  report's storyline (each result shown with its metric and comparison points). A conference composite itself may be
+  added only as **supplementary** material, and every one of its sub-panels must also exist in a main figure
+  (`figure(..., kind="conference", panels_from=[...])`; the build checks it).
+- **Figure versioning.** Iterative analyses produce many versions of a figure. Each report figure records its source
+  file, generating script, hash and date (`figures.json`); the version-history appendix lists which earlier figures it
+  supersedes.
 - **No per-item figure series.** One figure per area group, session, mouse or parameter value is not included; show the
   across-items summary (matrix, forest, table) and point to the folder for the per-item figures.
 - **Supplement only what the text cites for a claim** (a control that changes the interpretation, the robustness check
@@ -129,6 +135,26 @@ Reports grow by accretion: every rerun, variant and talk figure tends to be appe
   figure index of the result folders (what else exists and where), a script-to-figure provenance table, and nothing that
   the main text does not need.
 - **Text follows the same rule**: one paragraph per result; methods of variants that are not shown are one sentence.
+- **Dimensions, not extra sections.** When an analysis is done at several levels (single unit, population, decoding, …),
+  controls such as the auditory (non-learned) stimulus and the per-area breakdown are dimensions shown at each level,
+  inside that level's figure, not separate sections at the end.
+
+### Summary tools (user, 2026-10-15)
+
+- **Claims registry.** Every claim of the report is a `R.claim(...)` row (claim, figure panel, statistic, n, status:
+  holds / fragile / n.s. / superseded) written to `registry.csv` and shown as an appendix table (`R.registry_table`).
+  Review a report by reading the registry first; claims marked fragile or n.s. are stated as such in the text.
+- **Shared methods.** Definitions used by several projects (task, learners, trials, units, lick alignment, shift null,
+  statistics, areas) come verbatim from `skills/project-report/shared_methods.md` via `R.methods(...)`. Edit the
+  definition there, never in a single report.
+- **Frozen statistics.** At the start of a review, freeze the statistics files the report reads with
+  `R.snapshot(files, out)` (`report/_snapshots/<date>/`, with a manifest) and build from the frozen copies, so reruns do
+  not change numbers during the review.
+- **Executive summary.** `R.write(out, md, summary=...)` also writes `summary.md`: one page, the key claims and one figure,
+  for sharing ahead of the full PDF.
+- **Spelling.** Wording that must be written differently (area groups "Ss-whisker", "Ss-orofacial", never "S1 whisker")
+  is rewritten automatically by `R.write` (`SPELLING` in report_lib, extend with `Report(spelling=...)`); this is not a
+  ban.
 
 ### Generator mechanics: `skills/project-report/report_lib.py` (use it in every `build_report.py`)
 
@@ -170,6 +196,8 @@ R.write(OUT, md)       # checks; figures -> report/figures/<anchor>.png (stale r
       main + supplementary figures with captions.
 - [ ] Every figure and table cited and linked in the text; sample-size table present; paragraphs separated; captions
       complete.
-- [ ] Concise: one figure per question, no summary / talk figures, no per-item series, no layout duplicates, within the
-      figure budget; pruned at this rebuild (removals listed in `change-log.md`); appendix figure index points to the rest.
+- [ ] Concise: one figure per question, conference composites only as supplementary (sub-panels present in main figures),
+      no per-item series, no layout duplicates, within the figure budget; pruned at this rebuild (removals listed in
+      `change-log.md`); appendix figure index points to the rest; figures.json versions recorded.
+- [ ] Claims registry, shared methods, frozen statistics snapshot and summary.md produced.
 - [ ] Published to the private reports repo (pdf, md, html only).

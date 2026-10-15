@@ -339,7 +339,7 @@ def figure(T, P, out, pop, Ms):
                 ax.text(i, top, m62.fmt_p(a.loc[g, "interaction p_boot"]).replace("p ", ""), ha="center", va="bottom",
                         fontsize=4.4, rotation=90)
         ax.axhline(0, color="0.3", lw=0.5)
-        ax.set_xticks(x, [g.replace(" areas", "").replace("Somatosensory-", "SS-").replace("Lateral septal complex", "LSX")
+        ax.set_xticks(x, [g.replace(" areas", "").replace("Somatosensory-", "Ss-").replace("Lateral septal complex", "LSX")
                           .replace("Posterior parietal", "PPC").replace("Retrosplenial", "RSP") for g in order], rotation=40, ha="right")
         ax.set_ylabel("Expert − learning (95% CI)")
         ax.set_title(f"Areas, {'transfer' if ro == 'transfer' else 'λ'} (M = {P['M_AREA']}; filled: bootstrap p < 0.05; "

@@ -154,7 +154,7 @@ def area_panel(ax, LA, rows):
 
 
 def m62_short(g):
-    return (g.replace(" areas", "").replace("Somatosensory-", "SS-").replace("Lateral septal complex", "LSX")
+    return (g.replace(" areas", "").replace("Somatosensory-", "Ss-").replace("Lateral septal complex", "LSX")
             .replace("Posterior parietal", "PPC").replace("Retrosplenial", "RSP").replace("Hippocampus", "HPF")
             .replace("Amygdala and hypothalamus", "Amyg."))
 

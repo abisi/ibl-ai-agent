@@ -36,7 +36,7 @@ WIDE_RANGE_MS = 10          # onset flagged as unreliable (dagger, faded bar) wh
 MIN_DEFINED = 0.95
 CMAP = "magma"              # corrected balanced accuracy: dark = low, light = high (user 2026-10-06)          # onset is undefined in > 5 % of the resamples (user 2026-10-06: flag, do not rank)
 LEVEL_NAME = {"area_group": "area groups", "area_acronym_custom": "areas"}
-SHORT = {"Somatosensory-whisker": "SS-whisker", "Somatosensory-orofacial": "SS-orofacial", "Somatosensory-body": "SS-body",
+SHORT = {"Somatosensory-whisker": "Ss-whisker", "Somatosensory-orofacial": "Ss-orofacial", "Somatosensory-body": "SS-body",
          "Auditory areas": "Auditory", "Motor areas": "Motor", "Frontal areas": "Frontal", "Retrosplenial areas": "Retrosplenial",
          "Posterior parietal areas": "Post. parietal", "Lateral septal complex": "Lat. septum", "Visual areas": "Visual",
          "Insular areas": "Insular", "Olfactory areas": "Olfactory", "Amygdala and hypothalamus": "Amygdala + hypoth."}

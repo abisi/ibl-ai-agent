@@ -126,7 +126,7 @@ def link_figure():
     for ax, c, ttl in ((axs[0], "first", "faster modality"), (axs[1], "latency_whisker_ms", "whisker")):
         st = S.corr_panel(ax, D[c].to_numpy(), D.onset_ms.to_numpy(), colors=[col.get(a, "0.5") for a in D.index], sizes=np.full(len(D), 22))
         for a, r in D.iterrows():
-            ax.annotate(a.replace(" areas", "").replace("Somatosensory-", "SS-"), (r[c], r.onset_ms), fontsize=5, xytext=(3, 2),
+            ax.annotate(a.replace(" areas", "").replace("Somatosensory-", "Ss-"), (r[c], r.onset_ms), fontsize=5, xytext=(3, 2),
                         textcoords="offset points", color=col.get(a, "0.3"))
         ax.text(0.02, 0.97, f"rho = {st['rho']:.2f}, {S.fmt_p(st['p_rho'])}\nn = {st['n']} area groups", transform=ax.transAxes,
                 va="top", fontsize=5.5)
@@ -204,7 +204,7 @@ def schematic():
         bx.plot([r.lo, r.hi], [i, i], color=c, lw=1.5, solid_capstyle="round")
         bx.plot(r.onset_ms, i, "o" if r.lvl == 0 else "s", color=c, ms=5 if r.lvl == 0 else 4, mec="k", mew=0.3)
     bx.set_yticks(range(len(D)))
-    bx.set_yticklabels([a.replace(" areas", "").replace("Somatosensory-", "SS-") for a in D.area], fontsize=6.5)
+    bx.set_yticklabels([a.replace(" areas", "").replace("Somatosensory-", "Ss-") for a in D.area], fontsize=6.5)
     for t, a in zip(bx.get_yticklabels(), D.area):
         t.set_color(col.get(a, "0.3"))
     bx.invert_yaxis(); bx.set_xlim(0, max(22, D.hi.max() + 2))

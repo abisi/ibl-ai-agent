@@ -249,7 +249,7 @@ def fig_change(plt, C, A, met, coh, order, acol, out, population):
         ax.tick_params(axis="y", length=0)
     axA.set_xlim(span_pos, -span_neg)                       # mirrored: auditory increase to the left
     axW.set_xlim(-span_neg, span_pos)
-    axA.set_yticks(y, [a.replace(" areas", "").replace("Somatosensory-", "SS-") for a in areas])
+    axA.set_yticks(y, [a.replace(" areas", "").replace("Somatosensory-", "Ss-") for a in areas])
     for t, a in zip(axA.get_yticklabels(), areas):
         t.set_color(acol.get(a, "k"))
     axW.set_yticks([])
@@ -286,7 +286,7 @@ def fig_focality(plt, F, prof, acol, out):
             sh = np.clip(p, 0, None) / np.clip(p, 0, None).sum()
             ax.plot(xx, sh[o], "o-", color=COL[coh], mfc=mfc, mec=COL[coh], ms=3, lw=0.7, mew=0.7, label=lab)
         ax.axhline(1 / len(inc), color="0.6", lw=0.5, ls=":")
-        ax.set_xticks(xx, [inc[i].replace(" areas", "").replace("Somatosensory-", "SS-") for i in o], rotation=60, ha="right",
+        ax.set_xticks(xx, [inc[i].replace(" areas", "").replace("Somatosensory-", "Ss-") for i in o], rotation=60, ha="right",
                       fontsize=4.8)
         for t, i in zip(ax.get_xticklabels(), o):
             t.set_color(acol.get(inc[i], "k"))

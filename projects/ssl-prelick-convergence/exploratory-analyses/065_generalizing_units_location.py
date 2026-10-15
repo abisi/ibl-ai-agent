@@ -89,7 +89,7 @@ def area_figure(A, plt, out, ANOVA=None):
                 ax.text(i + dx, top * 1.04, "*" if p >= 0.01 else "**" if p >= 0.001 else "***", ha="center", fontsize=7,
                         color=c)
     ax.set_ylim(0, top * 1.12)
-    ax.set_xticks(x, [g.replace(" areas", "").replace("Somatosensory-", "SS-").replace("Lateral septal complex", "LSX")
+    ax.set_xticks(x, [g.replace(" areas", "").replace("Somatosensory-", "Ss-").replace("Lateral septal complex", "LSX")
                       for g in keep], rotation=35, ha="right")
     ax.set_ylabel("Fraction of tested units that\ngeneralize (AH ≠ FA and WH ≠ FA,\nsame sign); mean ± s.e.m. over sessions")
     ax.legend(frameon=False, ncol=4, loc="lower left", bbox_to_anchor=(0, 1.0), fontsize=5, borderaxespad=0.2)

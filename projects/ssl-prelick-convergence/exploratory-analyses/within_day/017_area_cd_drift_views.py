@@ -30,7 +30,7 @@ m015 = importlib.import_module("015_area_cd_drift")
 OUT = m015.OUT
 COH = m62.COH
 MEAS = [("drift_WH_SL", "WH relative to SL\n(β_WH − β_SL)"), ("drift_WH_AH", "WH relative to AH\n(β_WH − β_AH)")]
-SHORT = lambda g: (g.replace(" areas", "").replace("Somatosensory-", "SS-").replace("Lateral septal complex", "LSX")
+SHORT = lambda g: (g.replace(" areas", "").replace("Somatosensory-", "Ss-").replace("Lateral septal complex", "LSX")
                    .replace("Posterior parietal", "PPC").replace("Retrosplenial", "RSP").replace("Hippocampus", "HPF")
                    .replace("Amygdala and hypothalamus", "Amyg."))
 fp = lambda p: "" if not np.isfinite(p) else ("<.001" if p < 0.001 else f"{p:.3f}".lstrip("0"))
