@@ -69,7 +69,7 @@ def four(ax, D, k, title, show_x=True, show_n=None):
     ax.set_title(title, fontsize=5.0, loc="left", pad=2)
 
 
-def example_neuron(fig, spec, r, rng, wspace=0.15, stacked=False):
+def example_neuron(fig, spec, r, rng, wspace=0.15, stacked=False, legend_out=False):
     """stimulus-aligned (W miss, W hit, A hit) and lick-aligned (WH, AH, SL) PSTHs of one unit"""
     from pynwb import NWBHDF5IO
     from scipy.ndimage import gaussian_filter1d
@@ -101,7 +101,10 @@ def example_neuron(fig, spec, r, rng, wspace=0.15, stacked=False):
             ax.fill_between(tc, mu - se, mu + se, color=colors[k], alpha=0.25, lw=0); ax.plot(tc, mu, color=colors[k], lw=0.9, label=f"{k} ({len(e)})")
             top = max(top, np.nanmax(mu + se))
         ax.axvline(0, color="0.3", lw=0.5, ls=(0, (2, 2))); ax.set_xlabel(xl, fontsize=4.6); ax.tick_params(labelsize=4.4)
-        ax.legend(frameon=False, fontsize=3.4, loc="upper left", handlelength=1.0, borderaxespad=0.05, labelspacing=0.15)
+        if legend_out:                                                   # report figure (130): legend beside the panel
+            ax.legend(frameon=False, fontsize=3.4, loc="center left", bbox_to_anchor=(1.0, 0.5), handlelength=0.8, borderaxespad=0.1, labelspacing=0.15)
+        else:
+            ax.legend(frameon=False, fontsize=3.4, loc="upper left", handlelength=1.0, borderaxespad=0.05, labelspacing=0.15)
     axs[1].axvspan(-100, 0, color="#FDD49E", alpha=0.5, lw=0, zorder=0)
     for ax in axs:
         ax.set_ylim(0, top * 1.35)
@@ -289,17 +292,17 @@ def au_order():
     return au.get_area_group_custom_order()
 
 
-def main(a):
+def load_data(n_proc, rows=None):
+    """all inputs of the three rows (also used by the report figures, 121)"""
     import ephys_utilities.allen_utils.allen_utils as au
-    gcol = au.get_custom_area_groups_colors()
-    plt = m62.setup(); rng = np.random.default_rng(0); rows = []
+    rows = [] if rows is None else rows
     HMD = pd.read_csv(m115.HM / "175_across_days_passive_projection_sessions.csv")
     HP = []
     for st_, sfx in (("learning", ""), ("expert", "_expert")):
         q = pd.read_parquet(m115.HM / f"168_cd_psth_projection{sfx}_min2.parquet"); q = q[q.area == "All units"].copy(); q["stage"] = st_; HP.append(q)
     HP = pd.concat(HP).rename(columns={"reward_group": "cohort"}); HP = HP[HP.session_id.isin(HMD.session_id)]
     # single neurons (as 088 main)
-    MI = m88.all_mi(a.n_proc)
+    MI = m88.all_mi(n_proc)
     U0 = pd.read_parquet(m81.OUT / "units.parquet")
     sig = lambda D_, c: D_[c].astype(str).str.lower().isin(["true", "1", "1.0"])
     U0["rl"] = sig(U0, f"sig:{m81.SEL_AS}") & (U0[f"sel:{m81.SEL_AS}"] > 0)
@@ -332,6 +335,15 @@ def main(a):
         n = area_counts(v).reindex(AREAS).fillna(0).astype(int)
         print(f"[areas {k}] sessions per area (R+ D0, R+ E, R- D0, R- E):"); print(n.to_string())
         rows += [dict(panel=f"{k} n", area=a, **{f"n {c} {s_}": int(n.loc[a, (c, s_)]) for c, s_ in GROUPS}) for a in AREAS]
+    return dict(HMD=HMD, HP=HP, Wc=Wc, PB=PB, tc=tc, U=U, SIU=SIU, S_ns=S_ns, PA=PA, P=P, TP=TP, AD=AD, AQ=AQ, AREAS=AREAS, ORD=ORD, m89=m89, rows=rows)
+
+
+def main(a):
+    import ephys_utilities.allen_utils.allen_utils as au
+    gcol = au.get_custom_area_groups_colors()
+    plt = m62.setup(); rng = np.random.default_rng(0); rows = []
+    L = load_data(a.n_proc, rows)
+    HMD, HP, Wc, PB, tc, U, SIU, S_ns, PA, P, TP, AD, AQ, AREAS, ORD, m89 = (L[k] for k in ['HMD', 'HP', 'Wc', 'PB', 'tc', 'U', 'SIU', 'S_ns', 'PA', 'P', 'TP', 'AD', 'AQ', 'AREAS', 'ORD', 'm89'])
     with plt.rc_context({"font.size": 5.2, "axes.titlesize": 5.2, "axes.labelsize": 5.0, "xtick.labelsize": 4.6, "ytick.labelsize": 4.6,
                          "legend.fontsize": 4.4, "svg.fonttype": "none"}):
         # 3 x 4 grid of equal square cells (user 2026-10-12); cells b, e, j: 2 x 2 insets; c, f: two stacked subpanels;

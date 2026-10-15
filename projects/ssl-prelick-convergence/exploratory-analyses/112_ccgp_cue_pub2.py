@@ -39,7 +39,7 @@ m111 = importlib.import_module("111_ccgp_cue_pub")
 m105, m51 = m111.m105, m111.m51
 OUT = m51.OUTROOT / "ccgp_pub2"
 GROUPS = m111.GROUPS
-MIN_UNITS, MIN_EV, N_SHIFT, N_SHIFT_TC, C_REG = 10, 6, 20, 10, 0.05
+MIN_UNITS, MIN_EV, N_SHIFT, N_SHIFT_TC, C_REG = 10, 6, 20, 20, 0.05   # N_SHIFT_TC 10 -> 20 (2026-10-15)
 N_SESS, N_NEUR, N_PS, N_SPLIT, B, MIN_MICE = 10, 20, 50, 5, 200, 3
 
 
@@ -172,6 +172,9 @@ def pp_job(args):
     return res
 
 
+SKIP_PP = False
+
+
 def compute(n_proc, pop):
     OUT.mkdir(parents=True, exist_ok=True)
     m61 = importlib.import_module("061_roc_prelick_learners")
@@ -183,6 +186,8 @@ def compute(n_proc, pop):
     pd.DataFrame([x for r in res for x in r[1]]).merge(meta, on="session_id").to_parquet(OUT / "timecourse.parquet", index=False)
     pd.DataFrame([x for r in res for x in r[2]]).merge(meta, on="session_id").to_parquet(OUT / "examples.parquet", index=False)
     print("per-session done", flush=True)
+    if SKIP_PP:
+        return
     mt = m61.learner_filter(meta) if pop == "learners" else meta
     for r in mt.itertuples():
         f = m105.OUT / f"{r.session_id}.npz"
@@ -385,6 +390,8 @@ def figure(pop):
 
 
 def main(a):
+    global SKIP_PP
+    SKIP_PP = a.skip_pseudopop
     if not a.replot:
         compute(a.n_proc, a.pop)
     figure(a.pop); print("ALL DONE")
@@ -395,4 +402,5 @@ if __name__ == "__main__":
     ap.add_argument("--n-proc", type=int, default=25)
     ap.add_argument("--replot", action="store_true")
     ap.add_argument("--pop", default="learners", choices=["learners", "all"])
+    ap.add_argument("--skip-pseudopop", action="store_true", help="per-session parts only; keep the stored pseudo-population")
     main(ap.parse_args())

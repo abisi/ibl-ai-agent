@@ -35,7 +35,7 @@ OUT = m51.OUTROOT / "ccgp_sessions_eq"
 import os
 N_SUB = int(os.environ.get("SSL_114_NSUB", 40))   # units per draw; 2026-10-11: 20 / 40 / 60 compared, 40 chosen (effects grow, SEM
 #   unchanged, nearly all sessions kept; 60 drops sessions in frontal, striatum, hippocampus)
-R_SUB, N_SHIFT, MIN_SESS = 50, 10, 3
+R_SUB, N_SHIFT, MIN_SESS = 50, 20, 3   # N_SHIFT 10 -> 20 (2026-10-15)
 SFX = f"_n{N_SUB}"
 GROUPS = m111.GROUPS
 

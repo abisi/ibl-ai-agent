@@ -49,6 +49,17 @@ SHARED_METHODS = Path(__file__).resolve().parent / "shared_methods.md"
 SPELLING = {r"\bS1[ -]?(whisker|orofacial|body)\b": r"Ss-\1", r"\bSS-(whisker|orofacial|body)\b": r"Ss-\1",
             r"\bwS1\b(?= (?:area )?group)": "Ss-whisker"}
 STATUS = ("holds", "fragile", "n.s.", "superseded")
+LINK = re.compile(r"\[[^\[\]]*\]\(#[\w-]+\)")
+
+
+def escape_brackets(text: str) -> str:
+    """escape [ ] in a figure caption: a half-open interval such as "[-100, 0) ms" otherwise ends Pandoc's image syntax and the
+    figure is dropped; cross-reference links [label](#anchor) are kept"""
+    parts, last = [], 0
+    for m in LINK.finditer(text):
+        parts += [text[last:m.start()].replace("[", r"\[").replace("]", r"\]"), m.group(0)]
+        last = m.end()
+    return "".join(parts) + text[last:].replace("[", r"\[").replace("]", r"\]")
 
 
 class Report:
@@ -107,7 +118,7 @@ class Report:
         self.fig_meta[anchor] = dict(label=self.anchors[anchor], kind=kind, source=str(src), script=script,
                                      panels_from=list(panels_from), sha1=hashlib.sha1(src.read_bytes()).hexdigest()[:12] if st else None,
                                      modified=datetime.datetime.fromtimestamp(st.st_mtime).isoformat(timespec="minutes") if st else None)
-        return f"\n[]{{#{anchor}}}\n\n![**{self.anchors[anchor]}.** {caption}](figures/{dest}){{width=100%}}\n"
+        return f"\n[]{{#{anchor}}}\n\n![**{self.anchors[anchor]}.** {escape_brackets(caption)}](figures/{dest}){{width=100%}}\n"
 
     # ------------------------------------------------------------------------------------------------ registry / shared text
     def claim(self, cid, text, figure="", stat="", n="", status="holds", note=""):
@@ -134,16 +145,17 @@ class Report:
 
     @staticmethod
     def snapshot(files, out: Path, tag=None):
-        """freeze the statistics files read by the report: copies into out/_snapshots/<tag>/ + manifest; returns new paths"""
+        """freeze the statistics files read by the report: copies into out/_snapshots/<tag>/<grandparent>_<parent>__<name> + manifest; returns new
+        paths (an existing copy is kept, so numbers stay fixed for the tag)"""
         tag = tag or datetime.date.today().isoformat()
         d = Path(out) / "_snapshots" / tag
         d.mkdir(parents=True, exist_ok=True)
         new, man = [], []
         for f in map(Path, files):
-            dst = d / f.name
+            dst = d / f"{f.parent.parent.name}_{f.parent.name}__{f.name}"   # two parent folders in the name: result tables often share file names
             if not dst.exists():
                 shutil.copyfile(f, dst)
-            new.append(dst); man.append(dict(file=f.name, source=str(f), sha1=hashlib.sha1(dst.read_bytes()).hexdigest()[:12]))
+            new.append(dst); man.append(dict(file=dst.name, source=str(f), sha1=hashlib.sha1(dst.read_bytes()).hexdigest()[:12]))
         (d / "manifest.json").write_text(json.dumps(man, indent=1), encoding="utf-8")
         return new
 
