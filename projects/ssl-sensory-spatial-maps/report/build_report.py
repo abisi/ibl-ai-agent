@@ -27,7 +27,7 @@ def p_txt(p):
 
 
 def short(a):
-    return {"Somatosensory-whisker": "Ss-whisker", "Somatosensory-orofacial": "Ss-orofacial", "Somatosensory-body": "SS-body",
+    return {"Somatosensory-whisker": "Ss-whisker", "Somatosensory-orofacial": "Ss-orofacial", "Somatosensory-body": "Ss-body",
             "Auditory areas": "Auditory", "Motor areas": "Motor", "Frontal areas": "Frontal", "Retrosplenial areas": "Retrosplenial",
             "Posterior parietal areas": "Posterior parietal", "Lateral septal complex": "Lateral septum", "Visual areas": "Visual",
             "Insular areas": "Insular", "Olfactory areas": "Olfactory", "Amygdala and hypothalamus": "Amygdala + hypothalamus"}.get(a, a)

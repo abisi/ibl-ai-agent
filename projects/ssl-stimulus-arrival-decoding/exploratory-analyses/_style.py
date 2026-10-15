@@ -10,7 +10,7 @@ AREA_C = {
     "SSp-bfd": "#f7b519", "SSs": "#a6761d", "SCm": "#d95f02", "MO-wM1": "#1b9e77", "MO-wM2": "#66a61e",
     "DMS": "#7570b3", "DLS": "#b3a2e0", "MO-ALM": "#0b5d46",
 }
-SHORT = {"Somatosensory-whisker": "Ss-whisker", "Somatosensory-orofacial": "Ss-orofacial", "Somatosensory-body": "SS-body",
+SHORT = {"Somatosensory-whisker": "Ss-whisker", "Somatosensory-orofacial": "Ss-orofacial", "Somatosensory-body": "Ss-body",
          "Auditory areas": "Auditory", "Motor areas": "Motor", "Frontal areas": "Frontal", "Retrosplenial areas": "Retrosplenial",
          "Posterior parietal areas": "Post. parietal", "Lateral septal complex": "Lat. septum", "Visual areas": "Visual",
          "Insular areas": "Insular", "Olfactory areas": "Olfactory", "Amygdala and hypothalamus": "Amygdala + hypoth."}

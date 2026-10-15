@@ -834,7 +834,7 @@ PUB_COLUMNS = PUB_ANATOMY + PUB_FUNCTION + PUB_ENRICHMENT["share"]      # defaul
 PUB_SHORT = {"roc:stim_responsive": "Stim. resp.", "roc:modality_pref": "Modality", "roc:lick_responsive": "Lick-resp.",
              "roc:decision": "Decision", "roc:gated_decision": "Gated / Decision", "area_group": "Area",
              "waveform_type": "Waveform", "reward_dot": "R+ share", "fmk_dist": "F_mk (mean ± SEM)",
-             "fmk_p": "R+ vs R− (MWU)", "avg_ipsi": "SS-whisker proj.", "cc_tc_ct_iterated": "Hier. (Harris)",
+             "fmk_p": "R+ vs R− (MWU)", "avg_ipsi": "Ss-whisker proj.", "cc_tc_ct_iterated": "Hier. (Harris)",
              "cc_hierarchy_score_columns": "CC hierarchy score", "stage_dot": "Learning share"}
 STAGE_COLORS = {"learning": "#E08214", "expert": "#542788"}   # learning (day 0) vs expert (day > 0) sessions
 PUB_KEY_SHORT = {"cc_hierarchy_score_columns": "CC hierarchy score"}   # colour-key titles (single line)
