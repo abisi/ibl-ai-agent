@@ -191,7 +191,9 @@ auditory-lick-like whisker response in R+ but not in R− mice, and the cohort d
 the population level, whisker hits moved along the reward-lick coding direction in R+ mice, and a decoder of cued versus
 spontaneous licks generalised better across modalities in R+ experts than in R− experts; for these two measures the cohort ×
 stage interaction did not reach significance. The changes were distributed across area groups, without an area-specific
-effect after correction, and they held after controlling for reaction time, pre-lick jaw kinematics and alignment to jaw-opening onset.
+effect after correction. They held after controlling for reaction time and pre-lick jaw kinematics. The population result also held
+when aligned to jaw-opening onset, whereas the single-neuron convergence falls in the jaw-movement period and is absent 100 ms
+before jaw opening.
 
 **Key results** (sessions are the unit; R+ / R− day 0 → expert; Mann–Whitney U unless stated).
 
@@ -339,7 +341,9 @@ be motor. The jaw opening before the lick, measured as WH − AH in [−100, 0) 
 ({JAWK['rp']}; {JAWK['rm']}; {JAWK['int']}); tongue, whisker and nose speed did not change either ({ref('fig-s-kin')}). Whisker hits
 of R− mice opened the jaw less than their auditory hits at both stages.
 
-*Alignment to jaw-opening onset.* The corrected first lick follows jaw-opening onset by about 90–190 ms. Defining the CD in the
+*Alignment to jaw-opening onset.* The corrected first lick follows jaw-opening onset by about 90–190 ms. For single neurons, the
+whisker-vs-auditory selectivity in the 100 ms before jaw opening shows no stage change in either cohort, while the same sessions
+aligned to the lick keep the effect (123): the single-neuron convergence is in the movement period. Defining the CD in the
 100 ms before jaw onset (sessions with video) kept the $d_{{WS}}$ result: {J1['rp']}; {J1['rm']}; {J1['ex']}; {J1['int']}. A CD
 centred on jaw onset gave {J2['rp']}; {J2['rm']} ({ref('fig-s-jaw')}, {ref('tbl-robust')}). The angle was less robust to this alignment
 ({J1T['rp']}).
@@ -369,7 +373,9 @@ contain within-session learning in R+, which compresses the across-days contrast
 - Expert sessions are few (Table S1), from fewer mice, and are compared with day-0 sessions of other neurons; mouse-level
   permutation protects the interaction tests, but stage tests treat sessions as independent.
 - Area tests are underpowered (≥ 3 sessions per group); absence of area specificity is not evidence of uniformity.
-- The CD angle $\theta$ is not robust to jaw-onset alignment; $d_{{WS}}$ and the single-neuron index are.
+- The CD angle $\theta$ is not robust to jaw-onset alignment; $d_{{WS}}$ is. The single-neuron convergence lies in the jaw-movement
+  period: in the 100 ms before jaw opening (which leads the lick by about 90–190 ms) the whisker-vs-auditory selectivity shows no
+  stage change (123, 124), so the single-neuron result describes the movement period, not earlier preparation.
 - Spontaneous licks are on the piezo clock (± 25 ms from the trial clock).
 
 ## Open questions and next steps
@@ -460,6 +466,8 @@ def R_claims():
     claim("C8", "Cross-modal CCGP rises in R+ and exceeds R− at expert", "Fig. 4g, m", f"{CC['rp']}; {CC['ex']}", CC["n"])
     claim("C9", "Cohort difference of the CCGP change", "Fig. 4g", CC["int"], CC["n"], status="n.s.")
     claim("C10", "No area-specific effect (single neurons, CD)", "Fig. 2d, 3e", f"SI {A_SI['csa']}; d_WS {A_D['csa']}; no post hoc q < 0.05")
+    claim("C11b", "Single-neuron convergence is in the jaw-movement period (absent 100 ms before jaw opening)", "text (123, 124)",
+          "123: no stage change jaw-aligned", note="limits claim C2 to the movement period")
     claim("C11", "CD result holds for RT ≥ 150 ms, RT matching and jaw-onset alignment", "Table S2, Fig. S2, S4", f"jaw: {J1['rp']}")
     claim("C12", "Pre-lick jaw opening (WH − AH) does not change with learning", "Fig. S3", f"{JAWK['rp']}; {JAWK['int']}", JAWK["n"])
     claim("C13", "R+ experts open the jaw to passive whisker stimuli", "Fig. S5", "descriptive (no test)", status="fragile",
@@ -496,7 +504,7 @@ spontaneous lick, in R+ but not R− mice (day 0 vs expert, learners, stable uni
 3. Population CD: whisker hits move toward auditory hits in R+ ({DWS['rp']}; {DWS['rm']}); cohort contrast n.s. ({DWS['int']}); expert R+ > R− ({DWS['ex']}).
 4. Decoding: cross-modal CCGP {CC['rp']}; {CC['rm']}; {CC['ex']}; {CC['int']}.
 5. Areas: distributed, no area-specific effect after correction (SI {A_SI['csa']}; d_WS {A_D['csa']}).
-6. Controls: RT ≥ 150 ms, RT matching and jaw-onset alignment keep the d_WS result; pre-lick jaw opening WH − AH unchanged ({JAWK['int']}). The angle θ is fragile.
+6. Controls: RT ≥ 150 ms, RT matching and jaw-onset alignment keep the d_WS result; the single-neuron convergence is in the jaw-movement period (absent before jaw opening); pre-lick jaw opening WH − AH unchanged ({JAWK['int']}). The angle θ is fragile.
 
 Open: learner definition under review; within-day analyses go to the combined report.
 

@@ -77,7 +77,8 @@ N_PERM_A, N_PERM_I = 2000, 10000
 import os  # noqa: E402
 ANGLE = bool(os.environ.get("SSL_165_ANGLE"))                 # compact layout, row 1: angle (b, c) and projection (d, e)
 POLAR = bool(os.environ.get("SSL_165_POLAR"))                 # compact layout, row 1 b / c = 171 polar views + gain / rotation bars
-COMPACT = bool(os.environ.get("SSL_165_COMPACT")) or POLAR or ANGLE
+ROW1 = bool(os.environ.get("SSL_165_ROW1"))                   # compact, hit - miss row only (2026-10-15, report figure)
+COMPACT = bool(os.environ.get("SSL_165_COMPACT")) or POLAR or ANGLE or ROW1
 PSTH = bool(os.environ.get("SSL_165_PSTH")) or COMPACT
 SHORT = {"Motor areas": "Motor", "Somatosensory-whisker": "Ss-whisker", "Somatosensory-orofacial": "Ss-orofacial", "Frontal areas": "Frontal",
          "Retrosplenial areas": "Retrosplenial", "Auditory areas": "Auditory", "Lateral septal complex": "Lat. septum",
@@ -288,23 +289,25 @@ def cohort_lines(ax, D, cols, labs, colors, ylab, R, row, rng):
 class _Cols:
     """compact layout in inches: panel columns / rows separated by explicit gap columns / rows (wspace = hspace = 0), so every panel
     of a row has the same height and the quantification panels are squares of that height; gs[r, k] -> panel k of row r"""
-    def __init__(self, g):
-        self.g = g
+    def __init__(self, g, rstep=2):
+        self.g, self.rstep = g, rstep
 
     def __getitem__(self, rk):
         r, k = rk
-        return self.g[2 * r, 2 * k]
+        return self.g[self.rstep * r, 2 * k]
 
 
-def compact_grid(fig_w_extra=0.3, h=1.0, widths=None):
-    """h: row height = side of the quantification squares (in); widths: panel / gap columns (default: 165 layout)"""
+def compact_grid(fig_w_extra=0.3, h=1.0, widths=None, rows=2):
+    """h: row height = side of the quantification squares (in); widths: panel / gap columns (default: 165 layout); rows = 1: hit - miss
+    row only (SSL_165_ROW1, report figure of ssl-hitmiss-axis-passive)"""
     widths = widths or [0.85, 0.5, 0.45, 0.7, h, 0.7, h, 0.8, 0.65]   # schematic | gap | examples | gap | c | gap | d | gap | areas
     left, top, gap_r, bottom = 0.55, 0.62, 0.9, 0.45
-    W = left + sum(widths) + fig_w_extra; Hf = top + h + gap_r + h + bottom
+    W = left + sum(widths) + fig_w_extra; Hf = top + h + bottom + (gap_r + h if rows == 2 else 0)
     fig = plt.figure(figsize=(W, Hf))
-    g = fig.add_gridspec(3, len(widths), width_ratios=widths, height_ratios=[h, gap_r, h], wspace=0, hspace=0,
+    hr = [h, gap_r, h] if rows == 2 else [h]
+    g = fig.add_gridspec(len(hr), len(widths), width_ratios=widths, height_ratios=hr, wspace=0, hspace=0,
                          left=left / W, right=1 - fig_w_extra / W, top=1 - top / Hf, bottom=bottom / Hf)
-    return fig, _Cols(g), (top, h, gap_r, Hf)
+    return fig, _Cols(g, 2 if rows == 2 else 1), (top, h, gap_r, Hf)
 
 
 def area_panel(ax, D, val, R, row, title, rng, AC, xlab):
@@ -561,8 +564,8 @@ def main():
     if COMPACT:
         plt.rcParams.update({"font.size": 5.5, "axes.labelsize": 5.5, "xtick.labelsize": 5, "ytick.labelsize": 5, "axes.linewidth": 0.6,
                              "xtick.major.size": 2, "ytick.major.size": 2})
-        fig, gs, (top_, h_, gap_, Hf_) = compact_grid()
-        for r, t in enumerate(("hit − miss axis", "reward-lick axis")):
+        fig, gs, (top_, h_, gap_, Hf_) = compact_grid(rows=1 if ROW1 else 2)
+        for r, t in enumerate(("hit − miss axis",) if ROW1 else ("hit − miss axis", "reward-lick axis")):
             sc = gs[r, 0].subgridspec(2, 1, height_ratios=[1.0, 1.0], hspace=0.45)
             frame(fig, sc[0, 0], "a  schematic")
             (hm_psth if r == 0 else pl_psth)(fig, sc[1, 0])
@@ -575,6 +578,16 @@ def main():
         for r, t in enumerate(("hit − miss axis (stimulus onset, 5–35 ms; passive whisker responses)", "reward-lick axis (100 ms before the first lick; whisker hits)")):
             frame(fig, gs[r, 0], "a  schematic"); fig.text(0.005, 0.94 - r * 0.47, t, fontsize=7.5, weight="bold")
     hm_row(fig, gs, 0, A, ExH, ShH, "W", R, rng, AC, o=o)
+    if ROW1:                                                       # hit - miss row only (report figure of ssl-hitmiss-axis-passive)
+        for a_ in fig.axes:
+            if not getattr(a_, "_keep_aspect", False):
+                a_.set_box_aspect(1)
+        fig.legend(*leg, loc="upper right", ncol=4, frameon=False, fontsize=5)
+        name = "165_two_axes_compact" + ("_angle" if ANGLE else "_polar" if POLAR else "") + "_row1" + RS
+        for ext in ("svg", "pdf", "png"):
+            savefig(fig, FIGDIR / f"{name}.{ext}")
+        pd.DataFrame(R).to_csv(EA / f"{name}_stats.csv", index=False)
+        print("ALL DONE", FIGDIR / f"{name}.png"); return
     if PSTH and not COMPACT:
         hm_psth(fig, gs[0, 1]); pl_psth(fig, gs[1, 1])
     if COMPACT:
