@@ -25,7 +25,7 @@ from scipy import stats
 EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 plt.rcParams.update({"svg.fonttype": "none", "pdf.fonttype": 42})
 
 

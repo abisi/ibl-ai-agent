@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore")
 EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 STAGES = ("learning", "expert")
 N_PERM = 10000
 
@@ -52,7 +52,7 @@ def load(stage):
     V = V[(V.area == "whole_brain") & (V.unit_set == "stable") & V.skipped_reason.isna()].copy()
     V["dx_W"] = V.ss_post_W_x - V.ss_pre_W_x
     out["146e"], out["146t"] = V[V.response == "epochbase"], V[V.response == "trialbase"]
-    D = pd.read_parquet(EA / f"139_hitmedian_split_whole_brain{sfx}.parquet")
+    D = pd.read_parquet(Path(__file__).resolve().parents[2] / "ssl-whisker-hitmiss-timeresolved-decoding" / "exploratory-analyses" / f"139_hitmedian_split_whole_brain{sfx}.parquet")
     D = D[D.skipped_reason.isna() & (D.decoding == "hitmiss") & (D.window == "5-100ms")].copy()
     D["dsep"] = D.sep_corr_2 - D.sep_corr_1
     out["139m"], out["139h"] = D[D.split == "mid"], D[D.split == "hitmedian"]

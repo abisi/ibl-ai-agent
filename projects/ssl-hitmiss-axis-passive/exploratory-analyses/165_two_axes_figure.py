@@ -68,7 +68,7 @@ from scipy import stats
 EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 RAWV = bool(__import__("os").environ.get("SSL_165_RAW"))   # 2026-10-09: axes from raw rates (no z-scoring): 135 _raw, 168 / 169 _raw, 026 / 027 _raw
 RS = "_raw" if RAWV else ""
 PL = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/within_day/sl_stable/cd_shift_null" + RS)

@@ -140,3 +140,7 @@
 - 2026-10-11: 175 v2 figure (088 panels: day 0 vs expert, R+ vs R- per stage, interaction, n) for pre, post, post - pre whisker and auditory.
 - 2026-10-13: 165 area panels: rows in the allen_utils default area-group order (was: by session count), all dots filled (was: open where the per-cohort Wilcoxon vs 0 was n.s.); compact angle figures (z-scored and raw) regenerated.
 - 2026-10-13: 176 lagged cross-correlation of the class-residualised single-trial hit / miss decoder margin (123 v2) with the learning curves (whisker - FA, whisker P(lick); level and first difference), linear-shift null per session, BH over lags; readout around the 017 learning trial vs random pseudo-learning trials.
+- 2026-10-15: cleanup. 22 superseded pilot / smoke-test scripts archived to _archive/pilots_superseded (MANIFEST_20261015.tsv);
+  slide decks (148, 152, 155, 157, 159, deck_full) archived to _archive/decks; the passive hit / miss axis analyses (Part III)
+  moved to the new project ssl-hitmiss-axis-passive (code and results; old result paths are symlinks); 132 here is a re-export
+  for 137b. Project scope: decodability, single-session and pseudo-population decoding, session splits, learning-trial definitions.

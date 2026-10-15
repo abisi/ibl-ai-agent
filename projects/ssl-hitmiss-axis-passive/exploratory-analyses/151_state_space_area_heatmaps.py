@@ -35,7 +35,7 @@ import pandas as pd
 EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA))
 H = importlib.import_module("143_lt_split_windows_figures")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 WC, AC = "#f7b519", "#2c2cdb"
 MIN_SESS = 3
 YVAR = [("ss", "whisker pattern"), ("ss2", "whisker - auditory"), ("ss3", "auditory pattern")]

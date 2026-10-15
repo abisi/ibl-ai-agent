@@ -38,7 +38,7 @@ EA = Path(__file__).resolve().parent
 sys.path[:0] = [str(EA), str(EA.parents[2] / "scripts")]
 H = importlib.import_module("143_lt_split_windows_figures")
 M165 = importlib.import_module("165_two_axes_figure")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 PLH = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-prelick-convergence/across_days/sl_stable/harmonised/sessions_areas.csv")
 STG = ("learning", "expert"); STL = {"learning": "day 0", "expert": "expert"}
 N_PERM = 10000

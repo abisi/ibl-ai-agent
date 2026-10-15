@@ -36,7 +36,7 @@ EA = Path(__file__).resolve().parent
 sys.path[:0] = [str(EA), str(EA.parents[2] / "scripts")]
 M173 = importlib.import_module("173_cosyne_across_days")
 H, M165 = M173.H, M173.M165
-COL, COH, FIGDIR, STG, STL = H.COL, H.COH, H.FIGDIR, M173.STG, M173.STL
+COL, COH, FIGDIR, STG, STL = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication"), M173.STG, M173.STL
 TAG = "_min2_tracked_harm"
 plt.rcParams.update({"svg.fonttype": "none", "pdf.fonttype": 42})
 

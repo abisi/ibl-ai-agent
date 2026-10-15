@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore")
 EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 SENS = [("dyW", "whisker on whisker axis"), ("dyA", "auditory on auditory axis")]
 CHOICE = [("dx_W", "whisker along choice axis"), ("dx_WA", "W - A along choice axis"), ("lick_WR", "lick axis, whisker raw cos\n(excess)"),
           ("lick_WAP", "lick axis, W - A projection\n(excess)")]

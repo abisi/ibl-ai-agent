@@ -28,7 +28,7 @@ EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA))
 H = importlib.import_module("143_lt_split_windows_figures")
 F149 = importlib.import_module("149_passive_readout_shift_null_figure")
-FIGDIR = H.FIGDIR
+FIGDIR = (Path(__file__).resolve().parent / "figures" / "publication")
 COLS = [("shift_excess_dWR", "whisker-evoked\nraw cos"), ("shift_excess_dAR", "auditory-evoked\nraw cos"),
         ("shift_excess_dWAR", "whisker - auditory\nraw cos"), ("shift_excess_dWAP", "whisker - auditory\nprojection"),
         ("shift_excess_dWN", "whisker-evoked\nnoise-corr. cos (sens.)")]

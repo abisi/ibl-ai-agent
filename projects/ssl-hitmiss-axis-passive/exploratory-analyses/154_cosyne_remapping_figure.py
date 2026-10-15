@@ -37,7 +37,7 @@ sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
 from axel_bisi_paths import axel_bisi_root  # noqa: E402
 
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 WC, AC = "#f7b519", "#2c2cdb"
 WD = axel_bisi_root() / "combined_results_ks4" / "ssl-prelick-convergence" / "within_day" / "sl"
 # within-day trial-level results with >= 4 whisker hits per session (user 2026-10-05; AH and SL keep >= 8; env override)

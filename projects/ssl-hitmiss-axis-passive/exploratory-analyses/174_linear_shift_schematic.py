@@ -27,7 +27,7 @@ from matplotlib.patches import FancyArrowPatch
 EA = Path(__file__).resolve().parent
 sys.path[:0] = [str(EA), str(EA.parents[2] / "scripts")]
 H = importlib.import_module("143_lt_split_windows_figures")
-FIGDIR = H.FIGDIR
+FIGDIR = (Path(__file__).resolve().parent / "figures" / "publication")
 plt.rcParams.update({"svg.fonttype": "none", "pdf.fonttype": 42, "font.family": "sans-serif",
                      "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"], "font.size": 6})
 HIT, MISS, DRIFT = "0.1", "0.65", "#d94801"

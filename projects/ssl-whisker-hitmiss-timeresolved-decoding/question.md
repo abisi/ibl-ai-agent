@@ -17,8 +17,8 @@ Three parts:
 2. **Within-session change**: the same decodings split within the learning session -- session halves (separate,
    count-matched or single decoders; pseudo-populations), behavioural learning-trial (LT) splits, placebo splits at
    every whisker trial, cohort-label permutation, single-trial decoder margins vs the learning curve.
-3. **Stimulus-onset geometry across epochs**: whisker vs auditory responses 5-35 ms after onset in passive pre, active
-   and passive post; the whisker axis and the whisker-/auditory-evoked patterns relative to the active lick axis.
+3. *(moved 2026-10-15 to `ssl-hitmiss-axis-passive`)* stimulus-onset geometry across epochs: passive responses projected on
+   the hit / miss axis, decoder readout of passive responses, within day and across days.
 
 Out of scope (archived 2026-10-04, `_archive/`): performance-state decoding as its own analysis family (the
 `perfstate_stim` tag of the 024 sweep stays in part 1), the first-generation LT split and the coupling model,
@@ -28,8 +28,8 @@ The performance-quantity regression (PLS) is its own project: `ssl-whisker-perfq
 ## Hypotheses
 - H1: choice information after the whisker stimulus grows when R+ mice learn.
 - H2: in R-, where licking to the whisker is not reinforced, it does not grow or declines.
-- H3: the early sensory representation of the whisker stimulus is re-mapped relative to the motor (lick)
-  representation depending on the reward contingency.
+- H3 (now in ssl-hitmiss-axis-passive): the early sensory representation of the whisker stimulus is re-mapped relative to
+  the motor (lick) representation depending on the reward contingency.
 
 ## Definitions
 - **Hit vs miss**: whisker trials, label = `lick_flag` (lick in the response window), the same definition in both

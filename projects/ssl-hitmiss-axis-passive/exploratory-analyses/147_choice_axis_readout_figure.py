@@ -30,7 +30,7 @@ import pandas as pd
 EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA))
 H = importlib.import_module("143_lt_split_windows_figures")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 EP = ["passive_pre", "active_1", "active_2", "passive_post"]
 EPL = ["passive\npre", "active\n1st half", "active\n2nd half", "passive\npost"]
 

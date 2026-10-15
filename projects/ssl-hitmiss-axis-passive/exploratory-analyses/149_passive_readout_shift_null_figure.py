@@ -33,7 +33,7 @@ import pandas as pd
 EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA))
 H = importlib.import_module("143_lt_split_windows_figures")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 MIN_SHIFT = 1                  # every session with >= 3 hits and misses has a null (146 draws only valid shifts)
 RESP = [("epochbase", "5-35 ms, epoch baseline (main)"), ("trialbase", "5-35 ms, per-trial baseline"),
         ("baseline", "baseline window alone (state)")]

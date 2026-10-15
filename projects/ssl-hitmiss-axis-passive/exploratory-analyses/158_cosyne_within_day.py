@@ -39,7 +39,7 @@ from scipy import stats
 EA = Path(__file__).resolve().parent
 sys.path.insert(0, str(EA)); sys.path.insert(0, str(EA.parents[2] / "scripts"))
 H = importlib.import_module("143_lt_split_windows_figures")
-COL, COH, FIGDIR = H.COL, H.COH, H.FIGDIR
+COL, COH, FIGDIR = H.COL, H.COH, (Path(__file__).resolve().parent / "figures" / "publication")
 WC, AC = "#f7b519", "#2c2cdb"
 ANCHOR = bool(__import__("os").environ.get("SSL_158_ANCHOR"))
 SFX = "_anchor" if ANCHOR else ""

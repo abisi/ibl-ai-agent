@@ -138,8 +138,8 @@ def main():
              "(thick: 5–35 ms; gap: artefact window), common start offset; dots: 5–35 ms window means; per neuron", ha="center", fontsize=5.6)
     fig.subplots_adjust(left=0.0, right=1.0, top=0.9, bottom=0.07, wspace=0.0)
     for ext in ("svg", "pdf", "png"):
-        fig.savefig(H.FIGDIR / f"167_cd_definition_example.{ext}", dpi=300)
-    print("ALL DONE", H.FIGDIR / "167_cd_definition_example.png", {k: round(v, 1) for k, v in ang.items()})
+        fig.savefig((Path(__file__).resolve().parent / "figures" / "publication") / f"167_cd_definition_example.{ext}", dpi=300)
+    print("ALL DONE", (Path(__file__).resolve().parent / "figures" / "publication") / "167_cd_definition_example.png", {k: round(v, 1) for k, v in ang.items()})
 
 
 if __name__ == "__main__":

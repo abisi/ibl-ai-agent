@@ -47,7 +47,7 @@ def load():
     beh = {p["session_id"]: p["curves"] for p in P}
     d["mean_wfa"] = d.session_id.map(lambda s: float(np.mean(beh[s]["w-fa"])) if s in beh else np.nan)
     d["mean_w"] = d.session_id.map(lambda s: float(np.mean(beh[s]["whisker"])) if s in beh else np.nan)
-    sc = pd.read_csv(OUT / "124_per_session.csv").set_index("session_id")
+    sc = pd.read_csv(Path(__file__).resolve().parents[2] / "ssl-whisker-hitmiss-timeresolved-decoding" / "exploratory-analyses" / "124_per_session.csv").set_index("session_id")
     d["max_slope"] = d.session_id.map(sc.max_slope)
     return d
 
