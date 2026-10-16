@@ -30,7 +30,7 @@ num = lambda *a, **k: _num(*a, **k).replace("-", "−")
 R.register([
     ("fig-two", "Figure 1"), ("fig-wb", "Figure 2"), ("fig-areas", "Figure 3"), ("fig-rt", "Figure 4"), ("fig-pass", "Figure 5"),
     ("eq-drift", "Eq. (1)"), ("eq-hm", "Eq. (2)"),
-    ("tbl-classes", "Table 1"), ("tbl-registry", "Table S1"),
+    ("tbl-classes", "Table 1"), ("fig-s-tc", "Figure S1"), ("tbl-registry", "Table S1"),
 ])
 SRC = {"003": C.TAB / "003_stats.csv", "001": C.TAB / "001_rl_controls_stats.csv", "002": C.TAB / "002_passive_kinematics_stats.csv"}
 FROZEN = dict(zip(SRC, Report.snapshot([SRC[k] for k in SRC], OUT, tag=date.today().isoformat())))
@@ -171,7 +171,9 @@ relative to the auditory response, more than in R+.
 The raw whisker-hit drift was present in R+ at both stages ({per('wh_raw', W3, 'rl_WH_raw', 'R+')}) and absent in R− ({per('wh_raw_m', W3, 'rl_WH_raw', 'R-')})
 ({ref('fig-wb')}a). Beyond the shift null, the R+ drift was significant on day 0 but not at expert, and the two stages did not differ
 ({per('wh', W3, 'rl_WH', 'R+')}; {ref('fig-wb')}b). Relative to spontaneous licks, the R+ drift beyond the null was present at both stages with the same
-size ({per('whsl', W3, 'rl_WHSL', 'R+')}; R− {per('whsl_m', W3, 'rl_WHSL', 'R-')}; {coh('whsl_c', W3, 'rl_WHSL')}; {ref('fig-wb')}c). The R+ within-session drift on the
+size ({per('whsl', W3, 'rl_WHSL', 'R+')}; R− {per('whsl_m', W3, 'rl_WHSL', 'R-')}; {coh('whsl_c', W3, 'rl_WHSL')}; {ref('fig-wb')}c). The time course per fifth of the session ({ref('fig-s-tc')}) shows why the whisker-hit drift alone is "day 0 only": the real
+projection rises as much in expert as in day-0 R+ sessions, but the CDs rebuilt from shifted labels also rise more in expert sessions,
+so the excess is smaller and more variable there. The R+ within-session drift on the
 reward-lick CD therefore comes with running the task in R+ mice, whether or not the contingency is still being learned.
 
 ### Hit − miss axis: the R− change relative to the auditory response is specific to day 0
@@ -251,6 +253,7 @@ the whisker-hit vs auditory-hit jaw similarity (signed ROC, late − early). Lay
 {figure('fig-pass', C.FIG / '002_passive_kinematics.png', '''Movement state around passive trials, post − pre (002): pre-stimulus whisking and jaw opening,
 evoked whisking and jaw opening, for passive whisker (top) and auditory (bottom) trials. Layout as Figure 2.''', "002_passive_kinematics.py")}
 
+{figure('fig-s-tc', C.FIG / '004_rl_timecourse_stages.png', '''Reward-lick CD across the session, day 0 (dashed, open) vs expert (solid, filled) (004): projections of whisker hits, spontaneous licks and their difference per fifth of the session (per neuron, relative to the first fifth; mean ± s.e.m. over sessions; n in legend), on the real CD (colour) and on CDs rebuilt from shifted labels (grey, mean over 50 shifts). Right: the quantity tested (slope over normalised session time, real − shifted, per neuron), with Wilcoxon vs 0 per stage and Mann–Whitney day 0 vs expert.''', "004_rl_timecourse_stages.py", kind="supplementary")}
 {table('tbl-classes', classes_table(), 'Whole-brain classification of the within-session changes (mean change and sessions per stage; p: Wilcoxon vs 0 at each stage, Mann–Whitney day 0 vs expert; for R+ vs R−: Mann–Whitney per stage and cohort × stage permutation).')}
 """
     claims()
