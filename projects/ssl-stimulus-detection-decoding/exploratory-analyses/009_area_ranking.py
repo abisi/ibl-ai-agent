@@ -74,24 +74,26 @@ def panel(ax, T, key, col, note, flag=None):
 
 
 def figure(plt, T, key, name, title, xlabel, note, flag=None):
-    nG = T[T.level == "area_group"].area.nunique()
-    nF = T[T.level == "area_acronym_custom"].area.nunique()
-    H = 0.095 * (nG + nF) + 1.6
+    levels = [lv for lv in LEVELS if (T.level == lv).any()]                  # levels decoded so far
+    nrow = {lv: T[T.level == lv].area.nunique() for lv in levels}
+    H = 0.095 * sum(nrow.values()) + 0.8 * len(levels)
     fig = plt.figure(figsize=(S.W_IN, H))
-    gs = fig.add_gridspec(2, 2, height_ratios=[nG + 2, nF + 2], wspace=0.45, hspace=0.12 + 0.6 / H, left=0.13, right=0.98,
+    gs = fig.add_gridspec(len(levels), 2, height_ratios=[nrow[lv] + 2 for lv in levels], wspace=0.45, hspace=0.12 + 0.6 / H, left=0.13, right=0.98,
                           top=1 - 0.55 / H, bottom=0.45 / H)
     col = AR.colors()
     axs = []
-    for r, level in enumerate(LEVELS):
+    for r, level in enumerate(levels):
         for c, e in enumerate(EPOCHS):
             ax = fig.add_subplot(gs[r, c])
             q = T[(T.level == level) & (T.epoch == e)]
             panel(ax, q, key, col, note, flag)
             n_iter = int(q.n_iter.iloc[0])
             ax.set_title(f"{m4.LEVEL_NAME[level].capitalize()}, {EW[e]} ({n_iter} iterations)", loc="left", fontsize=5.6)
-            ax.set_xlabel(xlabel if r == 1 else "")
+            ax.set_xlabel(xlabel if r == len(levels) - 1 else "")
             axs.append(ax)
-    S.letter_row(fig, axs[:2], "ab"); S.letter_row(fig, axs[2:], "cd")
+    S.letter_row(fig, axs[:2], "ab")
+    if len(axs) > 2:
+        S.letter_row(fig, axs[2:], "cd")
     fig.suptitle(title, x=0.02, y=1 - 0.05 / H, ha="left", va="top", fontsize=7, weight="bold")
     S.save(fig, AR.XOUT / "figures", name)
     plt.close(fig)

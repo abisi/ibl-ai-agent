@@ -131,7 +131,7 @@ def figure(plt, level, E, col):
     tests = [dict(level=level, measure="onset_ms", **paired_tests(rel.onset_active, rel.onset_passive)),
              dict(level=level, measure="accuracy_5_50ms", **paired_tests(T.acc_active, T.acc_passive)),
              dict(level=level, measure="baseline_-150_0ms", **paired_tests(T.base_active, T.base_passive))]
-    (AR.XOUT / "tables").mkdir(exist_ok=True)
+    (AR.XOUT / "tables").mkdir(parents=True, exist_ok=True)
     T.reset_index().assign(level=level).to_csv(AR.XOUT / "tables" / f"active_vs_passive_{level}.csv", index=False)
 
     top = list(T.n_sessions_active.sort_values(ascending=False).index[:N_SHOW])

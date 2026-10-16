@@ -18,3 +18,9 @@
   source densities leaving out the unit's own source (SSp-bfd units -> SSs projection, SSs units -> SSp-bfd; AUDp <-> AUD-sec);
   Liu already defined there. Whisker task, area groups (18): Allen early accuracy rho = +0.49 (p = 0.040), onset rho = -0.44
   (p = 0.080); Liu early rho = +0.41 (p = 0.12), onset rho = -0.39 (p = 0.14).
+- 2026-10-16 13:40 Whisker passive (area groups) done. 006 (mkdir parents) and 009 (levels not decoded yet skipped) fixed, whisker
+  task-vs-passive rerun by hand. Passive vs task: same onsets (median diff 0 ms, n = 12, Wilcoxon p = 0.91), early accuracy
+  lower in passive (median -0.027, p = 0.003), late decoding (> 150 ms) much lower in passive (no lick / reward); pre-stimulus
+  corrected accuracy above task in passive (median +0.011, p = 0.007; midbrain +0.04, pallidum +0.065): candidate cause =
+  fixed 3-s passive ITI (stimulus windows end at a predictable stimulus, shams 0.8 s earlier; time since previous stimulus
+  ~2.85 vs ~2.05 s).
