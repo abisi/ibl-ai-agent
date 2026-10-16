@@ -161,7 +161,7 @@ def _fit_mouse(args):
     starts = [layout.x0({k: getattr(mod.Params(), k) for k in wk}), layout.x0({k: base[k] for k in wk})]
     r = fit(mod, Model, layout, tg, starts, fixed=fixed, maxiter=maxiter)
     res = summarise(mod, Model, layout, r.x, tg, fixed=fixed)
-    return dict(mouse_id=mid, group=group, converged=bool(r.success), mse_global=res['loss'],
+    return dict(mouse_id=mid, group=group, converged=bool(r.success),
                 **{k: res['mse'][group][k] for k in res['mse'][group]}, **{k: res['common'][k] for k in wk}, **fixed)
 
 

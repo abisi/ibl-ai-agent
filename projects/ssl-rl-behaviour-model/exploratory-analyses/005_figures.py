@@ -231,18 +231,19 @@ def fig_compare(F):
         return
     T = comparison_table(F).sort_values(["model", "variant"])
     comps = ["mse_pre_aud", "mse_pre_ns", "mse_trans_aud", "mse_trans_whisk", "mse_trans_ns"]
-    fig, axs = plt.subplots(1, 3, figsize=(7.2, 2.5), gridspec_kw=dict(width_ratios=[1.1, 1.8, 1]))
+    fig, axs = plt.subplots(1, 3, figsize=(7.2, 0.35 * len(T) + 1.8), gridspec_kw=dict(width_ratios=[0.9, 2.0, 1.1]))
     lab = [f"{a}\n{b}" for a, b in zip(T.model, T.variant)]
     ax = axs[0]; ax.barh(range(len(T)), T.loss, color=["0.4" if v == "common" else "0.75" for v in T.variant])
     ax.set_yticks(range(len(T)), lab, fontsize=5); ax.set_xlabel("loss (mean MSE, both cohorts)"); ax.invert_yaxis()
     ax = axs[1]
-    M = np.array([[r[f"{c}|{g}"] for g in J.GROUPS for c in comps] for _, r in T.iterrows()])
+    M = 1e3 * np.array([[r[f"{c}|{g}"] for g in J.GROUPS for c in comps] for _, r in T.iterrows()])
     im = ax.imshow(M, aspect="auto", cmap="magma_r")
-    ax.set_xticks(range(len(comps) * 2), [f"{c.replace('mse_', '').replace('_', ' ')}\n{g.replace('-', '−')}" for g in J.GROUPS for c in comps], fontsize=4.6)
-    ax.set_yticks(range(len(T)), lab, fontsize=5); fig.colorbar(im, ax=ax, label="MSE", shrink=0.8)
+    short = {"mse_pre_aud": "pre A", "mse_pre_ns": "pre NS", "mse_trans_aud": "tr A", "mse_trans_whisk": "tr W", "mse_trans_ns": "tr NS"}
+    ax.set_xticks(range(len(comps) * 2), [f"{short[c]} {g.replace('-', '−')}" for g in J.GROUPS for c in comps], fontsize=5, rotation=60, ha="right")
+    ax.set_yticks(range(len(T)), lab, fontsize=5); fig.colorbar(im, ax=ax, label="MSE × 10³", shrink=0.8)
     for (y, x_), v in np.ndenumerate(M):
-        ax.text(x_, y, f"{v:.3f}", ha="center", va="center", fontsize=3.8, color="w" if v > M.max() * 0.6 else "k")
-    ax.set_title("error per curve and cohort")
+        ax.text(x_, y, f"{v:.1f}", ha="center", va="center", fontsize=4.5, color="w" if v > M.max() * 0.6 else "k")
+    ax.set_title("error per curve and cohort (pre = pretraining, tr = transfer)")
     ax = axs[2]
     ax.barh(np.arange(len(T)) - 0.18, T.d_aic, height=0.36, color="#6a51a3", label="Δ AIC")
     ax.barh(np.arange(len(T)) + 0.18, T.d_bic, height=0.36, color="#9e9ac8", label="Δ BIC")
@@ -272,6 +273,8 @@ def fig_recovery():
             else:
                 q = d[d.param == p]; t, f = q.true.to_numpy(), q.fitted.to_numpy()
             ax.loglog(t, f, "o", ms=2.5, color="k", alpha=0.7)
+            from matplotlib.ticker import NullFormatter
+            ax.xaxis.set_minor_formatter(NullFormatter()); ax.yaxis.set_minor_formatter(NullFormatter())
             lo, hi = min(np.min(t), np.min(f)) / 1.3, max(np.max(t), np.max(f)) * 1.3
             ax.plot([lo, hi], [lo, hi], color="0.6", lw=0.5, ls="--"); ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
             r = np.corrcoef(np.log10(t), np.log10(f))[0, 1]
@@ -351,7 +354,8 @@ def fig_latents(F):
         if j == 0:
             ax.legend(frameon=False, fontsize=4.3); ax.set_ylabel("P(lick)")
     fig.suptitle("Model latents (common-parameter fits): whisker drive ΔQ(W) split into the shared-node part (generalisation from "
-                 "auditory) and the direct + context-bias part; the pretraining state is common, transfer splits it by cohort", fontsize=6.3)
+                 "auditory) and the direct + context-bias part (dashed vs dotted); the pretraining state is common, transfer splits it by cohort",
+                 fontsize=6.3)
     fig.tight_layout()
     save(fig, "6_latents")
 
@@ -361,26 +365,32 @@ def fig_cohorts(F):
     ms = [m for m in MODELS if (m, "cohort b, a, v") in F and (m, "common") in F]
     if not ms:
         print("no free b a v fits yet"); return
-    fig, axs = plt.subplots(1, 4, figsize=(7.2, 2.0))
-    for j, p in enumerate(("b", "a", "v")):
+    fig, axs = plt.subplots(1, 5, figsize=(7.2, 2.0))
+
+    def val(d, p):
+        return d["b"] * d["v"] if p == "b·v" else d[p]
+    for j, p in enumerate(("b", "a", "v", "b·v")):
         ax = axs[j]
         for i, m in enumerate(ms):
             r = F[(m, "cohort b, a, v")]
             for k, g in enumerate(J.GROUPS):
-                ax.bar(i + (k - 0.5) * 0.35, r["transfer_overrides"][g][p], width=0.33, color=COH[g], label=g.replace("-", "−") if i == 0 else None)
-            ax.plot([i - 0.35, i + 0.35], [r["common"][p]] * 2, color="k", lw=0.8, label="pretraining (shared)" if i == 0 else None)
-            ax.plot([i - 0.35, i + 0.35], [F[(m, "common")]["common"][p]] * 2, color="0.5", lw=0.8, ls="--", label="common fit" if i == 0 else None)
-        ax.set_xticks(range(len(ms)), ms); ax.set_title(f"transfer {p}")
-        if p == "b":
+                ax.bar(i + (k - 0.5) * 0.35, val({**r["common"], **r["transfer_overrides"][g]}, p), width=0.33, color=COH[g],
+                       label=g.replace("-", "−") if i == 0 else None)
+            ax.plot([i - 0.35, i + 0.35], [val(r["common"], p)] * 2, color="k", lw=0.8, label="pretraining (shared)" if i == 0 else None)
+            ax.plot([i - 0.35, i + 0.35], [val(F[(m, "common")]["common"], p)] * 2, color="0.5", lw=0.8, ls="--", label="common fit" if i == 0 else None)
+        ax.set_xticks(range(len(ms)), ms, rotation=30, ha="right"); ax.set_title(f"transfer {p}")
+        if p != "a":
             ax.set_yscale("log")
-    axs[0].legend(frameon=False, fontsize=4.8)
-    ax = axs[3]
+    axs[0].legend(frameon=False, fontsize=4.5)
+    ax = axs[4]
     for i, m in enumerate(ms):
         a_, b_ = F[(m, "common")], F[(m, "cohort b, a, v")]
         for k, g in enumerate(J.GROUPS):
             ax.bar(i + (k - 0.5) * 0.35, 100 * (1 - b_["mse"][g]["mse_trans"] / a_["mse"][g]["mse_trans"]), width=0.33, color=COH[g])
-    ax.axhline(0, color="0.6", lw=0.5); ax.set_xticks(range(len(ms)), ms); ax.set_title("transfer error reduction\nwith cohort b, a, v (%)")
-    fig.suptitle("Cohort comparison: does the transfer need cohort-specific learning parameters? (pretraining shared in both variants)", fontsize=6.3)
+    ax.axhline(0, color="0.6", lw=0.5); ax.set_xticks(range(len(ms)), ms, rotation=30, ha="right")
+    ax.set_title("transfer error reduction\nwith cohort b, a, v (%)")
+    fig.suptitle("Cohort comparison: does the transfer need cohort-specific learning parameters? (pretraining shared in both variants; "
+                 "b and v trade off, b·v is the identifiable rate)", fontsize=6.3)
     fig.tight_layout()
     save(fig, "7_cohorts")
 
@@ -403,9 +413,11 @@ def fig_mice():
             rows.append(dict(model=m, measure=q, n_rp=len(a), n_rm=len(b), median_rp=a.median(), median_rm=b.median(),
                              p_mwu=stats.mannwhitneyu(x, y).pvalue, p_welch=stats.ttest_ind(x, y, equal_var=False).pvalue))
         S = pd.DataFrame(rows)
-        for c in ("p_mwu", "p_welch"):
-            ok = S.measure.isin(wk)
-            S.loc[ok, f"q_{c}"] = stats.false_discovery_control(S.loc[ok, c]) if ok.sum() else np.nan
+        for c in ("p_mwu", "p_welch"):                      # BH over the initial weights; NaN p (constant weight) left out
+            ok = S.measure.isin(wk) & np.isfinite(S[c])
+            S[f"q_{c}"] = np.nan
+            if ok.sum():
+                S.loc[ok, f"q_{c}"] = stats.false_discovery_control(S.loc[ok, c])
         S.to_csv(C.TAB / f"005_individual_stats_{m}.csv", index=False)
         fig = plt.figure(figsize=(7.2, 6.0))
         gs = fig.add_gridspec(3, 6, hspace=0.6, wspace=0.5)
@@ -433,20 +445,24 @@ def fig_mice():
             ax.scatter(np.full(len(v), k) + np.random.default_rng(0).uniform(-0.15, 0.15, len(v)), v, s=4, color=COH[g], alpha=0.5)
             ax.errorbar(k, v.median(), fmt="o", color="k", ms=3)
         s = S[S.measure == "mse_global"].iloc[0]
-        ax.set_xticks([0, 1], ["R+", "R−"]); ax.set_ylabel("per-mouse loss"); ax.set_title(f"fit quality: MWU p = {s.p_mwu:.2g}, Welch p = {s.p_welch:.2g}", fontsize=5.6)
+        ax.set_xticks([0, 1], ["R+", "R−"]); ax.set_ylabel("per-mouse loss"); ax.set_title(f"per-mouse loss R+ vs R−\nMWU p = {s.p_mwu:.2g}, Welch p = {s.p_welch:.2g}", fontsize=5.6)
         ax = fig.add_subplot(gs[2, 2:6])
         for i, q in enumerate(wk):
             for k, g in enumerate(J.GROUPS):
-                v = np.log10(D[D.group == g][q])
-                ax.scatter(np.full(len(v), i + (k - 0.5) * 0.35) + np.random.default_rng(i).uniform(-0.08, 0.08, len(v)), v, s=2.5, color=COH[g], alpha=0.45)
-                ax.plot([i + (k - 0.5) * 0.35 - 0.12, i + (k - 0.5) * 0.35 + 0.12], [v.median()] * 2, color="k", lw=0.8)
+                v = np.log10(D[D.group == g][q].clip(lower=1e-300))
+                lo = v < -6                                       # unbounded Nelder-Mead drives some weights to ~0: shown at the floor
+                xx = np.full(len(v), i + (k - 0.5) * 0.35) + np.random.default_rng(i).uniform(-0.08, 0.08, len(v))
+                ax.scatter(xx[~lo], v[~lo], s=2.5, color=COH[g], alpha=0.45)
+                ax.scatter(xx[lo], np.full(lo.sum(), -6.3), s=4, marker="v", color=COH[g], alpha=0.6)
+                ax.plot([i + (k - 0.5) * 0.35 - 0.12, i + (k - 0.5) * 0.35 + 0.12], [max(v.median(), -6.3)] * 2, color="k", lw=0.8)
             s = S[S.measure == q].iloc[0]
             if s.p_mwu < 0.05 or s.p_welch < 0.05:
                 ax.text(i, 0.97, "*" if min(s.q_p_mwu, s.q_p_welch) >= 0.05 else "**", ha="center", va="top", fontsize=7,
                         transform=ax.get_xaxis_transform())
         ax.set_xticks(range(len(wk)), [q.replace("Q_", "") for q in wk], rotation=45, ha="right", fontsize=5)
-        ax.set_ylabel("log10 initial weight"); ax.set_title("fitted initial weights R+ vs R− (set before pretraining: expected equal; "
-                                                            "* p < .05 MWU or Welch, ** BH q < .05)", fontsize=5.6)
+        ax.set_ylim(-6.6, 2.2); ax.set_ylabel("log10 initial weight")
+        ax.set_title("initial weights R+ vs R− (set before pretraining: expected equal)\n* p < .05 MWU or Welch, ** BH q < .05; "
+                     "▼ weight < 10⁻⁶ (driven to ~0)", fontsize=5.6)
         fig.suptitle(f"Per-mouse fits ({m}; b, a, v, tr fixed to the joint mean fit for every mouse, initial weights per mouse): "
                      "thick = data, thin = model", fontsize=6.3)
         save(fig, f"8_mice_{m}")

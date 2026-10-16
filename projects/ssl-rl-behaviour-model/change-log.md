@@ -8,3 +8,7 @@
   same state; fix of shared_model._worker calling the undefined _compute_mse (every grid point scored inf); trial table rebuilt from the
   NWBs (the original csv was not in the repository). First joint mean fits (3 models x common / free tr) were started from the repo
   checkout on haas before the move; their outputs are copied to fits/ with the 003_ prefix.
+- 2026-10-16: 002 extended to 12 random truths per model; 003 cohort-specific transfer variant changed from tr only to b, a, v (tr is not
+  used by R- in the learning rule, so a cohort tr is unidentifiable for R-); 004 run for all three models with maxiter 1500 (fix: duplicate
+  mse_global key crashed the first run at the end); 005 figures 1-8 (model, data, fits, comparison, recovery, latents, cohorts, mice).
+  Per-mouse fits hit maxiter for most mice (convergence flags in the csv); unbounded Nelder-Mead drives many initial weights to ~0.
