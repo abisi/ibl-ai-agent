@@ -209,10 +209,12 @@ def main(a):
     import matplotlib.pyplot as plt
     plt.rcParams.update({"font.size": 6, "axes.spines.top": False, "axes.spines.right": False, "svg.fonttype": "none"})
     # figure A
-    fig, axs = plt.subplots(2, 4, figsize=(7.8, 4.9), gridspec_kw=dict(wspace=0.6, hspace=1.35))
+    fig, axs = plt.subplots(2, 4, figsize=(8.2, 5.2), gridspec_kw=dict(wspace=0.65, hspace=1.45))
     for ax, (m, lab), l in zip(axs.ravel(), [x for x in MEAS if x[0] in ("e_WH", "e_WM", "e_WH_WM", "o_WH", "o_sep", "cos_HI_early", "cos_HE")], "abcdefg"):
         Rm = R[R.measure == m]
-        C.dot_panel(ax, S, m, Rm, lab.split(": ")[1], l, Rm[Rm.cohort == "R+ vs R-"].iloc[0])
+        C.dot_panel(ax, S, m, Rm, lab.split(": ")[1].replace(" on ", "
+on ").replace(", ", ",
+"), l, Rm[Rm.cohort == "R+ vs R-"].iloc[0])
         if m in ("e_WH", "e_WM", "o_WH"):
             ax.axhline(1, color="0.4", lw=0.6, ls="--")
     axs[1, 3].axis("off")
