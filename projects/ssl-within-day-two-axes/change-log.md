@@ -11,3 +11,13 @@
   (also first 30), per minute, per reward. Result: the R+ within-session drift is the same at both stages; learning shifts the starting level
   (day-0 start far below the expert level, end close to it; mixed-model start offset expert - day 0 p < 0.001, slope n.s.). Report updated
   (Figures 3-4, S2; Eqs. 3-4). common.dot_panel short class labels.
+- 2026-10-16: day-0 specificity tests (user: "try without baseline correction ... run all 6 tests"). 008 per-event table (scores with and
+  without per-event baseline correction, same estimator as within_day 002; whisker-trial index; learning curves; learning trial; early / late
+  CD stability). 009 baseline comparison (same conclusions; only the auditory-hit drift is baseline-borne; mixed-model expert - day 0 slope
+  term fold-dependent). 010 step at the learning trial vs placebo splits (none). 011 coupling to the whisker - FA curve beyond time (none).
+  012 mixture of SL-like / AH-like whisker hits (one shifting population; same within-session change at both stages). 013 CD stability early
+  vs late (stable; modest R+ day-0 reorganisation n.s.). 014 whisker-trial units (day-0 convergence trend, n.s.). 015 hit - miss axis split at
+  the learning trial (repo env; 137b day-0 and expert unit lists; R- change not concentrated at the learning trial; expert control 4 R- / 0 R+).
+  016 correlation with the whisker P(lick) curve directly (none for whisker hits; R+ drift continues after the curve plateaus). Report:
+  six-test section, Figures 8-14, S3-S8, Table 2, Eqs. 5-6; level wording corrected (day 0 stays below expert at the same point of the session).
+  haas: 132 shared module restored (passive copy had become the wrapper), decoding 048 / 115 synced.

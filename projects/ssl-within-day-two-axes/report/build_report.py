@@ -31,15 +31,73 @@ R.register([
     ("fig-two", "Figure 1"), ("fig-wb", "Figure 2"), ("fig-lam", "Figure 3"), ("fig-mm", "Figure 4"), ("fig-areas", "Figure 5"),
     ("fig-rt", "Figure 6"), ("fig-pass", "Figure 7"),
     ("eq-drift", "Eq. (1)"), ("eq-hm", "Eq. (2)"), ("eq-lam", "Eq. (3)"), ("eq-mm", "Eq. (4)"),
-    ("tbl-classes", "Table 1"), ("fig-s-tc", "Figure S1"), ("fig-s-units", "Figure S2"), ("tbl-registry", "Table S1"),
+    ("fig-t0", "Figure 8"), ("fig-t1", "Figure 9"), ("fig-t2", "Figure 10"), ("fig-t3", "Figure 11"), ("fig-t4", "Figure 12"),
+    ("fig-t5", "Figure 13"), ("fig-t6", "Figure 14"), ("eq-step", "Eq. (5)"), ("eq-mix", "Eq. (6)"),
+    ("tbl-classes", "Table 1"), ("tbl-tests", "Table 2"), ("fig-s-tc", "Figure S1"), ("fig-s-units", "Figure S2"),
+    ("fig-s-t1raw", "Figure S3"), ("fig-s-t2raw", "Figure S4"), ("fig-s-t3raw", "Figure S5"), ("fig-s-t4raw", "Figure S6"),
+    ("fig-s-t5raw", "Figure S7"), ("fig-s-wc", "Figure S8"), ("tbl-registry", "Table S1"),
 ])
 SRC = {"003": C.TAB / "003_stats.csv", "001": C.TAB / "001_rl_controls_stats.csv", "002": C.TAB / "002_passive_kinematics_stats.csv",
-       "005": C.TAB / "005_stats.csv", "005lv": C.TAB / "005_levels.csv", "006": C.TAB / "006_mixed_model.csv", "007": C.TAB / "007_stats.csv"}
+       "005": C.TAB / "005_stats.csv", "005lv": C.TAB / "005_levels.csv", "006": C.TAB / "006_mixed_model.csv", "007": C.TAB / "007_stats.csv",
+       "009": C.TAB / "009_stats.csv", "009m": C.TAB / "009_mixed.csv", "010": C.TAB / "010_stats.csv", "011": C.TAB / "011_stats.csv",
+       "012": C.TAB / "012_stats.csv", "013": C.TAB / "013_stats.csv", "014": C.TAB / "014_stats.csv", "015": C.TAB / "015_stats.csv", "016": C.TAB / "016_stats.csv"}
 FROZEN = dict(zip(SRC, Report.snapshot([SRC[k] for k in SRC], OUT, tag=date.today().isoformat())))
 T = {k: pd.read_csv(v) for k, v in FROZEN.items()}
 W3 = T["003"][T["003"].level == "whole_brain"]
 AR = T["003"][T["003"].level != "whole_brain"]
 LV = T["005lv"].set_index(["cohort", "test"])
+
+
+def tv(k, variant, m, c):
+    d = T[k][(T[k].variant == variant) & (T[k].measure == m) & (T[k].cohort == c)]
+    assert len(d) == 1, (k, variant, m, c)
+    return d.iloc[0]
+
+
+def pv_(key, k, variant, m, c, fmt="{:+.2f}"):
+    """per-cohort day 0 / expert means, Wilcoxon and day 0 vs expert for the measure_stats tables of 009 / 012-014"""
+    r = tv(k, variant, m, c)
+    return (f"day 0 {num(key + '_d0', r.mean_d0, fmt)} (p {pv(key + '_p0', r.p_d0)}), expert {num(key + '_e', r.mean_e, fmt)} "
+            f"(p {pv(key + '_pe', r.p_e)}); day 0 vs expert p {pv(key + '_ps', r.p_stage_mwu)}")
+
+
+def st1(key, variant, m, c, stage="learning"):
+    d = T["010"][(T["010"].variant == variant) & (T["010"].measure == m) & (T["010"].cohort == c) & (T["010"].stage == stage)].iloc[0]
+    return f"excess {num(key + '_x', d.excess, '{:+.2f}')} (p {pv(key + '_p', d.p_excess)}), percentile {num(key + '_pc', d.pct, '{:.2f}')}"
+
+
+def st2(key, variant, m, c):
+    d = T["011"][(T["011"].variant == variant) & (T["011"].measure == m) & (T["011"].cohort == c)].iloc[0]
+    return f"{num(key, d['mean'], '{:+.3f}')} (p {pv(key + '_p', d.p)})"
+
+
+def st16(key, variant, m, c):
+    d = T["016"][(T["016"].variant == variant) & (T["016"].curve == "curve_whisker") & (T["016"].measure == m) & (T["016"].cohort == c)].iloc[0]
+    return f"r = {num(key, d['mean'], '{:+.2f}')} (p {pv(key + '_p', d.p)})"
+
+
+def st6(key, m, c, stage):
+    d = T["015"][(T["015"].measure == m) & (T["015"].cohort == c) & (T["015"].stage == stage)]
+    if not len(d):
+        return "n/a"
+    d = d.iloc[0]
+    if not np.isfinite(d.p_excess):
+        return f"excess {num(key + '_x', d.excess, '{:+.3f}')} (n = {int(d.n)}, too few sessions to test)"
+    return f"excess {num(key + '_x', d.excess, '{:+.3f}')} (p {pv(key + '_p', d.p_excess)}, n = {int(d.n)})"
+
+
+def tests_table():
+    f = lambda v: "" if not np.isfinite(v) else ("< 0.001" if v < 0.001 else f"{v:.3f}")
+    rows = []
+    for test, lab, k, m in (("0", "λ change Δλ (005 measure), corrected | raw", "009", "dlam"), ("0", "λ at session start", "009", "lam_start"),
+                            ("3", "share of AH-like whisker hits, Δ late − early", "012", "dpi"), ("3", "share of AH-like whisker hits, early half", "012", "pi_early"),
+                            ("4", "early vs late CD, normalised cosine", "013", "cos_norm"), ("5", "λ change over the first 60 whisker trials", "014", "dlam_N"),
+                            ("5", "λ at whisker trial 0", "014", "lam_0")):
+        for c in ("R+", "R-"):
+            a, b = tv(k, "corr", m, c), tv(k, "raw", m, c)
+            rows.append({"test": test, "quantity": lab, "cohort": c.replace("-", "−"), "day 0 (corr | raw)": f"{a.mean_d0:+.2f} | {b.mean_d0:+.2f}",
+                         "expert (corr | raw)": f"{a.mean_e:+.2f} | {b.mean_e:+.2f}", "p day 0 vs expert (corr | raw)": f"{f(a.p_stage_mwu)} | {f(b.p_stage_mwu)}"})
+    return pd.DataFrame(rows)
 MM = T["006"]
 
 
@@ -114,7 +172,7 @@ before rewarded auditory-cued licks from spontaneous licks, and the hit − miss
 changes come with running the task and which are specific to the learning day. In R+ mice, whisker-hit pre-lick activity drifts toward
 the reward-lick pattern over the session, and expert R+ sessions show the same drift: measured as the relative position of whisker hits
 between spontaneous licks and auditory hits (λ), the change within the session is the same at both stages, whereas the level differs:
-day-0 sessions start far below the expert level and end close to it, and expert sessions start higher. The learning-related change is
+at the same point of the session, day-0 sessions stay well below expert sessions (start and end). The learning-related change is
 therefore a shift of the level from which each session starts, not a different within-session drift. In R− mice, the passive whisker response moves away from the hit side of the hit − miss
 axis on day 0; relative to the auditory response, this cohort difference is present on day 0 and absent in expert sessions, the only
 change classified as learning-specific at the whole-brain level. Reaction-time matching and jaw kinematics do not explain the reward-lick
@@ -218,8 +276,9 @@ reward-lick CD therefore comes with running the task in R+ mice, whether or not 
 Placing whisker hits between spontaneous licks (λ = 0) and auditory hits (λ = 1) at each time of the session ({ref('eq-lam')}, {ref('fig-lam')}a–c)
 separates the drift from the level. In R+, λ rose within the session at both stages by the same amount ({per('dlam', T['005'], 'dlam', 'R+', '{:+.2f}')}).
 The levels differed: day-0 sessions started far below the expert level (day-0 start vs expert mean λ {lv('lvs', 'R+', 'day-0 start vs expert mean')})
-and ended close to it ({lv('lve', 'R+', 'day-0 end vs expert mean')}), and expert sessions started higher than day-0 sessions
-({per('lams', T['005'], 'lam_start', 'R+', '{:.2f}')}). In R−, λ stayed near 0 and did not change significantly within the session at either stage
+and ended near the expert session mean ({lv('lve', 'R+', 'day-0 end vs expert mean')}); compared at the same point of the session,
+however, expert sessions started higher ({per('lams', T['005'], 'lam_start', 'R+', '{:.2f}')}) and also ended higher
+({per('lame', T['005'], 'lam_end', 'R+', '{:.2f}')}), so the day-0 gap to the expert level does not close within the session. In R−, λ stayed near 0 and did not change significantly within the session at either stage
 ({per('dlam_m', T['005'], 'dlam', 'R-', '{:+.2f}')}).
 
 Auditory hits, the cue rewarded in both cohorts throughout, did not drift along the CD within R+ sessions ({per('bah', T['005'], 'b_AH', 'R+', '{:+.2f}')}),
@@ -233,6 +292,94 @@ expert sessions by {mm('mm_oe', 'SL', 'R+', 'W:E')}; in R− the start offset di
 interaction was significant for the start offset ({mm('mm_ci_o', 'SL', 'R+ vs R-', 'W:E:R')}) and not for the slope ({mm('mm_ci_s', 'SL', 'R+ vs R-', 'tau:W:E:R')}).
 Measured per whisker hit, per reward or over the first 30 whisker hits, the R+ day-0 drift was larger than the expert drift but not
 significantly so ({per('wh10', T['007'], 's_wh', 'R+')}; {ref('fig-s-units')}).
+
+### Is anything specific to day 0? Six tests
+
+The comparison above shows that the within-session drift of R+ whisker hits on the reward-lick CD is present in every R+ session, and that
+day 0 differs from expert sessions by its level. Six further tests ask whether anything in the day-0 session goes beyond this common drift.
+Each test was run on rates with the per-event baseline subtracted (as everywhere above) and on raw rates (test 0); the corrected version is
+shown in the main figures and the raw version in the supplement. The per-event scores were recomputed for this purpose (008) with the
+same estimator as within_day 002 (they differ from 002 only through the random cross-validation folds; median per-event difference 0.04
+score units).
+
+**Test 0: baseline correction.** *Question:* the pre-lick rate of each event is corrected by subtracting that event's own baseline (trial
+classes: the 1 s before trial start; spontaneous licks: before the lick). If learning changes the state before whisker trials, this
+subtraction could remove part of the effect. *Method:* every quantity of the λ analysis and the mixed model recomputed on raw rates.
+*Result:* per-session values agree between the two versions ({ref('fig-t0')}a) and every conclusion is the same: R+ Δλ
+{pv_('t0_dl_c', '009', 'corr', 'dlam', 'R+')} with correction and {pv_('t0_dl_r', '009', 'raw', 'dlam', 'R+')} without; start level
+{pv_('t0_ls_r', '009', 'raw', 'lam_start', 'R+')} without correction. The only quantity that changes is the auditory-hit drift, much larger
+without correction ({pv_('t0_ah_r', '009', 'raw', 'b_AH', 'R+')}): the auditory-hit drift along the CD is carried by the pre-trial baseline.
+In the mixed model on these scores, the expert − day 0 difference of the relative slope is {num('t0_mm', T['009m'][(T['009m'].variant == 'corr') & (T['009m'].cohort == 'R+') & (T['009m'].term == 'tau:W:E')].coef.iloc[0], '{:+.2f}')}
+(p {pv('t0_mm_p', T['009m'][(T['009m'].variant == 'corr') & (T['009m'].cohort == 'R+') & (T['009m'].term == 'tau:W:E')].p.iloc[0])}; raw p
+{pv('t0_mm_pr', T['009m'][(T['009m'].variant == 'raw') & (T['009m'].cohort == 'R+') & (T['009m'].term == 'tau:W:E')].p.iloc[0])}), whereas on the 002 scores it
+was p {pv('t0_mm_002', MM[(MM.ref == 'SL') & (MM.cohort == 'R+') & (MM.term == 'tau:W:E')].p.iloc[0])}: this term depends on the cross-validation folds and is fragile;
+the start-offset term is significant in every version. Baseline correction therefore does not change the conclusions ({ref('tbl-tests')}).
+
+**Test 1: a step at the learning trial.** *Question:* behavioural learning in a session is often abrupt; if the neural change accompanies it,
+whisker-hit scores should jump at each mouse's learning trial (017 lt_final), on top of the smooth ramp. *Method:* per session and class,
+the scores are fit against the whisker-trial index $x$ with a ramp and a step at split $k$:
+{eq('eq-step', r"y_i = a + b\,x_i + c\,\mathbb{1}[x_i \ge k] + \varepsilon_i")}
+and the relative step $c_{{WH}} - c_{{SL}}$ is compared with the steps at every other split position of the same session (≥ 10 whisker trials
+away; placebo splits). Expert sessions, which have no learning trial, receive a pseudo-learning trial at the cohort's median relative
+position. *Result:* the learning-trial-aligned whisker-hit scores rise around the learning trial in R+ ({ref('fig-t1')}a), but no more than at
+placebo positions: R+ relative step {st1('t1_rp', 'corr', 'rel', 'R+')}; R− {st1('t1_rm', 'corr', 'rel', 'R-')}; raw rates R+
+{st1('t1_rpr', 'raw', 'rel', 'R+')} ({ref('fig-t1')}b–d, {ref('fig-s-t1raw')}). There is no step at the learning trial beyond the ramp.
+
+**Test 2: coupling to the learning curve.** *Question:* within day 0 the behavioural learning curve changes; if the neural change follows
+behaviour rather than time, the whisker-hit score should track the curve with session time held fixed. *Method:* per session,
+score = $a + b_\tau \tau + b_{{\mathrm{{curve}}}}\,\mathrm{{curve}}$ (whisker − false-alarm curve at the event's whisker trial; predictors
+z-scored), and $b_{{\mathrm{{curve}}}}$ compared with fits in which the curve is linearly shifted against the events (100 shifts).
+*Result:* time and curve are moderately correlated, positively in R+ and negatively in R− ({ref('fig-t2')}b). Beyond time and the shift null,
+whisker-hit scores did not follow the curve: R+ {st2('t2_rp', 'corr', 'excess_WH', 'R+')}, R− {st2('t2_rm', 'corr', 'excess_WH', 'R-')}; raw
+R+ {st2('t2_rpr', 'raw', 'excess_WH', 'R+')}; the time slope remained in R+ ({st2('t2_bt', 'corr', 'btau_WH', 'R+')}; {ref('fig-t2')}c–f,
+{ref('fig-s-t2raw')}). Correlated directly with the whisker learning curve P(lick | whisker) at each event, R+ whisker-hit scores were uncorrelated ({st16('t2w_rp', 'corr', 'r_WH', 'R+')}; partial on time {st16('t2w_rpp', 'corr', 'rp_WH', 'R+')}), and so were R− whisker hits ({st16('t2w_rm', 'corr', 'r_WH', 'R-')}); the R− spontaneous-lick scores correlated negatively with the falling curve ({st16('t2w_sl', 'corr', 'r_SL', 'R-')}), which vanished with time partialled out ({ref('fig-s-wc')}). In R+ the whisker curve rises early and then plateaus while whisker-hit scores keep rising: the neural drift continues after behaviour has stopped changing. The within-session change follows time, not the learning curve.
+
+**Test 3: a mixture of two kinds of whisker hits.** *Question:* on day 0, some whisker licks may already be "learned" (auditory-hit-like) and
+others impulsive (spontaneous-lick-like); learning would then change their proportion, while expert whisker hits would form one
+population. *Method:* per session, the held-out spontaneous-lick and auditory-hit scores define two Gaussian components
+$\mathcal N(\mu_{{SL}}, \sigma_{{SL}})$ and $\mathcal N(\mu_{{AH}}, \sigma_{{AH}})$, and the whisker-hit scores are fit by
+{eq('eq-mix', r"p(y) = (1 - \pi)\,\mathcal{N}(y; \mu_{SL}, \sigma_{SL}) + \pi\,\mathcal{N}(y; \mu_{AH}, \sigma_{AH})")}
+with $\pi$ (share of auditory-hit-like whisker hits) estimated by expectation–maximisation in the early and late half of the session.
+*Result:* the R+ share rose within the session at both stages by the same amount ({pv_('t3_dpi', '012', 'corr', 'dpi', 'R+')}), and expert sessions
+started with a larger share ({pv_('t3_pe', '012', 'corr', 'pi_early', 'R+')}) ({ref('fig-t3')}). The whisker-hit variance was smaller than the two-
+component mixture predicts ({pv_('t3_vr', '012', 'corr', 'var_ratio', 'R+')}; 1 for a true mixture): whisker hits are not a mixture of the two
+reference populations but a population lying between them that shifts as a whole ({ref('fig-t3')}a, e; raw rates: {ref('fig-s-t3raw')}).
+
+**Test 4: stability of the coding direction.** *Question:* on day 0 the reward-lick code itself might reorganise, so that the CD of the late
+session differs from that of the early session. *Method:* the auditory-hit − spontaneous-lick axis is estimated separately in the early and
+late half; their cosine is normalised by the split-half reliabilities (disjoint random halves, 50 splits), and the early axis is applied to
+late events (generalisation = late separation on the early axis / on the late axis). *Result:* the R+ day-0 early and late axes were less
+similar than expert ones (normalised cosine {pv_('t4_cos', '013', 'corr', 'cos_norm', 'R+')}; raw {pv_('t4_cosr', '013', 'raw', 'cos_norm', 'R+')}),
+but the stage difference was not significant, and the early axis generalised to late events at both stages
+({pv_('t4_gen', '013', 'corr', 'gen', 'R+')}) ({ref('fig-t4')}, {ref('fig-s-t4raw')}). The reward-lick CD is largely stable within the session; a
+modest day-0 reorganisation in R+ is suggested but not established.
+
+**Test 5: units of stimulus–outcome pairings.** *Question:* learning should scale with the number of whisker stimulus–outcome pairings
+(whisker trials, hits and misses), not with the fraction of the session; comparing day 0 and expert over the same number of pairings
+removes differences in session length. *Method:* slopes per 10 whisker trials and λ from fits against the whisker-trial index, evaluated at
+whisker trial 0 and 60 (time-matched in pairings). *Result:* at the same pairing, expert R+ sessions sat higher on λ (whisker trial 0:
+{pv_('t5_l0', '014', 'corr', 'lam_0', 'R+')}; whisker trial 60: {pv_('t5_ln', '014', 'corr', 'lam_N', 'R+')}). Over the first 60 whisker trials λ
+rose on day 0 and not in experts, but without a stage difference ({pv_('t5_dl', '014', 'corr', 'dlam_N', 'R+')}; raw
+{pv_('t5_dlr', '014', 'raw', 'dlam_N', 'R+')}), and the whisker-hit − spontaneous-lick slope over the first 60 whisker trials was the same at
+both stages ({pv_('t5_s', '014', 'corr', 's_WH-SL_first', 'R+')}) ({ref('fig-t5')}, {ref('fig-s-t5raw')}). In pairing units the day-0 gap to the
+expert level narrows from about 0.6 to 0.3 over the first 60 whisker trials, a trend in the direction of a day-0-specific convergence.
+
+**Test 6: the hit − miss axis around the learning trial.** *Question:* the one learning-specific result of this report is the R− change of
+the passive whisker response relative to the auditory response on the hit − miss axis. If it reflects learning, the hit − miss axis built
+from active trials after the learning trial should show it more than the axis built before. *Method:* as ssl-hitmiss-axis-passive 135
+(tracked stable units, harmonised scaling, 5–35 ms), the hit − miss axis is built separately from the active whisker trials before and after
+the split (≥ 4 hits and misses per side), and the passive pre → post whisker − auditory change is projected on each; split at the learning
+trial vs placebo splits; expert sessions with pseudo-learning trials. *Result:* on the post-split axis, R− {st6('t6_rm', 'dWA_post', 'R-', 'learning')},
+R+ {st6('t6_rp', 'dWA_post', 'R+', 'learning')}; the difference between the post- and pre-split axes, R− {st6('t6_ae_m', 'axis_effect', 'R-', 'learning')};
+expert R− {st6('t6_e_m', 'dWA_post', 'R-', 'expert')}; axis rotation at the split (cosine) R+ {st6('t6_cos_p', 'cos_axes', 'R+', 'learning')}, R−
+{st6('t6_cos_m', 'cos_axes', 'R-', 'learning')} ({ref('fig-t6')}). Few sessions have enough hits and misses on both sides of the split
+(R+ mice rarely miss after learning, R− mice rarely hit), which limits this test: 16 day-0 sessions per cohort, but only 4 R− and no R+ expert sessions, so the expert control is not testable here. In R−, the split at the learning trial did not produce a larger change on the post-split axis than placebo splits, and the axes before and after the learning trial were, if anything, more similar than at placebo positions: the R− change on the hit − miss axis is not concentrated at the behavioural learning trial.
+
+**Summary of the tests.** None of the six tests isolates a within-session change specific to day 0 on the reward-lick CD: there is no step at
+the learning trial, no coupling to the learning curve beyond time, no switch between two kinds of whisker hits and no significant
+reorganisation of the coding direction; in units of pairings, day 0 shows a convergence trend toward the expert level that does not reach
+significance. The day-0 signature on this axis is the level, consistent with learning-related changes that are expressed across sessions
+({ref('tbl-tests')}).
 
 ### Hit − miss axis: the R− change relative to the auditory response is specific to day 0
 
@@ -270,8 +417,8 @@ cohorts on day 0 by the same amount (R+ {per('wev_p', T['002'], 'W d_whisk_ev', 
 ## Discussion
 
 Expert sessions change the interpretation of the day-0 drift on the reward-lick CD: R+ whisker hits drift toward the rewarded-lick pattern
-within every R+ session, and the day-0 drift is not larger than the expert drift. What learning changes is the level: expert sessions start
-where day-0 sessions end. The day-0 session therefore contains the drift common to every R+ session plus a level that is still low at the
+within every R+ session, and the day-0 drift is not larger than the expert drift. What learning changes is the level: at every point of the session, expert
+whisker hits sit closer to auditory hits than day-0 whisker hits. The day-0 session therefore contains the drift common to every R+ session plus a level that is still low at the
 start; the within-session ramp may reflect a session-level process (warm-up, rising reward expectation) that is re-expressed every day on
 top of a baseline that learning raises. This within-session drift is thus a property of performing
 the rewarded whisker task (for example the build-up of reward expectation or of task engagement within a session), and the learning-related
@@ -290,6 +437,8 @@ their passive whisker response turns away from the direction that predicts licki
 ## Open questions and next steps
 
 - More expert sessions (or several per mouse) to separate day 0 from expert per area.
+- The level difference between day 0 and expert sessions: when does it appear (end of day 0, next session, consolidation)? Sessions on
+  day +1 would place it.
 - Within-session time courses of both axes in the same sessions (joint model).
 
 ## Figures
@@ -313,6 +462,36 @@ held-out SL = 0, AH = 1; mean ± s.e.m. over sessions). **b**, λ ({ref('eq-lam'
 {figure('fig-mm', C.FIG / '006_mixed_model.png', rf'''Per-event mixed model ({ref('eq-mm')}; 006): coefficients ± 95 % CI per cohort for whisker hits relative to
 spontaneous licks (**a**) and to auditory hits (**b**): day-0 relative slope, its expert − day 0 difference, day-0 start offset and its expert −
 day 0 difference (filled: p < 0.05); titles: cohort × stage of the relative slope.''', "006_mixed_model.py")}
+{figure('fig-t0', C.FIG / '009_baseline_compare.png', '''Test 0, baseline correction (009). **a**, Per-session values with baseline-corrected (x) vs raw
+rates (y) for the WH − SL slope, the AH slope, λ at the session start, Δλ and the session-mean λ (circles day 0, squares expert; r: Pearson).
+**b–c**, The same quantities day 0 vs expert per cohort, corrected (b) and raw (c) (layout as Figure 2).''', "009_baseline_compare.py")}
+{figure('fig-t1', C.FIG / '010_lt_aligned_corr.png', rf'''Test 1, step at the behavioural learning trial (010; {ref('eq-step')}). **a**, Day-0 whisker-hit (yellow) and
+spontaneous-lick (black) scores in 5-whisker-trial bins around each mouse's learning trial (017), relative to the pre-learning-trial mean;
+**b**, relative step WH − SL at the learning trial vs the mean placebo step, per session (lines) and mean ± s.e.m.; **c**, percentile of the
+learning-trial step among the placebo steps; **d**, step excess over placebo for WH, SL and WH − SL, day 0 (open, learning trial) vs expert
+(filled, pseudo-learning trial). Top R+, bottom R−; baseline-corrected rates.''', "010_lt_aligned.py")}
+{figure('fig-t2', C.FIG / '011_behaviour_coupling_corr.png', '''Test 2, coupling to the learning curve (011). **a**, Example day-0 sessions near the cohort median:
+whisker-hit (yellow) and spontaneous-lick (grey) scores and the whisker − false-alarm learning curve (line) against whisker trials; **b**,
+correlation between session time and the learning curve per session; **c**, whisker-hit coupling to the curve with time in the model, real vs
+shifted curves; **d–e**, excess coupling for whisker hits and for WH − SL; **f**, time slope with the curve in the model. Baseline-corrected rates.''',
+                 "011_behaviour_coupling.py")}
+{figure('fig-t3', C.FIG / '012_mixture_corr.png', rf'''Test 3, mixture of SL-like and AH-like whisker hits (012; {ref('eq-mix')}). **a**, Pooled score distributions of
+spontaneous licks (black), auditory hits (blue) and whisker hits in the early (light) and late (dark) half of the session per group; **b–d**,
+share of AH-like whisker hits early, late and its change; **e**, whisker-hit variance relative to the variance predicted by the two-component
+mixture (1 = mixture). Baseline-corrected rates; layout of b–e as Figure 2.''', "012_mixture.py")}
+{figure('fig-t4', C.FIG / '013_cd_stability_corr.png', '''Test 4, stability of the reward-lick CD between the early and late half of the session (013): normalised cosine
+between the early and late axes (**a**; 1 = same direction), generalisation of the early axis to late events (**b**), change of the AH − SL
+separation (**c**), early separation (**d**), raw cosine (**e**), and early vs late separation per session (**f**). Baseline-corrected rates.''',
+                 "013_cd_stability.py")}
+{figure('fig-t5', C.FIG / '014_whisker_trial_units_corr.png', '''Test 5, day 0 vs expert in units of whisker trials (014). **a**, λ per 20 whisker trials (hits and
+misses), day 0 (dashed, open) vs expert (solid, filled), bins with ≥ 3 sessions; **b–d**, slopes per 10 whisker trials (WH − SL over the session and
+over the first 60 whisker trials; WH − AH over the first 60); **e–g**, λ at whisker trial 0 and 60 from the fits and its change. Baseline-corrected rates.''',
+                 "014_whisker_trial_units.py")}
+{figure('fig-t6', C.FIG / '015_hitmiss_lt.png', '''Test 6, hit − miss axis split at the learning trial (015; as ssl-hitmiss-axis-passive 135). **a**, Day 0: passive whisker −
+auditory change (post − pre) projected on the axis built from active trials before vs after the learning trial, per session (lines) and mean ±
+s.e.m.; **b**, difference between the two axes; **c**, whisker − auditory change on the post-split axis; **d**, cosine between the pre- and
+post-split axes. b–d: excess over placebo splits, day 0 (open, learning trial) vs expert (filled, pseudo-learning trial); p: Wilcoxon.''',
+                 "015_hitmiss_lt.py")}
 {figure('fig-areas', C.FIG / '003_areas.png', '''Class of the within-session change per area group (rows, allen_utils order) and cohort (columns) for the
 reward-lick CD and the hit − miss axis (003). Numbers: day-0 mean change; colour: class; †: day-0 effect not significant after Benjamini–Hochberg
 correction across areas; grey: fewer than 3 sessions at a stage.''', "003_classification.py")}
@@ -326,6 +505,13 @@ evoked whisking and jaw opening, for passive whisker (top) and auditory (bottom)
 {figure('fig-s-tc', C.FIG / '004_rl_timecourse_stages.png', '''Reward-lick CD across the session, day 0 (dashed, open) vs expert (solid, filled) (004): projections of whisker hits, spontaneous licks and their difference per fifth of the session (per neuron, relative to the first fifth; mean ± s.e.m. over sessions; n in legend), on the real CD (colour) and on CDs rebuilt from shifted labels (grey, mean over 50 shifts). Right: the quantity tested (slope over normalised session time, real − shifted, per neuron), with Wilcoxon vs 0 per stage and Mann–Whitney day 0 vs expert.''', "004_rl_timecourse_stages.py", kind="supplementary")}
 {figure('fig-s-units', C.FIG / '007_time_units.png', '''Whisker-hit drift relative to spontaneous licks per session (τ), per 100 events, per 10 whisker hits, per 10
 whisker hits over the first 30, per 10 minutes and per 10 rewards (007; score units; layout as Figure 2).''', "007_time_units.py", kind="supplementary")}
+{figure('fig-s-t1raw', C.FIG / '010_lt_aligned_raw.png', 'Test 1 on raw rates (layout as Figure 9).', "010_lt_aligned.py", kind="supplementary")}
+{figure('fig-s-t2raw', C.FIG / '011_behaviour_coupling_raw.png', 'Test 2 on raw rates (layout as Figure 10).', "011_behaviour_coupling.py", kind="supplementary")}
+{figure('fig-s-t3raw', C.FIG / '012_mixture_raw.png', 'Test 3 on raw rates (layout as Figure 11).', "012_mixture.py", kind="supplementary")}
+{figure('fig-s-t4raw', C.FIG / '013_cd_stability_raw.png', 'Test 4 on raw rates (layout as Figure 12).', "013_cd_stability.py", kind="supplementary")}
+{figure('fig-s-t5raw', C.FIG / '014_whisker_trial_units_raw.png', 'Test 5 on raw rates (layout as Figure 13).', "014_whisker_trial_units.py", kind="supplementary")}
+{figure('fig-s-wc', C.FIG / '016_whisker_curve_corr.png', '''Day 0: per-session correlation of each event's reward-lick CD score with the whisker learning curve P(lick | whisker) at that trial (016): plain r for whisker hits (**a**), minus the shift null (**b**), partial r with session time removed (**c**) and minus its null (**d**), whisker hits relative to spontaneous licks (**e**, **f**); top baseline-corrected, bottom raw rates; p: Wilcoxon vs 0.''', "016_whisker_curve_corr.py", kind="supplementary")}
+{table('tbl-tests', tests_table(), 'Key quantities of the day-0 specificity tests with baseline-corrected and raw rates (mean change or level per stage; Mann–Whitney day 0 vs expert).')}
 {table('tbl-classes', classes_table(), 'Whole-brain classification of the within-session changes (mean change and sessions per stage; p: Wilcoxon vs 0 at each stage, Mann–Whitney day 0 vs expert; for R+ vs R−: Mann–Whitney per stage and cohort × stage permutation).')}
 """
     claims()
@@ -343,11 +529,20 @@ def claims():
     claim("C4", "Whisker − auditory cohort contrast on the hit − miss axis is learning-specific", "Fig. 2f, Table 1",
           f"cohort D0 p = {r('hm_WA', 'R+ vs R-').p_d0:.3f}; E p = {r('hm_WA', 'R+ vs R-').p_e:.2f}; cohort × stage p = {r('hm_WA', 'R+ vs R-').p_interaction:.3f}",
           status="fragile", note="few expert sessions; single test")
-    claim("C2b", "R+ λ: same within-session change at both stages; day-0 start below the expert level, end close to it", "Fig. 3",
+    claim("C2b", "R+ λ: same within-session change at both stages; day 0 below expert at the same point of the session", "Fig. 3",
           f"Δλ D0 vs E p = {g(T['005'], 'dlam', 'R+').p_stage_mwu:.2f}; start vs expert p = {LV.loc[('R+', 'day-0 start vs expert mean')].p_mwu:.1e}")
     claim("C2c", "Learning shifts the start offset of WH relative to SL (mixed model), not the slope", "Fig. 4",
           f"W:E p = {MM[(MM.ref == 'SL') & (MM.cohort == 'R+') & (MM.term == 'W:E')].p.iloc[0]:.1e}; tau:W:E p = {MM[(MM.ref == 'SL') & (MM.cohort == 'R+') & (MM.term == 'tau:W:E')].p.iloc[0]:.2f}")
     claim("C2d", "Auditory hits do not drift along the CD within R+ sessions", "Fig. 3d", f"p = {g(T['005'], 'b_AH', 'R+').p_d0:.2f}")
+    claim("T0", "Baseline correction does not change the conclusions (only the AH drift is baseline-borne)", "Fig. 8, Table 2", "per-session agreement")
+    claim("T1", "No step of the WH score at the learning trial beyond the ramp", "Fig. 9", "placebo excess n.s. in both cohorts", status="n.s.")
+    claim("T2", "No coupling of the WH score to the learning curve beyond time", "Fig. 10", "shift-null excess n.s.", status="n.s.")
+    claim("T3", "Whisker hits shift as one population (not a two-type mixture); same within-session change at both stages", "Fig. 11",
+          "variance ratio < 1; Δπ D0 vs E n.s.")
+    claim("T4", "Reward-lick CD stable within the session (modest R+ day-0 reorganisation suggested)", "Fig. 12", "cos_norm D0 vs E n.s.", status="fragile")
+    claim("T5", "In pairing units, day 0 converges toward the expert level (trend)", "Fig. 13", "Δλ first 60 WT D0 vs E n.s.", status="fragile")
+    claim("T6", "Hit − miss axis split at the learning trial", "Fig. 14", "see text; few sessions with hits and misses on both sides", status="fragile")
+    claim("C2e", "Mixed-model expert − day 0 slope term depends on cross-validation folds", "text", "p 0.04 vs 0.50", status="fragile")
     claim("C5", "R+ drift not explained by reaction time (matched, covariate)", "Fig. 4", f"RT-matched D0 p = {g(T['001'], 'd_cd_rtm', 'R+').p_d0:.1e}")
     claim("C6", "R+ drift not explained by jaw kinematics", "Fig. 4", f"jaw drift D0 p = {g(T['001'], 'b_jaw', 'R+').p_d0:.2f}")
     claim("C7", "Movement state around passive trials changes equally in both cohorts", "Fig. 5",
@@ -377,7 +572,8 @@ Question: which within-session changes on the reward-lick CD and the hit − mis
 measures in expert sessions?
 
 1. Reward-lick CD: the R+ whisker-hit drift toward the rewarded-lick pattern (relative to spontaneous licks, beyond the null) is present in expert sessions with the same size (day 0 vs expert p = {r('rl_WHSL', 'R+').p_stage_mwu:.2f}): not specific to learning.
-1b. What learning changes on this axis is the level: λ (whisker hits between spontaneous licks = 0 and auditory hits = 1) rises within the session by the same amount at both stages, but day-0 sessions start far below the expert level and end close to it; mixed model: expert − day 0 start offset p < 0.001, slope n.s.
+1b. What learning changes on this axis is the level: λ (whisker hits between spontaneous licks = 0 and auditory hits = 1) rises within the session by the same amount at both stages, but day-0 sessions stay below expert sessions at the same point of the session; mixed model: expert − day 0 start offset p < 0.001.
+1c. Six further tests (step at the learning trial, coupling to the learning curve, mixture of whisker-hit types, CD stability, units of pairings, hit − miss axis at the learning trial) find no within-session change specific to day 0 on the reward-lick CD; baseline correction does not change the conclusions.
 2. Hit − miss axis: the R− passive whisker change relative to auditory separates the cohorts on day 0 but not at expert (cohort × stage p = {r('hm_WA', 'R+ vs R-').p_interaction:.3f}): the only learning-specific whole-brain change.
 3. Controls: reaction-time matching and jaw kinematics do not explain the R+ drift; movement state around passive trials changes equally in both cohorts.
 4. Areas: mostly not separable from expert (few expert sessions per area).
