@@ -100,6 +100,10 @@ def fp(p):
     return "n/a" if not np.isfinite(p) else ("p<.001" if p < 0.001 else f"p={p:.2f}".replace("0.", "."))
 
 
+SHORT_CLS = {"day 0 only (stage n.s.)": "D0 only", "learning-specific": "learning-spec.", "stronger with learning": "stronger on D0",
+             "both stages, differ": "both, differ", "both stages": "both", "expert only": "E only"}
+
+
 def dot_panel(ax, D, col, R, title, letter=None, rc=None):
     """day 0 (open) vs expert (filled) per cohort, sessions as dots, mean +- s.e.m.; per cohort class and p values stacked above the
     axes (left R+, right R-); rc: the cohort row of measure_stats for an x-label with the cohort tests"""
@@ -110,7 +114,7 @@ def dot_panel(ax, D, col, R, title, letter=None, rc=None):
             ax.errorbar(x, v.mean(), v.sem(), fmt="o", ms=3.5, color=COH[c], mfc="white" if s_ == "learning" else COH[c], capsize=0)
             ax.text(x, 0.01, f"{len(v)}", transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=4, color="0.45")
         r = R[R.cohort == c].iloc[0]
-        ax.text(0.0 if j == 0 else 1.0, 1.03, f"{c.replace('-', '−')}: {r.cls}\nD0 {fp(r.p_d0)}, E {fp(r.p_e)}\nD0 vs E {fp(r.p_stage_mwu)}",
+        ax.text(0.0 if j == 0 else 1.0, 1.03, f"{c.replace('-', '−')}: {SHORT_CLS.get(r.cls, r.cls)}\nD0 {fp(r.p_d0)}, E {fp(r.p_e)}\nD0 vs E {fp(r.p_stage_mwu)}",
                 transform=ax.transAxes, ha="left" if j == 0 else "right", va="bottom", fontsize=4.0, color=COH[c], linespacing=1.15)
     ax.axhline(0, color="0.6", lw=0.5, ls=":"); ax.set_xticks([0, 1, 2.4, 3.4], ["D0", "E", "D0", "E"])
     ax.set_title(title, fontsize=5.6, pad=24)
