@@ -35,12 +35,12 @@ R.register([
     ("fig-t5", "Figure 13"), ("fig-t6", "Figure 14"), ("eq-step", "Eq. (5)"), ("eq-mix", "Eq. (6)"),
     ("tbl-classes", "Table 1"), ("tbl-tests", "Table 2"), ("fig-s-tc", "Figure S1"), ("fig-s-units", "Figure S2"),
     ("fig-s-t1raw", "Figure S3"), ("fig-s-t2raw", "Figure S4"), ("fig-s-t3raw", "Figure S5"), ("fig-s-t4raw", "Figure S6"),
-    ("fig-s-t5raw", "Figure S7"), ("fig-s-wc", "Figure S8"), ("tbl-registry", "Table S1"),
+    ("fig-s-t5raw", "Figure S7"), ("fig-s-wc", "Figure S8"), ("fig-aq", "Figure 15"), ("fig-asn", "Figure 16"), ("fig-s-af", "Figure S9"), ("fig-s-ab", "Figure S10"), ("tbl-registry", "Table S1"),
 ])
 SRC = {"003": C.TAB / "003_stats.csv", "001": C.TAB / "001_rl_controls_stats.csv", "002": C.TAB / "002_passive_kinematics_stats.csv",
        "005": C.TAB / "005_stats.csv", "005lv": C.TAB / "005_levels.csv", "006": C.TAB / "006_mixed_model.csv", "007": C.TAB / "007_stats.csv",
        "009": C.TAB / "009_stats.csv", "009m": C.TAB / "009_mixed.csv", "010": C.TAB / "010_stats.csv", "011": C.TAB / "011_stats.csv",
-       "012": C.TAB / "012_stats.csv", "013": C.TAB / "013_stats.csv", "014": C.TAB / "014_stats.csv", "015": C.TAB / "015_stats.csv", "016": C.TAB / "016_stats.csv"}
+       "012": C.TAB / "012_stats.csv", "013": C.TAB / "013_stats.csv", "014": C.TAB / "014_stats.csv", "015": C.TAB / "015_stats.csv", "016": C.TAB / "016_stats.csv", "018q": C.TAB / "018_slopes_quint.csv", "019": C.TAB / "019_stats.csv", "019m": C.TAB / "019_model.csv"}
 FROZEN = dict(zip(SRC, Report.snapshot([SRC[k] for k in SRC], OUT, tag=date.today().isoformat())))
 T = {k: pd.read_csv(v) for k, v in FROZEN.items()}
 W3 = T["003"][T["003"].level == "whole_brain"]
@@ -74,6 +74,18 @@ def st2(key, variant, m, c):
 def st16(key, variant, m, c):
     d = T["016"][(T["016"].variant == variant) & (T["016"].curve == "curve_whisker") & (T["016"].measure == m) & (T["016"].cohort == c)].iloc[0]
     return f"r = {num(key, d['mean'], '{:+.2f}')} (p {pv(key + '_p', d.p)})"
+
+
+def a19(key, area, c, m="rel_ex"):
+    d = T["019"][(T["019"].area == area) & (T["019"].cohort == c) & (T["019"].measure == m)].iloc[0]
+    return (f"day 0 {num(key + '_d0', d.mean_d0 * 100, '{:+.2f}')} (p {pv(key + '_p0', d.p_d0)}), expert {num(key + '_e', d.mean_e * 100, '{:+.2f}')}; "
+            f"day 0 vs expert p {pv(key + '_ps', d.p_stage)}")
+
+
+def m19(key, c, m="rel_ex"):
+    d = T["019m"][(T["019m"].cohort == c) & (T["019m"].measure == m)].iloc[0]
+    return (f"pooled expert − day 0 {num(key + '_e', d.stage_effect * 100, '{:+.2f}')} (p {pv(key + '_p', d.p_stage)}), stage × area p "
+            f"{pv(key + '_pa', d.p_stage_x_area)}")
 
 
 def st6(key, m, c, stage):
@@ -381,6 +393,25 @@ reorganisation of the coding direction; in units of pairings, day 0 shows a conv
 significance. The day-0 signature on this axis is the level, consistent with learning-related changes that are expressed across sessions
 ({ref('tbl-tests')}).
 
+### Area groups over the session: event-based bins and a shift null
+
+Per area, the CD was rebuilt from each area group's units and the session was binned by events rather than by time (018). With equal-duration
+fifths, a fifth can contain few whisker hits and sessions without whisker hits early drop out ({ref('fig-s-af')}); with whisker-hit quintiles
+(equal numbers of whisker hits, spontaneous licks and auditory hits averaged over the same time windows), every session contributes five
+points ({ref('fig-aq')}). Whisker hits alone rose over the session in nearly every area at both stages. Relative to spontaneous licks, R+
+day-0 sessions rose in several areas while expert sessions stayed flat or fell. Blocks of five consecutive whisker hits show the same,
+more noisily ({ref('fig-s-ab')}).
+
+The quintile slope was then tested against a linear-shift null (019; per-neuron projections; 50 CDs rebuilt from shifted AH / SL labels per
+session and area; values ×100 per quintile). Relative to spontaneous licks and beyond the null, R+ whisker hits drifted on day 0 and not in
+expert sessions in midbrain ({a19('a_mb', 'Midbrain', 'R+')}); in striatum the stage difference came from expert sessions drifting down rather than a day-0 drift ({a19('a_st', 'Striatum', 'R+')}); the whole brain went the same
+way without a stage difference ({a19('a_wb', 'whole_brain', 'R+')}). In R−, hippocampus showed the opposite pattern, a drift in expert sessions
+only ({a19('a_hpf', 'Hippocampus', 'R-')}). An area-level model (OLS with standard errors clustered by mouse; areas with ≥ 3 sessions at both
+stages) gave no stage effect pooled over areas but a stage effect that depends on the area: R+ {m19('m_rp', 'R+')}; R− {m19('m_rm', 'R-')}
+({ref('fig-asn')}). With 10–11 mice per cohort, the clustered test may be liberal, and the per-area stage contrasts are uncorrected across areas.
+The day-0-specific drift relative to spontaneous licks is therefore a candidate in subcortical areas (midbrain, striatum), not a whole-brain
+property.
+
 ### Hit − miss axis: the R− change relative to the auditory response is specific to day 0
 
 The passive whisker response moved away from the hit side in R− on day 0 ({per('hmw_m', W3, 'hm_W', 'R-')}) and slightly in R+
@@ -492,6 +523,13 @@ auditory change (post − pre) projected on the axis built from active trials be
 s.e.m.; **b**, difference between the two axes; **c**, whisker − auditory change on the post-split axis; **d**, cosine between the pre- and
 post-split axes. b–d: excess over placebo splits, day 0 (open, learning trial) vs expert (filled, pseudo-learning trial); p: Wilcoxon.''',
                  "015_hitmiss_lt.py")}
+{figure('fig-aq', C.FIG / '018_area_quint.png', '''Reward-lick CD within the session per area group in whisker-hit quintiles (018): each session's whisker hits split in time order into
+five bins of equal count; spontaneous licks (SL) and auditory hits (AH) averaged over the same time windows; scores of each area's own CD (held-out
+SL = 0, AH = 1), relative to the first quintile; columns: whisker hits, WH − SL and WH − AH per cohort; dashed open = day 0, solid filled = expert;
+above each panel: per-session slope over quintiles, Wilcoxon vs 0 and day 0 vs expert (Mann–Whitney).''', "018_area_bins.py")}
+{figure('fig-asn', C.FIG / '019_quint_shift_null.png', '''Whisker-hit quintile slope beyond the linear-shift null per area group (019): WH − SL and WH alone, per cohort; per-neuron projections on the
+area's CD; open day 0, filled expert, mean ± s.e.m. over sessions; * day 0 vs expert Mann–Whitney p < 0.05 (uncorrected); titles: area-level OLS
+(SE clustered by mouse), pooled stage effect and stage × area test.''', "019_quint_shift_null.py")}
 {figure('fig-areas', C.FIG / '003_areas.png', '''Class of the within-session change per area group (rows, allen_utils order) and cohort (columns) for the
 reward-lick CD and the hit − miss axis (003). Numbers: day-0 mean change; colour: class; †: day-0 effect not significant after Benjamini–Hochberg
 correction across areas; grey: fewer than 3 sessions at a stage.''', "003_classification.py")}
@@ -511,6 +549,8 @@ whisker hits over the first 30, per 10 minutes and per 10 rewards (007; score un
 {figure('fig-s-t4raw', C.FIG / '013_cd_stability_raw.png', 'Test 4 on raw rates (layout as Figure 12).', "013_cd_stability.py", kind="supplementary")}
 {figure('fig-s-t5raw', C.FIG / '014_whisker_trial_units_raw.png', 'Test 5 on raw rates (layout as Figure 13).', "014_whisker_trial_units.py", kind="supplementary")}
 {figure('fig-s-wc', C.FIG / '016_whisker_curve_corr.png', '''Day 0: per-session correlation of each event's reward-lick CD score with the whisker learning curve P(lick | whisker) at that trial (016): plain r for whisker hits (**a**), minus the shift null (**b**), partial r with session time removed (**c**) and minus its null (**d**), whisker hits relative to spontaneous licks (**e**, **f**); top baseline-corrected, bottom raw rates; p: Wilcoxon vs 0.''', "016_whisker_curve_corr.py", kind="supplementary")}
+{figure('fig-s-af', C.FIG / '017_area_fifths.png', 'Per-area reward-lick CD in equal-duration fifths of the session (017; layout as Figure 15).', "017_area_fifths.py", kind="supplementary")}
+{figure('fig-s-ab', C.FIG / '018_area_blocks.png', 'Per-area reward-lick CD in blocks of five consecutive whisker hits, relative to the mean of blocks 1–2 (018; layout as Figure 15).', "018_area_bins.py", kind="supplementary")}
 {table('tbl-tests', tests_table(), 'Key quantities of the day-0 specificity tests with baseline-corrected and raw rates (mean change or level per stage; Mann–Whitney day 0 vs expert).')}
 {table('tbl-classes', classes_table(), 'Whole-brain classification of the within-session changes (mean change and sessions per stage; p: Wilcoxon vs 0 at each stage, Mann–Whitney day 0 vs expert; for R+ vs R−: Mann–Whitney per stage and cohort × stage permutation).')}
 """
@@ -543,6 +583,8 @@ def claims():
     claim("T5", "In pairing units, day 0 converges toward the expert level (trend)", "Fig. 13", "Δλ first 60 WT D0 vs E n.s.", status="fragile")
     claim("T6", "Hit − miss axis split at the learning trial", "Fig. 14", "see text; few sessions with hits and misses on both sides", status="fragile")
     claim("C2e", "Mixed-model expert − day 0 slope term depends on cross-validation folds", "text", "p 0.04 vs 0.50", status="fragile")
+    claim("A1", "R+ WH − SL quintile drift beyond the shift null: day 0 only in midbrain and striatum; stage effect depends on area", "Fig. 15-16",
+          "per-area MWU uncorrected; stage x area clustered OLS", status="fragile", note="liberal clustered test; uncorrected per area")
     claim("C5", "R+ drift not explained by reaction time (matched, covariate)", "Fig. 4", f"RT-matched D0 p = {g(T['001'], 'd_cd_rtm', 'R+').p_d0:.1e}")
     claim("C6", "R+ drift not explained by jaw kinematics", "Fig. 4", f"jaw drift D0 p = {g(T['001'], 'b_jaw', 'R+').p_d0:.2f}")
     claim("C7", "Movement state around passive trials changes equally in both cohorts", "Fig. 5",
