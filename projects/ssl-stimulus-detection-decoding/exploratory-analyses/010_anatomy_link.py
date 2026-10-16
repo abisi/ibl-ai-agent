@@ -124,6 +124,8 @@ def decoding():
                     w = pd.read_csv(folder / "window_accuracy.csv")
                 except FileNotFoundError:
                     continue
+                if q.empty:
+                    continue
                 w = w[(w.level == level) & (w.N == N_MAIN)].set_index("area")["mean"]
                 out.append(q.assign(target=t, early=q.area.map(w)))
     D = pd.concat(out, ignore_index=True)

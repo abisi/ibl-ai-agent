@@ -27,7 +27,7 @@ Question and decisions: `question.md`. Results (not in git): `combined_results_k
 | 008_sample_sizes.py | sessions / mice / units / events per area; event-sequence check |
 | 009_area_ranking.py | areas ordered by peak accuracy and by accuracy at onset |
 
-Run order: `~/cDet.sh` on haas (caches, N = 200 pilot for the 4 conditions, then the full N sweep), then 002-004 per
+Run order: caches (`001 --cache`), then `~/cDet2.sh` on haas (N = 200 pilot: area groups for the 4 conditions, then the 40 fine areas; then the full N sweep) with the figure watcher `~/cDetFig.sh`, then 002-004 per
 condition, 003 --plan/--plot, final N = 200 runs + 005, then 006-009 per target.
 
 ## TODO

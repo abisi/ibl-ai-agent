@@ -11,3 +11,6 @@
   containing it (CCF annotation + structure tree), per area = mean over units; areas with < 50 % of units mapped excluded
   (hippocampus 4 %, olfactory 1 %). Allen densities at unit positions as before. Figures as results come (user): ~/cDetFig.sh
   watcher runs 005 + 010 after each N = 200 pilot, 006 / 008 / 009 when both epochs of a target exist, 002 + 004 after each sweep.
+- 2026-10-16 10:05 Run order changed (user): N = 200 pilot of the 18 area groups for all 4 conditions first, then the 40 fine areas,
+  then the N sweep (`~/cDet2.sh`, log ~/log/cDet.log; first run's log ~/log/cDet_first.log, its 5 finished areas kept). ~5.5 h
+  per condition for all 58 areas. 006 / 009 / 010 skip a level that has not been decoded yet.

@@ -192,7 +192,11 @@ def main():
     col = AR.colors()
     tests, prov = [], {}
     for level in ("area_group", "area_acronym_custom"):
-        E = {e: load(e, level) for e in EPOCHS}
+        try:
+            E = {e: load(e, level) for e in EPOCHS}
+        except (FileNotFoundError, KeyError, IndexError, ValueError) as err:     # level not decoded yet (area groups run first)
+            print(level, "skipped:", repr(err)[:120], flush=True)
+            continue
         prov[level] = {e: dict(folder=E[e]["folder"], kind=E[e]["kind"], n_iter=E[e]["n_iter"]) for e in EPOCHS}
         tests += figure(plt, level, E, col)
         print(level, {e: E[e]["kind"] for e in EPOCHS}, flush=True)

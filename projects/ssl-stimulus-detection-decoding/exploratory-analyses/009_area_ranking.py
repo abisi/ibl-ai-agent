@@ -99,7 +99,15 @@ def figure(plt, T, key, name, title, xlabel, note, flag=None):
 
 def main():
     plt = S.setup()
-    T = pd.concat([metrics(e, lv) for e in EPOCHS for lv in LEVELS], ignore_index=True)
+    parts = []
+    for e in EPOCHS:
+        for lv in LEVELS:
+            try:
+                parts.append(metrics(e, lv))
+            except (FileNotFoundError, KeyError, IndexError, ValueError) as err:     # level not decoded yet
+                print(e, lv, "skipped:", repr(err)[:120], flush=True)
+    T = pd.concat(parts, ignore_index=True)
+    T = T[T.groupby("level").epoch.transform("nunique") == len(EPOCHS)]       # levels present in both epochs
     (AR.XOUT / "tables").mkdir(parents=True, exist_ok=True)
     T.to_csv(AR.XOUT / "tables" / "area_ranking.csv", index=False)
     figure(plt, T, "peak", "area_peak_accuracy",
