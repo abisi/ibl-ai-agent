@@ -1,4 +1,4 @@
-"""021 -- Lick-aligned time course on the reward-lick CD, day 0 vs expert (user 2026-10-16, "explore 1-4": item 4).
+"""002 -- Lick-aligned time course on the reward-lick CD, day 0 vs expert (user 2026-10-16, "explore 1-4": item 4).
 Rates: ssl-prelick-convergence 105 per-event lick-aligned 50-ms windows (centres -400 .. +100 ms, 25-ms step; baseline-corrected as 051) for
 WH and AH (corrected first lick) and SL (spontaneous-lick bout onset). Units: stable good / mua with mean raw pre-lick rate >= 0.1 Hz (002 units).
 CD: unit-norm AH - SL axis from the mean of the windows inside [-100, 0) ms (centres -75, -50, -25), 5-fold CV over AH + SL events, units
@@ -7,7 +7,7 @@ per neuron. Per session: class time courses; lambda(t) = (WH - SL) / (AH - SL) a
 window as denominator (so lambda(t) is in units of the window separation; separation >= SEP_MIN); WH divergence onset: first window from
 which WH - SL stays > 0.25 x the window separation for 3 consecutive windows.
 Group: mean +- s.e.m. per cohort x stage; tests per window (day 0 vs expert, MWU), BH over windows; onset latency day 0 vs expert.
-Output: tables/021_timecourse.csv, 021_onsets.csv, 021_stats.csv; figures/021_lick_timecourse.{png,pdf,svg}
+Output: tables/002_timecourse.csv, 002_onsets.csv, 002_stats.csv; figures/002_lick_timecourse.{png,pdf,svg}
 """
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def main(a):
     with mp.get_context("fork").Pool(a.n_proc) as pool:
         res = [r for r in pool.map(session, jobs) if r is not None]
     T = C.population(pd.DataFrame([x for r, _ in res for x in r])); O = C.population(pd.DataFrame([o for _, o in res]))
-    T.to_csv(C.TAB / "021_timecourse.csv", index=False); O.to_csv(C.TAB / "021_onsets.csv", index=False)
+    T.to_csv(C.TAB / "002_timecourse.csv", index=False); O.to_csv(C.TAB / "002_onsets.csv", index=False)
     St = []
     for c in ("R+", "R-"):
         for t, g in T[T.cohort == c].groupby("t"):
@@ -84,7 +84,7 @@ def main(a):
     St = pd.DataFrame(St)
     for (c, q), g in St[St.measure != "onset"].groupby(["cohort", "measure"]):
         St.loc[g.index, "q"] = C.bh(g.p)
-    St.to_csv(C.TAB / "021_stats.csv", index=False)
+    St.to_csv(C.TAB / "002_stats.csv", index=False)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -129,7 +129,7 @@ def main(a):
             ax.text(-0.45, 1.15, "c", transform=ax.transAxes, fontsize=8, weight="bold")
     fig.suptitle("Lick-aligned trajectories on the reward-lick CD (CD from [−100, 0) ms; held-out AH / SL, fold-averaged WH; per neuron)", fontsize=6.4, x=0.01, y=1.0, ha="left")
     for ext in ("png", "pdf", "svg"):
-        fig.savefig(C.FIG / f"021_lick_timecourse.{ext}", dpi=300, bbox_inches="tight")
+        fig.savefig(C.FIG / f"002_lick_timecourse.{ext}", dpi=300, bbox_inches="tight")
     pd.set_option("display.width", 220)
     print(St[St.measure == "onset"].to_string(index=False)); print(St[(St.measure == "lam") & (St.q < 0.1)].round(3).to_string(index=False))
 

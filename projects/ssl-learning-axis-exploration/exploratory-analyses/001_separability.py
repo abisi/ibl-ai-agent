@@ -1,4 +1,4 @@
-"""020 -- Separability of whisker hits from auditory hits and from spontaneous licks on the reward-lick CD, and the spread of whisker hits,
+"""001 -- Separability of whisker hits from auditory hits and from spontaneous licks on the reward-lick CD, and the spread of whisker hits,
 day 0 vs expert (user 2026-10-16, "explore 1-4": item 3). Events: 008 scores (both variants; held-out SL = 0, AH = 1).
 Per session (whole session and early / late half by tau):
   auc_WA    AUC of WH vs AH scores (0.5 = indistinguishable; < 0.5 = WH below AH); d_WA = |d'| WH vs AH
@@ -7,7 +7,7 @@ Per session (whole session and early / late half by tau):
   dauc_WA, dauc_WS: late - early
 Statistics: common.measure_stats (Wilcoxon vs 0 -- vs 0.5 for AUCs and vs 1 for the SD ratio in the csv --, day 0 vs expert, R+ vs R-,
 cohort x stage).
-Output: tables/020_sessions.csv, 020_stats.csv; figures/020_separability_<variant>.{png,pdf,svg}
+Output: tables/001_sessions.csv, 001_stats.csv; figures/001_separability_<variant>.{png,pdf,svg}
 """
 from __future__ import annotations
 
@@ -40,13 +40,13 @@ def session(E):
 
 
 def main():
-    E0 = pd.read_parquet(C.TAB / "008_events.parquet")
+    E0 = pd.read_parquet(C.TAB_WD / "008_events.parquet")
     rows = []
     for v in ("corr", "raw"):
         E = E0.rename(columns={f"cd_{v}": "cd"})
         for sid, g in E.groupby("session_id"):
             rows.append(dict(session_id=sid, mouse_id=g.mouse_id.iloc[0], cohort=g.cohort.iloc[0], stage=g.stage.iloc[0], variant=v, **session(g)))
-    S = C.population(pd.DataFrame(rows)); S.to_csv(C.TAB / "020_sessions.csv", index=False)
+    S = C.population(pd.DataFrame(rows)); S.to_csv(C.TAB / "001_sessions.csv", index=False)
     R = pd.concat([pd.DataFrame(C.measure_stats(S[S.variant == v], m, "whole brain", m)).assign(variant=v) for v in ("corr", "raw") for m, _ in MEAS])
     extra = []
     for v in ("corr", "raw"):
@@ -55,7 +55,7 @@ def main():
                 for s_ in ("learning", "expert"):
                     x = S[(S.variant == v) & (S.cohort == c) & (S.stage == s_)][m].dropna()
                     extra.append(dict(variant=v, measure=f"{m} vs {ref}", cohort=c, stage=s_, n=len(x), mean=x.mean(), p=stats.wilcoxon(x - ref).pvalue if len(x) >= 5 else np.nan))
-    R.to_csv(C.TAB / "020_stats.csv", index=False); pd.DataFrame(extra).to_csv(C.TAB / "020_stats_ref.csv", index=False)
+    R.to_csv(C.TAB / "001_stats.csv", index=False); pd.DataFrame(extra).to_csv(C.TAB / "001_stats_ref.csv", index=False)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -72,7 +72,7 @@ def main():
         fig.suptitle(f"Separability of whisker hits on the reward-lick CD ({'baseline-corrected' if v == 'corr' else 'raw'} rates; dashed: chance / "
                      "equal spread; p in panels: Wilcoxon vs 0 and day 0 vs expert)", fontsize=6.4, x=0.01, y=1.0, ha="left")
         for ext in ("png", "pdf", "svg"):
-            fig.savefig(C.FIG / f"020_separability_{v}.{ext}", dpi=300, bbox_inches="tight")
+            fig.savefig(C.FIG / f"001_separability_{v}.{ext}", dpi=300, bbox_inches="tight")
     pd.set_option("display.width", 220)
     print(R[(R.variant == "corr") & R.cohort.isin(["R+", "R-"])][["measure", "cohort", "mean_d0", "mean_e", "p_stage_mwu", "cls"]].round(3).to_string(index=False))
     print(pd.DataFrame(extra)[lambda d: d.variant == "corr"].round(3).to_string(index=False))

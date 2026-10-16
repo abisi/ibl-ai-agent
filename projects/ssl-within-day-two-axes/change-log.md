@@ -21,3 +21,5 @@
   016 correlation with the whisker P(lick) curve directly (none for whisker hits; R+ drift continues after the curve plateaus). Report:
   six-test section, Figures 8-14, S3-S8, Table 2, Eqs. 5-6; level wording corrected (day 0 stays below expert at the same point of the session).
   haas: 132 shared module restored (passive copy had become the wrapper), decoding 048 / 115 synced.
+- 2026-10-16: 020-023 (separability, lick-aligned trajectories, history / post-lick licking, new axes) moved to the new project
+  ssl-learning-axis-exploration (renumbered 001-004; results moved on the NAS). They were never part of the report.

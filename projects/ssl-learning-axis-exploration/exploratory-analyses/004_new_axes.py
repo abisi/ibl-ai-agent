@@ -1,4 +1,4 @@
-"""023 -- New coding-direction definitions to investigate learning (user 2026-10-16: "do A and C" of the brainstorm).
+"""004 -- New coding-direction definitions to investigate learning (user 2026-10-16: "do A and C" of the brainstorm).
 Rates: ssl-prelick-convergence 105 per-event matrices (baseline-corrected spikes/s): stimulus-aligned 50-ms windows (centres 25..175 ms, NaN
 after the trial's first lick) for whisker trials W (hits and misses), auditory hits AH, correct rejections CR, false alarms FA; lick-aligned
 50-ms windows (centres -400..+100 ms) for WH, AH, SL. Units: stable good / mua of the session (prelick_units), whole brain. Every axis is
@@ -20,7 +20,7 @@ C7 orthogonalised CD    the pre-lick reward-lick CD (AH - SL, [-100, 0) ms) with
 C8 motor axis           WH and AH relative to SL on M in [-100, 0) ms (m_WH, m_AH; per neuron): cue-specific movement preparation.
 Statistics: common.measure_stats per session quantity (Wilcoxon vs 0, day 0 vs expert, R+ vs R-, cohort x stage); time courses: Mann-Whitney
 day 0 vs expert per window, BH over windows.
-Output: tables/023_sessions.csv, 023_stats.csv, 023_timecourse.csv, 023_tc_stats.csv; figures/023_A_axes.{png,pdf,svg}, 023_C_orth.{png,pdf,svg}
+Output: tables/004_sessions.csv, 004_stats.csv, 004_timecourse.csv, 004_tc_stats.csv; figures/004_A_axes.{png,pdf,svg}, 004_C_orth.{png,pdf,svg}
 """
 from __future__ import annotations
 
@@ -193,8 +193,8 @@ def main(a):
     with mp.get_context("fork").Pool(a.n_proc) as pool:
         res = [r for r in pool.map(session, jobs) if r is not None]
     S = C.population(pd.DataFrame([o for o, _ in res])); T = C.population(pd.DataFrame([x for _, tc in res for x in tc]))
-    S.to_csv(C.TAB / "023_sessions.csv", index=False); T.to_csv(C.TAB / "023_timecourse.csv", index=False)
-    R = pd.DataFrame([r for m, _ in MEAS if m in S for r in C.measure_stats(S, m, "whole brain", m)]); R.to_csv(C.TAB / "023_stats.csv", index=False)
+    S.to_csv(C.TAB / "004_sessions.csv", index=False); T.to_csv(C.TAB / "004_timecourse.csv", index=False)
+    R = pd.DataFrame([r for m, _ in MEAS if m in S for r in C.measure_stats(S, m, "whole brain", m)]); R.to_csv(C.TAB / "004_stats.csv", index=False)
     Tst = []
     for (c, ax_), g in T.groupby(["cohort", "axis"]):
         for t, h in g.groupby("t"):
@@ -203,7 +203,7 @@ def main(a):
     Tst = pd.DataFrame(Tst)
     for k, g in Tst.groupby(["cohort", "axis"]):
         Tst.loc[g.index, "q"] = C.bh(g.p)
-    Tst.to_csv(C.TAB / "023_tc_stats.csv", index=False)
+    Tst.to_csv(C.TAB / "004_tc_stats.csv", index=False)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -223,7 +223,7 @@ on ").replace(", ", ",
                    fontsize=5, va="top")
     fig.suptitle("A: reward-expectation, outcome and alignment axes, day 0 vs expert (green R+, magenta R−; open day 0, filled expert)", fontsize=6.4, x=0.01, y=1.0, ha="left")
     for ext in ("png", "pdf", "svg"):
-        fig.savefig(C.FIG / f"023_A_axes.{ext}", dpi=300, bbox_inches="tight")
+        fig.savefig(C.FIG / f"004_A_axes.{ext}", dpi=300, bbox_inches="tight")
     # figure C
     fig, axs = plt.subplots(2, 4, figsize=(7.8, 4.6), gridspec_kw=dict(wspace=0.6, hspace=1.2))
     for i, c in enumerate(("R+", "R-")):
@@ -249,7 +249,7 @@ on ").replace(", ", ",
     fig.suptitle("C: reward-lick CD with the motor (any-lick preparation) and sensory (whisker − auditory) axes projected out; motor-axis projections",
                  fontsize=6.4, x=0.01, y=1.0, ha="left")
     for ext in ("png", "pdf", "svg"):
-        fig.savefig(C.FIG / f"023_C_orth.{ext}", dpi=300, bbox_inches="tight")
+        fig.savefig(C.FIG / f"004_C_orth.{ext}", dpi=300, bbox_inches="tight")
     pd.set_option("display.width", 220)
     print(R[R.cohort.isin(["R+", "R-", "R+ vs R-"])][["measure", "cohort", "n_d0", "n_e", "mean_d0", "mean_e", "p_d0", "p_e", "p_stage_mwu", "p_interaction", "cls"]].round(3).to_string(index=False))
     print(Tst[Tst.q < 0.05].round(3).to_string(index=False))
