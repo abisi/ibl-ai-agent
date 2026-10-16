@@ -6,7 +6,7 @@ re-arranged from the latest COSYNE panels (130_report_figures); within-day analy
 The previous merged report (Parts I + II, Fig2-Fig5) is superseded; its generator is in git history.
 Every quoted number comes from the frozen statistics tables (report_lib snapshot); summary.md, registry.csv and figures.json
 are written next to report.md.
-Run (haas, after 087, 088, 090, 104, 112, 116, 118-120 jaw runs, 128, 130, 131):
+Run (haas, after 087, 088, 090, 104, 112, 116, 118-120 jaw runs, 126, 128, 129, 130, 131):
   cd ~/code/unit_spikes_analysis && PRELICK_REF=sl PRELICK_UNITS=stable PYTHONPATH=~/code/NWB_reader:.:$HOME/code/ephys_utilities \
     ./.venv/bin/python ~/code/ibl-ai-agent/projects/ssl-prelick-convergence/report/build_report.py
 Render locally: REPORT_DIR=report_stable bash projects/ssl-prelick-convergence/report/render.sh
@@ -43,8 +43,8 @@ num = lambda *a, **k: _num(*a, **k).replace("-", "−")            # typographic
 R.register([
     ("fig-task", "Figure 1"), ("fig-neurons", "Figure 2"), ("fig-cd", "Figure 3"), ("fig-ccgp", "Figure 4"),
     ("eq-si", "Eq. (1)"), ("eq-cd", "Eq. (2)"), ("eq-proj", "Eq. (3)"), ("eq-theta", "Eq. (4)"), ("eq-ccgp", "Eq. (5)"),
-    ("fig-s-signed", "Figure S1"), ("fig-s-rt", "Figure S2"), ("fig-s-kin", "Figure S3"), ("fig-s-jaw", "Figure S4"),
-    ("fig-s-dlc", "Figure S5"),
+    ("fig-s-signed", "Figure S1"), ("fig-s-cdgeom", "Figure S2"), ("fig-s-jawsn", "Figure S3"), ("fig-s-rt", "Figure S4"),
+    ("fig-s-kin", "Figure S5"), ("fig-s-jaw", "Figure S6"), ("fig-s-dlc", "Figure S7"),
     ("tbl-sizes", "Table S1"), ("tbl-robust", "Table S2"), ("tbl-registry", "Table S3"),
 ])
 
@@ -61,6 +61,8 @@ SRC = {
     "jaw": JAW["jaw"] / "harmonised" / "tests.csv",           # 087 on jaw-onset events (118, pre)
     "jawc": JAW["jawc"] / "harmonised" / "tests.csv",         # 087 on jaw-onset events (118, centred)
     "signed": BASE / "unified_single_neuron_all" / "fig_unified_shared_signed_learners_stats.csv",   # 127 / 128
+    "cdgeom": BASE / "cd_along_orthogonal" / "fig_cd_along_orthogonal_shared_learners_stats.csv",   # 129
+    "jawsn": BASE / "jaw_control" / "stats_learners.csv",                                          # 126
 }
 FROZEN = dict(zip(SRC, Report.snapshot([SRC[k] for k in SRC], OUT, tag=f"{date.today().isoformat()}_across_days")))
 T = {k: pd.read_csv(v) for k, v in FROZEN.items()}
@@ -121,6 +123,12 @@ EQ = T["ccgp_eq"][T["ccgp_eq"].area == "Whole brain"].iloc[0]
 EQA = T["ccgp_eq"][(T["ccgp_eq"].area != "Whole brain") & (T["ccgp_eq"].measure == "ex")]
 SG = ch("swa", row("signed", "125 d sWA"), "{:+.3f}")
 SGW = ch("sws", row("signed", "125 d sWS"), "{:+.3f}")
+GAP = ch("gap", row("cdgeom", "129 nonsensory gap"))                 # 1 - lambda, non-sensory units
+OMA = ch("omega_all", row("cdgeom", "129 all omega"))                # orthogonal component, all units
+JSA = ch("jsn_all", row("jawsn", "126 sWA_all"), "{:+.3f}")          # neural s_WA, sessions with jaw tracking
+JSM = ch("jsn_jm", row("jawsn", "126 sWA_jm"), "{:+.3f}")            # neural s_WA, jaw-matched events
+JSM["welch"] = f"Welch p {pv('jsn_jm_rp_welch', row('jawsn', '126 sWA_jm')['R+ L vs E p_Welch'])}"
+JSJ = ch("jsn_jaw", row("jawsn", "126 sWA_jaw"))                     # jaw s_WA (WH vs AH opening)
 JAWK = ch("jaw", row("kin", "116 jaw opening WH-AH"), "{:+.2f}", " mm")
 J1, J2 = harm("jaw", "d_WS", "jaw_dws"), harm("jawc", "d_WS", "jawc_dws")
 J1T = harm("jaw", "theta", "jaw_theta", "{:.0f}")
@@ -297,7 +305,10 @@ gave a cohort × stage effect at the edge of significance ({A_SI['cs']}) and no 
 area survived the post hoc correction (smallest q = {A_SI['qmin']}). The signed selectivities without neuron selection lead
 to the same conclusion ({ref('fig-s-signed')}). The whisker-vs-auditory selectivity $s_{{WA}}$ closes toward zero in R+ only:
 {SG['rp']}; {SG['rm']}; {SG['int']}. The whisker-vs-spontaneous selectivity $s_{{WS}}$ rises in R+ ({SGW['rp']}), but its
-interaction is not significant ({SGW['int']}).
+interaction is not significant ({SGW['int']}). In the population of the same non-sensory neurons, whisker hits moved along the
+SL → AH direction in R+: the remaining gap to auditory hits along this direction shrank ({GAP['rp']}; {GAP['rm']}; {GAP['int']}),
+while across all units the whisker − auditory difference orthogonal to it grew in R+ only ({OMA['rp']}; {OMA['rm']}; {OMA['int']};
+{ref('fig-s-cdgeom')}): whisker hits approach auditory hits along the reward-lick direction without becoming identical to them.
 
 ### Population: whisker hits move along the reward-lick coding direction in R+
 
@@ -339,7 +350,10 @@ difference unchanged ({ref('fig-s-rt')}, {ref('tbl-robust')}).
 *Pre-lick kinematics.* If learning made the licking movement on whisker hits more like that on auditory hits, the CD change could
 be motor. The jaw opening before the lick, measured as WH − AH in [−100, 0) ms, did not change with learning in either cohort
 ({JAWK['rp']}; {JAWK['rm']}; {JAWK['int']}); tongue, whisker and nose speed did not change either ({ref('fig-s-kin')}). Whisker hits
-of R− mice opened the jaw less than their auditory hits at both stages.
+of R− mice opened the jaw less than their auditory hits at both stages. For single neurons, matching whisker and auditory hits
+on jaw opening in [−100, 0) ms (0.2-mm bins, 4 events per type, 200 draws) left the R+ increase of $s_{{WA}}$ unchanged in size
+({JSM['rp']}, {JSM['welch']}; R− {JSM['rm'].split('(')[1].rstrip(')')}); on these sessions with video the cohort interaction was
+not significant before ({JSA['int']}) or after matching ({JSM['int']}; n = {JSM['n']}; {ref('fig-s-jawsn')}).
 
 *Alignment to jaw-opening onset.* The corrected first lick follows jaw-opening onset by about 90–190 ms. For single neurons, the
 whisker-vs-auditory selectivity in the 100 ms before jaw opening shows no stage change in either cohort, while the same sessions
@@ -428,6 +442,18 @@ signed selectivities of all non-sensory neurons without selection (count-matched
 $s_{{WS}}$ (WH vs SL) and $s_{{WA}}$ (WH vs AH) per cohort (grey: pre-lick window). **c**, Session means in the $s_{{WS}}$–$s_{{WA}}$ plane,
 day 0 → expert (n = {SG['n']}); title p values per measure (Mann–Whitney; cohort × stage permutation). **d**, Per-area change
 (expert − day 0) with the cohort ANOVA in the titles.''', "128_unified_figure.py", kind="supplementary")}
+{figure('fig-s-cdgeom', BASE / 'cd_along_orthogonal' / 'fig_cd_along_orthogonal_shared_learners.png', rf'''Population geometry
+of the whisker − auditory difference relative to the reward-lick direction (same events, baseline and count-matched draws as
+{ref('fig-s-signed')}; units z-scored; split-half cross-validated products, 200 draws). **a**, Definitions: $\lambda$, position of WH
+along SL → AH (0 = SL, 1 = AH); $\omega$, WH − AH difference orthogonal to it; both normalised by |AH − SL|. **b**, Session means in
+the $\lambda$–$\omega$ plane, day 0 → expert. **c**, Along gap $1-\lambda$, $\omega$ and CD length per group (Mann–Whitney; cohort × stage
+permutation). Top, non-sensory units (as {ref('fig-s-signed')}); bottom, all tested units.''', "129_cd_along_orthogonal.py", kind="supplementary")}
+{figure('fig-s-jawsn', BASE / 'jaw_control' / 'jaw_control_learners.png', rf'''Jaw control of the single-neuron result (sessions with
+video; same neurons, events and baseline as {ref('fig-s-signed')}). Left to right: jaw-opening selectivity WH vs AH and WH vs SL in
+[−100, 0) ms (per event, 2 AUC − 1); trial SD of jaw opening WH / AH; neural $s_{{WA}}$ on all jaw-valid events (4 / 4 / 8 × 200 draws)
+and on jaw-matched events (WH and AH paired 1:1 within 0.2-mm bins, 4 per type, 200 draws); the same for $s_{{WS}}$. Matched
+events have jaw selectivity ≈ 0 (title). Mann–Whitney brackets; cohort × stage by mouse-level permutation.''', "126_jaw_control.py",
+       kind="supplementary")}
 {figure('fig-s-rt', BASE / 'rt_adjusted' / 'rt_adjusted.png', '''Reaction-time control of the CD result. Top, RT distributions of WH
 and AH per group (dotted: 150 ms). Rows, $d_{WS}$, $\\rho$ and $\\theta$ for all events (left), hits with RT ≥ 150 ms (middle) and WH / AH
 matched on RT (20-ms bins, right); n sessions under each axis; tests as Figure 3c.''', "090_rt_adjusted_cd.py", kind="supplementary")}
@@ -458,19 +484,24 @@ def R_claims():
     claim("C2", "Non-sensory reward-lick neurons respond to whisker hits more like auditory hits after learning, R+ only", "Fig. 2c",
           f"{SI['rp']}; {SI['rm']}; {SI['int']}", SI["n"])
     claim("C3", "Without neuron selection, WH vs AH selectivity closes in R+ only", "Fig. S1c", f"{SG['rp']}; {SG['int']}", SG["n"])
+    claim("C3b", "Whisker hits move toward auditory hits along SL -> AH (non-sensory population) in R+", "Fig. S2c", f"{GAP['rp']}; {GAP['int']}",
+          GAP["n"], status="n.s.", note="cohort x stage not significant")
+    claim("C3c", "WH - AH difference orthogonal to SL -> AH grows in R+ only (all units)", "Fig. S2c", f"{OMA['rp']}; {OMA['int']}", OMA["n"])
+    claim("C3d", "R+ s_WA increase persists with jaw-matched events", "Fig. S3", f"{JSM['rp']}, {JSM['welch']}; {JSM['int']}", JSM["n"],
+          status="fragile", note="Welch p < 0.05, MWU n.s.; cohort interaction n.s. on the jaw-tracked subset")
     claim("C4", "Whisker hits move along the reward-lick CD in R+, not R−", "Fig. 3c", f"{DWS['rp']}; {DWS['rm']}", DWS["n"])
     claim("C5", "Cohort difference of the d_WS change", "Fig. 3c", DWS["int"], DWS["n"], status="n.s.")
     claim("C6", "WH − SL displacement lengthens (ρ) in R+ only", "Fig. 3d", f"{RHO['rp']}; {RHO['int']}", RHO["n"])
-    claim("C7", "WH − SL displacement aligns with the CD (θ) in R+", "Fig. 3d, S4", f"{TH['rp']}; {TH['int']}; jaw: {J1T['rp']}", TH["n"],
+    claim("C7", "WH − SL displacement aligns with the CD (θ) in R+", "Fig. 3d, S6", f"{TH['rp']}; {TH['int']}; jaw: {J1T['rp']}", TH["n"],
           status="fragile", note="not robust to jaw-onset alignment")
     claim("C8", "Cross-modal CCGP rises in R+ and exceeds R− at expert", "Fig. 4g, m", f"{CC['rp']}; {CC['ex']}", CC["n"])
     claim("C9", "Cohort difference of the CCGP change", "Fig. 4g", CC["int"], CC["n"], status="n.s.")
     claim("C10", "No area-specific effect (single neurons, CD)", "Fig. 2d, 3e", f"SI {A_SI['csa']}; d_WS {A_D['csa']}; no post hoc q < 0.05")
     claim("C11b", "Single-neuron convergence is in the jaw-movement period (absent 100 ms before jaw opening)", "text (123, 124)",
           "123: no stage change jaw-aligned", note="limits claim C2 to the movement period")
-    claim("C11", "CD result holds for RT ≥ 150 ms, RT matching and jaw-onset alignment", "Table S2, Fig. S2, S4", f"jaw: {J1['rp']}")
-    claim("C12", "Pre-lick jaw opening (WH − AH) does not change with learning", "Fig. S3", f"{JAWK['rp']}; {JAWK['int']}", JAWK["n"])
-    claim("C13", "R+ experts open the jaw to passive whisker stimuli", "Fig. S5", "descriptive (no test)", status="fragile",
+    claim("C11", "CD result holds for RT ≥ 150 ms, RT matching and jaw-onset alignment", "Table S2, Fig. S4, S6", f"jaw: {J1['rp']}")
+    claim("C12", "Pre-lick jaw opening (WH − AH) does not change with learning", "Fig. S5", f"{JAWK['rp']}; {JAWK['int']}", JAWK["n"])
+    claim("C13", "R+ experts open the jaw to passive whisker stimuli", "Fig. S7", "descriptive (no test)", status="fragile",
           note="no statistics computed")
 
 
@@ -487,7 +518,7 @@ modulation index (replaced by the ROC similarity index), λ / λ_LDA, pseudo-pop
 ### Result folders (across_days/sl_stable/)
 
 publication/learners (main figures, report_figures_stats.csv, rt_stats.csv); harmonised (087 CD metrics); similarity_index (104);
-unified_single_neuron_all (127–128); ccgp_pub2, ccgp_sessions_eq (112, 114); rt_adjusted (090); prelick_kinematics (116);
+unified_single_neuron_all (127–128); cd_along_orthogonal (129); jaw_control (126); ccgp_pub2, ccgp_sessions_eq (112, 114); rt_adjusted (090); prelick_kinematics (116);
 dlc_passive_pre (113); ../sl_stable_jaw, ../sl_stable_jawc (118–120 jaw-onset runs). Statistics read by this report are frozen
 in report_stable/_snapshots/.
 """
@@ -500,7 +531,7 @@ Question: does learning make pre-lick activity on whisker-cued licks resemble th
 spontaneous lick, in R+ but not R− mice (day 0 vs expert, learners, stable units)?
 
 1. Behaviour: whisker RTs become auditory-like in R+ only ({RTW['rp']}; {RTW['rm']}).
-2. Single neurons (non-sensory reward-lick neurons, ROC similarity index): {SI['rp']}; {SI['rm']}; {SI['int']}. Holds without neuron selection ({SG['int']} for WH vs AH selectivity).
+2. Single neurons (non-sensory reward-lick neurons, ROC similarity index): {SI['rp']}; {SI['rm']}; {SI['int']}. Holds without neuron selection ({SG['int']} for WH vs AH selectivity); the R+ increase persists with jaw-matched events ({JSM['welch']}).
 3. Population CD: whisker hits move toward auditory hits in R+ ({DWS['rp']}; {DWS['rm']}); cohort contrast n.s. ({DWS['int']}); expert R+ > R− ({DWS['ex']}).
 4. Decoding: cross-modal CCGP {CC['rp']}; {CC['rm']}; {CC['ex']}; {CC['int']}.
 5. Areas: distributed, no area-specific effect after correction (SI {A_SI['csa']}; d_WS {A_D['csa']}).
