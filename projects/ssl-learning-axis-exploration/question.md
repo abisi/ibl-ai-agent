@@ -13,6 +13,11 @@ Exploratory probes of the reward-lick CD and new coding-direction definitions de
 - 004 new axes: reward expectation (auditory hits vs correct rejections, 50-150 ms, fast sensory response removed), outcome (rewarded vs
   unrewarded lick, +25 to +125 ms), alignment of the hit - miss axis with the identity and expectation axes, the reward-lick CD with the
   motor and sensory axes projected out, and a generic lick-preparation axis.
+- 005 per-trial raw rates (pre-trial baseline, 25-ms post-stimulus bins 0-300 ms, all active trials) for 006 / 007.
+- 006 whisker-to-auditory similarity: whisker-evoked population response (pre-lick bins only) projected on the auditory-hit response
+  (pA), early 0-100 / late 100-200 ms, all whisker trials / hits / hits RT >= 250 ms / misses; level and within-session slope.
+- 007 slow drift of pre-trial activity (Cowley et al. 2020): cubic time trend vs detrended slow fluctuation; fluctuation vs licking beyond
+  time, vs the whisker learning curve, and shared across areas.
 
 ## Data
 Inputs: ssl-within-day-two-axes tables/008_events.parquet (per-event CD scores, both baseline variants), ssl-prelick-convergence 105
