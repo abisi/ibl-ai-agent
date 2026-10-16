@@ -14,3 +14,7 @@
 - 2026-10-16 10:05 Run order changed (user): N = 200 pilot of the 18 area groups for all 4 conditions first, then the 40 fine areas,
   then the N sweep (`~/cDet2.sh`, log ~/log/cDet.log; first run's log ~/log/cDet_first.log, its 5 finished areas kept). ~5.5 h
   per condition for all 58 areas. 006 / 009 / 010 skip a level that has not been decoded yet.
+- 2026-10-16 010: source areas included (user: include Ss-whisker). Allen measure per modality = per unit mean of the modality's
+  source densities leaving out the unit's own source (SSp-bfd units -> SSs projection, SSs units -> SSp-bfd; AUDp <-> AUD-sec);
+  Liu already defined there. Whisker task, area groups (18): Allen early accuracy rho = +0.49 (p = 0.040), onset rho = -0.44
+  (p = 0.080); Liu early rho = +0.41 (p = 0.12), onset rho = -0.39 (p = 0.14).

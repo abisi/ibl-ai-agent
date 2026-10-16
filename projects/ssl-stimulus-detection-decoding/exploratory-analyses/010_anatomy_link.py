@@ -12,8 +12,10 @@ hemisphere, 50-um voxels) and averaged over the area's units ("input at the reco
 area's units inside the source's 70 % projection zone (zone70, "locality").
 Decoding per area (N = 200; final run if complete, else the N-sweep rows; 006 source()): onset (zoom, 004 rule; unreliable
 onsets excluded from onset tests), early corrected accuracy 5-50 ms, peak corrected accuracy (009).
-Tests across areas, per level (area groups / fine areas), excluding the source areas (no density there by construction):
-Spearman rho (and Pearson r on log density) of each decoding measure with the matching source (whisker target ~ whisker
+Tested Allen measure per modality (dens_<modality>_incl): per unit, the mean of the modality's source densities leaving out
+the source the unit sits in (SSp-bfd units -> SSs projection, SSs units -> SSp-bfd; AUDp <-> AUD-sec), so the source areas
+themselves are included (user 2026-10-16: include Ss-whisker).
+Tests across areas, per level (area groups / fine areas), all areas with a value: Spearman rho (and Pearson r on log density) of each decoding measure with the matching source (whisker target ~ whisker
 density, auditory target ~ auditory density) and with the other source as a specificity control; per epoch.
 Output: <HOME>/anatomy/anatomy_by_area.csv, anatomy_tests.csv, figures/anatomy_{allen,liu}_vs_decoding_<level>.{png,pdf,svg}
 Run (haas): PYTHONPATH=~/code/NWB_reader:. ./.venv/bin/python .../010_anatomy_link.py
@@ -40,10 +42,10 @@ RES_UM, MID_UM = 50, 5700
 SOURCES = ["whisker", "auditory", "SSp-bfd", "SSs", "AUDp", "AUD-sec"]
 LIU = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/Github/ephys_utilities/ephys_utilities/allen_utils/data/Liu_et_al_Group_averages_ranked.xlsx")
 ATLAS = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/Anatomy/allen_mouse_bluebrain_barrels_10um_v1.0")
-TESTED = {"whisker": "dens_whisker", "auditory": "dens_auditory", "liu": "liu_ipsi"}      # anatomical measure per source
+TESTED = {"whisker": "dens_whisker_incl", "auditory": "dens_auditory_incl", "liu": "liu_ipsi"}      # anatomical measure per source
 MIN_MAPPED = 0.5                       # Liu value used only if >= 50 % of the area's units fall in a Liu target structure
 MATCH = {"whisker": "whisker", "auditory": "auditory", "liu": "whisker"}                  # target each source should predict
-SOURCE_AREAS = {"whisker": {"Somatosensory-whisker", "SSp-bfd", "SSs"}, "auditory": {"Auditory areas", "AUDp", "AUDd", "AUDv", "AUD"}}
+MODALITY_SOURCES = {"whisker": ["SSp-bfd", "SSs"], "auditory": ["AUDp", "AUD-sec"]}
 N_MAIN = 200
 TARGETS, EPOCHS = ("whisker", "auditory"), ("active", "passive")
 MEASURES = {"early": "Early accuracy 5-50 ms", "peak": "Peak accuracy", "onset": "Onset (ms)"}
@@ -63,12 +65,21 @@ def anatomy():
     for s in SOURCES:
         U[f"dens_{s}"] = z[f"density_{s}"][ijk[:, 0], ijk[:, 1], ijk[:, 2]]
         U[f"zone_{s}"] = z[f"zone70_{s}"][ijk[:, 0], ijk[:, 1], ijk[:, 2]].astype(float)
+    # merged whisker / auditory input including the source areas themselves (user 2026-10-16: include Ss-whisker): per unit,
+    # mean of the normalised densities of the modality's sources, leaving out the source the unit sits in (its own injection
+    # area, excluded from that source's density by construction): SSp-bfd units -> SSs projection, SSs units -> SSp-bfd, etc.
+    for mod, srcs in MODALITY_SOURCES.items():
+        D = np.stack([U[f"dens_{s}"].to_numpy(float) for s in srcs], 1)
+        own = np.stack([z[f"source_{s}"][ijk[:, 0], ijk[:, 1], ijk[:, 2]].astype(bool) for s in srcs], 1)
+        D[own] = np.nan
+        U[f"dens_{mod}_incl"] = np.nanmean(D, 1)
     for k, v in liu_units(U, ml).items():
         U[k] = v
     rows = []
     for level, col in (("area_group", "area_group"), ("area_acronym_custom", "area_acronym_custom")):
         for a, g in U[U[col].isin(AR.LEVELS[level])].groupby(col):
             rows.append(dict(level=level, area=a, n_units=len(g), **{f"dens_{s}": g[f"dens_{s}"].mean() for s in SOURCES},
+                             **{f"dens_{m}_incl": g[f"dens_{m}_incl"].mean() for m in MODALITY_SOURCES},
                              **{f"zone_{s}": g[f"zone_{s}"].mean() for s in SOURCES},
                              liu_ipsi=g.liu_ipsi.mean(), liu_s1_ipsi=g.liu_s1_ipsi.mean(), liu_s2_ipsi=g.liu_s2_ipsi.mean(),
                              liu_mapped=g.liu_ipsi.notna().mean()))
@@ -136,7 +147,6 @@ def tests(A, D):
     rows = []
     M = D.merge(A, on=["level", "area"], how="inner")
     for (t, e, level), g in M.groupby(["target", "epoch", "level"]):
-        g = g[~g.area.isin(SOURCE_AREAS["whisker"] | SOURCE_AREAS["auditory"])]
         for src, colname in TESTED.items():
             for mname in MEASURES:
                 x, y = g[colname].to_numpy(float), g[mname].to_numpy(float)
@@ -162,7 +172,6 @@ def figure(plt, M, T, level, col, src):
     fig, axs = plt.subplots(len(TARGETS) * len(EPOCHS), len(MEASURES), figsize=(S.W_IN, 7.0), squeeze=False)
     for i, (t, e) in enumerate([(t, e) for t in TARGETS for e in EPOCHS]):
         g = M[(M.target == t) & (M.epoch == e) & (M.level == level)]
-        g = g[~g.area.isin(SOURCE_AREAS["whisker"] | SOURCE_AREAS["auditory"])]
         key = t if src == "allen" else "liu"
         for j, mname in enumerate(MEASURES):
             ax = axs[i, j]
@@ -180,7 +189,7 @@ def figure(plt, M, T, level, col, src):
             ax.set_ylabel((f"{t} vs no stim., {e}\n" if j == 0 else "") + MEASURES[mname], fontsize=5)
             ax.set_xlabel(XNAME[src], fontsize=4.6)
     what = "Allen projection density from the stimulus' own cortex" if src == "allen" else "wS1 + wS2 ipsilateral projections (Liu et al. 2024)"
-    fig.suptitle(f"Stimulus-presence decoding vs {what}, {level} (N = {N_MAIN}; source areas excluded; onset axis inverted)",
+    fig.suptitle(f"Stimulus-presence decoding vs {what}, {level} (N = {N_MAIN}; source areas included; onset axis inverted)",
                  fontsize=6.5, x=0.02, ha="left", weight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     S.save(fig, OUTA / "figures", f"anatomy_{src}_vs_decoding_{level}")
