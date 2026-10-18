@@ -15,12 +15,12 @@ Outcome of a lick (the only cohort-dependent quantity):
 
 | | auditory | whisker | no stimulus |
 |---|---|---|---|
-| R+ | +1, water | +1, water | −1, no water |
-| R− | +1, water | o_W− (free, in [−3, 0]), no water | −1, no water |
+| R+ | +1, water | +1, water | −0.5, no water |
+| R− | +1, water | −1, no water | −0.5, no water |
 
-o_W− (an active mistake: a stimulus-triggered lick left unrewarded) is a separate outcome from a false alarm (−1); auditory +1 and false
-alarm −1 fix the scale. o_W− is estimated from R− mice only (only they experience it); variant o_W− = −1 tests whether the distinction is
-needed.
+Fixed values (decided 2026-10-18): an R− whisker lick is an active mistake (a stimulus-triggered lick left unrewarded), −1; a
+spontaneous lick without stimulus (false alarm) −0.5. No free outcome parameter: how the cost of the R− whisker lick shifts over time is
+carried by the learned weights.
 
 o_t drives learning; water drives satiation. R− mice therefore also drink less per session — a consequence of the design, not a
 parameter.
@@ -107,14 +107,13 @@ Choice kernel, reset to 0.5 at session start:
 | Context | ζ | [0, 1] | ζ = 0 |
 | Average reward | α_R, η | (0, 1), [0, 3] | η = 0 |
 | Perseveration | π, φ | [−3, 3], (0, 1) | π = 0 |
-| R− whisker outcome | o_W− | [−3, 0] | o_W− = −1 |
 
-Core = 7 parameters (+ o_W− for R− mice); full model = 18 (+ τ if added).
+Core = 7 parameters; full model = 18 (+ τ if added).
 
 ## 5. Model space
 
 Core always on; six switchable components: generalisation (G), motivation (M), novelty (N), context (Z), average reward (R),
-perseveration (P) → 2^6 = 64 models (plus the o_W− = −1 check on the best model). Every model fitted per mouse. Cohorts share everything; R+ / R− enter only through §1.
+perseveration (P) → 2^6 = 64 models. Every model fitted per mouse. Cohorts share everything; R+ / R− enter only through §1.
 
 ## 6. Fitting
 
@@ -151,4 +150,5 @@ perseveration (P) → 2^6 = 64 models (plus the o_W− = −1 check on the best 
 5. Average-reward term: included as a switchable component (R).
 6. One constant lick cost c.
 7. Trials: all active trials except perf == 6; no trimming.
-8. R− whisker lick: separate outcome o_W− (free, [−3, 0]); false alarm −1. Open: should its cost be larger at first and fade?
+8. Outcomes fixed: auditory +1, R+ whisker +1, R− whisker −1 (active mistake), false alarm −0.5; no decaying cost (the weights carry
+   the change over time).
