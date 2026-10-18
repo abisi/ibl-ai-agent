@@ -1,4 +1,15 @@
-# TODO (from the 2026-10-16 review of the original model code)
+# TODO
+
+v2 open points (2026-10-18):
+- Early whisker licking above the false-alarm rate in the first day-0 whisker trials is not captured when gamma = 0 (the BIC-preferred
+  variant for most mice); consider a novelty / stimulus-salience term or a hierarchical prior on gamma (gamma is weakly identifiable:
+  full-generated data recovered as specific in most mice).
+- The drop in no-stimulus licking at whisker onset (both cohorts) and the auditory plateau above model level are not captured; candidate
+  between-session terms (forgetting / reset at session start, day-0 context change).
+- Hierarchical (population) fitting instead of per-mouse MLE + pooled LRT (the pooled test is anti-conservative).
+- Check the outcome coding of false alarms (-1; not punished in the task) against 0.
+
+v1 review (2026-10-16), mostly addressed by v2:
 
 - Fit on the per-trial likelihood of each mouse's own trial sequence (actual stimuli, licks and rewards) instead of MSE on smoothed,
   time-normalised curves: the causal 100-trial smoothing of the targets lags the curves while the simulated curves are not smoothed the

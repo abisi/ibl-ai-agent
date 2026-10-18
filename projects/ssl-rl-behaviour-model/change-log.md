@@ -12,3 +12,10 @@
   used by R- in the learning rule, so a cohort tr is unidentifiable for R-); 004 run for all three models with maxiter 1500 (fix: duplicate
   mse_global key crashed the first run at the end); 005 figures 1-8 (model, data, fits, comparison, recovery, latents, cohorts, mice).
   Per-mouse fits hit maxiter for most mice (convergence flags in the csv); unbounded Nelder-Mead drives many initial weights to ~0.
+- 2026-10-18: model v2 (rl2_model, 006-008), user: "fix the model design according to your points". Changes vs v1: likelihood of
+  each mouse's trial-by-trial licks instead of MSE on smoothed time-normalised curves; one learning rule for all mice (cohorts differ only
+  in the whisker-lick outcome, R- = -1 kept); explicit generalisation (gamma) and bias-learning (kappa) parameters; no-stimulus node
+  dropped (bias = no-stimulus trial; tested as a variant); updates only on licks (actual outcomes, no expected-update weighting); bounded
+  L-BFGS-B with 20 starts. beta x alpha trade-off found (first check: beta at bound with tiny alpha; fixing beta cost likelihood): scale-
+  free quantities reported. Nested-fit consistency enforced (variants start from the full optimum and full is refitted from every nested
+  optimum) after the first run gave a superset variant a worse likelihood than its subset. Session trimming: last 10 trials (as v1).
