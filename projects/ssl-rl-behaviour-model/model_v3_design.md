@@ -1,4 +1,4 @@
-# Model v3 — design for review (2026-10-18)
+# Model v3 — design for review (2026-10-18; decisions of 2026-10-18 in §9)
 
 Goal (user): fit behavioural data to identify the learning strategy mice use, explaining auditory-to-whisker learning and the R+ / R-
 difference, the latter being only a design choice (task contingency). v3 = v2 learning core + motivation (thirst/satiation, after
@@ -16,7 +16,11 @@ Outcome of a lick (the only cohort-dependent quantity):
 | | auditory | whisker | no stimulus |
 |---|---|---|---|
 | R+ | +1, water | +1, water | −1, no water |
-| R− | +1, water | −1, no water | −1, no water |
+| R− | +1, water | o_W− (free, in [−3, 0]), no water | −1, no water |
+
+o_W− (an active mistake: a stimulus-triggered lick left unrewarded) is a separate outcome from a false alarm (−1); auditory +1 and false
+alarm −1 fix the scale. o_W− is estimated from R− mice only (only they experience it); variant o_W− = −1 tests whether the distinction is
+needed.
 
 o_t drives learning; water drives satiation. R− mice therefore also drink less per session — a consequence of the design, not a
 parameter.
@@ -40,10 +44,13 @@ c indexes the context (2.4); without context inference there is a single bias w_
 
 ### 2.2 Motivation: thirst and satiation (poster)
 
-Thirst T_t ∈ [0, 1], reset to 1 at every session start (normalised: with β free, a per-mouse starting level is not identifiable; no
-body weight). Water drunk is absorbed with time constant τ and reduces thirst by ρ per absorbed reward:
+Thirst T_t ∈ [0, 1], reset to 1 at every session start (decided; with β free a per-mouse starting level is not identifiable; no body
+weight). Default (instantaneous absorption): thirst falls by ρ per reward received:
 
-  T_t = max(0, 1 − ρ · Σ_{rewards j before t} (1 − exp(−(t − t_rew,j) / τ)))
+  T_t = max(0, 1 − ρ · (number of rewards before t))
+
+Optional, only if recovery shows it identifiable: absorption with time constant τ (poster), so satiation lags the rewards:
+T_t = max(0, 1 − ρ · Σ_j (1 − exp(−(t − t_rew,j) / τ))).
 
 Thirst scales the expected value and drives a stimulus-independent Pavlovian lick bias:
 
@@ -66,7 +73,15 @@ At the first whisker session the mouse may infer a new context. The bias of the 
 Learned stimulus weights are kept (they are features of the stimuli, not of the context). Predicts a drop of no-stimulus licking at day 0
 in both cohorts.
 
-### 2.5 Perseveration
+### 2.5 Average reward / opportunity cost (Niv et al. 2007, poster)
+
+The mouse tracks its recent reward rate R̄ and evaluates outcomes relative to it (per trial, Δt = 1 trial):
+
+  R̄ ← R̄ + α_R·(r_t − R̄)  on every trial (r_t = 1 if water, else 0),   o'_t = o_t − η·R̄
+
+so a lick outcome is worth less when rewards have been plentiful. η scales the opportunity cost. R̄ reset to 0 at session start.
+
+### 2.6 Perseveration
 
 Choice kernel, reset to 0.5 at session start:
 
@@ -90,21 +105,22 @@ Choice kernel, reset to 0.5 at session start:
 | Motivation | ρ, τ, s_B, θ | [0, 0.05] per reward, (10 s, 30 min), [0, 10], [0, 1] | ρ = 0, s_B = 0 (T ≡ 1) |
 | Novelty | ν, λ_ν | [0, 5], (1, 500) presentations | ν = 0 |
 | Context | ζ | [0, 1] | ζ = 0 |
+| Average reward | α_R, η | (0, 1), [0, 3] | η = 0 |
 | Perseveration | π, φ | [−3, 3], (0, 1) | π = 0 |
+| R− whisker outcome | o_W− | [−3, 0] | o_W− = −1 |
 
-Core = 7 parameters; full model = 17.
+Core = 7 parameters (+ o_W− for R− mice); full model = 18 (+ τ if added).
 
 ## 5. Model space
 
-Core always on; five switchable components: generalisation (G), motivation (M), novelty (N), context (Z), perseveration (P) → 2^5 = 32
-models. Every model fitted per mouse. Cohorts share everything; R+ / R− enter only through §1.
+Core always on; six switchable components: generalisation (G), motivation (M), novelty (N), context (Z), average reward (R),
+perseveration (P) → 2^6 = 64 models (plus the o_W− = −1 check on the best model). Every model fitted per mouse. Cohorts share everything; R+ / R− enter only through §1.
 
 ## 6. Fitting
 
 - Maximum likelihood of the mouse's licks, trial by trial; bounded L-BFGS-B, multiple starts; nested consistency (a model is also started
   from the optimum of every model it contains, so a superset cannot end worse than a subset). Numba kernels.
-- No end-of-session trimming in v3: disengagement is what the motivation component and λ are meant to capture (v1/v2 dropped the last
-  10 trials of each session). To decide (§9).
+- Trials: all active trials except perf == 6 (decided); no end-of-session trimming (disengagement is what motivation and λ capture).
 
 ## 7. Model selection
 
@@ -125,13 +141,14 @@ models. Every model fitted per mouse. Cohorts share everything; R+ / R− enter 
   curves (licking vs trial within session) for the motivation component, and the day-0 transition (first whisker trials vs FA) for
   generalisation / novelty / context.
 
-## 9. Decisions for review
+## 9. Decisions (2026-10-18)
 
-1. Thirst reset to 1 at each session start (no per-session starting level) — or per-session latent offsets (more parameters)?
-2. τ fitted or fixed (e.g. 5 min)? Likely weakly identifiable.
-3. Novelty also for the tone at pretraining start (same ν), or only for the whisker stimulus?
-4. Context switch only once (first whisker session), and only for the bias?
-5. Poster's average-reward term (δ = r − R̄Δt, opportunity cost): skipped (overlaps with motivation). Include?
-6. Effort cost c constant (intercept) vs per stimulus.
-7. Session-end trimming: none (recommended with motivation) vs last 10 trials vs rule A1.
-8. Outcome −1 for false alarms and R− whisker licks (kept as requested).
+1. Thirst reset to 1 at every session start.
+2. Absorption: instantaneous (thirst = 1 − ρ × rewards so far) by default; τ only if recoverable.
+3. Novelty applies to the tone at pretraining start and to the whisker stimulus (same ν, λ_ν).
+4. Context switch: once (first whisker session), bias only — explained: models the step drop of no-stimulus licking at whisker onset in
+   both cohorts, which gradual learning cannot produce.
+5. Average-reward term: included as a switchable component (R).
+6. One constant lick cost c.
+7. Trials: all active trials except perf == 6; no trimming.
+8. R− whisker lick: separate outcome o_W− (free, [−3, 0]); false alarm −1. Open: should its cost be larger at first and fade?
