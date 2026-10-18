@@ -110,7 +110,10 @@ def session(args):
     o = np.where(tt == 0, 1.0, np.where(tt == 1, 1.0 if rplus else -1.0, -0.5))
     water = np.where(tt == 0, 1.0, np.where(tt == 1, 1.0 if rplus else 0.0, 0.0))
     A = (tt, lick, o, water)
-    fold = np.minimum((np.arange(n) * N_FOLD) // n, N_FOLD - 1)
+    if os.environ.get("RL_FOLDS", "blocked") == "interleaved":      # chunks of 10 trials dealt round-robin to the 5 folds (less extrapolation)
+        fold = (np.arange(n) // 10) % N_FOLD
+    else:                                                             # 5 contiguous blocks (default)
+        fold = np.minimum((np.arange(n) * N_FOLD) // n, N_FOLD - 1)
     held = {m: np.full(n, np.nan) for m in MODELS}; ll_held = {m: 0.0 for m in MODELS}
     pout = np.empty(n)
     for f in range(N_FOLD):
