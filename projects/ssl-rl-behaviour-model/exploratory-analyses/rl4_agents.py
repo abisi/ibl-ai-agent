@@ -139,3 +139,68 @@ def lhs(model, n, seed):
         lo, hi = BOUNDS[k]
         out[:, j] = np.exp(np.log(lo) + X[:, j] * (np.log(hi) - np.log(lo))) if k in LOG else lo + X[:, j] * (hi - lo)
     return out
+
+
+# ── run-level summaries and synthetic likelihood (2026-10-18: score against the distribution of simulated trajectories) ──────────
+@njit(cache=True)
+def _simulate_runs(tt, o, water, sstart, switch, P, U, bin_id, nb, counts):
+    """like _simulate, but every run keeps its own sampled licks: counts[r, b] = licks of run r in bin b"""
+    ap, an, kap, beta, c, lapse, rho, gam, nu, lnu, zeta = P[0], P[1], P[2], P[3], P[4], P[5], P[6], P[7], P[8], P[9], P[10]
+    n = tt.shape[0]; R = U.shape[0]
+    for r in range(R):
+        for b in range(nb):
+            counts[r, b] = 0.0
+        wb, ws, wa, ww = 0.0, 0.0, 0.0, 0.0
+        T = 1.0; nA = 0.0; nW = 0.0
+        for t in range(n):
+            if sstart[t] == 1:
+                T = 1.0
+            if switch[t] == 1:
+                wb = (1.0 - zeta) * wb
+            k = tt[t]
+            if k == 0:
+                q = wb + gam * ws + (1.0 - gam) * wa; nov = nu * np.exp(-nA / lnu)
+            elif k == 1:
+                q = wb + gam * ws + (1.0 - gam) * ww; nov = nu * np.exp(-nW / lnu)
+            else:
+                q = wb; nov = 0.0
+            p = lapse / 2.0 + (1.0 - lapse) / (1.0 + np.exp(-(beta * T * q + nov - c)))
+            if U[r, t] < p:
+                if bin_id[t] >= 0:
+                    counts[r, bin_id[t]] += 1.0
+                d = o[t] - q
+                a = ap if d > 0 else an
+                wb += a * kap * d
+                if k != 2:
+                    ws += a * gam * d
+                    if k == 0:
+                        wa += a * (1.0 - gam) * d
+                    else:
+                        ww += a * (1.0 - gam) * d
+                if water[t] > 0:
+                    T -= rho
+                    if T < 0.0:
+                        T = 0.0
+            if k == 0:
+                nA += 1.0
+            elif k == 1:
+                nW += 1.0
+
+
+def run_rates(A, bin_id, n_bin, P, U):
+    """runs x bins matrix of simulated lick rates (each run with its own licks and learning path)"""
+    counts = np.empty((U.shape[0], len(n_bin)))
+    _simulate_runs(A["tt"], A["o"], A["water"], A["sstart"], A["switch"], P, U, bin_id, len(n_bin), counts)
+    return counts / np.maximum(n_bin, 1)[None, :]
+
+
+def synth_ll(Rr, obs, sel, floor=1e-3, shrink=0.2):
+    """Gaussian synthetic log-likelihood (Wood 2010) of the observed bin rates obs[sel] under the simulated runs Rr[:, sel]: mean and
+    covariance across runs (covariance shrunk toward its diagonal, variance floor), so path-to-path variability of learning agents and
+    its correlation across sessions are part of the score"""
+    X = Rr[:, sel]; y = obs[sel]
+    mu = X.mean(0); S = np.cov(X, rowvar=False) if X.shape[1] > 1 else np.atleast_2d(X.var(ddof=1))
+    S = (1 - shrink) * S + shrink * np.diag(np.diag(S)) + floor * np.eye(len(y))
+    sign, logdet = np.linalg.slogdet(S)
+    r = y - mu
+    return -0.5 * (r @ np.linalg.solve(S, r) + logdet + len(y) * np.log(2 * np.pi))

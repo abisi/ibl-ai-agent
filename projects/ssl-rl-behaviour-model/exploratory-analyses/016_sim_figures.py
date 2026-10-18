@@ -27,6 +27,8 @@ from scipy import stats  # noqa: E402
 import common as C  # noqa: E402
 import rl4_agents as A4  # noqa: E402
 
+SRC, OUT = "015", ""                                       # set from --src (015: mean-rate binomial score; 017: synthetic likelihood)
+
 plt.rcParams.update({"font.size": 6.5, "axes.spines.top": False, "axes.spines.right": False, "pdf.fonttype": 42, "svg.fonttype": "none",
                      "axes.titlesize": 6.5, "legend.fontsize": 5.2})
 COH = {"R+": "#00B400", "R-": "#C800C8"}
@@ -38,13 +40,13 @@ CATS = ["good", "moderate", "bad"]          # every mouse of the trial table has
 
 def save(fig, name):
     for ext in ("png", "pdf", "svg"):
-        fig.savefig(C.FIG / f"016_{name}.{ext}", dpi=300, bbox_inches="tight")
+        fig.savefig(C.FIG / f"016{OUT}_{name}.{ext}", dpi=300, bbox_inches="tight")
     plt.close(fig)
     print("saved", name)
 
 
 def load():
-    F = pd.read_csv(C.FITS / "015_fits.csv"); B = pd.read_parquet(C.TAB / "015_bins.parquet")
+    F = pd.read_csv(C.FITS / f"{SRC}_fits.csv"); B = pd.read_parquet(C.TAB / f"{SRC}_bins.parquet").reset_index(drop=True)
     ref = pd.read_excel(C.reference_sheet())[["mouse_id", "learning_category", "gradual", "expert_start"]].drop_duplicates("mouse_id")
     ref["learning_category"] = ref.learning_category.fillna("unlabelled")
     H = F.pivot(index="mouse_id", columns="model", values="ll_held")[MODELS]
@@ -68,7 +70,7 @@ def quality(B, M):
         rows.append(r)
     Q = pd.DataFrame(rows).set_index("mouse_id").join(M)
     Q["dev_best"] = [Q.loc[i, f"dev_{Q.loc[i, 'best']}"] for i in Q.index]
-    Q.to_csv(C.TAB / "016_fit_quality.csv")
+    Q.to_csv(C.TAB / f"016{OUT}_fit_quality.csv")
     return Q
 
 
@@ -132,7 +134,7 @@ def fig_comparison(H, H0, M):
         for i in frac.index:
             rows.append(dict(label=col, level=i, n=int(tab.loc[i].sum()), **{m: int(tab.loc[i, m]) for m in MODELS}))
     axs[1, 0].legend(frameon=False, fontsize=4.6, ncol=4, loc="upper center", bbox_to_anchor=(1.6, -0.35))
-    pd.DataFrame(rows).to_csv(C.TAB / "016_best_by_category.csv", index=False)
+    pd.DataFrame(rows).to_csv(C.TAB / f"016{OUT}_best_by_category.csv", index=False)
     fig.suptitle("Which agent reproduces each mouse's training best? Held-out (leave-one-session-out) binomial log-likelihood of the "
                  "session summaries", fontsize=6.6)
     save(fig, "2_comparison")
@@ -218,7 +220,7 @@ def fig_examples(B, M, Q):
 
 
 def fig_recovery():
-    p = C.FITS / "015_recovery.csv"
+    p = C.FITS / f"{SRC}_recovery.csv"
     if not p.exists():
         print("no recovery yet"); return
     R = pd.read_csv(p)
@@ -265,7 +267,9 @@ def fig_parameters(F, M):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", nargs="*", type=int, default=[1, 2, 3, 4, 5, 6])
+    ap.add_argument("--src", default="015", help="015 (mean-rate binomial score) or 017 (synthetic likelihood)")
     a = ap.parse_args()
+    SRC = a.src; OUT = "" if a.src == "015" else f"_{a.src}"
     if 1 in a.only:
         fig_approach()
     F, B, H, H0, M = load()
