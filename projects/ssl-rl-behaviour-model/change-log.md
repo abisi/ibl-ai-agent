@@ -19,3 +19,7 @@
   L-BFGS-B with 20 starts. beta x alpha trade-off found (first check: beta at bound with tiny alpha; fixing beta cost likelihood): scale-
   free quantities reported. Nested-fit consistency enforced (variants start from the full optimum and full is refitted from every nested
   optimum) after the first run gave a superset variant a worse likelihood than its subset. Session trimming: last 10 trials (as v1).
+- 2026-10-18: 64-model LOSO run (011) stopped by the user's choice (too costly for the current question); 013 pipeline schematic. User:
+  "for now I just want to see if we can fit mouse trial by trial single-session behaviour well" -> 014 single-session fits (static, L,
+  M, LM, LMP; 5-fold blocked CV within session). First run: dynamic models rank trials better (AUC) but held-out LL worse than static
+  (lapse fitted to 0 -> overconfident predictions); rerun with lapse and p_sp >= 0.02 (RL_FLOOR, tag _floor02).
