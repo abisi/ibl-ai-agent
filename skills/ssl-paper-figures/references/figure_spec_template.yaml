@@ -2,7 +2,7 @@
 figure: Figure1_behaviour          # or SuppFigure<N>_<topic>
 number: "1"                        # letters in CSV / sheet names: Fig1a, SuppFig1a
 # the figure's message goes in the snapshot's generation note, not here (public fork)
-grid:                             # see paperstyle_template.PaperGrid
+grid:                             # see projects/ssl-paper-figures/paperstyle.PaperGrid
   width_mm: 183                    # 89 for single column
   n_cols: 5
   col_gap_mm: 8

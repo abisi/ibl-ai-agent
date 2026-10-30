@@ -1,0 +1,112 @@
+# Dummy example figure to try the builder (not a manuscript figure). Message and results: generation note in the snapshot.
+figure: Example_behaviour
+number: "X"                         # CSV / sheet names FigXa ...
+output_subdir: _examples            # snapshots in Figures/_examples/
+grid: {width_mm: 183, n_cols: 5, col_gap_mm: 9, row_gap_mm: 14, pad_left_mm: 8}
+
+shared:
+  behaviour_table:
+    code: shared_behaviour.load
+    calls: [behaviour_analysis/behavior_analysis_utils.build_standard_behavior_table,
+            behaviour_analysis/behavior_analysis_utils.reindex_whisker_days]
+    params: {nwb_dir: NWB_ks4, days: [-2, -1, 0, 1, 2], trials: "perf != 6, not passive, day-0 warm-up cut, no whisker trials on auditory days", reaction_time: "recomputed after reindex_whisker_days"}
+  day0_learning_curves:
+    code: compute.day0_curves
+    calls: [behaviour_analysis/learning_curve_exact.session_learning_curves_exact]
+    params: {sigma: 1.0, conf_int: 80, trials: "whisker day 0, early_lick == 0"}
+  example_sessions:
+    code: compute.example_sessions
+    params: {rule: "learner of each cohort whose learning trial is closest to the cohort median"}
+
+panels:
+  - id: a
+    title: Task and training schedule
+    cell: {row: 0, col: 0, ncols: 2}
+    kind: drawing
+    status: placeholder
+  - id: b
+    title: Example session, trial by trial
+    cell: {row: 0, col: 2, ncols: 3}
+    inputs: [behaviour_table, example_sessions]
+    params: {session: "R+ example, whisker day 0"}
+    data: FigXb_example_session_trials.csv
+    status: filled
+  - id: c
+    title: Example R+ session, lick probability per block
+    cell: {row: 1, col: 0}
+    calls: [behaviour_analysis/behavior_analysis_utils.get_standard_single_session_table]
+    params: {block_size: 20}
+    data: FigXc_example_rplus_blocks.csv
+    status: filled
+  - id: d
+    title: Example R- session, lick probability per block
+    cell: {row: 1, col: 1}
+    calls: [behaviour_analysis/behavior_analysis_utils.get_standard_single_session_table]
+    params: {block_size: 20}
+    data: FigXd_example_rminus_blocks.csv
+    status: filled
+  - id: e
+    title: Lick probability across training days
+    cell: {row: 1, col: 2, ncols: 2}
+    params: {days: [-2, -1, 0, 1, 2], unit: "mouse (sessions of one day averaged per mouse)", trials: "early_lick == 0"}
+    data: FigXe_lick_probability_days.csv
+    status: filled
+  - id: f
+    title: Whisker day 0, lick probability per block (all mice)
+    cell: {row: 1, col: 4}
+    calls: [behaviour_analysis/behavior_analysis_utils.get_standard_single_session_table]
+    params: {block_size: 20, max_blocks: 10}
+    data: FigXf_day0_blocks.csv
+    status: filled
+  - id: g
+    title: Whisker trials before the first whisker lick
+    cell: {row: 2, col: 0}
+    params: {trials: "whisker day 0, early_lick == 0"}
+    stats: "Mann-Whitney U + Welch t, R+ vs R-, mice"
+    data: FigXg_trials_to_first_lick.csv
+    status: filled
+  - id: h
+    title: Example R+ learning curve (exact HMM) and learning trial
+    cell: {row: 2, col: 1}
+    inputs: [day0_learning_curves, example_sessions]
+    data: FigXh_example_learning_curve.csv
+    status: filled
+  - id: i
+    title: Learning trial distribution
+    cell: {row: 2, col: 2}
+    inputs: [day0_learning_curves]
+    stats: "Mann-Whitney U + Welch t, R+ vs R-, learner mice"
+    data: FigXi_learning_trials.csv
+    status: filled
+  - id: j
+    title: Fraction of learners (learning-trial rule)
+    cell: {row: 2, col: 3}
+    inputs: [day0_learning_curves]
+    stats: "Fisher exact test, learners vs non-learners, R+ vs R-"
+    data: FigXj_fraction_learners.csv
+    status: filled
+  - id: k
+    title: Whisker curves aligned to the learning trial
+    cell: {row: 2, col: 4}
+    inputs: [day0_learning_curves]
+    params: {window: [-20, 30]}
+    data: FigXk_aligned_curves.csv
+    status: filled
+  - id: l
+    title: Reaction times on whisker day 0
+    cell: {row: 3, col: 0, ncols: 2}
+    params: {reaction_time: "lick_time - response_window_start_time (ssl-lick-alignment)", trials: "hits, early_lick == 0"}
+    data: FigXl_reaction_times_day0.csv
+    status: filled
+  - id: m
+    title: Median reaction time across days
+    cell: {row: 3, col: 2, ncols: 2}
+    params: {unit: "mouse median per day"}
+    data: FigXm_reaction_time_days.csv
+    status: filled
+  - id: n
+    title: Learning trial vs whisker lick probability on day +1
+    cell: {row: 3, col: 4}
+    stats: "OLS + Pearson r per cohort, learner mice"
+    data: FigXn_learning_trial_vs_day1.csv
+    status: filled

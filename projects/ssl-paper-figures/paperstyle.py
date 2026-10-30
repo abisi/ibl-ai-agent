@@ -1,6 +1,8 @@
-"""Template for projects/ssl-paper-figures/paperstyle.py: Nature rcParams, square-cell grid on an A4 page,
-placeholder panels, exports and the source-data workbook."""
+"""Shared figure style for the Bisi & Hamon manuscript: Nature rcParams, square-cell grid on an A4 page, placeholder
+panels, exports (PDF, SVG, AI, EPS, PNG, JPG) and the Nature source-data workbook.
+Canonical template: skills/ssl-paper-figures/references/paperstyle_template.py."""
 
+import shutil
 from pathlib import Path
 
 import matplotlib as mpl
@@ -9,10 +11,25 @@ import pandas as pd
 
 MM = 1 / 25.4
 A4_MM = (210.0, 297.0)
+RASTER_DPI = 1200  # Nature line art; PNG and JPG
+
+COLORS = {
+    "R+": "#00B400", "R-": "#C800C8",
+    "whisker": "#f7b519", "auditory": "#2c2cdb", "no_stim": "#262626",
+}
+TRIAL_TYPE_COLORS = {"whisker_trial": COLORS["whisker"], "auditory_trial": COLORS["auditory"],
+                     "no_stim_trial": COLORS["no_stim"]}
+TRIAL_TYPE_LABELS = {"whisker_trial": "Whisker", "auditory_trial": "Auditory", "no_stim_trial": "No stimulus"}
+
+
+def light(color, amount=0.75):
+    """Opaque mix of `color` with white (amount 1 = white). Use instead of alpha: EPS has no transparency."""
+    r, g, b = mpl.colors.to_rgb(color)
+    return (r + (1 - r) * amount, g + (1 - g) * amount, b + (1 - b) * amount)
 
 
 def set_nature_rc():
-    """Arial 5-7 pt, thin lines, editable text in SVG and PDF."""
+    """Arial 5-7 pt, thin lines, editable text in SVG, PDF/AI and EPS."""
     mpl.rcParams.update({
         "font.family": "sans-serif",
         "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
@@ -22,6 +39,7 @@ def set_nature_rc():
         "xtick.major.width": 0.5, "ytick.major.width": 0.5,
         "xtick.major.size": 2, "ytick.major.size": 2,
         "axes.spines.top": False, "axes.spines.right": False,
+        "legend.frameon": False,
         "svg.fonttype": "none", "pdf.fonttype": 42, "ps.fonttype": 42,
     })
 
@@ -68,11 +86,17 @@ class PaperGrid:
         return self.bottom_mm - (self.y0 - self.row_gap)
 
 
-def save_figure(fig, out_dir, name, dpi=300):
+def save_figure(fig, out_dir, name, raster_dpi=RASTER_DPI):
+    """PDF, SVG, EPS (vector, editable text), AI (the PDF under .ai: Illustrator opens it as a PDF-compatible AI file
+    with editable text), PNG and JPG at `raster_dpi`."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    for ext in ("pdf", "svg", "png", "jpg", "eps"):
-        fig.savefig(out_dir / f"{name}.{ext}", dpi=dpi)
+    for ext in ("pdf", "svg", "eps"):
+        fig.savefig(out_dir / f"{name}.{ext}")
+    shutil.copyfile(out_dir / f"{name}.pdf", out_dir / f"{name}.ai")
+    fig.savefig(out_dir / f"{name}.png", dpi=raster_dpi)
+    fig.savefig(out_dir / f"{name}.jpg", dpi=raster_dpi, pil_kwargs={"quality": 95})
+    return sorted(out_dir.glob(f"{name}.*"))
 
 
 def write_source_data(data_dir, workbook_path):

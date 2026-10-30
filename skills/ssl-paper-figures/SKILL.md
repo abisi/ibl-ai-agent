@@ -25,7 +25,7 @@ day overwrites that day's snapshot; older snapshots are never edited (hand edits
 `Figures/FromFigma/`). Each snapshot contains:
 ```
 Figure1_behaviour_2026-10-30/
-  Figure1_behaviour.svg .pdf .png .jpg .eps  # A4 page, figure block at final Nature size, editable text
+  Figure1_behaviour.pdf .svg .ai .eps .png .jpg  # A4 page, figure block at final Nature size, editable text
   Figure1_behaviour.md                       # generation note (see below)
   Figure1_source_data.xlsx                   # Nature source data, one sheet per panel
   data/Fig1a_<name>.csv ...                  # one tidy CSV per panel = exactly what is plotted
@@ -37,7 +37,7 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
 ## Workflow per figure
 1. **Design together** (no code yet). Agree on the figure's single message, the panels, their order and letters,
    the grid placement, and for each panel the analysis that produces it (repo, module, function, parameters, data
-   scope). Write it into `figures/<FigureN_topic>/spec.yaml` (template: `references/figure_spec_template.yaml`) and
+   scope). Write it into `figures/<FigureN_topic>/spec.yaml` (template: `references/figure_spec_template.yaml`; worked example `figures/Example_behaviour/spec.yaml`) and
    render the layout immediately: unfilled panels show as labelled placeholder boxes. Ask before changing an agreed
    design.
 2. **Fill panel by panel.** For one panel at a time: write `compute_<id>()` returning one tidy DataFrame, run it
@@ -77,10 +77,14 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
   lines >= 0.25 pt. This overrides the 7.4 in width and 9 pt letters of `ssl-figure-style` rule 7 for the paper; all
   other `ssl-figure-style` rules (colours, edge-free shading, PSTH baseline and averaging, quantification panels,
   explicit labels, area names), the area colour palette and the no-clip axis margins apply.
-- Exports (user, 2026-10-30): PDF, SVG, PNG, JPG, EPS. SVG with `svg.fonttype = "none"` (text editable in Figma), PDF and
-  EPS with `pdf.fonttype` / `ps.fonttype = 42` (EPS has no transparency: use opaque colours, not alpha), PNG and JPG at
-  300 dpi minimum. Grid, rcParams, placeholder and export helpers: `references/paperstyle_template.py`
-  (copied to `projects/ssl-paper-figures/paperstyle.py`).
+- Exports (user, 2026-10-30): PDF, SVG, AI, EPS, PNG, JPG. SVG with `svg.fonttype = "none"` (text editable in Figma);
+  PDF, AI and EPS with `pdf.fonttype` / `ps.fonttype = 42` (embedded TrueType, editable text). The `.ai` file is the
+  PDF saved under `.ai`: Illustrator opens it as a PDF-compatible AI document with editable text (Arial must be
+  installed). EPS has no transparency, so shaded bands and scatter use opaque light colours (`paperstyle.light()`),
+  never `alpha`. PNG and JPG at 1200 dpi (Nature line-art resolution). Grid, rcParams, colours, placeholder and export
+  helpers: `projects/ssl-paper-figures/paperstyle.py` (canonical); paths, external-repo imports, provenance and the
+  R+ vs R- test pair: `projects/ssl-paper-figures/common.py`. Worked example (dummy figure, 14 behaviour panels):
+  `projects/ssl-paper-figures/figures/Example_behaviour/`.
 
 ## Generation note (`<FigureN_topic>.md`, in the snapshot)
 Header: figure message, build date, machine, ibl-ai-agent commit, commit (+ dirty flag) of every imported repo, key
