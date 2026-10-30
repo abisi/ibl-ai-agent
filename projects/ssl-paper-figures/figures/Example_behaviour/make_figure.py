@@ -21,6 +21,8 @@ from common import EXTERNAL_REPOS, REPO, environment, load_spec, repo_state, sna
 from paperstyle import PaperGrid, save_figure, set_nature_rc, write_source_data  # noqa: E402
 
 BEHAVIOUR_FILES = ["behavior_analysis_utils.py", "learning_curve_exact.py", "learning_utils.py"]
+# the haas copy of ibl-ai-agent is synced, not a git checkout: record the md5 of the figure code
+FIGURE_CODE = [str(p.relative_to(REPO)) for p in sorted(FIG_DIR.parents[1].glob("*.py")) + sorted(FIG_DIR.glob("*"))]
 
 
 def assemble(spec, out):
@@ -44,7 +46,7 @@ def generation_note(spec, out, grid, files):
              f"- Built: {datetime.datetime.now().isoformat(timespec='minutes')}",
              f"- Figure block: {spec['grid']['width_mm']} x {grid.figure_height_mm():.0f} mm on A4, unit cell "
              f"{grid.unit:.1f} mm",
-             f"- ibl-ai-agent: {json.dumps(repo_state(REPO))}",
+             f"- ibl-ai-agent: {json.dumps(repo_state(REPO, FIGURE_CODE))}",
              f"- behaviour_analysis: {json.dumps(repo_state(EXTERNAL_REPOS['behaviour_analysis'], BEHAVIOUR_FILES))}",
              f"- NWB_reader: {json.dumps(repo_state(EXTERNAL_REPOS['NWB_reader'], ['NWB_reader_functions.py']))}",
              f"- Environment: {json.dumps(environment())}",
