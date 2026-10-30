@@ -22,7 +22,7 @@ from paperstyle import PaperGrid, save_figure, set_nature_rc, write_source_data 
 
 BEHAVIOUR_FILES = ["behavior_analysis_utils.py", "learning_curve_exact.py", "learning_utils.py"]
 # the haas copy of ibl-ai-agent is synced, not a git checkout: record the md5 of the figure code
-FIGURE_CODE = [str(p.relative_to(REPO)) for p in sorted(FIG_DIR.parents[1].glob("*.py")) + sorted(FIG_DIR.glob("*"))]
+FIGURE_CODE = [str(p.relative_to(REPO)) for p in sorted(FIG_DIR.parents[1].glob("*.py")) + sorted(FIG_DIR.glob("*.py")) + sorted(FIG_DIR.glob("*.yaml"))]
 
 
 def assemble(spec, out):
