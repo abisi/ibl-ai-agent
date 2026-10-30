@@ -25,7 +25,7 @@ day overwrites that day's snapshot; older snapshots are never edited (hand edits
 `Figures/FromFigma/`). Each snapshot contains:
 ```
 Figure1_behaviour_2026-10-30/
-  Figure1_behaviour.svg  .pdf  .png  .tiff   # A4 page, figure block at final Nature size, editable text
+  Figure1_behaviour.svg .pdf .png .jpg .eps  # A4 page, figure block at final Nature size, editable text
   Figure1_behaviour.md                       # generation note (see below)
   Figure1_source_data.xlsx                   # Nature source data, one sheet per panel
   data/Fig1a_<name>.csv ...                  # one tidy CSV per panel = exactly what is plotted
@@ -77,7 +77,8 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
   lines >= 0.25 pt. This overrides the 7.4 in width and 9 pt letters of `ssl-figure-style` rule 7 for the paper; all
   other `ssl-figure-style` rules (colours, edge-free shading, PSTH baseline and averaging, quantification panels,
   explicit labels, area names), the area colour palette and the no-clip axis margins apply.
-- Exports: SVG with `svg.fonttype = "none"` (text editable in Figma), PDF with `pdf.fonttype = 42`, PNG and TIFF at
+- Exports (user, 2026-10-30): PDF, SVG, PNG, JPG, EPS. SVG with `svg.fonttype = "none"` (text editable in Figma), PDF and
+  EPS with `pdf.fonttype` / `ps.fonttype = 42` (EPS has no transparency: use opaque colours, not alpha), PNG and JPG at
   300 dpi minimum. Grid, rcParams, placeholder and export helpers: `references/paperstyle_template.py`
   (copied to `projects/ssl-paper-figures/paperstyle.py`).
 

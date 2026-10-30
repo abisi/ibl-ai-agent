@@ -71,7 +71,7 @@ class PaperGrid:
 def save_figure(fig, out_dir, name, dpi=300):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    for ext in ("svg", "pdf", "png", "tiff"):
+    for ext in ("pdf", "svg", "png", "jpg", "eps"):
         fig.savefig(out_dir / f"{name}.{ext}", dpi=dpi)
 
 
