@@ -1,5 +1,5 @@
-"""Template for the paper repo's src/paperstyle.py: Nature rcParams, square-cell grid on an A4 page,
-placeholder panels, exports and the source-data workbook. Copy into the paper repo and adapt there."""
+"""Template for projects/ssl-paper-figures/paperstyle.py: Nature rcParams, square-cell grid on an A4 page,
+placeholder panels, exports and the source-data workbook."""
 
 from pathlib import Path
 

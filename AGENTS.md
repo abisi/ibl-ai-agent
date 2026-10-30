@@ -84,7 +84,7 @@ Single-Session-Learning (SSL) question (Axel Bisi's whisker/auditory Go/NoGo coh
 - `skills/ssl-trial-exclusion/SKILL.md` whenever selecting trials (perf == 6 always excluded except passive, warm-up block, A1 disengagement)
 - `skills/ssl-valid-data/references/ssl_dataset_inclusion.md` before any mouse / session inclusion decision (mouse-level cohort from the reference sheet, `recording` gates day 0 only, known metadata errors, current unit-table version); record every new dataset decision there
 - `skills/ssl-analyze/references/ssl_analysis_patterns.md` when the question resembles a prior SSL project (passive selectivity, reward-history modulation, task-performance curves, TCA)
-- `skills/ssl-paper-figures/SKILL.md` for any main or supplementary figure of the Bisi & Hamon manuscript (Nature format, square-panel grid, per-panel source data, standalone paper repo)
+- `skills/ssl-paper-figures/SKILL.md` for any main or supplementary figure of the Bisi & Hamon manuscript (Nature format, square-panel grid, per-panel source data, dated snapshots in the manuscript `Figures/` folder)
 
 Every project (code, outputs, reports):
 - `skills/project-organization/SKILL.md` (one slug: code in `projects/<slug>/`, results in `combined_results_ks4/<slug>/`, regular commits + pushes to the fork)

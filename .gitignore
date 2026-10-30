@@ -32,6 +32,7 @@ projects/**
 !projects/**/*.sh
 !projects/**/*.md
 !projects/**/.gitignore
+!projects/ssl-paper-figures/**/*.yaml
 !projects/ssl-prelick-convergence/**
 projects/**/__pycache__/
 projects/ssl-prelick-convergence/**/__pycache__/
