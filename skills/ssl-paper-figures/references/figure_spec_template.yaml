@@ -1,0 +1,38 @@
+# figures/<FigureN_topic>/spec.yaml -- single source of truth for one figure
+figure: Figure1_behaviour          # or SuppFigure<N>_<topic>
+number: "1"                        # letters in CSV / sheet names: Fig1a, SuppFig1a
+message: >                         # the one claim the figure supports
+  Mice learn the whisker association within a single session; R+ but not R- mice ...
+grid:                              # see paperstyle_template.PaperGrid
+  width_mm: 183                    # 89 for single column
+  n_cols: 5
+  col_gap_mm: 8
+  row_gap_mm: 10
+  pad_left_mm: 8
+
+shared:                            # computed once per build, cached in Figures/_cache/
+  behaviour_table:
+    function: src.analysis.behaviour_table.build_standard_behavior_table
+    origin: behaviour_analysis/behavior_analysis_utils.py
+    params: {block_size: 20}
+
+panels:
+  - id: a
+    title: Task schematic
+    cell: {row: 0, col: 0, nrows: 1, ncols: 2}
+    kind: drawing                  # imported artwork; no CSV
+    status: placeholder            # placeholder | filled | approved
+  - id: b
+    title: Learning curves, R+ vs R-
+    cell: {row: 0, col: 2, nrows: 1, ncols: 1}
+    inputs: [behaviour_table]
+    compute:
+      function: src.analysis.learning_curves.session_learning_curves_exact
+      origin: behaviour_analysis/learning_curve_exact.py
+      params: {sigma: 0.05, conf_int: 80}
+    scope: {cohorts: [R+, R-], population: learners, stage: learning_day}
+    data: Fig1b_learning_curves.csv
+    plot: plot_b
+    stats: none                    # or e.g. "Mann-Whitney U + Welch t, sessions"
+    status: placeholder
+    notes: ""

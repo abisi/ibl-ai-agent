@@ -22,6 +22,8 @@ no leading underscore. The same slug is used everywhere:
 | Results: tables, caches, figures, provenance | `combined_results_ks4/<slug>/` on the NAS (`/mnt/lsens-analysis/Axel_Bisi/...` on haas, `M:\analysis\Axel_Bisi\...` on Windows; resolve with `scripts/axel_bisi_paths.py`) | no |
 | Report: self-contained LaTeX build, PDF, `.md`, `.html` | `combined_results_ks4/<slug>/report/` (see `skills/project-report/SKILL.md`) | PDF / md / html only, to the private reports repo |
 
+- Exception: manuscript figures live in the standalone paper repo and the manuscript `Figures/` folder
+  (`skills/ssl-paper-figures/SKILL.md`).
 - Variants of one project are subfolders of its results folder, never sibling folders with suffixes:
   `ssl-stimulus-arrival-decoding/active/`, `.../passive/`, `.../final_n200/`; `ssl-prelick-convergence/ref_sl/`,
   `.../ref_fa/`; contour levels as `figures_zone90/` inside the project folder.
