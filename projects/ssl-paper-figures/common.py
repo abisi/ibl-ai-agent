@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import importlib.metadata
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -77,3 +78,47 @@ def two_group_tests(a, b):
     welch = stats.ttest_ind(a, b, equal_var=False)
     return {"n_R+": len(a), "n_R-": len(b), "mannwhitney_U": float(mw.statistic), "mannwhitney_p": float(mw.pvalue),
             "welch_t": float(welch.statistic), "welch_p": float(welch.pvalue)}
+
+
+# ---------------------------------------------------------------- captions
+
+SUPERSCRIPT = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+CAPTION_FIELD = re.compile(r"\{([^{}:]+)(?::([^{}]+))?\}")
+
+
+def format_p(p):
+    """Exact P value, two significant digits (Nature asks for exact values)."""
+    if p >= 0.001:
+        return f"*P* = {p:#.2g}"
+    mantissa, exponent = f"{p:.1e}".split("e")
+    return f"*P* = {mantissa} × 10{str(int(exponent)).translate(SUPERSCRIPT)}"
+
+
+def fill_caption(template, meta):
+    """Replace {dotted.path[:fmt]} fields with values from a panel's run meta. fmt is a format spec ('d', '.2f') or 'p'
+    for a P value. Missing fields stay visible as [?path] so they are caught at review."""
+    def field(match):
+        value = meta
+        for key in match.group(1).strip().split("."):
+            if not isinstance(value, dict) or key not in value:
+                return f"[?{match.group(1)}]"
+            value = value[key]
+        fmt = match.group(2)
+        if fmt == "p":
+            return format_p(value)
+        return format(value, fmt) if fmt else str(value)
+    return CAPTION_FIELD.sub(field, " ".join(template.split()))
+
+
+def write_caption(spec, meta, path):
+    """Figure legend in journal style: bold title, one sentence block per panel, then the shared methods footer."""
+    caption = spec.get("caption", {})
+    shared = meta.get("_shared", {})
+    parts = [f"**Fig. {spec['number']} | {fill_caption(caption.get('title', spec['figure']), shared)}**"]
+    for panel in spec["panels"]:
+        text = panel.get("caption") or f"[caption missing: {panel['title']}]"
+        parts.append(f"**{panel['id']}**, {fill_caption(text, {**shared, **meta.get(panel['id'], {})})}")
+    if caption.get("footer"):
+        parts.append(fill_caption(caption["footer"], shared))
+    text = f"# {spec['figure']} -- caption (draft, generated)\n\n" + " ".join(parts) + "\n"
+    path.write_text(text, encoding="utf-8")

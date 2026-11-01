@@ -4,6 +4,20 @@ number: "X"                         # CSV / sheet names FigXa ...
 output_subdir: _examples            # snapshots in Figures/_examples/
 grid: {width_mm: 183, n_cols: 5, col_gap_mm: 9, row_gap_mm: 14, pad_left_mm: 8}
 
+# Legend draft: {field[:fmt]} is filled from the panel's run meta (_build/panel_meta.json; _shared fields in every
+# panel), fmt 'p' writes an exact P value. Keep wording descriptive here; edits of the claim go in the NAS caption.
+caption:
+  title: >-
+    Behaviour in the sensory-selective learning task: example sessions, learning across days and learning trial.
+  footer: >-
+    Trials with perf = 6 and passive trials are excluded; on whisker day 0 the auditory warm-up block is removed
+    except its last trial; early-lick trials are excluded from all lick-probability and reaction-time measures.
+    Reaction time is the first-lick time from the start of the response window. Cohort (R+, whisker hits rewarded;
+    R-, whisker hits not rewarded) is assigned per mouse from the reference sheet. R+, green; R-, magenta;
+    auditory trials, blue; no-stimulus trials, black. Unless stated otherwise, data are mean ± s.e.m. over mice and
+    R+ versus R- comparisons are two-sided Mann-Whitney U tests and Welch's t-tests, both reported, without
+    correction for multiple comparisons.
+
 shared:
   behaviour_table:
     code: shared_behaviour.load
@@ -21,11 +35,20 @@ shared:
 panels:
   - id: a
     title: Task and training schedule
+    caption: >-
+      Task and training schedule. Head-fixed, water-restricted mice receive whisker (single deflection), auditory
+      (tone) and no-stimulus trials in randomised order and report detection by licking within the response window.
+      Mice are first trained on auditory and no-stimulus trials (auditory days -2 and -1) before whisker trials are
+      introduced (whisker day 0). Auditory hits are always rewarded; whisker hits are rewarded in R+ mice and never
+      rewarded in R- mice. [Drawing; to be completed.]
     cell: {row: 0, col: 0, ncols: 2}
     kind: drawing
     status: placeholder
   - id: b
     title: Example session, trial by trial
+    caption: >-
+      Trial-by-trial behaviour of an example R+ mouse on whisker day 0 (session {examples.R+}). Each tick is one
+      trial, ordered by trial number, on the row of its trial type; tall ticks, lick; short ticks, no lick.
     cell: {row: 0, col: 2, ncols: 3}
     inputs: [behaviour_table, example_sessions]
     params: {session: "R+ example, whisker day 0"}
@@ -33,6 +56,9 @@ panels:
     status: filled
   - id: c
     title: Example R+ session, lick probability per block
+    caption: >-
+      Lick probability per non-overlapping block of 20 trials for whisker, auditory and no-stimulus trials in the
+      example R+ session of b ({examples.R+}). x, trial number at block start.
     cell: {row: 1, col: 0}
     calls: [behaviour_analysis/behavior_analysis_utils.get_standard_single_session_table]
     params: {block_size: 20}
@@ -40,6 +66,8 @@ panels:
     status: filled
   - id: d
     title: Example R- session, lick probability per block
+    caption: >-
+      As in c for an example R- mouse on whisker day 0 ({examples.R-}).
     cell: {row: 1, col: 1}
     calls: [behaviour_analysis/behavior_analysis_utils.get_standard_single_session_table]
     params: {block_size: 20}
@@ -47,12 +75,20 @@ panels:
     status: filled
   - id: e
     title: Lick probability across training days
+    caption: >-
+      Lick probability per trial type across training days -2 to +2 (auditory days -2 and -1; whisker days 0 to +2;
+      dotted line, introduction of whisker trials). Sessions of one day are averaged per mouse, then across mice.
+      Whisker trials in cohort colour, R+ solid and R- dashed. n = {n.R+.-2}, {n.R+.-1}, {n.R+.0}, {n.R+.1} and
+      {n.R+.2} R+ mice and {n.R-.-2}, {n.R-.-1}, {n.R-.0}, {n.R-.1} and {n.R-.2} R- mice on days -2 to +2.
     cell: {row: 1, col: 2, ncols: 2}
     params: {days: [-2, -1, 0, 1, 2], unit: "mouse (sessions of one day averaged per mouse)", trials: "early_lick == 0"}
     data: FigXe_lick_probability_days.csv
     status: filled
   - id: f
     title: Whisker day 0, lick probability per block (all mice)
+    caption: >-
+      Lick probability per block of 20 trials on whisker day 0, mean ± s.e.m. over mice (first 10 blocks), per trial
+      type; R+ solid, R- dashed. n = {n.R+.mice} R+ and {n.R-.mice} R- mice.
     cell: {row: 1, col: 4}
     calls: [behaviour_analysis/behavior_analysis_utils.get_standard_single_session_table]
     params: {block_size: 20, max_blocks: 10}
@@ -60,6 +96,10 @@ panels:
     status: filled
   - id: g
     title: Whisker trials before the first whisker lick
+    caption: >-
+      Number of whisker trials before the first whisker-trial lick on whisker day 0. Dots, mice; marker and bar,
+      mean ± s.e.m. n = {stats.n_R+} R+ and {stats.n_R-} R- mice; Mann-Whitney U = {stats.mannwhitney_U:.0f},
+      {stats.mannwhitney_p:p}; Welch's t = {stats.welch_t:.2f}, {stats.welch_p:p}.
     cell: {row: 2, col: 0}
     params: {trials: "whisker day 0, early_lick == 0"}
     stats: "Mann-Whitney U + Welch t, R+ vs R-, mice"
@@ -67,12 +107,26 @@ panels:
     status: filled
   - id: h
     title: Example R+ learning curve (exact HMM) and learning trial
+    caption: >-
+      Whisker learning curve of the example R+ mouse of b ({examples.R+}). Curves are estimated separately for
+      whisker and no-stimulus trials with an exact state-space (hidden Markov) model of lick probability
+      (random-walk sigma = 1 in logit units; shading, 80% posterior interval); the no-stimulus curve, interpolated
+      in time onto whisker trials, estimates chance. Ticks, whisker-trial licks (top) and misses (bottom). Dashed
+      line, learning trial, counted from the first whisker hit. R+ mice: first of 5 consecutive whisker trials whose
+      lower bound exceeds chance (expert if 20 consecutive such trials within the first 20 with mean lick
+      probability >= 0.8). R- mice: last trial of the first run of 5 consecutive above-chance trials followed by 5
+      trials not above chance (expert if 20 consecutive trials with upper bound below chance and mean <= 0.2).
+      Learning trials earlier than trial 10 are set to 10.
     cell: {row: 2, col: 1}
     inputs: [day0_learning_curves, example_sessions]
     data: FigXh_example_learning_curve.csv
     status: filled
   - id: i
     title: Learning trial distribution
+    caption: >-
+      Cumulative distribution of the learning trial (whisker-trial index) of learner mice on whisker day 0,
+      identified as in h. n = {stats.n_R+} of {n.R+.mice} R+ and {stats.n_R-} of {n.R-.mice} R- mice; Mann-Whitney U
+      = {stats.mannwhitney_U:.0f}, {stats.mannwhitney_p:p}; Welch's t = {stats.welch_t:.2f}, {stats.welch_p:p}.
     cell: {row: 2, col: 2}
     inputs: [day0_learning_curves]
     stats: "Mann-Whitney U + Welch t, R+ vs R-, learner mice"
@@ -80,6 +134,9 @@ panels:
     status: filled
   - id: j
     title: Fraction of learners (learning-trial rule)
+    caption: >-
+      Fraction of mice with a learning trial on whisker day 0 (learning-trial rule of h; numbers, learners/mice).
+      Two-sided Fisher's exact test, odds ratio = {stats.fisher_odds_ratio:.2f}, {stats.fisher_p:p}.
     cell: {row: 2, col: 3}
     inputs: [day0_learning_curves]
     stats: "Fisher exact test, learners vs non-learners, R+ vs R-"
@@ -87,6 +144,9 @@ panels:
     status: filled
   - id: k
     title: Whisker curves aligned to the learning trial
+    caption: >-
+      Whisker learning curves of learner mice aligned to their learning trial (dashed line; window -20 to +30
+      whisker trials), mean ± s.e.m. over mice. n = {n.R+.mice} R+ and {n.R-.mice} R- mice.
     cell: {row: 2, col: 4}
     inputs: [day0_learning_curves]
     params: {window: [-20, 30]}
@@ -94,18 +154,34 @@ panels:
     status: filled
   - id: l
     title: Reaction times on whisker day 0
+    caption: >-
+      Distributions of reaction times of whisker and auditory hits on whisker day 0, trials pooled across mice (bin
+      25 ms, normalised to unit area); R+ solid, R- dashed. n = {n_trials.R+ whisker_trial} R+ and
+      {n_trials.R- whisker_trial} R- whisker hits, {n_trials.R+ auditory_trial} R+ and {n_trials.R- auditory_trial}
+      R- auditory hits, from {n.R+.mice} R+ and {n.R-.mice} R- mice. Per-mouse median whisker reaction time, R+ versus
+      R-: Mann-Whitney U = {stats_whisker_mouse_median.mannwhitney_U:.0f},
+      {stats_whisker_mouse_median.mannwhitney_p:p}; Welch's t = {stats_whisker_mouse_median.welch_t:.2f},
+      {stats_whisker_mouse_median.welch_p:p}.
     cell: {row: 3, col: 0, ncols: 2}
     params: {reaction_time: "lick_time - response_window_start_time (ssl-lick-alignment)", trials: "hits, early_lick == 0"}
     data: FigXl_reaction_times_day0.csv
     status: filled
   - id: m
     title: Median reaction time across days
+    caption: >-
+      Median reaction time of whisker and auditory hits per mouse and day, mean ± s.e.m. over mice, days -2 to +2. n
+      = {n.R+} R+ and {n.R-} R- mice in total (not all mice contribute to every day).
     cell: {row: 3, col: 2, ncols: 2}
     params: {unit: "mouse median per day"}
     data: FigXm_reaction_time_days.csv
     status: filled
   - id: n
     title: Learning trial vs whisker lick probability on day +1
+    caption: >-
+      Learning trial on whisker day 0 versus whisker-trial lick probability on whisker day +1, learner mice. Dots,
+      mice; lines, ordinary least-squares fits with 95% confidence bands (solid if P < 0.05, dashed otherwise). R+:
+      n = {stats.R+.n_mice}, Pearson r = {stats.R+.pearson_r:.2f}, {stats.R+.p:p}; R-: n = {stats.R-.n_mice}, r =
+      {stats.R-.pearson_r:.2f}, {stats.R-.p:p}.
     cell: {row: 3, col: 4}
     stats: "OLS + Pearson r per cohort, learner mice"
     data: FigXn_learning_trial_vs_day1.csv

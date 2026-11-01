@@ -1,5 +1,5 @@
-"""Example_behaviour -- assemble the figure from the snapshot's CSVs, export all formats, write the source-data workbook
-and the generation note. Panels without a CSV (or of kind 'drawing') are drawn as placeholders.
+"""Example_behaviour -- assemble the figure from the snapshot's CSVs, export all formats, write the source-data workbook,
+the generation note and the caption draft. Panels without a CSV (or of kind 'drawing') are drawn as placeholders.
 
 Run on haas after compute.py (repo root):
     ~/code/unit_spikes_analysis/.venv/bin/python projects/ssl-paper-figures/figures/Example_behaviour/make_figure.py [--date YYYY-MM-DD]
@@ -17,7 +17,7 @@ FIG_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(FIG_DIR.parents[1]))
 sys.path.insert(0, str(FIG_DIR))
 import plot  # noqa: E402
-from common import EXTERNAL_REPOS, REPO, environment, load_spec, repo_state, snapshot_dir  # noqa: E402
+from common import EXTERNAL_REPOS, REPO, environment, load_spec, repo_state, snapshot_dir, write_caption  # noqa: E402
 from paperstyle import PaperGrid, save_figure, set_nature_rc, write_source_data  # noqa: E402
 
 BEHAVIOUR_FILES = ["behavior_analysis_utils.py", "learning_curve_exact.py", "learning_utils.py"]
@@ -80,6 +80,8 @@ def main():
     files = save_figure(grid.fig, out, spec["figure"])
     write_source_data(out / "data", out / f"{spec['figure']}_source_data.xlsx")
     generation_note(spec, out, grid, files)
+    meta_file = out / "_build" / "panel_meta.json"
+    write_caption(spec, json.load(open(meta_file)) if meta_file.exists() else {}, out / f"{spec['figure']}_caption.md")
     print(out, f"height {grid.figure_height_mm():.0f} mm")
 
 

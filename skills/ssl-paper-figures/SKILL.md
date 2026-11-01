@@ -27,6 +27,7 @@ day overwrites that day's snapshot; older snapshots are never edited (hand edits
 Figure1_behaviour_2026-10-30/
   Figure1_behaviour.pdf .svg .ai .eps .png .jpg  # A4 page, figure block at final Nature size, editable text
   Figure1_behaviour.md                       # generation note (see below)
+  Figure1_behaviour_caption.md               # figure legend draft, n and statistics filled in (see below)
   Figure1_source_data.xlsx                   # Nature source data, one sheet per panel
   data/Fig1a_<name>.csv ...                  # one tidy CSV per panel = exactly what is plotted
 ```
@@ -44,7 +45,8 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
    **from scratch on haas** (writes `data/Fig<N><id>_*.csv`), write `plot_<id>(ax, df)` that reads only that CSV,
    re-render, and show the user before moving on. Set the panel's `status` to `filled`, then `approved` once the user
    accepts it. Commit and push the figure code at each filled panel.
-3. **Snapshot.** Run the quality gates, write the generation note and a draft legend, export all formats and the
+   Write the panel's `caption` in the spec at the same time as its plot.
+3. **Snapshot.** Run the quality gates, write the generation note and the caption draft, export all formats and the
    source-data workbook into the dated snapshot folder.
 
 ## Panel-to-analysis mapping (three layers)
@@ -91,12 +93,28 @@ Header: figure message, build date, machine, ibl-ai-agent commit, commit (+ dirt
 package versions, input data version (NWB set, unit-table version). One section per panel: title; imported
 function and repo; parameters; data scope (cohorts, population scope, stage, trial and mouse/session exclusions); n
 (mice, sessions, units, trials) per group; unit of analysis; statistics (test, both the non-parametric and the
-parametric unpaired test for R+ vs R-, correction, exact p); CSV name and columns. Then the draft legend.
+parametric unpaired test for R+ vs R-, correction, exact p); CSV name and columns.
+
+## Caption (`<FigureN_topic>_caption.md`, in the snapshot)
+A Nature-style legend draft, deliberately exhaustive so the user can cut it down: `**Fig. N | Title.**` then
+`**a**, ...` for every panel, then a footer with the shared methods (trial exclusions, cohort definition, colours,
+error bars, tests, multiple-comparison handling). Written by `common.write_caption` from the spec:
+- `caption.title` and `caption.footer` at figure level, `caption` per panel (YAML folded block `>-`).
+- Each panel caption says what is plotted (axes, measure, unit of analysis, what dots/lines/shading are), the
+  analysis and its parameters in words, n per group, and the test with its statistic and exact P.
+- Numbers are never typed: `{path[:fmt]}` fields are filled from the panel's run meta (`_build/panel_meta.json`;
+  `_shared` fields available everywhere), e.g. `{n.R+.mice}`, `{stats.welch_t:.2f}`, `{stats.mannwhitney_p:p}`
+  (`:p` writes `*P* = 0.025` or `*P* = 9.9 × 10⁻⁴`). An unknown field prints `[?path]`; a panel without caption
+  prints `[caption missing: ...]`; both must be gone before submission.
+- Check every methods statement against the code it describes (rule, thresholds, window) before writing it.
+- Spec captions stay descriptive (public fork); wording the claim and final edits happen in the NAS caption or the
+  manuscript. Snapshots are regenerated, so carry lasting wording changes back into the spec.
 
 ## Quality gates
 - [ ] Every non-placeholder panel has a CSV in `data/` and a sheet in the source-data workbook with identical content.
 - [ ] Every panel is square or an integer multiple of the unit cell; letters aligned per row.
 - [ ] Figure block within Nature size; SVG text editable (`<text>` elements present).
 - [ ] Generation note lists commits, parameters, n, unit of analysis and statistics for every panel.
+- [ ] Caption has every panel, no `[?...]` or `[caption missing` left, and its n and P match the generation note.
 - [ ] No results or figure message in tracked files; figure code committed and pushed.
 - [ ] Decoding figure sets show the learning stage only (user rule); learner definition stated when a panel depends on it.

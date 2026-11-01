@@ -9,6 +9,12 @@ grid:                             # see projects/ssl-paper-figures/paperstyle.Pa
   row_gap_mm: 10
   pad_left_mm: 8
 
+caption:                           # legend draft -> snapshot <figure>_caption.md; descriptive wording only here
+  title: >-
+    One-line descriptive title.
+  footer: >-
+    Shared methods: trial exclusions, cohort definition, colours, error bars, tests, multiple comparisons.
+
 shared:                            # computed once per build, cached in Figures/_cache/
   behaviour_table:
     repo: behaviour_analysis
@@ -18,11 +24,17 @@ shared:                            # computed once per build, cached in Figures/
 panels:
   - id: a
     title: Task schematic
+    caption: >-
+      Task and training schedule. [Drawing.]
     cell: {row: 0, col: 0, nrows: 1, ncols: 2}
     kind: drawing                  # imported artwork; no CSV
     status: placeholder            # placeholder | filled | approved
   - id: b
     title: Learning curves, R+ vs R-
+    caption: >-                    # {path[:fmt]} filled from the panel's run meta; ':p' = exact P value
+      Whisker learning curves, mean ± s.e.m. over mice. n = {n.R+.mice} R+ and {n.R-.mice} R- mice;
+      Mann-Whitney U = {stats.mannwhitney_U:.0f}, {stats.mannwhitney_p:p}; Welch's t = {stats.welch_t:.2f},
+      {stats.welch_p:p}.
     cell: {row: 0, col: 2, nrows: 1, ncols: 1}
     inputs: [behaviour_table]
     compute:
