@@ -1,4 +1,4 @@
-"""Shared input: trial table of all included mice, auditory days -2/-1 and whisker days 0/+1/+2, built with
+"""Shared input: trial table of all included mice, every auditory (pretraining) day and whisker days 0/+1/+2, built with
 behaviour_analysis from the NWB_ks4 files and cached in Figures/_cache/.
 
 Selection: mice with exclude == 0 and reward_group R+ or R- in joint_mouse_reference_weight.xlsx (cohort per mouse from
@@ -15,7 +15,8 @@ import pandas as pd
 
 from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET, import_external_repos
 
-PARAMS = {"nwb_dir": "NWB_ks4", "days": [-2, -1, 0, 1, 2], "behaviors": ["auditory", "whisker"], "version": 3}  # v3: canonical NAS behaviour_analysis
+PARAMS = {"nwb_dir": "NWB_ks4", "auditory_days": "all (pretraining)", "whisker_days": [0, 1, 2],
+          "behaviors": ["auditory", "whisker"], "version": 4}  # v3: canonical NAS repo; v4: every auditory day
 CACHE_FILE = CACHE_DIR / f"behaviour_table_v{PARAMS['version']}.parquet"
 UNTRIMMED_DAY0_FILE = CACHE_DIR / f"behaviour_table_v{PARAMS['version']}_day0_untrimmed.parquet"
 KEEP_COLUMNS = ["mouse_id", "session_id", "behavior", "day", "trial_id", "start_time", "trial_type", "perf",
@@ -61,7 +62,8 @@ def build(n_workers=16):
     # reindex_whisker_days offsets every column containing "time" when it merges whisker_on_1/_2 sessions, including
     # computed_reaction_time (AB077-AB107 day +2): recompute it after the merge
     table["computed_reaction_time"] = table.lick_time - table.response_window_start_time
-    table = table[table.behavior.isin(PARAMS["behaviors"]) & table.day.isin(PARAMS["days"])]
+    table = table[((table.behavior == "auditory") & (table.day < 0))
+                  | ((table.behavior == "whisker") & table.day.isin(PARAMS["whisker_days"]))]
     # whisker trials only on whisker days (MH010 has 5 whisker trials on auditory day -2)
     table = table[~((table.behavior == "auditory") & (table.trial_type == "whisker_trial"))]
     table = table[(table.perf != 6) & (table.context.astype(str) != "passive")]

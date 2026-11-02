@@ -215,6 +215,7 @@ def main():
     args = parser.parse_args()
 
     table = shared_behaviour.load(rebuild=args.rebuild_cache)
+    table = table[table.day >= -2]  # this example shows days -2..+2 (the cache holds every auditory day since v4)
     curves = day0_curves(table)
     ctx = {"table": table, "curves": curves, "examples": example_sessions(curves)}
     print("examples:", ctx["examples"])
