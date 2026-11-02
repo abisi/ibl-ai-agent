@@ -15,7 +15,7 @@ description: Use this skill to design and build the main and supplementary figur
 | Layer | Where | When |
 |---|---|---|
 | Analysis code | existing repos (`behaviour_analysis`, `ephys_utilities`, `ibl-ai-agent/projects/...`), imported as they are | now |
-| Figure code: `spec.yaml`, `compute.py`, `plot.py`, `make_figure.py` per figure, shared `paperstyle.py` | `projects/ssl-paper-figures/` in ibl-ai-agent (public fork; same copy on haas) | now |
+| Figure code: `spec.yaml`, `compute.py`, `plot.py` per figure; shared `build.py` (assembly, exports, note, caption), `paperstyle.py`, `common.py` | `projects/ssl-paper-figures/` in ibl-ai-agent (public fork; same copy on haas) | now |
 | Outputs, one dated snapshot per build | `M:\analysis\Axel_Bisi\manuscripts\Bisi_Hamon\Figures\<FigureN_topic>_<YYYY-MM-DD>\` (`/mnt/lsens-analysis/Axel_Bisi/manuscripts/Bisi_Hamon/Figures/` on haas; resolve with `scripts/axel_bisi_paths.py`) | now |
 | Shared caches (e.g. behaviour table over all NWBs) | `.../Bisi_Hamon/Figures/_cache/` | now |
 | Clean standalone repo: NWB -> intermediate data -> analyses -> figures | new repo | at submission only |
@@ -39,7 +39,9 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
 1. **Design together** (no code yet). Agree on the figure's single message, the panels, their order and letters,
    the grid placement, and for each panel the analysis that produces it (repo, module, function, parameters, data
    scope). Write it into `figures/<FigureN_topic>/spec.yaml` (template: `references/figure_spec_template.yaml`; worked example `figures/Example_behaviour/spec.yaml`) and
-   render the layout immediately: unfilled panels show as labelled placeholder boxes. Ask before changing an agreed
+   render the layout immediately (`build.py figures/<FigureN_topic>`): unfilled panels show as labelled placeholder
+   boxes. The user may draft panels in the figure planner page (see memory); read it with ArtifactData. Letters follow
+   reading order (left to right, top to bottom); re-letter once the panel list is final. Ask before changing an agreed
    design.
 2. **Fill panel by panel.** For one panel at a time: write `compute_<id>()` returning one tidy DataFrame, run it
    **from scratch on haas** (writes `data/Fig<N><id>_*.csv`), write `plot_<id>(ax, df)` that reads only that CSV,
@@ -61,9 +63,13 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
   their compute part is imported or factored out, their drawing is rewritten as a `plot_<id>`.
 
 ## Keeping the submission cleanup cheap
-- Every repo a figure imports from is under git, and the generation note records its commit and whether the working
-  tree was dirty. A repo without git (e.g. `~/code/behaviour_analysis` on haas, 2026-10-30) is put under git before its
-  first panel is filled; ask the user.
+- Every repo a figure imports from is under git, and the generation note records its commit and the files whose
+  content differs from it. Import the canonical git checkouts on the NAS (`<Axel_Bisi>/behaviour_analysis`,
+  `<Axel_Bisi>/NWB_reader`, GitHub `abisi/*`; `common.EXTERNAL_REPOS`), never the old `~/code` copies on haas. Never
+  commit to those shared repos yourself: code they lack (e.g. `learning_curve_exact.py`) is vendored in
+  `projects/ssl-paper-figures/` with a header saying where it belongs, and the user moves it.
+- Learning-curve panels use the exact re-fit (`learning_curve_exact`, sigma 1, 80% CI) computed from the NWB files,
+  not the stored PyMC curves (user, 2026-11-02; comparison in `checks/001_exact_vs_stored_curves.py`).
 - `spec.yaml` lists the exact function and parameters of every panel: this is the to-do list of the clean repo.
 - Plotting reads only CSVs, so `plot.py`, `paperstyle.py` and the layout move to the clean repo unchanged.
 - At submission: the clean repo regenerates every panel's CSV from the NWB files, and a diff against the submitted
