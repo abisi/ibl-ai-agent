@@ -53,12 +53,18 @@ panels:
     status: placeholder
   - id: c
     title: Auditory pretraining is comparable across cohorts
+    caption: >-
+      Number of trials performed during auditory pretraining (all auditory days, after exclusions), per mouse. Dots,
+      mice; marker and bar, mean ± s.e.m. n = {stats.n_R+} R+ and {stats.n_R-} R- mice; Mann-Whitney U =
+      {stats.mannwhitney_U:.0f}, {stats.mannwhitney_p:p}; Welch's t = {stats.welch_t:.2f}, {stats.welch_p:p}. Median
+      number of auditory days, {median_days.R+:.0f} (R+) and {median_days.R-:.0f} (R-); Mann-Whitney
+      {stats_days.mannwhitney_p:p}, Welch {stats_days.welch_p:p}.
     cell: {row: 0, col: 2}
     calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_pretraining (logic)]
     params: {measure: "number of trials during auditory pretraining (all auditory days, active trials, per mouse)"}
     stats: "Mann-Whitney U + Welch t, R+ vs R-, mice"
     data: Fig1c_auditory_pretraining.csv
-    status: placeholder
+    status: filled
   - id: b
     title: Performance from the last auditory day to whisker day 0
     cell: {row: 0, col: 3, ncols: 2}
@@ -68,49 +74,79 @@ panels:
     status: placeholder
   - id: d
     title: Reaction-time distributions
+    caption: >-
+      Reaction times on whisker day 0 for licks on whisker (cohort colour), auditory (blue) and no-stimulus trials
+      (false alarms, black), trials pooled across mice (25 ms bins, normalised to unit area); R+ solid, R- dashed.
+      Reaction time is measured from the start of the response window. n = {n_trials.R+ whisker_trial}, {n_trials.R+
+      auditory_trial} and {n_trials.R+ no_stim_trial} R+ and {n_trials.R- whisker_trial}, {n_trials.R-
+      auditory_trial} and {n_trials.R- no_stim_trial} R- whisker, auditory and no-stimulus licks from {n.R+.mice} R+
+      and {n.R-.mice} R- mice. Per-mouse median reaction time, R+ versus R-: whisker, Mann-Whitney
+      {stats_mouse_median.whisker_trial.mannwhitney_p:p}, Welch {stats_mouse_median.whisker_trial.welch_p:p};
+      auditory, Mann-Whitney {stats_mouse_median.auditory_trial.mannwhitney_p:p}, Welch
+      {stats_mouse_median.auditory_trial.welch_p:p}; false alarms, Mann-Whitney
+      {stats_mouse_median.no_stim_trial.mannwhitney_p:p}, Welch {stats_mouse_median.no_stim_trial.welch_p:p}.
     cell: {row: 0, col: 5}
     calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_reaction_time (logic)]
     params: {reaction_time: "lick_time - response_window_start_time", trials: "licks on whisker, auditory and no-stim (FA) trials, early_lick == 0", days: [0]}
     stats: "per-mouse median whisker RT, Mann-Whitney U + Welch t"
     data: Fig1d_reaction_times.csv
-    status: placeholder
+    status: filled
   # ---- row 1: example sessions and learning outcome
   # ---- row 1: example sessions only (user 2026-11-02), learning curves with performance states
   - id: e
     title: Example R+ learner
+    caption: >-
+      Whisker day 0 of an example R+ learner ({mouse_id}; {n_whisker_trials} whisker trials). Learning curves
+      estimated with an exact state-space (hidden Markov) model of lick probability (random-walk sigma = 1 in logit
+      units), fitted separately to whisker trials (cohort colour; shading, 80% posterior interval), no-stimulus
+      trials (black; chance) and auditory trials (blue), the last two interpolated in time onto whisker trials.
+      Ticks, whisker trials with a lick (top, green) or without (bottom, magenta). Background, high-performance
+      state: at least 5 consecutive whisker trials whose lower bound exceeds the chance curve (R+) or lies below it
+      (R-); grey, low-performance state after a high state with whisker and false-alarm rates below 0.2 and 0.1
+      until the end of the session. Learners and non-learners as classified in the reference sheet.
     cell: {row: 1, col: 0}
     inputs: [day0_curves, perf_states, learner_label]
     params: {example: AB164}
     data: Fig1e_example_rplus_learner.csv
-    status: placeholder
+    status: filled
   - id: f
     title: Example R+ non-learner
+    caption: >-
+      As in e for an R+ non-learner ({mouse_id}; {n_whisker_trials} whisker trials).
     cell: {row: 1, col: 1}
     inputs: [day0_curves, perf_states, learner_label]
-    params: {example: "sheet 'bad' R+ mouse (pick with the user)"}
+    params: {example: AB151}
     data: Fig1f_example_rplus_nonlearner.csv
-    status: placeholder
+    status: filled
   - id: g
     title: Example R- learner
+    caption: >-
+      As in e for an R- learner ({mouse_id}; {n_whisker_trials} whisker trials).
     cell: {row: 1, col: 2}
     inputs: [day0_curves, perf_states, learner_label]
-    params: {example: "sheet 'good' R- mouse (pick with the user)"}
+    params: {example: AB158}
     data: Fig1g_example_rminus_learner.csv
-    status: placeholder
+    status: filled
   - id: w
     title: Example R- non-learner
+    caption: >-
+      As in e for an R- non-learner ({mouse_id}; {n_whisker_trials} whisker trials).
     cell: {row: 1, col: 3}
     inputs: [day0_curves, perf_states, learner_label]
-    params: {example: "sheet 'bad' R- mouse (2 candidates)"}
+    params: {example: MH064}
     data: Fig1w_example_rminus_nonlearner.csv
-    status: placeholder
+    status: filled
   - id: h
     title: Fraction of mice that learn
+    caption: >-
+      Fraction of mice classified as learners (reference-sheet category good or moderate; non-learners, bad) among
+      mice with a whisker day-0 session; numbers, learners/mice. Two-sided Fisher's exact test, odds ratio =
+      {stats.fisher_odds_ratio:.2f}, {stats.fisher_p:p}.
     cell: {row: 1, col: 4}
     inputs: [learner_label]
     stats: "Fisher exact test"
     data: Fig1h_fraction_learners.csv
-    status: placeholder
+    status: filled
   - id: i
     title: Whisker trials before the first whisker lick
     cell: {row: 3, col: 5}
