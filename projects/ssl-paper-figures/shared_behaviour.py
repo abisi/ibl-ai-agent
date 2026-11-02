@@ -15,8 +15,9 @@ import pandas as pd
 
 from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET, import_external_repos
 
-PARAMS = {"nwb_dir": "NWB_ks4", "days": [-2, -1, 0, 1, 2], "behaviors": ["auditory", "whisker"], "version": 2}
+PARAMS = {"nwb_dir": "NWB_ks4", "days": [-2, -1, 0, 1, 2], "behaviors": ["auditory", "whisker"], "version": 3}  # v3: canonical NAS behaviour_analysis
 CACHE_FILE = CACHE_DIR / f"behaviour_table_v{PARAMS['version']}.parquet"
+UNTRIMMED_DAY0_FILE = CACHE_DIR / f"behaviour_table_v{PARAMS['version']}_day0_untrimmed.parquet"
 KEEP_COLUMNS = ["mouse_id", "session_id", "behavior", "day", "trial_id", "start_time", "trial_type", "perf",
                 "lick_flag", "lick_time", "response_window_start_time", "computed_reaction_time", "early_lick",
                 "context", "outcome_w", "outcome_a", "outcome_n", "opto_stim"]
@@ -64,21 +65,34 @@ def build(n_workers=16):
     # whisker trials only on whisker days (MH010 has 5 whisker trials on auditory day -2)
     table = table[~((table.behavior == "auditory") & (table.trial_type == "whisker_trial"))]
     table = table[(table.perf != 6) & (table.context.astype(str) != "passive")]
+    untrimmed_day0 = _finish(table[(table.behavior == "whisker") & (table.day == 0)], ref)  # stored-curve trial set
     table = pd.concat([drop_warmup_block(s) for _, s in table.groupby("session_id")], ignore_index=True)
+    return _finish(table, ref), untrimmed_day0, len(files)
+
+
+def _finish(table, ref):
     table = table[KEEP_COLUMNS].merge(ref, on="mouse_id", how="inner")
     table["reward_group"] = table.cohort.map({"R+": 1, "R-": 0})  # coding used by behaviour_analysis
-    return table.reset_index(drop=True), len(files)
+    return table.reset_index(drop=True)
 
 
 def load(rebuild=False):
     if CACHE_FILE.exists() and not rebuild:
         return pd.read_parquet(CACHE_FILE)
-    table, n_files = build()
+    table, untrimmed_day0, n_files = build()
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = CACHE_FILE.with_suffix(".tmp")
-    table.to_parquet(tmp)
-    tmp.rename(CACHE_FILE)
+    for df, path in ((untrimmed_day0, UNTRIMMED_DAY0_FILE), (table, CACHE_FILE)):
+        tmp = path.with_suffix(".tmp")
+        df.to_parquet(tmp)
+        tmp.rename(path)
     json.dump({**PARAMS, "n_nwb_files": n_files, "n_mice": int(table.mouse_id.nunique()),
                "n_sessions": int(table.session_id.nunique())},
               open(CACHE_FILE.with_suffix(".json"), "w"), indent=1)
     return table
+
+
+def load_untrimmed_day0():
+    """Whisker day 0 without the warm-up cut (the trial set of the stored ks4 learning curves)."""
+    if not UNTRIMMED_DAY0_FILE.exists():
+        load(rebuild=True)
+    return pd.read_parquet(UNTRIMMED_DAY0_FILE)

@@ -1,0 +1,204 @@
+# Figure 1 -- behaviour. Designed with the user in the figure planner artifact (2026-11-02); one figure, 22 panels.
+# Learning-curve-dependent panels use the exact re-fit (learning_curve_exact, sigma 1, 80% CI; user 2026-11-02).
+figure: Figure1_behaviour
+number: "1"
+grid: {width_mm: 183, n_cols: 6, col_gap_mm: 7, row_gap_mm: 10, pad_left_mm: 8}
+
+caption:
+  title: >-
+    Auditory-to-whisker transfer learning: task, within-session learning dynamics, correlates of learning and a
+    behavioural model.
+  footer: >-
+    Trials with perf = 6 and passive trials are excluded; on whisker day 0 the auditory warm-up block is removed
+    except its last trial; early-lick trials are excluded. Reaction time is the first-lick time from the start of the
+    response window. Cohort (R+, whisker hits rewarded; R-, whisker hits not rewarded) is assigned per mouse from the
+    reference sheet. R+, green; R-, magenta; auditory, blue; no stimulus, black. Unless stated otherwise, data are
+    mean ± s.e.m. over mice and R+ versus R- comparisons are two-sided Mann-Whitney U tests and Welch's t-tests, both
+    reported, without correction for multiple comparisons.
+
+shared:
+  behaviour_table:
+    code: shared_behaviour.load
+    calls: [behaviour_analysis/behavior_analysis_utils.build_standard_behavior_table,
+            behaviour_analysis/behavior_analysis_utils.reindex_whisker_days]
+    params: {nwb_dir: NWB_ks4, days: [-2, -1, 0, 1, 2], trials: "perf != 6, not passive, day-0 warm-up cut, no whisker trials on auditory days", reaction_time: "recomputed after reindex_whisker_days"}
+  day0_curves:
+    code: compute.day0_curves
+    calls: [ssl-paper-figures/learning_curve_exact.session_learning_curves_exact (vendored; learning trial by behaviour_analysis/learning_utils.identify_learning_trial_*)]
+    params: {sigma: 1.0, conf_int: 80, trials: "whisker day 0, early_lick == 0", chance: "no-stim curve interpolated in time onto whisker trials"}
+  perf_states:
+    code: compute.perf_states
+    calls: [behaviour_analysis/learning_utils.assign_expertise_blocks, behaviour_analysis/learning_utils.propagate_expertise_inplace]
+    params: {n_consecutive: 5, criterion: "R+: p_low > p_chance; R-: repo rule", curves: day0_curves}
+  dlc_trials:
+    code: compute.dlc_trials
+    calls: [behaviour_analysis/beh_correlates/beh_correlates.process_mouse]
+    params: {}
+  glm_v3:
+    code: glm_v3_run (wrapper; Myriam's file unchanged)
+    calls: [behaviour_analysis/glm_behavior/glm_behavior_v3.process_one_mouse]
+    params: {perf_states: "from day0_curves (exact), not the 2025 combined_results curves the script reads by default"}
+
+panels:
+  # ---- row 0: task and pretraining
+  - id: a
+    title: Task and training schedule
+    cell: {row: 0, col: 0, ncols: 2}
+    kind: drawing
+    status: placeholder
+  - id: c
+    title: Auditory pretraining is comparable across cohorts
+    cell: {row: 0, col: 2}
+    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_pretraining (logic), plot_multi_mouse_training_stats]
+    params: {measures: "TO DECIDE: auditory days to criterion, auditory hit rate and FA rate on day -1"}
+    stats: "Mann-Whitney U + Welch t, R+ vs R-, mice"
+    data: Fig1c_auditory_pretraining.csv
+    status: placeholder
+  - id: b
+    title: Performance from the last auditory day to whisker day 0
+    cell: {row: 0, col: 3, ncols: 2}
+    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_across_days (logic)]
+    params: {days: [-1, 0], unit: "mouse", trials: "early_lick == 0"}
+    data: Fig1b_performance_days.csv
+    status: placeholder
+  - id: d
+    title: Reaction-time distributions
+    cell: {row: 0, col: 5}
+    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_reaction_time (logic)]
+    params: {reaction_time: "lick_time - response_window_start_time", trials: "hits, early_lick == 0", days: "TO DECIDE (day 0 only or -1/0)"}
+    stats: "per-mouse median whisker RT, Mann-Whitney U + Welch t"
+    data: Fig1d_reaction_times.csv
+    status: placeholder
+  # ---- row 1: example sessions and learning outcome
+  - id: e
+    title: Example R+ learner reaching the high-performance state
+    cell: {row: 1, col: 0}
+    inputs: [day0_curves, perf_states]
+    params: {example: "TO DECIDE (default: R+ learner closest to the cohort median learning trial)"}
+    data: Fig1e_example_rplus_learner.csv
+    status: placeholder
+  - id: f
+    title: Example R+ non-learner
+    cell: {row: 1, col: 1}
+    inputs: [day0_curves, perf_states]
+    params: {example: "TO DECIDE (default: R+ mouse never in the high-performance state)"}
+    data: Fig1f_example_rplus_nonlearner.csv
+    status: placeholder
+  - id: g
+    title: Example R- session, gradual learning
+    cell: {row: 1, col: 2}
+    inputs: [day0_curves, perf_states]
+    params: {example: "TO DECIDE (default: R- learner closest to the cohort median learning trial)"}
+    data: Fig1g_example_rminus.csv
+    status: placeholder
+  - id: h
+    title: Fraction of mice that learn
+    cell: {row: 1, col: 3}
+    inputs: [day0_curves]
+    stats: "Fisher exact test"
+    notes: "Learner definition still open (reference sheet vs learning-trial rule); exact re-fit rule by default."
+    data: Fig1h_fraction_learners.csv
+    status: placeholder
+  - id: i
+    title: Whisker trials before the first whisker lick
+    cell: {row: 1, col: 4}
+    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_trials_to_first_lick (logic)]
+    stats: "Mann-Whitney U + Welch t, mice"
+    data: Fig1i_trials_to_first_lick.csv
+    status: placeholder
+  - id: j
+    title: Performance per state
+    cell: {row: 1, col: 5}
+    inputs: [perf_states]
+    calls: [behaviour_analysis/perf_state_plots.plot_low_vs_high_perf_sidebyside (logic)]
+    params: {measures: "hit, FA (and auditory) rates in low vs high state"}
+    stats: "paired low vs high within cohort (Wilcoxon + paired t), R+ vs R- per state"
+    data: Fig1j_performance_per_state.csv
+    status: placeholder
+  # ---- row 2: within-session dynamics
+  - id: v
+    title: Performance (whisker - FA) across the session
+    cell: {row: 2, col: 0, ncols: 2}
+    inputs: [day0_curves]
+    calls: [behaviour_analysis/learning_utils.align_curves_at_first_whisker_hit, beh_plotting_functions.plot_multi_mouse_binned_session (logic)]
+    params: {alignment: "first whisker stimulus", x: "normalised session time"}
+    data: Fig1v_performance_session.csv
+    status: placeholder
+  - id: k
+    title: False-alarm rate aligned to the first whisker lick
+    cell: {row: 2, col: 2}
+    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_whisker_session_rates (partly)]
+    params: {alignment: "first whisker-trial lick", window: "TO DECIDE"}
+    data: Fig1k_fa_aligned_first_whisker_lick.csv
+    status: placeholder
+  - id: l
+    title: False-alarm change vs day -1 at matched reward count
+    cell: {row: 2, col: 3}
+    params: {comparison: "whisker day 0 vs auditory day -1, aligned at the same number of rewards collected"}
+    notes: "New code."
+    data: Fig1l_fa_vs_day_minus1.csv
+    status: placeholder
+  - id: n
+    title: False-alarm change, statistics
+    cell: {row: 2, col: 4}
+    params: {measure: "TO DECIDE with k and l (FA after - before)"}
+    stats: "TO DECIDE"
+    data: Fig1n_fa_change_stats.csv
+    status: placeholder
+  - id: m
+    title: Auto- and cross-correlation of whisker and FA curves
+    cell: {row: 2, col: 5}
+    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_behaviour_autocorrelation (logic)]
+    inputs: [day0_curves]
+    data: Fig1m_whisker_fa_xcorr.csv
+    status: placeholder
+  # ---- row 3: correlates of learning (movements)
+  - id: t
+    title: Example R+ session with movements, trial by trial
+    cell: {row: 3, col: 0, ncols: 3}
+    inputs: [dlc_trials, day0_curves]
+    params: {example: "same R+ mouse as e", variables: "DLC (jaw, whisker, nose, tongue, pupil?) spontaneous movements per trial"}
+    data: Fig1t_example_movements.csv
+    status: placeholder
+  - id: u
+    title: Learning curve vs movement variables, linear-shift null
+    cell: {row: 3, col: 3, ncols: 2}
+    inputs: [dlc_trials, day0_curves]
+    calls: [behaviour_analysis/beh_correlates/beh_correlates.compute_lagged_correlation]
+    stats: "correlation vs linear-shift null, per cohort"
+    data: Fig1u_curve_movement_correlation.csv
+    status: placeholder
+  # ---- row 4: behavioural GLM (glm_behavior_v3)
+  - id: o
+    title: Behavioural GLM schematic
+    cell: {row: 4, col: 0}
+    kind: drawing
+    status: placeholder
+  - id: p
+    title: Example session, GLM predictions
+    cell: {row: 4, col: 1}
+    inputs: [glm_v3]
+    data: Fig1p_glm_example_predictions.csv
+    status: placeholder
+  - id: q
+    title: GLM performance across mice and cohorts
+    cell: {row: 4, col: 2}
+    inputs: [glm_v3]
+    calls: [behaviour_analysis/glm_behavior/glm_behavior_plotting_new.plot_goodness_of_fit_compact (logic)]
+    data: Fig1q_glm_performance.csv
+    status: placeholder
+  - id: r
+    title: GLM weights by magnitude, per cohort
+    cell: {row: 4, col: 3, ncols: 2}
+    inputs: [glm_v3]
+    calls: [behaviour_analysis/glm_behavior/glm_behavior_plotting_new.plot_feature_importance_summary (logic)]
+    stats: "per predictor R+ vs R- (Mann-Whitney U + Welch t)"
+    data: Fig1r_glm_weights.csv
+    status: placeholder
+  - id: s
+    title: Drop in performance per predictor
+    cell: {row: 4, col: 5}
+    inputs: [glm_v3]
+    calls: [behaviour_analysis/glm_behavior/glm_behavior_plotting_new.plot_shuffle_importance_summary or plot_nested_comparison_summary (TO DECIDE)]
+    data: Fig1s_glm_predictor_drop.csv
+    status: placeholder

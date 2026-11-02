@@ -18,8 +18,8 @@ REPO = HERE.parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 from axel_bisi_paths import axel_bisi_root  # noqa: E402
 
-CODE_ROOT = Path.home() / "code"  # haas checkouts of the analysis repos
-EXTERNAL_REPOS = {"behaviour_analysis": CODE_ROOT / "behaviour_analysis", "NWB_reader": CODE_ROOT / "NWB_reader"}
+# canonical git checkouts on the NAS (GitHub abisi/behaviour_analysis, abisi/NWB_reader); ~/code copies on haas are old
+EXTERNAL_REPOS = {"behaviour_analysis": axel_bisi_root() / "behaviour_analysis", "NWB_reader": axel_bisi_root() / "NWB_reader"}
 FIGURES_ROOT = axel_bisi_root() / "manuscripts" / "Bisi_Hamon" / "Figures"
 CACHE_DIR = FIGURES_ROOT / "_cache"
 REFERENCE_SHEET = axel_bisi_root() / "dataset_info" / "joint_mouse_reference_weight.xlsx"
@@ -51,14 +51,16 @@ def snapshot_dir(spec, date=None):
 
 
 def repo_state(path, files=()):
-    """Commit and dirty flag of a git repo; for a repo without git, the md5 of the files used."""
+    """Commit of a git repo and the files whose content differs from it (line-ending-only changes of the NAS checkouts
+    ignored); for a repo without git, the md5 of the files used. NAS checkouts need safe.directory on haas."""
     path = Path(path)
+    git = ["git", "-c", "safe.directory=*", "-C", str(path)]
     try:
-        commit = subprocess.run(["git", "-C", str(path), "rev-parse", "HEAD"], capture_output=True, text=True,
-                                check=True).stdout.strip()
-        dirty = bool(subprocess.run(["git", "-C", str(path), "status", "--porcelain"], capture_output=True,
-                                    text=True).stdout.strip())
-        return {"path": str(path), "commit": commit, "dirty": dirty}
+        commit = subprocess.run(git + ["rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        changed = subprocess.run(git + ["diff", "--ignore-cr-at-eol", "--name-only", "HEAD"], capture_output=True,
+                                 text=True).stdout.split()
+        changed = [f for f in changed if not f.startswith(".idea")]
+        return {"path": str(path), "commit": commit, "dirty": bool(changed), "changed_files": changed}
     except subprocess.CalledProcessError:
         md5 = {f: hashlib.md5((path / f).read_bytes()).hexdigest() for f in files if (path / f).exists()}
         return {"path": str(path), "commit": None, "note": "not under git", "md5": md5}
