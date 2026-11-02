@@ -34,7 +34,7 @@ shared:
   perf_states:
     code: compute.perf_states
     calls: [behaviour_analysis/learning_utils.assign_expertise_blocks, behaviour_analysis/learning_utils.propagate_expertise_inplace]
-    params: {n_consecutive: 5, criterion: "R+: p_low > p_chance; R-: repo rule", curves: day0_curves}
+    params: {n_consecutive: 5, criterion: "R+: p_low > p_chance; R-: p_low < p_chance (as in the repo; confirmed by the user 2026-11-02)", low_sated: "after a high block, p_mean < 0.2 and p_chance < 0.1 to the session end", curves: day0_curves}
   dlc_trials:
     code: compute.dlc_trials
     calls: [behaviour_analysis/beh_correlates/beh_correlates.process_mouse]
@@ -67,11 +67,18 @@ panels:
     status: filled
   - id: b
     title: Performance from the last auditory day to whisker day 0
+    caption: >-
+      Lick probability on whisker (cohort colour), auditory (blue) and no-stimulus trials (black) on the last
+      auditory day (day -1) and whisker day 0; R+ solid, R- dashed; mean ± s.e.m. over mice. n = {n.R+.-1} and
+      {n.R+.0} R+ and {n.R-.-1} and {n.R-.0} R- mice. Day 0, R+ versus R-: whisker, Mann-Whitney
+      {stats_day0.whisker_trial.mannwhitney_p:p}, Welch {stats_day0.whisker_trial.welch_p:p}; auditory, Mann-Whitney
+      {stats_day0.auditory_trial.mannwhitney_p:p}, Welch {stats_day0.auditory_trial.welch_p:p}; no stimulus,
+      Mann-Whitney {stats_day0.no_stim_trial.mannwhitney_p:p}, Welch {stats_day0.no_stim_trial.welch_p:p}.
     cell: {row: 0, col: 3, ncols: 2}
     calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_across_days (logic)]
     params: {days: [-1, 0], unit: "mouse", trials: "early_lick == 0"}
     data: Fig1b_performance_days.csv
-    status: placeholder
+    status: filled
   - id: d
     title: Reaction-time distributions
     caption: >-
@@ -156,44 +163,73 @@ panels:
     status: placeholder
   - id: j
     title: Performance per state
+    caption: >-
+      Lick probability on whisker (W), auditory (A) and no-stimulus (FA) trials in the low (open) and high (filled)
+      performance states of whisker day 0 (states as in e; auditory and no-stimulus trials take the state of the
+      nearest whisker trial), mean ± s.e.m. over mice; R+ left, R- right of each pair. High versus low within
+      cohort: R+ whisker, Wilcoxon {stats_high_vs_low.R+ whisker_trial.wilcoxon_p:p}, paired t {stats_high_vs_low.R+
+      whisker_trial.paired_t_p:p}; R+ FA, Wilcoxon {stats_high_vs_low.R+ no_stim_trial.wilcoxon_p:p}, paired t
+      {stats_high_vs_low.R+ no_stim_trial.paired_t_p:p}; R- whisker, Wilcoxon {stats_high_vs_low.R-
+      whisker_trial.wilcoxon_p:p}, paired t {stats_high_vs_low.R- whisker_trial.paired_t_p:p}; R- FA, Wilcoxon
+      {stats_high_vs_low.R- no_stim_trial.wilcoxon_p:p}, paired t {stats_high_vs_low.R- no_stim_trial.paired_t_p:p}
+      (n = {stats_high_vs_low.R+ whisker_trial.n_mice} R+ and {stats_high_vs_low.R- whisker_trial.n_mice} R- mice
+      with both states).
     cell: {row: 1, col: 5}
     inputs: [perf_states]
     calls: [behaviour_analysis/perf_state_plots.plot_low_vs_high_perf_sidebyside (logic)]
     params: {measures: "hit, FA (and auditory) rates in low vs high state"}
     stats: "paired low vs high within cohort (Wilcoxon + paired t), R+ vs R- per state"
     data: Fig1j_performance_per_state.csv
-    status: placeholder
+    status: filled
   # ---- row 2: within-session dynamics
   - id: v
     title: Performance (whisker - FA) across the session
+    caption: >-
+      Performance (whisker learning curve minus the chance, no-stimulus curve; curves as in e) across whisker day 0,
+      with session time normalised from the first (0) to the last (1) whisker trial, mean ± s.e.m. over mice. n =
+      {n.R+.mice} R+ and {n.R-.mice} R- mice.
     cell: {row: 2, col: 0, ncols: 2}
     inputs: [day0_curves]
     calls: [behaviour_analysis/learning_utils.align_curves_at_first_whisker_hit, beh_plotting_functions.plot_multi_mouse_binned_session (logic)]
     params: {alignment: "first whisker stimulus", x: "normalised session time"}
     data: Fig1v_performance_session.csv
-    status: placeholder
+    status: filled
   - id: k
     title: False-alarm rate aligned to the first whisker lick
+    caption: >-
+      Cumulative number of false alarms over the 30 whisker trials following the first whisker-trial lick of whisker
+      day 0, mean ± s.e.m. over mice. n = {n.R+.mice} R+ and {n.R-.mice} R- mice.
     cell: {row: 2, col: 2}
     calls: [behaviour_analysis/beh_plotting_functions.plot_cumulative_fa_vs_whisker_trials (day-0 subplot, logic)]
     params: {alignment: "first whisker-trial lick", n_trials: 30, trials: "untrimmed day 0 (warm-up auditory rewards count)"}
     data: Fig1k_fa_aligned_first_whisker_lick.csv
-    status: placeholder
+    status: filled
   - id: l
     title: False-alarm change vs day -1 at matched reward count
+    caption: >-
+      Cumulative number of false alarms over the 30 no-stimulus trials of the last auditory day (day -1) following
+      the trial at which each mouse had collected as many auditory rewards as before its first whisker lick on day
+      0, mean ± s.e.m. over mice. n = {n.R+.mice} R+ and {n.R-.mice} R- mice.
     cell: {row: 2, col: 3}
     calls: [behaviour_analysis/beh_plotting_functions.plot_cumulative_fa_vs_whisker_trials (day -1 subplot, logic)]
     params: {comparison: "auditory day -1, anchored where the mouse has the same number of auditory rewards as at its day-0 first whisker lick", n_trials: 30}
     data: Fig1l_fa_vs_day_minus1.csv
-    status: placeholder
+    status: filled
   - id: n
     title: False-alarm change, statistics
+    caption: >-
+      Change in early-session false-alarm rate (first 20 no-stimulus trials after the anchors of k and l), day 0
+      minus day -1, per mouse. Dots, mice; marker and bar, mean ± s.e.m. n = {stats.n_R+} R+ and {stats.n_R-} R-
+      mice; Mann-Whitney U = {stats.mannwhitney_U:.0f}, {stats.mannwhitney_p:p}; Welch's t = {stats.welch_t:.2f},
+      {stats.welch_p:p}; one-sided permutation test (R+ > R-, 10,000 permutations) {permutation.p_one_sided:p}.
+      Change versus zero: R+, Wilcoxon {stats_delta_vs_0.R+.wilcoxon_p:p}, t {stats_delta_vs_0.R+.t_p:p}; R-,
+      Wilcoxon {stats_delta_vs_0.R-.wilcoxon_p:p}, t {stats_delta_vs_0.R-.t_p:p}.
     cell: {row: 2, col: 4}
     calls: [behaviour_analysis/beh_plotting_functions.plot_fa_rate_day_change (logic)]
     params: {measure: "early-session FA rate (first 20 no-stim trials after the anchor), day 0 - day -1", n_trials_early: 20}
     stats: "Mann-Whitney U + Welch t, R+ vs R- (user rule); also the function's one-sided permutation test R+ > R-"
     data: Fig1n_fa_change_stats.csv
-    status: placeholder
+    status: filled
   - id: m
     title: Auto- and cross-correlation of whisker and FA curves
     cell: {row: 2, col: 5}

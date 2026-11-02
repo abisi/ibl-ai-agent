@@ -140,6 +140,158 @@ def compute_h(ctx):
     return df, {"n": n_by_cohort(mice), "stats": {"fisher_odds_ratio": float(res.statistic), "fisher_p": float(res.pvalue)}}
 
 
+def compute_b(ctx):
+    t = ctx["table"]
+    t = t[t.day.isin([-1, 0]) & (t.early_lick == 0)]
+    per_session = t.groupby(["mouse_id", "cohort", "day", "session_id", "trial_type"]).lick_flag.mean().reset_index()
+    df = (per_session.groupby(["mouse_id", "cohort", "day", "trial_type"])
+          .agg(lick_probability=("lick_flag", "mean"), session_id=("session_id", lambda s: ";".join(sorted(s))))
+          .reset_index())
+    tests = {}
+    for tt in ["whisker_trial", "auditory_trial", "no_stim_trial"]:
+        d = df[(df.day == 0) & (df.trial_type == tt)]
+        tests[tt] = two_group_tests(d[d.cohort == "R+"].lick_probability, d[d.cohort == "R-"].lick_probability)
+    return df, {"n": {c: {int(d): int(df[(df.cohort == c) & (df.day == d)].mouse_id.nunique()) for d in (-1, 0)}
+                      for c in COHORTS}, "stats_day0": tests}
+
+
+def compute_j(ctx):
+    rows = []
+    for sid, st in day0_table(ctx["table"]).groupby("session_id"):
+        st = st[st.early_lick == 0].sort_values("start_time").reset_index(drop=True)
+        curves, _, _ = session_curves(st)
+        st["block_perf_type"] = pd.Series([None] * len(st), dtype=object)
+        st.loc[st.trial_type == "whisker_trial", "block_perf_type"] = curves.state.to_numpy()
+        st = learning_utils.propagate_expertise_inplace(st)  # other trial types: state of the nearest whisker trial
+        rate = st.groupby(["block_perf_type", "trial_type"]).lick_flag.agg(["mean", "size"]).reset_index()
+        rate = rate.rename(columns={"mean": "lick_probability", "size": "n_trials", "block_perf_type": "state"})
+        rows.append(rate.assign(mouse_id=st.mouse_id.iloc[0], session_id=sid, cohort=st.cohort.iloc[0]))
+    df = pd.concat(rows, ignore_index=True)[["mouse_id", "session_id", "cohort", "state", "trial_type",
+                                             "lick_probability", "n_trials"]]
+    tests = {}
+    for c in COHORTS:
+        for tt in ["whisker_trial", "auditory_trial", "no_stim_trial"]:
+            w = (df[(df.cohort == c) & (df.trial_type == tt) & df.state.isin(["low", "high"])]
+                 .pivot_table(index="mouse_id", columns="state", values="lick_probability").dropna())
+            if len(w) < 3:
+                continue
+            t = stats.ttest_rel(w.high, w.low)
+            tests[f"{c} {tt}"] = {"n_mice": len(w), "wilcoxon_p": float(stats.wilcoxon(w.high, w.low).pvalue),
+                                  "paired_t": float(t.statistic), "paired_t_p": float(t.pvalue)}
+    return df, {"n": n_by_cohort(df), "stats_high_vs_low": tests}
+
+
+def _anchors(ctx):
+    """Early-FA anchors, as in behaviour_analysis beh_plotting_functions.plot_fa_rate_day_change and
+    plot_cumulative_fa_vs_whisker_trials. Per mouse: day-0 session (untrimmed, so warm-up auditory rewards count) in
+    start-time order, the index of its first whisker lick and the auditory rewards before it; day -1 session and the
+    index where the same number of auditory rewards is reached (0 rewards: trial 0). Early licks removed."""
+    if "fa_anchors" in ctx:
+        return ctx["fa_anchors"]
+    d0 = shared_behaviour.load_untrimmed_day0()
+    d0 = d0[d0.early_lick == 0]
+    dm1 = ctx["table"][(ctx["table"].behavior == "auditory") & (ctx["table"].day == -1) & (ctx["table"].early_lick == 0)]
+    out = {}
+    for mouse, s0 in d0.groupby("mouse_id"):
+        s0 = s0.sort_values("start_time").reset_index(drop=True)
+        wl = s0.index[(s0.trial_type == "whisker_trial") & (s0.lick_flag == 1)]
+        if len(wl) == 0:
+            continue
+        a0 = wl[0]
+        n_aud = int(((s0.index < a0) & (s0.trial_type == "auditory_trial") & (s0.lick_flag == 1)).sum())
+        rec = {"cohort": s0.cohort.iloc[0], "day0": s0, "anchor0": a0, "n_aud": n_aud}
+        sm = dm1[dm1.mouse_id == mouse]
+        if len(sm):
+            sm = sm.sort_values("start_time").reset_index(drop=True)
+            hits = sm.index[(sm.trial_type == "auditory_trial") & (sm.lick_flag == 1)]
+            if n_aud == 0:
+                rec.update(daym1=sm, anchor_m1=0)
+            elif len(hits) >= n_aud:
+                rec.update(daym1=sm, anchor_m1=hits[n_aud - 1])
+        out[mouse] = rec
+    ctx["fa_anchors"] = out
+    return out
+
+
+def compute_k(ctx):
+    n_trials = PANELS["k"]["params"]["n_trials"]
+    rows = []
+    for mouse, r in _anchors(ctx).items():
+        post = r["day0"][r["day0"].index > r["anchor0"]]
+        whisk = post.index[post.trial_type == "whisker_trial"]
+        if len(whisk) < n_trials:
+            continue
+        ns = post[post.trial_type == "no_stim_trial"]
+        for i in range(n_trials):
+            rows.append(dict(mouse_id=mouse, cohort=r["cohort"], whisker_trial_after_anchor=i + 1,
+                             cumulative_fa=int(ns[ns.index <= whisk[i]].lick_flag.sum()),
+                             n_aud_rewards_at_anchor=r["n_aud"]))
+    df = pd.DataFrame(rows)
+    return df, {"n": n_by_cohort(df)}
+
+
+def compute_l(ctx):
+    n_trials = PANELS["l"]["params"]["n_trials"]
+    rows = []
+    for mouse, r in _anchors(ctx).items():
+        if "daym1" not in r:
+            continue
+        ns = r["daym1"][(r["daym1"].index > r["anchor_m1"]) & (r["daym1"].trial_type == "no_stim_trial")]
+        if len(ns) < n_trials:
+            continue
+        cum = ns.lick_flag.iloc[:n_trials].cumsum().to_numpy()
+        rows += [dict(mouse_id=mouse, cohort=r["cohort"], no_stim_trial_after_anchor=i + 1, cumulative_fa=int(c),
+                      n_aud_rewards_matched=r["n_aud"]) for i, c in enumerate(cum)]
+    df = pd.DataFrame(rows)
+    return df, {"n": n_by_cohort(df)}
+
+
+def compute_n(ctx):
+    n_early = PANELS["n"]["params"]["n_trials_early"]
+    rows = []
+    for mouse, r in _anchors(ctx).items():
+        if "daym1" not in r:
+            continue
+        ns0 = r["day0"][(r["day0"].index > r["anchor0"]) & (r["day0"].trial_type == "no_stim_trial")]
+        nsm = r["daym1"][(r["daym1"].index > r["anchor_m1"]) & (r["daym1"].trial_type == "no_stim_trial")]
+        if len(ns0) < n_early or len(nsm) < n_early:
+            continue
+        fa0, fam = ns0.lick_flag.iloc[:n_early].mean(), nsm.lick_flag.iloc[:n_early].mean()
+        rows.append(dict(mouse_id=mouse, cohort=r["cohort"], fa_day0=fa0, fa_daym1=fam, delta_fa=fa0 - fam,
+                         n_aud_anchor=r["n_aud"]))
+    df = pd.DataFrame(rows)
+    a, b = df[df.cohort == "R+"].delta_fa.to_numpy(), df[df.cohort == "R-"].delta_fa.to_numpy()
+    # one-sided permutation test R+ > R- on the difference of means, as in plot_fa_rate_day_change
+    rng = np.random.default_rng(0)
+    pooled, obs = np.r_[a, b], a.mean() - b.mean()
+    perm = np.empty(10000)
+    for i in range(len(perm)):
+        x = rng.permutation(pooled)
+        perm[i] = x[:len(a)].mean() - x[len(a):].mean()
+    within = {c: {"wilcoxon_p": float(stats.wilcoxon(df[df.cohort == c].delta_fa).pvalue),
+                  "t_p": float(stats.ttest_1samp(df[df.cohort == c].delta_fa, 0).pvalue)} for c in COHORTS}
+    return df, {"n": n_by_cohort(df), "stats": two_group_tests(a, b),
+                "permutation": {"diff_means": float(obs), "p_one_sided": float((np.sum(perm >= obs) + 1) / (len(perm) + 1)),
+                                "n_perm": len(perm)},
+                "stats_delta_vs_0": within}
+
+
+def compute_v(ctx):
+    grid = np.linspace(0, 1, 51)
+    rows = []
+    for sid, st in day0_table(ctx["table"]).groupby("session_id"):
+        st = st[st.early_lick == 0].sort_values("start_time")
+        curves, _, _ = session_curves(st)
+        tw = st[st.trial_type == "whisker_trial"].start_time.to_numpy()
+        x = (tw - tw[0]) / (tw[-1] - tw[0])  # session time from the first to the last whisker trial
+        perf = np.interp(grid, x, (curves.p_mean - curves.p_chance).to_numpy())
+        rows.append(pd.DataFrame({"mouse_id": st.mouse_id.iloc[0], "session_id": sid, "cohort": st.cohort.iloc[0],
+                                  "learning_category": st.learning_category.iloc[0], "session_time_norm": grid,
+                                  "performance": perf}))
+    df = pd.concat(rows, ignore_index=True)
+    return df, {"n": n_by_cohort(df)}
+
+
 # ---------------------------------------------------------------- main
 
 def main():

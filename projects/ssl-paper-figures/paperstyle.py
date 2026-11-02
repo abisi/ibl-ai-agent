@@ -2,6 +2,7 @@
 panels, exports (PDF, SVG, AI, EPS, PNG, JPG) and the Nature source-data workbook.
 Canonical template: skills/ssl-paper-figures/references/paperstyle_template.py."""
 
+import datetime
 import shutil
 from pathlib import Path
 
@@ -91,12 +92,28 @@ def save_figure(fig, out_dir, name, raster_dpi=RASTER_DPI):
     with editable text), PNG and JPG at `raster_dpi`."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+
+    def _save(ext, write):
+        """A file open in a viewer on Windows cannot be overwritten on the NAS: write a timestamped copy instead."""
+        path = out_dir / f"{name}.{ext}"
+        try:
+            write(path)
+        except OSError as err:
+            path = out_dir / f"{name}_{datetime.datetime.now():%H%M%S}.{ext}"
+            print(f"warning: {name}.{ext} is locked ({err.strerror}); wrote {path.name}")
+            write(path)
+        written.append(path)
+        return path
+
     for ext in ("pdf", "svg", "eps"):
-        fig.savefig(out_dir / f"{name}.{ext}")
-    shutil.copyfile(out_dir / f"{name}.pdf", out_dir / f"{name}.ai")
-    fig.savefig(out_dir / f"{name}.png", dpi=raster_dpi)
-    fig.savefig(out_dir / f"{name}.jpg", dpi=raster_dpi, pil_kwargs={"quality": 95})
-    return sorted(out_dir.glob(f"{name}.*"))
+        pdf = _save(ext, lambda p: fig.savefig(p))
+        if ext == "pdf":
+            pdf_path = pdf
+    _save("ai", lambda p: shutil.copyfile(pdf_path, p))
+    _save("png", lambda p: fig.savefig(p, dpi=raster_dpi))
+    _save("jpg", lambda p: fig.savefig(p, dpi=raster_dpi, pil_kwargs={"quality": 95}))
+    return written
 
 
 def write_source_data(data_dir, workbook_path):

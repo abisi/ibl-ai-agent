@@ -100,3 +100,81 @@ def plot_h(ax, df):
     ax.set_ylim(0, 1.15)
     ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])  # narrow labels: the gap to the panel on the left is 7 mm
     ax.set_ylabel("Fraction learners", labelpad=1)
+
+
+def _mean_sem(df, by, value):
+    g = df.groupby(by)[value]
+    return g.mean(), g.sem()
+
+
+def plot_b(ax, df):
+    for tt in ["whisker_trial", "auditory_trial", "no_stim_trial"]:
+        for cohort, ls in COHORT_LS.items():
+            d = df[(df.trial_type == tt) & (df.cohort == cohort)]
+            if d.empty:
+                continue
+            m, s = _mean_sem(d, "day", "lick_probability")
+            color = COLORS[cohort] if tt == "whisker_trial" else TRIAL_TYPE_COLORS[tt]
+            ax.errorbar(m.index + (0.04 if cohort == "R-" else -0.04), m, s, color=color, ls=ls, marker="o", ms=2,
+                        capsize=0, elinewidth=0.6, lw=0.8)
+    ax.set_xticks([-1, 0], ["Last auditory day", "Whisker day 0"])
+    ax.set_xlim(-1.4, 0.4)
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_yticks([0, 0.5, 1])
+    ax.set_ylabel("Lick probability")
+
+
+def plot_j(ax, df):
+    df = df[df.state.isin(["low", "high"])]
+    for i, tt in enumerate(["whisker_trial", "auditory_trial", "no_stim_trial"]):
+        for k, cohort in enumerate(["R+", "R-"]):
+            d = df[(df.trial_type == tt) & (df.cohort == cohort)]
+            m, s = _mean_sem(d, "state", "lick_probability")
+            x = i + np.array([-0.3, -0.1]) + 0.4 * k
+            ax.plot(x, [m.get("low", np.nan), m.get("high", np.nan)], color=COLORS[cohort], lw=0.6, zorder=1)
+            for xi, state in zip(x, ["low", "high"]):
+                ax.errorbar(xi, m.get(state, np.nan), s.get(state, np.nan), color=COLORS[cohort], marker="o", ms=2.2,
+                            mfc="white" if state == "low" else COLORS[cohort], capsize=0, elinewidth=0.6, lw=0)
+    ax.set_xticks([0, 1, 2], ["W", "A", "FA"])
+    ax.set_xlim(-0.5, 2.5)
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
+    ax.set_ylabel("Lick probability", labelpad=1)
+
+
+def _cumulative(ax, df, x, xlabel, label):
+    for cohort in ["R+", "R-"]:
+        m, s = _mean_sem(df[df.cohort == cohort], x, "cumulative_fa")
+        ax.fill_between(m.index, m - s, m + s, color=light(COLORS[cohort], 0.7), lw=0)
+        ax.plot(m.index, m, color=COLORS[cohort], lw=0.8)
+    ax.set_xlabel(xlabel)
+    ax.set_xlim(1, df[x].max())
+    ax.set_ylim(0, 13)  # same range in k and l
+    ax.text(0.05, 0.95, label, transform=ax.transAxes, ha="left", va="top", fontsize=5.5)
+
+
+def plot_k(ax, df):
+    _cumulative(ax, df, "whisker_trial_after_anchor", "Whisker trial", "Day 0, from 1st\nwhisker lick")
+    ax.set_ylabel("Cumulative FA")
+
+
+def plot_l(ax, df):
+    _cumulative(ax, df, "no_stim_trial_after_anchor", "No-stim trial", "Day -1, from\nmatched reward")
+    ax.set_yticklabels([])
+
+
+def plot_n(ax, df):
+    _two_groups(ax, df, "delta_fa", "Δ early FA rate")
+    ax.axhline(0, color="0.6", lw=0.4, ls=":")
+
+
+def plot_v(ax, df):
+    for cohort in ["R+", "R-"]:
+        m, s = _mean_sem(df[df.cohort == cohort], "session_time_norm", "performance")
+        ax.fill_between(m.index, m - s, m + s, color=light(COLORS[cohort], 0.7), lw=0)
+        ax.plot(m.index, m, color=COLORS[cohort], lw=0.8, label=cohort)
+    ax.axhline(0, color="0.6", lw=0.4, ls=":")
+    ax.set_xlim(0, 1)
+    ax.set_xlabel("Session time (normalised)")
+    ax.set_ylabel("Whisker - chance")
+    ax.legend(loc="upper left", fontsize=5, frameon=False, handlelength=1)
