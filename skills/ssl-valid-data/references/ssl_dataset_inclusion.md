@@ -24,10 +24,14 @@ Canonical record of dataset-level decisions for all SSL analyses (created 2026-1
    `learning_category` is not good / moderate; keep their expert sessions.
 
 ## Known metadata errors and decisions (keep this list current)
+Per-session NWB conversion exceptions (camera runs, DLC timestamps, json overrides, skipped probes, epochs) are listed
+in `nwb_session_exceptions.md`.
+
 | item | issue | decision |
 |---|---|---|
 | MH035 day 0 (MH035_20250514_142713) | NWB `wh_reward = 1`, session label R+ | mouse is R- (sheet; user 2026-10-03) |
 | MH064 day +1 (MH064_20260115_104148) | NWB `wh_reward = 1`, session label R+; days +1/+2 `no_stim_weight = 0` but 121 / 114 no-stim trials exist (7 / 8 with licks) | mouse is R- (sheet; user) |
+| `wh_reward` vs `reward_available` (scan 2026-11-03, all 376 whisker sessions) | trials follow the sheet cohort everywhere; metadata `wh_reward` wrong in MH035 0 (1, no whisker trial reward_available), MH064 +1 (1, idem), MH038_20250525_130335 +1 (0, all 107 whisker trials reward_available; mouse R+); AB124 +1, MH008 +1, MH018 +1 (R-) have one reward_available whisker trial at session start (trial 0-2) | `Training/<session>/session_config_corrected.json` written 2026-11-03 (user) with `wh_reward` 0 / 0 / 1 (MH038: added to the existing corrected file, which also sets `camera_flag` 1); NWBs need reconversion (converter reads the corrected json from `Training/`) |
 | AB105 day 0 | `recording = 0` ("recorded but noise chunks"); not converted for analysis | excluded |
 | MH001 +3 / +4, MH067 +2 / +3 | `recording = 0` in the sheet (day-0 flag) | expert sessions included (rule 2) |
 | MH019 | `exclude_ephys = 1` | excluded |

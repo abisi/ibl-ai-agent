@@ -15,6 +15,7 @@ description: Use this skill for Axel Bisi's canonical unit-quality (quality_labe
 
 ## References
 - `references/ssl_dataset_inclusion.md`: canonical SSL dataset record — sources (raw NWB_ks4, mouse sheet), inclusion rules (exclude flags, `recording` for day 0 only, mouse-level cohort), known metadata errors and decisions, current unit-table version and paths. Read before any session-inclusion decision and update it whenever a dataset decision is made.
+- `references/nwb_session_exceptions.md`: per-session NWB_ks4 conversion exceptions (camera pulse runs, empty camera timestamps, json overrides, skipped probes, epoch fixes, unconverted sessions) and where each is applied. Read before trusting a session-specific oddity in an NWB file.
 - `references/ssl_valid_data_pipeline.md`: exact function signatures, argument quirks (dtype/encoding traps), and what each pipeline step changes about the data, sourced directly from `M:\analysis\Axel_Bisi\Github\ephys_utilities\ephys_utilities\{helpers,neural_utils}\*.py`.
 
 ## Workflow
