@@ -40,7 +40,7 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
    the grid placement, and for each panel the analysis that produces it (repo, module, function, parameters, data
    scope). Write it into `figures/<FigureN_topic>/spec.yaml` (template: `references/figure_spec_template.yaml`; worked example `figures/Example_behaviour/spec.yaml`) and
    render the layout immediately (`build.py figures/<FigureN_topic>`): unfilled panels show as labelled placeholder
-   boxes. The user may draft panels in the figure planner page (see memory); read it with ArtifactData. Letters follow
+   boxes. The user may draft panels in the figure planner page (see "Figure planner" below); read it with ArtifactData. Letters follow
    reading order (left to right, top to bottom); re-letter once the panel list is final. Ask before changing an agreed
    design.
 2. **Fill panel by panel.** For one panel at a time: write `compute_<id>()` returning one tidy DataFrame, run it
@@ -124,3 +124,25 @@ error bars, tests, multiple-comparison handling). Written by `common.write_capti
 - [ ] Caption has every panel, no `[?...]` or `[caption missing` left, and its n and P match the generation note.
 - [ ] No results or figure message in tracked files; figure code committed and pushed.
 - [ ] Decoding figure sets show the learning stage only (user rule); learner definition stated when a panel depends on it.
+
+## Figure planner
+Source: `assets/figure_planner.html`, published as a private claude.ai artifact (URL in the user's memory). Republish
+from this file with the Artifact tool, keeping the same URL.
+- **Data** (ArtifactData; shared db):
+  - `figures/<Figure>` holds the figure (name, message, grid `n_cols`/`n_rows`, `order`). `deleted: true` marks a figure
+    in the trash.
+  - `figures/<Figure>/panels/<pid>` holds one panel: `key`, `letter` (follows the layout), `title`,
+    `x_mm`/`y_mm`/`w_mm`/`h_mm`, `analysis`, `params`, `shows`, `stats`, `style`, `notes`, `status`.
+  - `history/<id>` logs every saved change as `{ts, path, figure, panel, kind (edit|create|delete), fields {old, new}
+    or data, user}`. The page offers Revert and Restore from it.
+- **Updating a figure from the planner:**
+  1. List the figure's panels.
+  2. Read `history` since the last build to see what changed.
+  3. Map planner keys to spec keys (they can differ, e.g. `fa_curves` -> `aligned_curves`).
+  4. Copy the cells and letters into `spec.yaml`.
+  5. Fix caption cross-references.
+  6. Re-run the **full** compute: caption meta is stored per letter, so re-lettered panels otherwise keep stale values.
+  7. Rebuild.
+- **Deleted figures:** move the code to `figures/_deleted/<Figure>_<date>/` and the snapshots to `Figures/_deleted/`,
+  then set `cleanup: done` on the figure doc.
+- No comments or requests on the page (user 2026-11-09); the history replaces them.

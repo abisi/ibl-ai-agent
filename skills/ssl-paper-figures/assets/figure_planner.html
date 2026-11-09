@@ -1,0 +1,1090 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Bisi &amp; Hamon Figure Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: figure tabs, then a mm-scaled panel grid (left) beside the panel editor (right); stacked on phones. */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #1b1f2a;
+  --muted: #5f6677;
+  --line: #d8dce4;
+  --grid: #e7eaf0;
+  --accent: #3346a8;
+  --accent-soft: #e4e8f8;
+  --warn: #b4441e;
+  --warn-soft: #fbe6dd;
+  --ok: #2f7d4f;
+  --ok-soft: #e0f1e6;
+  --example: #8a6d1d;
+  --example-soft: #f6efd9;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171f; --surface: #1c2029; --ink: #e6e9f0; --muted: #9aa2b4; --line: #323846; --grid: #262b36;
+    --accent: #8f9ef0; --accent-soft: #283058; --warn: #f0906b; --warn-soft: #43261c; --ok: #7cc79a; --ok-soft: #1e3a2a;
+    --example: #e0c26c; --example-soft: #3a3220; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14171f; --surface: #1c2029; --ink: #e6e9f0; --muted: #9aa2b4; --line: #323846; --grid: #262b36;
+  --accent: #8f9ef0; --accent-soft: #283058; --warn: #f0906b; --warn-soft: #43261c; --ok: #7cc79a; --ok-soft: #1e3a2a;
+  --example: #e0c26c; --example-soft: #3a3220; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { margin: 0; font-size: 20px; font-weight: 600; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; }
+.save-state { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.save-state.err { color: var(--warn); }
+.notice { background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: 10px 12px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tab { font: 500 13px var(--font-mono); padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); color: var(--ink); cursor: pointer; }
+.tab[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+button { font: inherit; cursor: pointer; }
+.btn { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.danger { color: var(--warn); }
+.btn.danger.armed { background: var(--warn); color: var(--surface); border-color: var(--warn); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.figure-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+.figure-head .full { grid-column: 1 / -1; }
+.row-inline { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+label.f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+label.f > span { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+label.f small { color: var(--muted); font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+input, textarea, select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 8px; width: 100%; min-width: 0; }
+textarea { resize: vertical; min-height: 54px; }
+input.num { width: 64px; font-family: var(--font-mono); }
+input.mono, .mono { font-family: var(--font-mono); }
+.main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex;
+  flex-direction: column; gap: 10px; min-width: 0; }
+.board-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; font-family: var(--font-mono);
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.board-meta .over { color: var(--warn); font-weight: 500; }
+.letter-ctl { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.letter-ctl label { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); cursor: pointer; }
+.letter-ctl input { width: auto; }
+.letter-ctl .btn { padding: 2px 8px; font-size: 12px; }
+.problems { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: 6px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px; }
+.problems h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--warn); display: flex; flex-wrap: wrap;
+  justify-content: space-between; align-items: center; gap: 8px; }
+.problems ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.problems li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--ink); }
+.problems li span { flex: 1 1 220px; min-width: 0; }
+.problems .btn { padding: 2px 8px; font-size: 12px; }
+.list-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px;
+  border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+tr.dropped td { color: var(--muted); }
+.ruler { position: relative; height: 18px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.ruler i { position: absolute; bottom: 0; width: 1px; background: var(--line); }
+.ruler b { position: absolute; top: 0; transform: translateX(-50%); font-weight: 400; }
+.canvas { position: relative; width: 100%; touch-action: none; user-select: none;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); }
+.cell { position: absolute; border: 1px dashed var(--line); border-radius: 3px; background: transparent; padding: 0; }
+.cell:hover { border-color: var(--accent); background: var(--accent-soft); }
+.cell:hover::after { content: "+"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--accent); font-size: 18px; }
+.panel { position: absolute; border: 1.5px solid var(--ink); border-radius: 3px; background: var(--surface);
+  padding: 4px 6px; overflow: hidden; cursor: grab; display: flex; flex-direction: column; gap: 2px; }
+.panel.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.panel.clash { border-color: var(--warn); background: var(--warn-soft); }
+.panel.dragging { opacity: 0.85; cursor: grabbing; z-index: 3; }
+.panel .letter { font-weight: 600; font-size: 15px; line-height: 1; }
+.panel .ptitle { font-size: 11px; line-height: 1.25; color: var(--muted); overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+.panel .chip { position: absolute; top: 4px; right: 5px; }
+.guide { position: absolute; border: 1px dashed var(--line); border-radius: 3px; pointer-events: none; opacity: 0.7; }
+.snapline { position: absolute; background: var(--accent); pointer-events: none; z-index: 4; }
+.snapline.v { width: 1px; top: 0; bottom: 0; }
+.snapline.h { height: 1px; left: 0; right: 0; }
+.pagelimit { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--warn); pointer-events: none; z-index: 2; }
+.pagelimit span { position: absolute; right: 0; top: 2px; font: 500 10px var(--font-mono); color: var(--warn); }
+.size-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; }
+.size-row .btn { padding: 4px 8px; font-size: 12px; }
+.size-mm { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding-bottom: 6px; }
+.move-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; border-top: 1px solid var(--line); padding-top: 10px; }
+.move-row label.f { flex: 1 1 180px; }
+.panel .handle { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--muted) 50%); opacity: 0.6; }
+.chip { font: 500 10px var(--font-mono); padding: 1px 5px; border-radius: 999px; letter-spacing: 0.02em; white-space: nowrap; }
+.chip.example { background: var(--example-soft); color: var(--example); }
+.chip.idea { background: var(--accent-soft); color: var(--accent); }
+.chip.drafted { background: var(--grid); color: var(--ink); }
+.chip.agreed { background: var(--ok-soft); color: var(--ok); }
+.chip.drop { background: var(--warn-soft); color: var(--warn); }
+.hint { color: var(--muted); font-size: 12px; }
+.editor { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex;
+  flex-direction: column; gap: 12px; min-width: 0; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.editor h2 { margin: 0; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.editor .empty { color: var(--muted); }
+.editor .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--accent-soft); }
+td.l { font-weight: 600; width: 32px; }
+td.c { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.new-fig { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fig-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.trash { display: flex; flex-direction: column; gap: 6px; background: var(--surface); border: 1px dashed var(--line);
+  border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.trash-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.trash-row span { flex: 1 1 200px; min-width: 0; color: var(--muted); }
+.trash .btn { padding: 2px 8px; font-size: 12px; }
+.history { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+.history h3 { margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.hist-row { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 12px; }
+.hist-row .when { font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
+.hist-row .what { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.hist-row .btn { padding: 1px 6px; font-size: 11px; }
+.fig-history { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.new-fig input { width: 260px; }
+@media (max-width: 860px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .figure-head { grid-template-columns: minmax(0, 1fr); }
+  .editor { position: static; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Bisi &amp; Hamon figure planner</h1>
+      <div class="sub">Lay out each figure on the 183 mm Nature grid and write what every panel shows. Claude reads this page and turns it into the figure spec.</div>
+    </div>
+    <div class="save-state" id="saveState" aria-live="polite">Connecting…</div>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <nav class="tabs" id="tabs" aria-label="Figures"></nav>
+  <section class="trash" id="trash" hidden aria-label="Deleted figures"></section>
+
+  <section class="figure-head" id="figHead" hidden>
+    <label class="f full"><span>Main message <small>one sentence: what should a reader take away?</small></span>
+      <textarea id="figMessage" rows="2"></textarea></label>
+    <label class="f"><span>Folder name</span><input id="figName" class="mono"></label>
+    <div class="row-inline">
+      <label class="f"><span>Number</span><input id="figNumber" class="num"></label>
+      <label class="f"><span>Rows</span><input id="figRows" class="num" type="number" min="1" max="8"></label>
+      <label class="f"><span>Columns</span><input id="figCols" class="num" type="number" min="2" max="8"></label>
+      <label class="f"><span>Row height <small>% of cell width</small></span><input id="figRowPct" class="num" type="number" min="50" max="150" step="5" placeholder="100"></label>
+    </div>
+    <label class="f full"><span>Figure notes <small>style, ordering logic, open questions, references to old figures</small></span>
+      <textarea id="figNotes" rows="2"></textarea></label>
+    <div class="fig-actions full" id="figActions"></div>
+  </section>
+
+  <div class="main" id="main" hidden>
+    <section class="board" aria-label="Panel layout">
+      <div class="board-meta"><span id="cellInfo"></span><span class="letter-ctl" id="letterCtl"></span><span id="heightInfo"></span></div>
+      <div class="problems" id="problems" hidden></div>
+      <div class="ruler" id="ruler"></div>
+      <div class="canvas" id="canvas"></div>
+      <div class="hint">Click an empty square to add a panel (square by default). Drag a panel anywhere to move it; its size never changes. Drag its corner to draw its size. Edges snap to the grid lines and to other panels' edges (blue line) when within 2 mm, otherwise to 1 mm steps; hold Alt to place freely. Exact mm values can be typed in the panel editor. With automatic letters on, letters follow reading order (left to right, top to bottom) after every add, move or delete, as in the built figure.</div>
+    </section>
+
+    <aside class="editor" id="editor" aria-label="Panel editor"></aside>
+  </div>
+
+  <section class="list" id="list" hidden></section>
+  <section class="fig-history history" id="figHistory" hidden aria-label="Figure history"></section>
+</div>
+
+<script>
+(() => {
+  // gaps as in the built figure (projects/ssl-paper-figures spec grid)
+  const NATURE = { width: 183, padLeft: 8, colGap: 7, rowGap: 11.5, maxHeight: 247 };  // full page (A4, Nature max depth)
+  const SNAP_MM = 1, MAGNET_MM = 2, MIN_MM = 6;  // drag step, snap-to-guide distance, smallest panel side
+  const STATUSES = [
+    ["example", "from example"], ["idea", "idea"], ["drafted", "drafted"], ["agreed", "agreed"], ["drop", "drop"],
+  ];
+  const PANEL_FIELDS = [
+    ["title", "Title", "Short name of the panel", 1],
+    ["shows", "What it shows", "Axes, groups, data (sessions, mice, trials), and the point it makes", 3],
+    ["analysis", "Analysis / code", "Function, script or old figure that produces it. Leave empty and Claude proposes one", 2],
+    ["params", "Parameters & data scope", "Days, trial types, cohorts, exclusions, windows, smoothing…", 2],
+    ["stats", "Statistics", "Test, unit of analysis (mice / sessions)", 1],
+    ["style", "Style", "Plot type, colours, examples to show, axis ranges", 2],
+    ["notes", "Notes & questions for Claude", "", 2],
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const state = { db: null, figures: [], figId: null, panels: [], selected: null, readOnly: false, unsubPanels: null,
+                  server: {}, history: [], uid: "" };
+  const pending = new Map();   // doc path -> {patch, timer, chain}
+  let saveCount = 0;
+
+  // ---------------------------------------------------------------- saving
+  function setSave(text, err) { const el = $("saveState"); el.textContent = text; el.classList.toggle("err", !!err); }
+
+  function queueUpdate(path, patch, delay = 600) {
+    if (state.readOnly) return;
+    let p = pending.get(path);
+    if (!p) { p = { patch: {}, timer: null, chain: Promise.resolve() }; pending.set(path, p); }
+    Object.assign(p.patch, patch);
+    clearTimeout(p.timer);
+    setSave("Saving…");
+    p.timer = setTimeout(() => flush(path), delay);
+  }
+
+  // ---------------------------------------------------------------- history
+  const IGNORED = new Set(["updated", "letter"]);  // letters follow the layout automatically
+  function pathParts(path) {
+    const m = path.split("/");
+    return { figure: m[1] || "", panel: m[3] || "" };
+  }
+  function logHistory(path, kind, extra) {
+    if (!state.db || state.readOnly) return;
+    const id = "h" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    state.db.doc(`history/${id}`).set({ ts: new Date().toISOString(), path, kind, user: state.uid, ...pathParts(path), ...extra })
+      .catch(() => {});
+  }
+  function logEdit(path, patch) {
+    const old = state.server[path] || {};
+    const fields = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (IGNORED.has(k)) continue;
+      const o = old[k] === undefined ? null : old[k];
+      if (JSON.stringify(o) !== JSON.stringify(v)) fields[k] = { old: o, new: v };
+    }
+    if (Object.keys(fields).length) logHistory(path, "edit", { fields });
+  }
+
+  function flush(path) {
+    const p = pending.get(path);
+    if (!p || !Object.keys(p.patch).length) return;
+    const patch = { ...p.patch, updated: new Date().toISOString() };
+    p.patch = {};
+    logEdit(path, patch);
+    saveCount++;
+    p.chain = p.chain.then(() => state.db.doc(path).update(patch)).then(() => {
+      saveCount--; if (!saveCount) setSave("All changes saved");
+    }).catch((e) => {
+      saveCount--;
+      if (e && e.code === "invalid_argument") { state.readOnly = true; setSave("Read-only: you can't edit this page", true); renderAll(); }
+      else setSave("Not saved: " + (e && e.message ? e.message : "connection problem") + ". Try again.", true);
+    });
+  }
+
+  async function create(path, body) {
+    setSave("Saving…");
+    try { await state.db.doc(path).set({ ...body, updated: new Date().toISOString() }); logHistory(path, "create", { data: body });
+          setSave("All changes saved"); return true; }
+    catch (e) {
+      if (e && e.code === "invalid_argument") { state.readOnly = true; setSave("Read-only: you can't edit this page", true); }
+      else setSave("Not saved: " + (e && e.message ? e.message : "connection problem"), true);
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------- data
+  const fig = () => state.figures.find((f) => f.id === state.figId);
+  const live = () => state.figures.filter((f) => !f.deleted);
+  const nCols = () => Math.max(2, Math.min(8, +(fig()?.n_cols || 5)));
+  const nRows = () => Math.max(1, Math.min(8, +(fig()?.n_rows || 4)));
+  const rowRatio = () => Math.max(0.5, Math.min(1.5, (+fig()?.row_height_pct || 100) / 100));  // 1 = square cells
+  const fmt = (v) => String(+(+v).toFixed(1));
+  const num = (v) => (v === "" || v === null || v === undefined ? NaN : +v);
+  const panelPath = (pid) => `figures/${state.figId}/panels/${pid}`;
+
+  function subscribeFigures() {
+    const timer = setTimeout(() => setSave("Can't reach saved data yet. It may still load.", true), 10000);
+    state.db.collection("figures").onSnapshot((snap) => {
+      if (!snap.metadata.fromCache) clearTimeout(timer);
+      state.figures = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.id.localeCompare(b.id));
+      for (const d of snap.docs) state.server[`figures/${d.id}`] = JSON.parse(JSON.stringify(d.data()));
+      if (!state.figId || !fig() || fig().deleted) {
+        let wanted = null; try { wanted = localStorage.getItem("planner.fig"); } catch (_) {}
+        state.figId = (live().find((f) => f.id === wanted) || live()[0])?.id || null;
+        subscribePanels();
+      }
+      if (saveCount === 0 && !$("saveState").classList.contains("err")) setSave(state.readOnly ? "Read-only" : "All changes saved");
+      renderAll();
+    }, (e) => { clearTimeout(timer); setSave("Saved data unavailable (" + e.code + ")", true); });
+  }
+
+  function subscribePanels() {
+    if (state.unsubPanels) state.unsubPanels();
+    state.panels = []; state.selected = null;
+    if (!state.figId) return;
+    try { localStorage.setItem("planner.fig", state.figId); } catch (_) {}
+    state.unsubPanels = state.db.collection(`figures/${state.figId}/panels`).onSnapshot((snap) => {
+      state.panels = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      for (const d of snap.docs) state.server[`figures/${state.figId}/panels/${d.id}`] = JSON.parse(JSON.stringify(d.data()));
+      if (autoLetters()) relabel();
+      if (state.selected && !state.panels.find((p) => p.id === state.selected)) state.selected = null;
+      renderBoard(); renderList(); renderEditor(false);
+    }, (e) => setSave("Panels unavailable (" + e.code + ")", true));
+  }
+
+  // ---------------------------------------------------------------- geometry, in mm from the top-left of the 183 mm block
+  function geom() {
+    const cols = nCols();
+    const unitMm = (NATURE.width - NATURE.padLeft - (cols - 1) * NATURE.colGap) / cols;
+    const pxPerMm = $("canvas").clientWidth / NATURE.width;
+    return { cols, unitMm, unitHMm: unitMm * rowRatio(), pxPerMm };
+  }
+  const colLeft = (g, c) => NATURE.padLeft + c * (g.unitMm + NATURE.colGap);
+  const rowTop = (g, r) => r * (g.unitHMm + NATURE.rowGap);
+  const spanMm = (unit, gap, n) => n * unit + (n - 1) * gap;
+  const cellBox = (g, r, c, nr = 1, nc = 1) => ({ x: colLeft(g, c), y: rowTop(g, r), w: spanMm(g.unitMm, NATURE.colGap, nc),
+                                                 h: spanMm(g.unitHMm, NATURE.rowGap, nr) });
+  // a panel's box in mm; panels saved before mm positions existed are read from their cells
+  function box(p, g = geom()) {
+    if (Number.isFinite(num(p.x_mm))) return { x: +p.x_mm, y: +p.y_mm, w: +p.w_mm, h: +p.h_mm };
+    // cell units, possibly fractional (planner versions 3-4): a box starts and ends inside cells, never inside a gap
+    const cu = (v, k) => (Number.isFinite(num(p[k])) ? +p[k] : v);
+    const x = cu(p.col || 0, "x"), y = cu(p.row || 0, "y"), w = cu(p.ncols || 1, "w"), h = cu(p.nrows || 1, "h");
+    const st = (v, unit, gap) => Math.floor(v) * (unit + gap) + (v - Math.floor(v)) * unit;
+    const en = (v, unit, gap) => (Math.ceil(v) - 1) * (unit + gap) + (v - Math.ceil(v) + 1) * unit;
+    const x0 = NATURE.padLeft + st(x, g.unitMm, NATURE.colGap), y0 = st(y, g.unitHMm, NATURE.rowGap);
+    return { x: x0, y: y0, w: NATURE.padLeft + en(x + w, g.unitMm, NATURE.colGap) - x0, h: en(y + h, g.unitHMm, NATURE.rowGap) - y0 };
+  }
+  const nearestRow = (g, y) => Math.max(0, Math.round(y / (g.unitHMm + NATURE.rowGap)));
+  const nearestCol = (g, x) => Math.max(0, Math.round((x - NATURE.padLeft) / (g.unitMm + NATURE.colGap)));
+  const boxPatch = (g, b) => {
+    const r = (v) => Math.round(v * 10) / 10;
+    return { x_mm: r(b.x), y_mm: r(b.y), w_mm: r(b.w), h_mm: r(b.h), row: nearestRow(g, b.y), col: nearestCol(g, b.x) };
+  };
+  const overlap = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0.5 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0.5;
+  const outsidePage = (b) => b.x < -0.05 || b.y < -0.05 || b.x + b.w > NATURE.width + 0.05;
+  const contentBottom = (g) => Math.max(rowTop(g, nRows()) - NATURE.rowGap, ...active().map((p) => { const b = box(p, g); return b.y + b.h; }));
+
+  function clashes() {
+    const g = geom(), bad = new Set(), outside = new Set(), pairs = new Set();
+    const ps = active().map((p) => [p, box(p, g)]);
+    for (const [p, b] of ps) if (outsidePage(b)) { bad.add(p.id); outside.add(p.id); }
+    for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++)
+      if (overlap(ps[i][1], ps[j][1])) { const [a, b] = [ps[i][0].id, ps[j][0].id]; bad.add(a); bad.add(b); pairs.add([a, b].sort().join("|")); }
+    return { bad, outside, pairs };
+  }
+
+  // ---------------------------------------------------------------- letters (reading order, as build.py letters the figure)
+  const active = () => state.panels.filter((p) => p.status !== "drop");
+  const autoLetters = () => fig()?.auto_letters !== false;
+  // reading order: rows = panels whose top edges lie within 4 mm of each other (top to bottom), then left edge
+  const readingOrder = () => {
+    const g = geom();
+    const ps = active().map((p) => ({ p, b: box(p, g) })).sort((a, b) => a.b.y - b.b.y || a.b.x - b.b.x);
+    let row = -1, top = -Infinity;
+    for (const q of ps) { if (q.b.y - top > 4) { row++; top = q.b.y; } q.row = row; }
+    return ps.sort((a, b) => a.row - b.row || a.b.x - b.b.x || String(a.p.id).localeCompare(String(b.p.id))).map((q) => q.p);
+  };
+  const letterAt = (i) => (i < 26 ? "abcdefghijklmnopqrstuvwxyz"[i] : "?");
+
+  function relabel() {
+    if (state.readOnly || !state.figId) return 0;
+    let n = 0;
+    readingOrder().forEach((p, i) => {
+      const L = letterAt(i);
+      if (p.letter !== L) { p.letter = L; queueUpdate(panelPath(p.id), { letter: L }, 0); n++; }
+    });
+    for (const p of state.panels) if (p.status === "drop" && p.letter) { p.letter = ""; queueUpdate(panelPath(p.id), { letter: "" }, 0); n++; }
+    return n;
+  }
+
+  // ---------------------------------------------------------------- free space for panels outside the grid or overlapping
+  // first grid-aligned position (row by row, left to right) where the panel fits at its own size without overlap
+  function freeSpot(p, rows = nRows()) {
+    const g = geom(), b = box(p, g);
+    const others = active().filter((q) => q.id !== p.id).map((q) => box(q, g));
+    for (let r = 0; r < rows; r++) for (let c = 0; c < g.cols; c++) {
+      const cand = { x: colLeft(g, c), y: rowTop(g, r), w: b.w, h: b.h };
+      if (cand.x + cand.w <= NATURE.width + 0.05 && !others.some((o) => overlap(cand, o))) return cand;
+    }
+    return null;
+  }
+
+  function moveToFree(id) {
+    const p = state.panels.find((x) => x.id === id);
+    if (!p || state.readOnly) return false;
+    const g = geom();
+    let spot = freeSpot(p);
+    if (!spot) {
+      const rows = nRows();
+      if (rows >= 8) { setSave("No free space left: drop a panel or add a column", true); return false; }
+      fig().n_rows = rows + 1;
+      queueUpdate(`figures/${state.figId}`, { n_rows: rows + 1 }, 0);
+      spot = freeSpot(p, rows + 1) || { ...cellBox(g, rows, 0), w: Math.min(box(p, g).w, NATURE.width) };
+    }
+    const patch = boxPatch(g, spot);
+    Object.assign(p, patch);
+    queueUpdate(panelPath(id), patch, 0);
+    return true;
+  }
+
+  function fixAll() {
+    const { outside, pairs } = clashes();
+    const ids = [...outside, ...[...pairs].map((k) => k.split("|")[1])];
+    for (const id of new Set(ids)) moveToFree(id);
+    if (autoLetters()) relabel();
+    renderAll();
+  }
+
+  function renderLetterCtl() {
+    const ctlEl = $("letterCtl"); ctlEl.textContent = "";
+    const lab = document.createElement("label");
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.id = "autoLetters"; cb.checked = autoLetters();
+    cb.disabled = state.readOnly;
+    cb.onchange = () => {
+      fig().auto_letters = cb.checked;
+      queueUpdate(`figures/${state.figId}`, { auto_letters: cb.checked }, 0);
+      if (cb.checked) relabel();
+      renderAll();
+    };
+    lab.append(cb, "Automatic letters");
+    ctlEl.append(lab);
+    if (!autoLetters() && !state.readOnly) {
+      const b = document.createElement("button"); b.className = "btn"; b.textContent = "Re-letter in reading order";
+      b.onclick = () => { const n = relabel(); setSave(n ? `Re-lettered ${n} panels` : "Letters already in reading order"); renderAll(); };
+      ctlEl.append(b);
+    }
+  }
+
+  function renderProblems() {
+    const probEl = $("problems"); probEl.textContent = "";
+    if (!fig()) { probEl.hidden = true; return; }
+    const { outside, pairs } = clashes();
+    const byId = Object.fromEntries(state.panels.map((p) => [p.id, p]));
+    const name = (p) => `${p.letter || "?"} (${p.title || "untitled"})`;
+    const items = [];
+    for (const id of outside) items.push({ text: `${name(byId[id])} lies outside the ${NATURE.width} mm page width.`, sel: id, fix: id });
+    for (const k of pairs) {
+      const [a, b] = k.split("|");
+      items.push({ text: `${name(byId[a])} and ${name(byId[b])} overlap.`, sel: b, fix: b });
+    }
+    if (!autoLetters()) {
+      const seen = new Map();
+      for (const p of active()) { const L = p.letter || "?"; seen.set(L, [...(seen.get(L) || []), p]); }
+      for (const [L, ps] of seen) if (ps.length > 1) items.push({ text: `${ps.length} panels share the letter ${L}.`, sel: ps[1].id });
+    }
+    for (const p of active()) if (!(p.title || "").trim()) items.push({ text: `${name(p)} has no title.`, sel: p.id });
+    probEl.hidden = !items.length;
+    if (!items.length) return;
+    const h = document.createElement("h3");
+    h.append(`${items.length} layout ${items.length === 1 ? "problem" : "problems"}`);
+    if (!state.readOnly && (outside.size || pairs.size)) {
+      const all = document.createElement("button"); all.className = "btn"; all.textContent = "Move all to free space";
+      all.onclick = fixAll; h.append(all);
+    }
+    const ul = document.createElement("ul");
+    for (const it of items) {
+      const li = document.createElement("li");
+      const s = document.createElement("span"); s.textContent = it.text; li.append(s);
+      const b = document.createElement("button"); b.className = "btn"; b.textContent = "Select"; b.onclick = () => select(it.sel); li.append(b);
+      if (it.fix && !state.readOnly) {
+        const f = document.createElement("button"); f.className = "btn"; f.textContent = "Move to free space";
+        f.onclick = () => { if (moveToFree(it.fix)) { if (autoLetters()) relabel(); renderAll(); } };
+        li.append(f);
+      }
+      ul.append(li);
+    }
+    probEl.append(h, ul);
+  }
+
+  // ---------------------------------------------------------------- rendering
+  function renderAll() { renderTabs(); renderHead(); renderBoard(); renderList(); renderEditor(false); renderFigHistory(); }
+
+  function renderTabs() {
+    const tabs = $("tabs"); tabs.textContent = "";
+    for (const f of live()) {
+      const b = document.createElement("button");
+      b.className = "tab"; b.textContent = f.name || f.id; b.setAttribute("aria-selected", f.id === state.figId);
+      b.onclick = () => { if (f.id !== state.figId) { state.figId = f.id; subscribePanels(); renderAll(); } };
+      tabs.append(b);
+    }
+    if (state.readOnly) return;
+    const wrap = document.createElement("span"); wrap.className = "new-fig";
+    const add = document.createElement("button"); add.className = "btn"; add.textContent = "+ Add figure";
+    add.onclick = () => {
+      wrap.textContent = "";
+      const inp = document.createElement("input"); inp.id = "newFigName"; inp.className = "mono"; inp.placeholder = "SuppFigure1_learning";
+      const ok = document.createElement("button"); ok.className = "btn primary"; ok.textContent = "Create";
+      const cancel = document.createElement("button"); cancel.className = "btn"; cancel.textContent = "Cancel";
+      cancel.onclick = renderTabs;
+      const go = async () => {
+        const name = inp.value.trim().replace(/[^A-Za-z0-9_\-]/g, "_");
+        if (!name) { inp.focus(); return; }
+        const m = name.match(/^(Supp)?Figure(\d+)/i);
+        const number = m ? (m[1] ? "S" + m[2] : m[2]) : "";
+        if (await create(`figures/${name}`, { name, number, message: "", notes: "", n_rows: 4, n_cols: 5,
+                                              order: state.figures.length + 1 })) {
+          state.figId = name; subscribePanels();
+        }
+      };
+      ok.onclick = go; inp.onkeydown = (e) => { if (e.key === "Enter") go(); if (e.key === "Escape") renderTabs(); };
+      wrap.append(inp, ok, cancel); inp.focus();
+    };
+    wrap.append(add); tabs.append(wrap);
+    renderTrash();
+  }
+
+  // ---------------------------------------------------------------- deleting figures
+  // Delete = soft delete (flag `deleted`, `cleanup: "pending"`): the figure leaves the tabs and is listed under Deleted
+  // figures, where it can be restored. Claude, at each update, moves the figure's code folder and dated snapshots into
+  // _deleted folders (never erased) and sets `cleanup: "done"`. Delete permanently also removes the panels from the page.
+  function armed(btn, label, armedLabel, action) {
+    let on = false;
+    btn.textContent = label;
+    btn.onclick = async () => {
+      if (!on) { on = true; btn.classList.add("armed"); btn.textContent = armedLabel;
+        setTimeout(() => { on = false; btn.classList.remove("armed"); btn.textContent = label; }, 3000); return; }
+      await action();
+    };
+  }
+
+  function readIdsOnce(path) {
+    return new Promise((resolve, reject) => {
+      let unsub = null, done = false;
+      const t = setTimeout(() => { if (!done) { done = true; if (unsub) unsub(); reject(new Error("timeout")); } }, 10000);
+      unsub = state.db.collection(path).onSnapshot((snap) => {
+        if (done || (snap.metadata && snap.metadata.fromCache)) return;
+        done = true; clearTimeout(t); resolve(snap.docs.map((d) => d.id)); setTimeout(() => unsub && unsub(), 0);
+      }, (e) => { if (!done) { done = true; clearTimeout(t); reject(e); } });
+    });
+  }
+
+  function softDelete(f) {
+    f.deleted = true;
+    queueUpdate(`figures/${f.id}`, { deleted: true, deleted_at: new Date().toISOString(), cleanup: "pending" }, 0);
+    state.figId = live()[0]?.id || null;
+    subscribePanels(); renderAll();
+    setSave(`${f.name || f.id} moved to Deleted figures. Its folders are archived at the next update.`);
+  }
+
+  function renderTrash() {
+    const el = $("trash"); el.textContent = "";
+    const gone = state.figures.filter((f) => f.deleted);
+    el.hidden = !gone.length;
+    if (!gone.length) return;
+    const h = document.createElement("strong"); h.textContent = `Deleted figures (${gone.length})`; el.append(h);
+    for (const f of gone) {
+      const row = document.createElement("div"); row.className = "trash-row";
+      const t = document.createElement("span");
+      t.textContent = `${f.name || f.id} · deleted ${f.deleted_at ? new Date(f.deleted_at).toLocaleString() : ""} · folders: ` +
+        (f.cleanup === "done" ? "archived by Claude" : "archive pending (next update)");
+      row.append(t);
+      if (!state.readOnly) {
+        const r = document.createElement("button"); r.className = "btn"; r.textContent = "Restore";
+        r.onclick = () => { f.deleted = false; queueUpdate(`figures/${f.id}`, { deleted: false, cleanup: f.cleanup === "done" ? "restore" : "" }, 0);
+                            state.figId = f.id; subscribePanels(); renderAll(); };
+        const x = document.createElement("button"); x.className = "btn danger";
+        armed(x, "Delete permanently", "Click again: panels and figure removed", async () => {
+          try {
+            const ids = await readIdsOnce(`figures/${f.id}/panels`);
+            for (const id of ids) await state.db.doc(`figures/${f.id}/panels/${id}`).delete();
+            await state.db.doc(`figures/${f.id}`).delete();
+            setSave(`${f.name || f.id} removed (${ids.length} panels).`);
+          } catch (e) { setSave("Not removed: " + (e.message || e.code), true); }
+        });
+        row.append(r, x);
+      }
+      el.append(row);
+    }
+  }
+
+  function bindFigField(id, key, transform = (v) => v) {
+    const el = $(id), f = fig();
+    if (document.activeElement !== el) el.value = f?.[key] ?? "";
+    el.disabled = state.readOnly;
+    el.oninput = () => {
+      const v = transform(el.value);
+      if (v === null) return;
+      const ff = fig(); if (ff) ff[key] = v;
+      queueUpdate(`figures/${state.figId}`, { [key]: v });
+      if (key === "n_rows" || key === "n_cols" || key === "row_height_pct") { renderBoard(); renderEditor(true); }
+      if (key === "name") renderTabs();
+    };
+  }
+
+  function renderHead() {
+    const has = !!fig();
+    $("figHead").hidden = !has; $("main").hidden = !has; $("list").hidden = !has;
+    if (!has) return;
+    const intIn = (lo, hi) => (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+    bindFigField("figMessage", "message"); bindFigField("figName", "name"); bindFigField("figNumber", "number");
+    bindFigField("figRows", "n_rows", intIn(1, 8)); bindFigField("figCols", "n_cols", intIn(2, 8)); bindFigField("figNotes", "notes");
+    bindFigField("figRowPct", "row_height_pct", (v) => { if (v === "") return 100; const n = parseInt(v, 10); return Number.isFinite(n) && n >= 50 && n <= 150 ? n : null; });
+    const act = $("figActions"); act.textContent = "";
+    const note = document.createElement("span"); note.className = "hint";
+    note.textContent = "Deleting moves the figure to Deleted figures (restorable). At the next update Claude archives its code folder and snapshots into _deleted folders.";
+    act.append(note);
+    if (!state.readOnly) {
+      const del = document.createElement("button"); del.className = "btn danger";
+      const f = fig();
+      armed(del, "Delete figure", "Click again to delete", async () => softDelete(f));
+      act.append(del);
+    }
+  }
+
+  function renderRuler(g) {
+    const r = $("ruler"); r.textContent = "";
+    for (let mm = 0; mm <= NATURE.width; mm += 10) {
+      const t = document.createElement("i"); t.style.left = mm * g.pxPerMm + "px"; t.style.height = mm % 50 ? "4px" : "8px"; r.append(t);
+      if (mm % 50 === 0) { const b = document.createElement("b"); b.textContent = mm; b.style.left = mm * g.pxPerMm + "px"; r.append(b); }
+    }
+    const b = document.createElement("b"); b.textContent = "183 mm"; b.style.left = "auto"; b.style.right = "0"; b.style.transform = "none"; r.append(b);
+  }
+
+  function renderBoard() {
+    if (!fig()) return;
+    const canvas = $("canvas"), g = geom(), rows = nRows();
+    const bottom = contentBottom(g);
+    canvas.style.height = (Math.max(bottom, rowTop(g, rows) - NATURE.rowGap, NATURE.maxHeight) + NATURE.rowGap) * g.pxPerMm + "px";  // room below to drag into
+    canvas.style.backgroundSize = `${10 * g.pxPerMm}px ${10 * g.pxPerMm}px`;
+    canvas.textContent = "";
+    renderRuler(g);
+    const lim = Object.assign(document.createElement("div"), { className: "pagelimit" });  // Nature: 183 x 170 mm
+    lim.style.top = NATURE.maxHeight * g.pxPerMm + "px";
+    lim.append(Object.assign(document.createElement("span"), { textContent: `${NATURE.maxHeight} mm page limit` }));
+    canvas.append(lim);
+    const { bad } = clashes();
+    const boxes = active().map((p) => box(p, g));
+    for (let r = 0; r < rows; r++) for (let c = 0; c < g.cols; c++) {
+      const cb = cellBox(g, r, c);
+      const taken = boxes.some((b) => overlap(cb, b));
+      const cell = document.createElement(taken ? "div" : "button");
+      cell.className = taken ? "guide" : "cell";
+      place(cell, g, cb);
+      if (!taken) {
+        cell.setAttribute("aria-label", `Add panel at row ${r + 1}, column ${c + 1}`);
+        cell.disabled = state.readOnly;
+        cell.onclick = () => addPanel(r, c);
+      }
+      canvas.append(cell);
+    }
+    for (const p of state.panels) {
+      if (p.status === "drop") continue;
+      const el = document.createElement("div");
+      el.className = "panel" + (p.id === state.selected ? " sel" : "") + (bad.has(p.id) ? " clash" : "");
+      el.tabIndex = 0; el.dataset.id = p.id;
+      el.setAttribute("aria-label", `Panel ${p.letter || "?"}: ${p.title || "untitled"}`);
+      const b = box(p, g);
+      place(el, g, b);
+      el.title = `${fmt(b.w)} × ${fmt(b.h)} mm at x ${fmt(b.x)}, y ${fmt(b.y)} mm`;
+      const L = document.createElement("div"); L.className = "letter"; L.textContent = p.letter || "?";
+      const T = document.createElement("div"); T.className = "ptitle"; T.textContent = p.title || "Untitled";
+      const C = chip(p.status); C.classList.add("chip");
+      el.append(L, T, C);
+      if (!state.readOnly) { const h = document.createElement("div"); h.className = "handle"; el.append(h); }
+      el.onkeydown = (e) => { if (e.key === "Enter") select(p.id); };
+      el.onpointerdown = (e) => startDrag(e, p, el);
+      canvas.append(el);
+    }
+    const height = bottom;  // a box is the whole panel (letter, labels and axes)
+    $("cellInfo").textContent = `${g.cols} columns · grid cell ${g.unitMm.toFixed(1)} × ${g.unitHMm.toFixed(1)} mm` + (rowRatio() === 1 ? " (square)" : "");
+    const hi = $("heightInfo");
+    hi.textContent = `height ≈ ${height.toFixed(0)} mm of ${NATURE.maxHeight} mm` + (bad.size ? ` · ${bad.size} panels overlap or overflow` : "");
+    hi.className = height > NATURE.maxHeight || bad.size ? "over" : "";
+    renderLetterCtl();
+    renderProblems();
+  }
+
+  function place(el, g, b) {  // b in mm
+    Object.assign(el.style, { left: b.x * g.pxPerMm + "px", top: b.y * g.pxPerMm + "px", width: b.w * g.pxPerMm + "px", height: b.h * g.pxPerMm + "px" });
+  }
+
+  // edges near a guide (grid lines, page edges, other panels) snap to it; otherwise positions round to SNAP_MM
+  function guides(g, exceptId) {
+    const xs = [0, NATURE.width], ys = [0];
+    for (let c = 0; c < g.cols; c++) xs.push(colLeft(g, c), colLeft(g, c) + g.unitMm);
+    for (let r = 0; r <= 8; r++) ys.push(rowTop(g, r), rowTop(g, r) + g.unitHMm);
+    for (const q of active()) if (q.id !== exceptId) { const b = box(q, g); xs.push(b.x, b.x + b.w); ys.push(b.y, b.y + b.h); }
+    return { xs, ys };
+  }
+  function snapEdges(edges, lines, free) {  // edges: positions that move together; returns [shift, guide line or null]
+    if (!free) {
+      let best = null;
+      for (const e of edges) for (const l of lines) if (Math.abs(l - e) <= MAGNET_MM && (!best || Math.abs(l - e) < Math.abs(best[0]))) best = [l - e, l];
+      if (best) return best;
+    }
+    const step = free ? 0.1 : SNAP_MM;
+    return [Math.round(edges[0] / step) * step - edges[0], null];
+  }
+
+  function chip(status) {
+    const s = document.createElement("span");
+    const def = STATUSES.find(([k]) => k === status) || STATUSES[1];
+    s.className = "chip " + def[0]; s.textContent = def[1]; return s;
+  }
+
+  function startDrag(e, p, el) {
+    if (e.button !== 0) return;
+    select(p.id);
+    if (state.readOnly) return;
+    const resize = e.target.classList.contains("handle");
+    const g = geom(), x0 = e.clientX, y0 = e.clientY;
+    const start = box(p, g), lines = guides(g, p.id);
+    let cur = { ...start }, moved = false;
+    const canvas = $("canvas");
+    const panelEl = canvas.querySelector(`.panel[data-id="${p.id}"]`) || el;
+    const vline = Object.assign(document.createElement("div"), { className: "snapline v", hidden: true });
+    const hline = Object.assign(document.createElement("div"), { className: "snapline h", hidden: true });
+    canvas.append(vline, hline);
+    panelEl.setPointerCapture(e.pointerId);
+    panelEl.classList.add("dragging");
+    const maxY = canvas.clientHeight / g.pxPerMm + 40;  // can drag below the current content; the canvas grows after
+    const move = (ev) => {
+      const dx = (ev.clientX - x0) / g.pxPerMm, dy = (ev.clientY - y0) / g.pxPerMm;
+      if (Math.abs(ev.clientX - x0) > 3 || Math.abs(ev.clientY - y0) > 3) moved = true;
+      const free = ev.altKey;
+      let gx, gy;
+      if (resize) {
+        const right = start.x + start.w + dx, bottom = start.y + start.h + dy;
+        const [sx, lx] = snapEdges([right], lines.xs, free), [sy, ly] = snapEdges([bottom], lines.ys, free);
+        cur = { ...start, w: Math.max(MIN_MM, Math.min(NATURE.width - start.x, right + sx - start.x)), h: Math.max(MIN_MM, bottom + sy - start.y) };
+        gx = lx; gy = ly;
+      } else {
+        const x = start.x + dx, y = start.y + dy;
+        const [sx, lx] = snapEdges([x, x + start.w], lines.xs, free), [sy, ly] = snapEdges([y, y + start.h], lines.ys, free);
+        cur = { ...start, x: Math.max(0, Math.min(NATURE.width - start.w, x + sx)), y: Math.max(0, Math.min(maxY, y + sy)) };
+        gx = lx; gy = ly;
+      }
+      vline.hidden = gx == null; if (gx != null) vline.style.left = gx * g.pxPerMm + "px";
+      hline.hidden = gy == null; if (gy != null) hline.style.top = gy * g.pxPerMm + "px";
+      place(panelEl, g, cur);
+      panelEl.title = `${fmt(cur.w)} × ${fmt(cur.h)} mm at x ${fmt(cur.x)}, y ${fmt(cur.y)} mm`;
+    };
+    const up = () => {
+      panelEl.removeEventListener("pointermove", move); panelEl.removeEventListener("pointerup", up); panelEl.removeEventListener("pointercancel", up);
+      panelEl.classList.remove("dragging"); vline.remove(); hline.remove();
+      if (moved && ["x", "y", "w", "h"].some((k) => Math.abs(cur[k] - start[k]) > 0.05)) {
+        const patch = boxPatch(g, cur);
+        Object.assign(p, patch);
+        queueUpdate(panelPath(p.id), patch, 0);
+        if (autoLetters()) relabel();
+        renderBoard(); renderList(); renderEditor(true);
+      }
+    };
+    panelEl.addEventListener("pointermove", move); panelEl.addEventListener("pointerup", up); panelEl.addEventListener("pointercancel", up);
+  }
+
+  function nextLetter() {
+    const used = new Set(state.panels.filter((p) => p.status !== "drop").map((p) => p.letter));
+    for (const ch of "abcdefghijklmnopqrstuvwxyz") if (!used.has(ch)) return ch;
+    return "?";
+  }
+
+  async function addPanel(row, col) {
+    const id = "p" + Date.now().toString(36);
+    const g = geom();
+    const body = { letter: autoLetters() ? "?" : nextLetter(), title: "", status: "idea", ...boxPatch(g, cellBox(g, row, col)) };
+    body.stats = "mice";  // default unit of analysis; edit per panel
+    for (const [k] of PANEL_FIELDS) if (!(k in body)) body[k] = "";
+    if (await create(panelPath(id), body)) { state.selected = id; renderEditor(true); }
+  }
+
+  function select(id) { state.selected = id; renderBoard(); renderList(); renderEditor(true); }
+
+  function renderEditor(force) {
+    const ed = $("editor");
+    const p = state.panels.find((x) => x.id === state.selected);
+    if (!force && ed.dataset.for === (p?.id || "") && p) {
+      // live update: refresh values of fields not being edited
+      for (const el of ed.querySelectorAll("[data-key]")) if (document.activeElement !== el) el.value = p[el.dataset.key] ?? "";
+      const b = box(p); for (const k of ["x", "y", "w", "h"]) { const el = $("pf-" + k); if (el && document.activeElement !== el) el.value = fmt(b[k]); }
+      const h = ed.querySelector("h2 .chip"); if (h) h.replaceWith(Object.assign(chip(p.status), { className: chip(p.status).className }));
+      return;
+    }
+    ed.dataset.for = p?.id || "";
+    ed.textContent = "";
+    if (!p) {
+      const h = document.createElement("h2"); h.textContent = "Panel details";
+      const e = document.createElement("p"); e.className = "empty";
+      e.textContent = state.panels.length ? "Select a panel on the grid or in the table to edit it." : "Click an empty square on the grid to add the first panel.";
+      ed.append(h, e); return;
+    }
+    const h = document.createElement("h2");
+    h.append(`Panel ${p.letter || "?"}`, chip(p.status));
+    ed.append(h);
+
+    const top = document.createElement("div"); top.className = "row-inline";
+    top.append(field("letter", "Letter", "input", p, "num"));
+    const st = document.createElement("label"); st.className = "f";
+    const sp = document.createElement("span"); sp.textContent = "Status";
+    const sel = document.createElement("select"); sel.id = "pf-status"; sel.dataset.key = "status"; sel.disabled = state.readOnly;
+    for (const [k, lab] of STATUSES) { const o = document.createElement("option"); o.value = k; o.textContent = lab; sel.append(o); }
+    sel.value = p.status || "idea";
+    sel.onchange = () => {
+      p.status = sel.value; queueUpdate(panelPath(p.id), { status: sel.value }, 0);
+      if (autoLetters()) relabel();
+      renderBoard(); renderList(); renderEditor(true);
+    };
+    st.append(sp, sel); top.append(st);
+    ed.append(top, sizeEditor(p));
+    if (autoLetters()) {
+      const li = top.querySelector("#pf-letter");
+      if (li) { li.disabled = true; li.title = "Automatic letters are on: letters follow reading order"; }
+    }
+    for (const [k, lab, help, rows] of PANEL_FIELDS) ed.append(field(k, lab, rows > 1 ? "textarea" : "input", p, "", null, 0, help, rows));
+
+    const act = document.createElement("div"); act.className = "actions";
+    const del = document.createElement("button"); del.className = "btn danger"; del.textContent = "Delete panel"; del.disabled = state.readOnly;
+    let armed = false;
+    del.onclick = async () => {
+      if (!armed) { armed = true; del.classList.add("armed"); del.textContent = "Click again to delete"; setTimeout(() => { armed = false; del.classList.remove("armed"); del.textContent = "Delete panel"; }, 3000); return; }
+      try { const { id: _id, ...data } = p; await state.db.doc(panelPath(p.id)).delete(); logHistory(panelPath(p.id), "delete", { data });
+            state.selected = null; setSave("Panel deleted"); } catch (e) { setSave("Not deleted: " + (e.message || e.code), true); }
+    };
+    const meta = document.createElement("span"); meta.className = "hint mono";
+    meta.textContent = p.updated ? "edited " + new Date(p.updated).toLocaleString() : "";
+    act.append(meta, del); ed.append(moveEditor(p), act);
+    const note = document.createElement("p"); note.className = "hint"; note.style.margin = "0";
+    note.textContent = "Delete removes the panel for good. To keep it aside without a letter or a square, set its status to drop.";
+    ed.append(note);
+    ed.append(historyList(panelPath(p.id), 15, "History of this panel"));
+  }
+
+  const short = (v) => { const t = v === null || v === undefined ? "∅" : typeof v === "object" ? JSON.stringify(v) : String(v);
+                         return t.length > 70 ? t.slice(0, 67) + "…" : t; };
+
+  function historyRow(h, showPanel) {
+    const row = document.createElement("div"); row.className = "hist-row";
+    const when = document.createElement("span"); when.className = "when";
+    when.textContent = new Date(h.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) +
+      (h.user && h.user === state.uid ? " · you" : h.user ? " · other" : "");
+    const what = document.createElement("span"); what.className = "what";
+    const who = showPanel ? `${h.panel ? (h.data?.title || state.server[h.path]?.title || h.panel) : "figure"}: ` : "";
+    if (h.kind === "edit") what.textContent = who + Object.entries(h.fields || {}).map(([k, f]) => `${k} ${short(f.old)} → ${short(f.new)}`).join("; ");
+    else what.textContent = who + (h.kind === "create" ? "created" : "deleted") + (h.data?.title ? ` (${h.data.title})` : "");
+    row.append(when, what);
+    if (!state.readOnly) {
+      if (h.kind === "edit") {
+        const b = document.createElement("button"); b.className = "btn"; b.textContent = "Revert";
+        b.title = "Set these fields back to their previous values";
+        b.onclick = () => {
+          const back = Object.fromEntries(Object.entries(h.fields || {}).map(([k, f]) => [k, f.old]));
+          queueUpdate(h.path, back, 0);
+          const local = h.panel ? state.panels.find((x) => x.id === h.panel) : state.figures.find((f) => f.id === h.figure);
+          if (local) Object.assign(local, back);
+          renderAll();
+        };
+        row.append(b);
+      } else if (h.kind === "delete" && h.data && !state.server[h.path]) {
+        const b = document.createElement("button"); b.className = "btn"; b.textContent = "Restore";
+        b.onclick = async () => { if (await create(h.path, h.data)) setSave("Panel restored"); };
+        row.append(b);
+      }
+    }
+    return row;
+  }
+
+  function historyList(path, n, title) {
+    const box = document.createElement("div"); box.className = "history";
+    const h3 = document.createElement("h3"); h3.textContent = title; box.append(h3);
+    const items = state.history.filter((h) => h.path === path).slice(0, n);
+    if (!items.length) { const e = document.createElement("span"); e.className = "hint"; e.textContent = "No recorded changes yet."; box.append(e); }
+    for (const h of items) box.append(historyRow(h, false));
+    return box;
+  }
+
+  function renderFigHistory() {
+    const el = $("figHistory");
+    if (!el) return;
+    el.textContent = "";
+    const items = state.history.filter((h) => h.figure === state.figId).slice(0, 25);
+    el.hidden = !fig();
+    const h3 = document.createElement("h3"); h3.textContent = "Figure history (latest 25 changes)"; el.append(h3);
+    if (!items.length) { const e = document.createElement("span"); e.className = "hint"; e.textContent = "No recorded changes yet."; el.append(e); }
+    for (const h of items) el.append(historyRow(h, true));
+  }
+
+  function subscribeHistory() {
+    state.db.collection("history").onSnapshot((snap) => {
+      state.history = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.ts || "").localeCompare(a.ts || ""))
+        .slice(0, 2000);
+      renderFigHistory();
+      const box = $("editor").querySelector(".history");  // refresh only the history list (keep focus in the fields)
+      if (box && state.selected) box.replaceWith(historyList(panelPath(state.selected), 15, "History of this panel"));
+    }, () => {});
+  }
+
+  // move (or copy) a panel with all its fields to another figure; it keeps its box (fix overlaps there) and, with
+  // automatic letters, gets the target figure's reading-order letter. moved_from records the source figure.
+  function moveEditor(p) {
+    const row = document.createElement("div"); row.className = "move-row";
+    const others = live().filter((f) => f.id !== state.figId);
+    const l = document.createElement("label"); l.className = "f";
+    const sp = document.createElement("span"); sp.textContent = "Move to figure";
+    const sel = document.createElement("select"); sel.id = "pf-move"; sel.disabled = state.readOnly || !others.length;
+    for (const f of others) { const o = document.createElement("option"); o.value = f.id; o.textContent = f.name || f.id; sel.append(o); }
+    if (!others.length) { const o = document.createElement("option"); o.textContent = "No other figure: add one with + Add figure"; sel.append(o); }
+    l.append(sp, sel);
+    const mk = (text, copy) => {
+      const b = document.createElement("button"); b.className = "btn" + (copy ? "" : " primary"); b.textContent = text; b.disabled = sel.disabled;
+      b.title = copy ? "Add a copy to the other figure; this panel stays here" : "Remove the panel from this figure and add it to the other one";
+      b.onclick = async () => {
+        const target = sel.value, src = state.figId, tf = state.figures.find((f) => f.id === target);
+        if (!tf) return;
+        const { id, ...body } = p;
+        const newId = copy ? "p" + Date.now().toString(36) : p.id;
+        const letter = tf.auto_letters !== false ? "?" : (body.letter || "?");
+        const ok = await create(`figures/${target}/panels/${newId}`, { ...body, letter, moved_from: src, moved_at: new Date().toISOString() });
+        if (!ok) return;
+        if (!copy) {
+          try { await state.db.doc(`figures/${src}/panels/${p.id}`).delete(); }
+          catch (e) { setSave("Copied, but not removed from this figure: " + (e.message || e.code), true); return; }
+          state.figId = target; subscribePanels(); state.selected = newId; renderAll();
+        }
+        setSave(`${copy ? "Copied" : "Moved"} to ${tf.name || target}` + (copy ? "" : "; fix any overlap in the list of layout problems"));
+      };
+      return b;
+    };
+    row.append(l, mk("Move", false), mk("Copy", true));
+    return row;
+  }
+
+  // position and size in mm (x from the left edge of the 183 mm block, y from the top of the first row)
+  function sizeEditor(p) {
+    const box_ = document.createElement("div"); box_.className = "size-row";
+    const g = geom();
+    const info = document.createElement("span"); info.className = "size-mm";
+    const inputs = {};
+    const show = () => {
+      const b = box(p, g);
+      for (const k of ["x", "y", "w", "h"]) inputs[k].value = fmt(b[k]);
+      info.textContent = `≈ ${fmt((b.w + NATURE.colGap) / (g.unitMm + NATURE.colGap))} × ${fmt((b.h + NATURE.rowGap) / (g.unitHMm + NATURE.rowGap))} cells`;
+    };
+    const apply = (b) => {
+      const patch = boxPatch(g, b);
+      Object.assign(p, patch); queueUpdate(panelPath(p.id), patch, 0);
+      if (autoLetters()) relabel();
+      show(); renderBoard(); renderList();
+    };
+    for (const [k, lab] of [["x", "X"], ["y", "Y"], ["w", "Width"], ["h", "Height"]]) {
+      const l = document.createElement("label"); l.className = "f";
+      const sp = document.createElement("span"); sp.textContent = lab + " "; const sm = document.createElement("small"); sm.textContent = "mm"; sp.append(sm);
+      const el = document.createElement("input"); el.type = "number"; el.step = 0.5; el.className = "num";
+      el.min = k === "w" || k === "h" ? MIN_MM : 0;
+      el.id = "pf-" + k; el.disabled = state.readOnly;
+      el.onchange = () => {
+        const v = parseFloat(el.value), b = box(p, g);
+        if (!Number.isFinite(v)) { show(); return; }
+        b[k] = k === "w" || k === "h" ? Math.max(MIN_MM, v) : Math.max(0, v);
+        if (k === "w") b.w = Math.min(b.w, NATURE.width - b.x);
+        if (k === "x") b.x = Math.min(b.x, NATURE.width - b.w);
+        apply(b);
+      };
+      inputs[k] = el; l.append(sp, el); box_.append(l);
+    }
+    const sq = document.createElement("button"); sq.className = "btn"; sq.textContent = "Make square"; sq.disabled = state.readOnly;
+    sq.title = "Height = width";
+    sq.onclick = () => { const b = box(p, g); apply({ ...b, h: b.w }); };
+    const cells = document.createElement("button"); cells.className = "btn"; cells.textContent = "Snap to cells"; cells.disabled = state.readOnly;
+    cells.title = "Align to the nearest grid cells (whole cells wide and high)";
+    cells.onclick = () => {
+      const b = box(p, g), r = nearestRow(g, b.y), c = Math.min(g.cols - 1, nearestCol(g, b.x));
+      const nc = Math.max(1, Math.min(g.cols - c, Math.round((b.w + NATURE.colGap) / (g.unitMm + NATURE.colGap))));
+      const nr = Math.max(1, Math.round((b.h + NATURE.rowGap) / (g.unitHMm + NATURE.rowGap)));
+      apply(cellBox(g, r, c, nr, nc));
+    };
+    box_.append(info, sq, cells);
+    show();
+    return box_;
+  }
+
+  function field(key, label, kind, p, cls, transform, offset = 0, help = "", rows = 2) {
+    const l = document.createElement("label"); l.className = "f";
+    const s = document.createElement("span"); s.textContent = label;
+    if (help) { const sm = document.createElement("small"); sm.textContent = " " + help; s.append(sm); }
+    const el = kind === "textarea" ? document.createElement("textarea") : document.createElement("input");
+    if (kind === "number") { el.type = "number"; el.min = 1; }
+    if (kind === "textarea") el.rows = rows;
+    el.id = "pf-" + key; el.dataset.key = key; if (cls) el.className = cls;
+    el.value = p[key] === undefined || p[key] === null ? "" : (typeof p[key] === "number" ? p[key] + offset : p[key]);
+    if (offset) el.dataset.offset = offset;
+    el.disabled = state.readOnly;
+    el.oninput = () => {
+      const v = transform ? transform(el.value) : el.value;
+      if (v === null) return;
+      p[key] = v;
+      queueUpdate(panelPath(p.id), { [key]: v });
+      if (["row", "col"].includes(key) && autoLetters()) relabel();
+      if (["letter", "title", "row", "col", "nrows", "ncols"].includes(key)) { renderBoard(); renderList(); }
+      if (key === "letter") { const h = $("editor").querySelector("h2"); h.firstChild.textContent = `Panel ${v || "?"}`; }
+    };
+    l.append(s, el); return l;
+  }
+
+  function renderList() {
+    if (!fig()) return;
+    const listEl = $("list"); listEl.textContent = "";
+    const t = document.createElement("table");
+    t.innerHTML = "<thead><tr><th></th><th>Title</th><th>What it shows</th><th>Analysis / code</th><th>Statistics</th><th>Status</th><th>Cell</th></tr></thead>";
+    const tb = document.createElement("tbody");
+    const dropped = state.panels.filter((p) => p.status === "drop");
+    const sorted = [...readingOrder(), ...dropped];
+    const bar = document.createElement("div"); bar.className = "list-bar";
+    bar.append(`${sorted.length - dropped.length} panels in the figure` + (dropped.length ? ` · ${dropped.length} dropped (listed last)` : ""));
+    if (dropped.length && !state.readOnly) {
+      const b = document.createElement("button"); b.className = "btn danger"; b.textContent = `Delete ${dropped.length} dropped`;
+      let armed = false;
+      b.onclick = async () => {
+        if (!armed) { armed = true; b.classList.add("armed"); b.textContent = "Click again to delete them for good";
+                      setTimeout(() => { armed = false; b.classList.remove("armed"); b.textContent = `Delete ${dropped.length} dropped`; }, 3000); return; }
+        try { for (const p of dropped) await state.db.doc(panelPath(p.id)).delete(); setSave(`Deleted ${dropped.length} dropped panels`); }
+        catch (e) { setSave("Not deleted: " + (e.message || e.code), true); }
+      };
+      bar.append(b);
+    }
+    listEl.append(bar);
+    if (!sorted.length) {
+      const tr = document.createElement("tr"); const td = document.createElement("td"); td.colSpan = 7; td.className = "hint";
+      td.textContent = "No panels yet. Click an empty square on the grid above to add one."; tr.append(td); tb.append(tr);
+    }
+    for (const p of sorted) {
+      const tr = document.createElement("tr"); tr.className = "click" + (p.status === "drop" ? " dropped" : ""); tr.tabIndex = 0;
+      if (p.id === state.selected) tr.style.background = "var(--accent-soft)";
+      const cells = [p.status === "drop" ? "–" : p.letter || "?", p.title || "Untitled", p.shows || "", p.analysis || "", p.stats || ""];
+      cells.forEach((v, i) => { const td = document.createElement("td"); td.textContent = v; if (i === 0) td.className = "l"; tr.append(td); });
+      const tds = document.createElement("td"); tds.append(chip(p.status)); tr.append(tds);
+      const tdc = document.createElement("td"); tdc.className = "c";
+      const b = box(p); tdc.textContent = `${fmt(b.w)}×${fmt(b.h)} mm @ ${fmt(b.x)}, ${fmt(b.y)}`; tr.append(tdc);
+      tr.onclick = () => select(p.id);
+      tr.onkeydown = (e) => { if (e.key === "Enter") select(p.id); };
+      tb.append(tr);
+    }
+    t.append(tb); listEl.append(t);
+  }
+
+  // ---------------------------------------------------------------- start
+  let resizeTimer;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderBoard, 100); });
+  window.addEventListener("beforeunload", () => { for (const path of pending.keys()) { clearTimeout(pending.get(path).timer); flush(path); } });
+
+  (async () => {
+    const db = await (window.claude?.use ? window.claude.use("db") : Promise.resolve(null));
+    if (!db) {
+      $("notice").hidden = false;
+      $("notice").textContent = "Saved figures can't be loaded in this view. Open the page on claude.ai while signed in to plan and edit figures.";
+      setSave("Offline", true); return;
+    }
+    state.db = db;
+    const user = window.claude?.use ? await window.claude.use("user") : null;
+    if (user && user.can) { try { const w = await user.can("data.write"); if (w === false) state.readOnly = true; } catch (_) {} }
+    if (user && user.id) { try { state.uid = (await user.id()) || ""; } catch (_) {} }
+    subscribeFigures();
+    subscribeHistory();
+  })();
+})();
+</script>
+
+</body></html>

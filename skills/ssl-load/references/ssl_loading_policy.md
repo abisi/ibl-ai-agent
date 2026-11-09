@@ -19,6 +19,13 @@ Use this as the shared policy reference for `ssl-load` and `ssl-analyze`.
    when the question explicitly needs it — e.g. reproducing a specific prior
    KS2-based project (`ssl-ks2-*`), or a question about spike-sorting-pipeline
    differences themselves. State the choice either way.
+4. **Raw NWB reads: session files only, each session once** (user 2026-11-05).
+   - List files with `^[A-Za-z]+\d+_\d{8}_\d{6}\.nwb$`, never a bare `*.nwb` or `<mouse>_*.nwb` glob.
+   - NWB_ks4 contains `*_backup_<date>.nwb` copies, which must never be loaded.
+   - After loading, assert that sessions are unique: each file read once, `session_id` per session-level row,
+     (`session_id`, `start_time`) per trial-level row.
+   - Don't use `trial_id` for this check: AB077-AB107 day +2 merges two NWBs per session, and `trial_id` restarts.
+   - Details are in `ssl-valid-data/references/ssl_dataset_inclusion.md` (Sources).
 
 ## The compressed dataset build is independent of `ephys_utilities` — do not assume otherwise
 **Verified directly against source 2026-08-26.** `ibl_ai_agent/datasets/ssl_ephys.py`

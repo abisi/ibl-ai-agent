@@ -5,6 +5,19 @@ Canonical record of dataset-level decisions for all SSL analyses (created 2026-1
 ## Sources
 - NWB files (KS4 sorting): haas `/mnt/lsens-analysis/Axel_Bisi/NWB_ks4/` (= `M:\analysis\Axel_Bisi\NWB_ks4`). Analyses read
   spikes, trials and licks from these raw NWB files (not from the compressed `ssl_ephys` / `ssl_behavior` dataset).
+- **Load each session once, from its session NWB only** (user 2026-11-05).
+  - Read only files named `<mouse>_<YYYYMMDD>_<HHMMSS>.nwb`, i.e. regex `^[A-Za-z]+\d+_\d{8}_\d{6}\.nwb$`.
+  - Never read `*_backup*.nwb`. NWB_ks4 holds such copies, e.g. 20 `*_backup_20261104[_HHMM].nwb` left by the
+    2026-11-04 DLC reconversions.
+  - A bare `*.nwb` or `<mouse>_*.nwb` glob picks them up and silently duplicates sessions. On 2026-11-05 this
+    happened to the Figure 1 behaviour table and the GLM run.
+  - More generally, no session may be loaded twice. After building any table, assert that each NWB file is read
+    once, that `session_id` is unique per session-level row, and that (`session_id`, `start_time`) is unique per
+    trial-level row. Fail loudly; never deduplicate silently.
+  - `trial_id` is NOT unique within a session for the day +2 sessions of AB077-AB107. Those days were recorded as
+    two NWBs (`whisker_on_1`/`_2`), which `reindex_whisker_days` merges under one `session_id`, and `trial_id`
+    restarts in the second half (checked 2026-11-05: 14 sessions, 866 rows). They are not duplicates.
+  - The compressed `ssl_*` builders already apply this regex (`SESSION_FILENAME_RE`).
 - Mouse reference sheet: `M:\share_internal\Axel_Bisi_Share\dataset_info\joint_mouse_reference_weight.xlsx`
   (haas `/mnt/share_internal/Axel_Bisi_Share/dataset_info/...`). Columns used: `reward_group`, `exclude`, `exclude_ephys`,
   `recording`, `learning_category`.
@@ -40,6 +53,7 @@ in `nwb_session_exceptions.md`.
 | Context labels (per-trial rule, user 2026-10-04) | MH062_20260113_125836 (R-, day +4): 377 training trials unlabelled ("nan"), so the old relabelling put them into passive_pre / passive_post (no whisker_active ROC); MH064_20260114 (day 0): 21 trials labelled active at the end run at a fixed 3.07 s ITI right before the passive block; AB128_20240829: 2 trials | passive = fixed ~3 s ITI, else the context column (unlabelled -> active; perf 6 inside active blocks stays excluded-active). `roc_utils_new.process_nwb_tables` patched (backup `.bak_20261004`); main ROC of the 3 sessions recomputed (old files `*.context_bug_20261004`); ROC table 045 rebuilt. NOT yet applied in 051 `select_trials` / `prep_session` (ssl-prelick-convergence, ssl-within-day-remapping, older decoding projects) |
 | Active perf == 6 trials (ssl_ephys 1.0.0) | 313 trials: 155 pretraining, 128 in six whisker day-0 sessions (AB107 52 mid-session, AB142 43, AB149 25 at the end; AB128 / AB162 / AB164 2-3 each), 30 in seven expert sessions; ~10 s ITI, not passive | invalid trials, always excluded (user 2026-10-04: not an NWB-version artefact); `prep_session` has applied this since 2026-10-01, and it also applies the per-trial context rule since 2026-10-04 (decoding sees MH062_20260113 with 398 instead of 21 active trials) |
 | Unit sets (user definition 2026-10-05) | stability previously mixed with other criteria (spike count, amplitude cut-off) and quality_label tables without the drift merge | three sets: all (good + mua), stable (coverage >= 0.9, presence >= 0.5, drift joint test passed; no drift result = not stable), good = quality_label good AND stable; skill ssl-valid-data 'Unit sets', table 137_stable_units.parquet (174140 / 142242 / 43679 units) |
+| AB155 day 0 joined session (AB155_20250208_175103; runs g0 + g1 sorted together, run 4819418) | passive post recorded ~904 s after the active block; on imec4, 13 of 33 good units drop to < 20 % of their passive-pre rate at the junction and neighbours gain spikes (tissue / waveform change during the gap; DREDge shows no displacement, KS4 adds a spurious +23.5 um step); presence / coverage / drift-shift test (central segment excludes both passive blocks) and KS amplitude / position do not catch it | user 2026-11-05: imec4 excluded from passive pre vs post analyses via `ephys_utilities.helpers.data_utils.PASSIVE_EXCLUDED_PROBES` (applied by `keep_passive_mice` = `keep_passive_data`, the function to always use for passive selection, also by Myriam Hamon); AB155 stays in the mouse-level passive exclusion until the joined NWB replaces the pre-only one. Joined NWB: `recording_gap` BehavioralEpochs, presence / coverage computed with `exclude_intervals`. Project ssl-ab155-session-merge (014-017). User 2026-11-06: the final NWB keeps the recorded gap (part 2 shifted by 903.668 s, as `012_insert_gap_nwb.py`), not the joined clock; `exclude_intervals` stays in `unit_metrics_utils`; only imec4 is excluded (not the 6 imec1 / 2 imec2 collapsing units); merged data copied (not moved) into `data/AB155/AB155_20250208_175103` by `009_move_to_data.sh`; joined NWB in NWB_ks4 since 2026-11-06 (019), AB155 removed from the mouse-level passive exclusion (only imec4 excluded) |
 | all-days unit cache v1 (`tables_all_days.pkl`) | duplicate unit rows; session-level cohort; `recording` applied to all days; expert sessions without drift check | superseded by v2 |
 
 ## Current tables (v2)
