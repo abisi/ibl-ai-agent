@@ -1,12 +1,15 @@
-"""003 -- Localization and functional maps of the linked units (001 track route `trk_`, 002 responses), good / mua units.
+"""003 -- Localization and functional maps of the linked units (001 track transfer `trk_`, 002), good / mua units on wS1 probes.
 
 Per mouse (one row): flat L4 map of the barrel field (Lana's D2 template, all brains in the same flat frame; C2 shaded)
 with the units at their corrected flat coordinate, coloured by (1) layer, (2) whisker AUC (evoked vs baseline),
-(3) whisker latency, (4) auditory AUC; (5) depth profile: whisker delta rate against the distance from the brain
-surface, coloured by barrel. Pooled: whisker / auditory responsiveness and latency by barrel class (C2, C2 neighbours,
+(3) whisker latency, (4) auditory AUC; (5) depth profile: whisker delta rate against the unit depth on the probe,
+coloured by barrel. Global vs barrel-specific registration: shift between the global CCF (IBL alignment) and the D2
+corrected CCF per unit, and global vs D2 barrel per unit. Pooled: whisker / auditory responsiveness and latency by barrel class (C2, C2 neighbours,
 other barrels, septa / outside barrels within SSp-bfd) and layer. Tables: per-probe barrels and layers crossed.
 
-Outputs: combined_results_ks4/ssl-barrel-localization/figures/003_*.{png,pdf,svg}, tables/003_*.csv
+Outputs: combined_results_ks4/ssl-barrel-localization/figures/ (per mouse in per_mouse/: flat maps, global vs D2),
+tables/003_*.csv. Summaries pooled over all brains and over brains with visible barrels (Lana's visual check), by cohort
+(reward_group from the reference sheet).
 Run (haas): ~/code/unit_spikes_analysis/.venv/bin/python 003_maps.py AB156 AB164 MH064   [no args: every 002 table]
 """
 import sys
@@ -41,10 +44,11 @@ def load(mouse):
     for d in (u, r):
         d["cluster_id"] = d.cluster_id.astype(float)
     df = u.merge(r, on=["mouse_id", "session_id", "electrode_group", "cluster_id"], how="left")
-    df = df[df.bc_label.isin(["good", "mua"]) & df.trk_file.notna()]
+    df = df[df.bc_label.isin(["good", "mua"]) & df.track_file.notna()]
+    df = df[df.trk_brainreg_region.notna()]  # units placed on their probe's DiI track
     df["barrel"] = df.trk_d2_barrel.fillna("")
     df["layer"] = df.trk_d2_layer.fillna("").replace("", np.nan).fillna(df.trk_brainreg_layer.replace("", np.nan))
-    in_bfd = df.trk_brainreg_region.fillna("").str.startswith("SSp-bfd") | (df.barrel != "")
+    in_bfd = df.glob_region.fillna("").str.startswith("SSp-bfd") | (df.barrel != "")
     df["barrel_class"] = np.select([df.barrel == "C2", df.barrel.isin(NEIGHBOURS), df.barrel != "", in_bfd],
                                    ["C2", "C2 neighbours", "other barrels", "septa / between columns"], "outside SSp-bfd")
     return df
@@ -102,15 +106,47 @@ def mouse_row(axes, df, mouse):
     plt.colorbar(sc, ax=axes[2], shrink=0.6)
     ax = axes[4]
     for b, x in df.groupby("barrel"):
-        ax.scatter(x.whisker_delta_hz, x.d_surface_um, s=5, lw=0, label=b or "none", zorder=3,
+        ax.scatter(x.whisker_delta_hz, x.depth, s=5, lw=0, label=b or "none", zorder=3,
                    color="#009E73" if b == "C2" else ("0.75" if not b else None))
-    ax.invert_yaxis()
     ax.axvline(0, color="0.6", lw=0.4, ls=":")
     ax.set_xlabel("Whisker evoked - baseline (Hz)")
-    ax.set_ylabel("Distance from brain surface (um)")
-    ax.set_ylim(1600, -50)
+    ax.set_ylabel("Depth on probe from tip (um; surface up)")
+    top = df.depth.max()
+    ax.set_ylim(top - 1600, top + 50)
     ax.legend(fontsize=4.5, frameon=False, markerscale=1.5, ncol=2)
-    ax.set_title("Depth profile (cortex)", fontsize=7)
+    ax.set_title("Depth profile (upper 1.6 mm)", fontsize=7)
+
+
+def registration_figure(data, path):
+    """Global (IBL alignment, brainreg) vs barrel-specific (D2) position of every unit in a D2 barrel column: shift
+    magnitude, horizontal (AP x ML) arrows from global to corrected position, and global vs D2 barrel counts."""
+    mice = list(data)
+    fig, axes = plt.subplots(2, len(mice), figsize=(3.2 * len(mice), 6), constrained_layout=True, squeeze=False)
+    rows = []
+    for j, m in enumerate(mice):
+        d = data[m][data[m].barrel != ""]
+        ax = axes[0, j]
+        ax.hist(d.trk_shift_um, bins=np.arange(0, 800, 20), color="0.4", lw=0)
+        ax.set_xlabel("|D2 (on DiI track) - global CCF| (um)")
+        ax.set_ylabel("Units")
+        ax.set_title(f"{m}: median {d.trk_shift_um.median():.0f} um", fontsize=7)
+        ax = axes[1, j]
+        ax.quiver(d.ccf_atlas_ml, d.ccf_atlas_ap, d.trk_shift_ml_um, d.trk_shift_ap_um, angles="xy", scale_units="xy",
+                  scale=1, width=0.004, color="0.5")
+        for b, x in d.groupby("barrel"):
+            ax.scatter(x.trk_ccf_ml_um, x.trk_ccf_ap_um, s=4, lw=0, label=b, zorder=3)
+        ax.invert_yaxis()
+        ax.set_aspect("equal")
+        ax.set_xlabel("CCF ML (um)")
+        ax.set_ylabel("CCF AP (um)")
+        ax.legend(fontsize=4.5, frameon=False, title="D2 barrel", title_fontsize=5)
+        rows.append(pd.crosstab(d.glob_barrel.replace("", "none"), d.barrel).stack().rename("n_units").reset_index()
+                    .assign(mouse_id=m))
+    for ext in ("png", "pdf", "svg"):
+        fig.savefig(path.with_suffix(f".{ext}"), dpi=300)
+    plt.close(fig)
+    tab = pd.concat(rows, ignore_index=True)
+    return tab[tab.n_units > 0].rename(columns={"glob_barrel": "global_barrel", "barrel": "d2_barrel"})
 
 
 def summary(df):
@@ -139,34 +175,57 @@ def summary_figure(df, path):
         ax.set_xticks(range(len(order)), order, rotation=20, ha="right")
         ax.set_ylabel(ylabel)
     axes[0].legend(fontsize=5, frameon=False)
-    fig.suptitle(f"Pilot: {', '.join(sorted(df.mouse_id.unique()))} (good/mua units, track route)", fontsize=7)
+    fig.suptitle(f"{df.mouse_id.nunique()} mice, {len(df)} good/mua units", fontsize=7)
     for ext in ("png", "pdf", "svg"):
         fig.savefig(path.with_suffix(f".{ext}"), dpi=300)
     plt.close(fig)
 
 
+def cohorts():
+    sheet = next(p for p in (Path("/mnt/share_internal"), Path(r"M:\share_internal")) if p.exists())
+    ref = pd.read_excel(sheet / "Axel_Bisi_Share" / "dataset_info" / "joint_mouse_reference_weight.xlsx")
+    return ref.set_index("mouse_name").reward_group.to_dict()
+
+
 def main(mice):
     mice = mice or sorted(p.stem.split("_")[-1] for p in TABLES.glob("002_responses_*.parquet"))
-    FIGS.mkdir(parents=True, exist_ok=True)
-    data = {m: load(m) for m in mice}
-    fig, axes = plt.subplots(len(mice), 5, figsize=(16, 3.3 * len(mice)), constrained_layout=True, squeeze=False)
-    for row, m in zip(axes, mice):
-        mouse_row(row, data[m], m)
-    for ext in ("png", "pdf", "svg"):
-        fig.savefig(FIGS / f"003_flat_maps_{'_'.join(mice)}.{ext}", dpi=300)
-    plt.close(fig)
+    tag = "all" if len(mice) > 5 else "_".join(mice)
+    per_mouse = FIGS / "per_mouse"
+    per_mouse.mkdir(parents=True, exist_ok=True)
+    data = {}
+    for m in mice:
+        d = load(m)
+        if len(d) == 0:
+            print(m, "no units on a DiI track; skipped")
+            continue
+        data[m] = d
+        fig, axes = plt.subplots(1, 5, figsize=(16, 3.3), constrained_layout=True)
+        mouse_row(axes, d, m)
+        for ext in ("png", "pdf", "svg"):
+            fig.savefig(per_mouse / f"003_flat_maps_{m}.{ext}", dpi=300)
+        plt.close(fig)
+        registration_figure({m: d}, per_mouse / f"003_global_vs_d2_{m}")
+    inv = pd.read_csv(TABLES / "000_inventory.csv").drop_duplicates("mouse_id").set_index("mouse_id")
+    coh = cohorts()
     df = pd.concat(data.values(), ignore_index=True)
-    probes = (df.groupby(["mouse_id", "session_id", "electrode_group", "trk_file"])
+    df["cohort"] = df.mouse_id.map(coh)
+    df["barrels_visible"] = df.mouse_id.map(inv.barrels_visible).fillna("").eq("yes")
+    reg = pd.concat([registration_figure({m: d}, per_mouse / f"003_global_vs_d2_{m}") for m, d in data.items()])
+    reg.to_csv(TABLES / f"003_global_vs_d2_barrel_{tag}.csv", index=False)
+    for name, sub in [("visible", df[df.barrels_visible]), ("allbrains", df)]:
+        for coh_name, x in [("pooled", sub), *((c, sub[sub.cohort == c]) for c in ("R+", "R-"))]:
+            if len(x):
+                summary(x).to_csv(TABLES / f"003_summary_{tag}_{name}_{coh_name}.csv", index=False)
+                summary_figure(x, FIGS / f"003_summary_{tag}_{name}_{coh_name}")
+    probes = (df.groupby(["mouse_id", "session_id", "electrode_group", "track_file"])
               .apply(lambda x: pd.Series({"n_units": len(x),
                                           "barrels": " ".join(f"{b}:{n}" for b, n in x.barrel.replace("", np.nan).dropna().value_counts().items()),
                                           "layers_in_barrels": " ".join(f"L{l}:{n}" for l, n in x[x.barrel != ""].layer.value_counts().items()),
                                           "n_whisker_responsive": int(x.whisker_responsive.fillna(False).sum())}), include_groups=False)
               .reset_index())
-    probes.to_csv(TABLES / f"003_probes_{'_'.join(mice)}.csv", index=False)
-    summary(df).to_csv(TABLES / f"003_summary_{'_'.join(mice)}.csv", index=False)
-    summary_figure(df, FIGS / f"003_summary_{'_'.join(mice)}")
+    probes.to_csv(TABLES / f"003_probes_{tag}.csv", index=False)
     print(probes.to_string(index=False))
-    print(summary(df).round(2).to_string(index=False))
+    print(summary(df[df.barrels_visible]).round(2).to_string(index=False))
 
 
 if __name__ == "__main__":

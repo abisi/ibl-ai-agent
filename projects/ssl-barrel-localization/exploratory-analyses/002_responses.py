@@ -5,8 +5,8 @@ aligned at whisker_stim_time / auditory_stim_time; windows end before licking (r
 (context == passive) only for the mice kept by ephys_utilities keep_passive_data (passive pre and post; rule), prefix `pas_`.
 Per unit and modality (whisker window 5-50 ms, auditory 5-100 ms; baseline the 100 ms before the stimulus):
   evoked - baseline rate (Hz), AUC of evoked vs baseline spike counts (trial by trial, 0.5 = no change), Wilcoxon
-  signed-rank p (`responsive` = p < 0.01 and rate increase), latency = first 1-ms bin of the trial-averaged PSTH (2-ms
-  Gaussian) above baseline mean + 3 SD for 2 consecutive bins, and peak time.
+  signed-rank p (`responsive` = p < 0.01 and rate increase), latency = first 1-ms bin of the trial-averaged PSTH (no
+  smoothing; user 2026-11-11) above baseline mean + 3 SD for 2 consecutive bins, and peak time.
 Output: combined_results_ks4/ssl-barrel-localization/tables/002_responses_<mouse>.parquet (keys mouse_id, session_id,
 electrode_group, cluster_id).
 Run (haas): ~/code/unit_spikes_analysis/.venv/bin/python 002_responses.py AB156 AB164 MH064   [no args: every 001 table]
@@ -18,7 +18,6 @@ import h5py
 import numpy as np
 import pandas as pd
 from scipy import stats
-from scipy.ndimage import gaussian_filter1d
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from axel_bisi_paths import axel_bisi_root  # noqa: E402
@@ -65,7 +64,7 @@ def response(spikes, onsets, window):
     for o in onsets:
         lo, hi = np.searchsorted(spikes, [o + b0, o + w1])
         psth += np.histogram(spikes[lo:hi] - o, edges)[0]
-    psth = gaussian_filter1d(psth / len(onsets) / 0.001, 2)
+    psth = psth / len(onsets) / 0.001  # Hz, 1-ms bins, unsmoothed
     t = edges[:-1]
     base, post = psth[t < 0], psth[t >= w0]
     above = post > base.mean() + 3 * base.std()
@@ -102,6 +101,8 @@ def session_responses(session_id, units, passive_ok):
 def main(mice):
     mice = mice or sorted(p.stem.split("_")[-1] for p in TABLES.glob("001_units_*.parquet"))
     for m in mice:
+        if (TABLES / f"002_responses_{m}.parquet").exists() and "--redo" not in sys.argv:
+            continue
         units = pd.read_parquet(TABLES / f"001_units_{m}.parquet")
         passive_ok = len(data_utils.keep_passive_data(units[["mouse_id", "session_id", "electrode_group"]])) == len(units)
         df = pd.concat([session_responses(s, g, passive_ok) for s, g in units.groupby("session_id")], ignore_index=True)
@@ -111,4 +112,4 @@ def main(mice):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main([a for a in sys.argv[1:] if not a.startswith("--")])

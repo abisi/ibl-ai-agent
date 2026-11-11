@@ -8,10 +8,11 @@
 - [X] 002 functional table: ROC (whisker / auditory passive pre, active, whisker vs auditory), evoked responsiveness and
       latency from the NWB spikes (passive whisker / auditory trials)
 - [X] 003 maps: probes and units on the flat barrel map; coronal / depth views per barrel; per-probe barrel and layer table
-- [X] pilot AB156, AB164, MH064 run (2026-11-11). Linking decision pending: track route (DiI track + atlas depth,
-      scale from Lana's registration) is primary, as it reproduces Lana's per-track barrel calls; the coordinate route
-      fails where the NWB coordinates come from an earlier registration (MH, AB164). Fix before scaling: latency floor
-      at 5 ms (2-ms smoothing leaks the response before the window start); flat-map panel cropping and labels.
-- [ ] pilot review with the user  **consult user**
-- [ ] all barrel-field brains; C2 vs surround vs septa by layer; R+ / R-; registration validation
+- [X] pilot AB156, AB164, MH064 (2026-11-11). Link (user): unit global CCF = peak channel in channel_locations.json
+      (IBL alignment). The atlas-space and sample-space DiI tracks of brainglobe disagree by 85-176 um (median) under
+      the deformation field, so units are placed on the physical DiI track at their aligned arc fraction (track
+      transfer, `trk_`); this reproduces Lana's per-track barrel calls. Direct inverse mapping and global labels kept
+      for comparison. Latency unsmoothed (user).
+- [X] pilot review with the user: run all brains (2026-11-11)
+- [ ] all barrel-field brains (running 2026-11-11); C2 vs surround vs septa by layer; R+ / R-; registration validation
 - [ ] full results to the user  **consult user**; report
