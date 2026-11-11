@@ -1,0 +1,38 @@
+# Supplementary Figure 2 -- learning correlates (user 2026-11-09: "what's not in main put in supplementary").
+# Panels b-f read the outputs of the Figure 1 exploration scripts (figures/Figure1_behaviour/explore_*.py, run on haas,
+# Figures/_explore/, latest date); panel a reuses Figure 1 compute_first_lick (moved out of Figure 1).
+# Learners, whisker day 0; licked trials for latencies; medians over mice with interquartile ranges unless stated.
+figure: SuppFigure2_learning_correlates
+number: S2
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 11.5
+  pad_left_mm: 8
+caption:
+  title: 'Correlates of learning on whisker day 0: first lick, reaction time, posture and licking.'
+  footer: Learner mice, whisker day 0. Trials with perf = 6, passive trials and early-lick trials are excluded; on whisker
+    day 0 the auditory warm-up block is removed except its last trial. R+, green; R-, magenta; auditory, blue; no stimulus,
+    black (R+) and grey (R-). Correlations are computed within each mouse across trials and compared with the median of
+    the same correlation over linear shifts of the trial sequence (|shift| > 10 trials).
+shared:
+  explore_outputs:
+    code: figures/Figure1_behaviour/explore_rt_hits.py, explore_rt_learning.py, explore_movement_corr.py, explore_lick_proba.py,
+      explore_lick_learning.py
+    params:
+      location: Figures/_explore/ (latest date)
+panels:
+- id: a
+  key: bouts
+  title: Lick bouts and reward expectation by hit number
+  data: FigS2_bouts.csv
+  status: filled
+  caption: Left, licks per bout (licks from the first lick with inter-lick intervals < 0.5 s) on whisker and auditory hits
+    by hit number (bins of 5). Right, licks in 0.6-1.5 s on each whisker hit divided by the mean on the session's auditory
+    hits. Per-mouse median per bin; median over mice with interquartile range.
+  cell:
+    x_mm: 115.0
+    y_mm: 43.3
+    w_mm: 68.0
+    h_mm: 38.5

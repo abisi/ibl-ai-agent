@@ -22,8 +22,18 @@ from axel_bisi_paths import axel_bisi_root  # noqa: E402
 EXTERNAL_REPOS = {"behaviour_analysis": axel_bisi_root() / "behaviour_analysis", "NWB_reader": axel_bisi_root() / "NWB_reader"}
 FIGURES_ROOT = axel_bisi_root() / "manuscripts" / "Bisi_Hamon" / "Figures"
 CACHE_DIR = FIGURES_ROOT / "_cache"
-REFERENCE_SHEET = axel_bisi_root() / "dataset_info" / "joint_mouse_reference_weight.xlsx"
+# canonical sheet on share_internal (M:\share_internal on the PC, /mnt/share_internal on haas); the copy in
+# analysis/Axel_Bisi/dataset_info is stale (March 2026: AB144 / AB155 / MH038 still excluded, no MH033), fixed 2026-11-06
+_SHARE_INTERNAL = next((p for p in (Path(r"M:\share_internal"), Path("/mnt/share_internal")) if p.exists()), None)
+REFERENCE_SHEET = _SHARE_INTERNAL / "Axel_Bisi_Share" / "dataset_info" / "joint_mouse_reference_weight.xlsx"
 NWB_DIR = axel_bisi_root() / "NWB_ks4"
+SESSION_NWB = re.compile(r"^[A-Z]+\d+_\d{8}_\d{6}\.nwb$")  # skips *_backup_<date>.nwb left by reconversions
+
+
+def session_nwbs(mouse_id=None):
+    """Session NWB files in NWB_DIR (one per session; backups excluded), optionally of one mouse."""
+    files = (f for f in NWB_DIR.glob(f"{mouse_id or '*'}_*.nwb") if SESSION_NWB.match(f.name))
+    return sorted(files)
 
 
 def import_external_repos():

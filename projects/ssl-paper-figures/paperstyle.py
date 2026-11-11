@@ -3,6 +3,7 @@ panels, exports (PDF, SVG, AI, EPS, PNG, JPG) and the Nature source-data workboo
 Canonical template: skills/ssl-paper-figures/references/paperstyle_template.py."""
 
 import datetime
+import math
 import shutil
 from pathlib import Path
 
@@ -46,16 +47,18 @@ def set_nature_rc():
 
 
 class PaperGrid:
-    """Square unit cells on an A4 page; the figure block is `width_mm` wide at its final print size.
+    """Unit cells on an A4 page; the figure block is `width_mm` wide at its final print size. Cells are square unless
+    `cell_height_mm` is given (to keep a many-row figure within the journal's page height).
 
     A panel spanning nrows x ncols cells includes the gaps between them, so its axes edges line up with
     single-cell panels. Positions are those of the axes box (not the tight bounding box).
     """
 
     def __init__(self, width_mm=183, n_cols=5, col_gap_mm=8, row_gap_mm=10, pad_left_mm=8,
-                 top_margin_mm=20, page_mm=A4_MM):
-        self.col_gap, self.row_gap = col_gap_mm, row_gap_mm
+                 top_margin_mm=20, page_mm=A4_MM, cell_height_mm=None):
+        self.col_gap, self.row_gap, self.pad_left = col_gap_mm, row_gap_mm, pad_left_mm
         self.unit = (width_mm - pad_left_mm - (n_cols - 1) * col_gap_mm) / n_cols
+        self.unit_h = cell_height_mm or self.unit
         self.x0 = (page_mm[0] - width_mm) / 2 + pad_left_mm
         self.y0 = top_margin_mm + row_gap_mm  # room for the first row's letters and titles
         self.page = page_mm
@@ -63,10 +66,18 @@ class PaperGrid:
         self.bottom_mm = self.y0
 
     def axes(self, row, col, nrows=1, ncols=1, letter=None):
-        x = self.x0 + col * (self.unit + self.col_gap)
-        y = self.y0 + row * (self.unit + self.row_gap)
-        w = ncols * self.unit + (ncols - 1) * self.col_gap
-        h = nrows * self.unit + (nrows - 1) * self.row_gap
+        # positions and spans may be fractional (figure planner, quarter cells): a box starts and ends inside cells,
+        # never inside a gap, so 1.5 cells from col 0 = one cell, one gap and half a cell
+        def start(v, unit, gap):
+            return math.floor(v) * (unit + gap) + (v - math.floor(v)) * unit
+
+        def end(v, unit, gap):
+            return (math.ceil(v) - 1) * (unit + gap) + (v - math.ceil(v) + 1) * unit
+
+        x = self.x0 + start(col, self.unit, self.col_gap)
+        y = self.y0 + start(row, self.unit_h, self.row_gap)
+        w = self.x0 + end(col + ncols, self.unit, self.col_gap) - x
+        h = self.y0 + end(row + nrows, self.unit_h, self.row_gap) - y
         self.bottom_mm = max(self.bottom_mm, y + h)
         pw, ph = self.page
         ax = self.fig.add_axes([x / pw, 1 - (y + h) / ph, w / pw, h / ph])
@@ -74,6 +85,22 @@ class PaperGrid:
             # same row -> same y; letter sits in the left padding, above the axes top
             self.fig.text((x - self.col_gap + 1) / pw, 1 - (y - 4) / ph, letter,
                           fontsize=8, fontweight="bold", va="bottom", ha="left")
+        return ax
+
+    def axes_mm(self, x_mm, y_mm, w_mm, h_mm, letter=None, margins_mm=(7.5, 6.0, 3.0, 0.5)):
+        """Panel drawn in the figure planner, in mm: x from the left edge of the `width_mm` block, y from the top of
+        the figure. The box is the whole panel: its letter sits at the top-left corner and the axes are inset by
+        `margins_mm` (left, bottom, top, right) so tick labels and axis labels stay inside the box (2 mm gaps between
+        boxes in the planner layout)."""
+        left, bottom, top, right = margins_mm
+        x = self.x0 - self.pad_left + x_mm
+        y = self.y0 - self.row_gap + y_mm  # no letter band above the first row: letters are inside the boxes
+        self.bottom_mm = max(self.bottom_mm, y + h_mm)
+        pw, ph = self.page
+        ax_w, ax_h = w_mm - left - right, h_mm - top - bottom
+        ax = self.fig.add_axes([(x + left) / pw, 1 - (y + top + ax_h) / ph, ax_w / pw, ax_h / ph])
+        if letter:
+            self.fig.text((x - 0.5) / pw, 1 - y / ph, letter, fontsize=8, fontweight="bold", va="top", ha="left")
         return ax
 
     def placeholder(self, ax, label):

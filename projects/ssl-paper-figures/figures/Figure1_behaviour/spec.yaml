@@ -1,338 +1,423 @@
-# Figure 1 -- behaviour. Designed with the user in the figure planner artifact (2026-11-02); one figure, 22 panels.
+# Figure 1 -- behaviour. Layout from the figure planner (2026-11-10 read: e/f without states, g with lag-0 bars, i binned, k lineplot): 15 panels in 4 rows (2026-11-10: aligned_curves dropped, spontaneous licks merged into i with whisker and auditory; j perf_session, k rt_learning, l-o GLM) inside 183 x 167 mm (2026-11-09: movement to d, pretraining to SuppFigure1_behaviour)
+# (Nature double column, full-page depth; fills the A4 page, user 2026-11-05); each box (mm, x from the left edge, y from the top) is a whole panel.
+# `key` is the panel's stable name (compute_<key>, plot_<key>, data Fig1_<key>.csv); `id` is its letter in this layout.
 # Learning-curve-dependent panels use the exact re-fit (learning_curve_exact, sigma 1, 80% CI; user 2026-11-02).
 # Learner / non-learner = reference sheet learning_category (good, moderate = learner; bad = non-learner; user 2026-11-02).
-# Panel ids = letters in reading order (re-lettered 2026-11-02; planner working labels mapped c>b b>c w>h h>i v>k k>l l>m m>o t>p u>q i>r o>s p>t q>u r>v s>w).
+# DLC: ephys_utilities dlc_helpers only (user rule 2026-11-05). Style (planner notes): mean +- s.e.m. in cohort colours,
+# individual mice only where asked; auditory blue (lighter for R-); false alarms black (R+) and grey (R-).
 figure: Figure1_behaviour
-number: "1"
-grid: {width_mm: 183, n_cols: 6, col_gap_mm: 7, row_gap_mm: 10, pad_left_mm: 8}
-
+number: '1'
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 11.5
+  pad_left_mm: 8
 caption:
-  title: >-
-    Auditory-to-whisker transfer learning: task, within-session learning dynamics, correlates of learning and a
-    behavioural model.
-  footer: >-
-    Trials with perf = 6 and passive trials are excluded; on whisker day 0 the auditory warm-up block is removed
-    except its last trial; early-lick trials are excluded. Reaction time is the first-lick time from the start of the
-    response window. Cohort (R+, whisker hits rewarded; R-, whisker hits not rewarded) is assigned per mouse from the
-    reference sheet. R+, green; R-, magenta; auditory, blue; no stimulus, black. Unless stated otherwise, data are
-    mean ± s.e.m. over mice and R+ versus R- comparisons are two-sided Mann-Whitney U tests and Welch's t-tests, both
-    reported, without correction for multiple comparisons.
-
+  title: 'Auditory-to-whisker transfer learning: task, within-session learning dynamics, correlates of learning and a behavioural
+    model.'
+  footer: Trials with perf = 6 and passive trials are excluded; on whisker day 0 the auditory warm-up block is removed except
+    its last trial; early-lick trials are excluded. Reaction time is the first-lick time from the start of the response
+    window. Cohort (R+, whisker hits rewarded; R-, whisker hits not rewarded) is assigned per mouse from the reference sheet.
+    R+, green; R-, magenta; auditory, blue; no stimulus, black. Unless stated otherwise, data are mean ± s.e.m. over mice
+    and R+ versus R- comparisons are two-sided Mann-Whitney U tests and Welch's t-tests, both reported, without correction
+    for multiple comparisons.
 shared:
   behaviour_table:
     code: shared_behaviour.load
-    calls: [behaviour_analysis/behavior_analysis_utils.build_standard_behavior_table,
-            behaviour_analysis/behavior_analysis_utils.reindex_whisker_days]
-    params: {nwb_dir: NWB_ks4, auditory_days: all, whisker_days: [0, 1, 2], trials: "perf != 6, not passive, day-0 warm-up cut, no whisker trials on auditory days", reaction_time: "recomputed after reindex_whisker_days"}
+    calls:
+    - behaviour_analysis/behavior_analysis_utils.build_standard_behavior_table
+    - behaviour_analysis/behavior_analysis_utils.reindex_whisker_days
+    params:
+      nwb_dir: NWB_ks4
+      auditory_days: all
+      whisker_days:
+      - 0
+      - 1
+      - 2
+      - 3
+      trials: perf != 6, not passive, day-0 warm-up cut, no whisker trials on auditory days
+      reaction_time: recomputed after reindex_whisker_days
   day0_curves:
     code: compute.day0_curves
-    calls: [ssl-paper-figures/learning_curve_exact.session_learning_curves_exact (vendored; learning trial by behaviour_analysis/learning_utils.identify_learning_trial_*)]
-    params: {sigma: 1.0, conf_int: 80, trials: "whisker day 0, early_lick == 0", chance: "no-stim curve interpolated in time onto whisker trials"}
+    calls:
+    - ssl-paper-figures/learning_curve_exact.session_learning_curves_exact (vendored; learning trial by behaviour_analysis/learning_utils.identify_learning_trial_*)
+    params:
+      sigma: 1.0
+      conf_int: 80
+      trials: whisker day 0, early_lick == 0
+      chance: no-stim curve interpolated in time onto whisker trials
   learner_label:
     code: shared_behaviour.mouse_reference
-    params: {source: "dataset_info/joint_mouse_reference_weight.xlsx learning_category", learner: [good, moderate], non_learner: [bad]}
+    params:
+      source: dataset_info/joint_mouse_reference_weight.xlsx learning_category
+      learner:
+      - good
+      - moderate
+      non_learner:
+      - bad
   perf_states:
     code: compute.perf_states
-    calls: [behaviour_analysis/learning_utils.assign_expertise_blocks, behaviour_analysis/learning_utils.propagate_expertise_inplace]
-    params: {n_consecutive: 5, criterion: "R+: p_low > p_chance; R-: p_low < p_chance (as in the repo; confirmed by the user 2026-11-02)", low_sated: "after a high block, p_mean < 0.2 and p_chance < 0.1 to the session end", curves: day0_curves}
-  movements:
-    code: shared_movements.load
-    calls: [NWB_reader/NWB_reader_functions.get_dlc_data_dict]
-    params: {mice: "with_dual_view == 1", metrics: "motion energy (mean |diff|) of jaw_distance, nose_norm_distance, whisker_angle in [-0.2, 0) s; mean pupil_area in [-2, 0) s (as beh_correlates_lick_decoding.py)", trials: "whisker trials of the shared table, early_lick == 0"}
+    calls:
+    - behaviour_analysis/learning_utils.assign_expertise_blocks
+    - behaviour_analysis/learning_utils.propagate_expertise_inplace
+    params:
+      n_consecutive: 5
+      criterion: 'R+: p_low > p_chance; R-: p_low < p_chance (as in the repo; confirmed by the user 2026-11-02)'
+      low_sated: after a high block, p_mean < 0.2 and p_chance < 0.1 to the session end
+      curves: day0_curves
+  glm_v5:
+    code: glm_v5_run.py (user 2026-11-09)
+    changes_from_glm_v4: 5 contiguous outer blocks (default) instead of 10; drop-and-refit importance (delta held-out
+      log-likelihood per trial when a predictor group is removed and the model refitted at the fold's C), next to the
+      shuffled-predictor delta AUC; metrics = mean over the 10 repeats of the pooled held-out scores; example trace = per-trial
+      mean of the 10 held-out predictions
+  glm_v4:
+    code: glm_v4_run.py (user 2026-11-09; design matrix from glm_v3_run.glm_module, Myriam's file unchanged)
+    changes_from_glm_v3: contiguous-block CV with a 3-whisker-trial gap, 10 repeats with shifted blocks; no class weighting (calibrated probabilities); C by log-loss on 1e-5..1e3; balanced accuracy at the training lick rate; metrics pooled per repeat, mean over repeats
   glm_v3:
-    code: glm_v3_run.py (wrapper; Myriam's file unchanged)
-    calls: [behaviour_analysis/glm_behavior/glm_behavior_v3.process_one_mouse]
-    params: {settings: "her __main__ defaults: bin 0.2 s, pre-stim window -0.2..0 s, 10 CV folds, RT head, nested comparison, shuffle importance 10 repeats, whole session", mice: "reference-sheet learners", predictors: "lick n-1..n-3, spontaneous lick rate, time since reward, cumulative reward fraction, jaw/nose/whisker speed, pupil area (pre-stimulus)"}
-
+    code: glm_v3_run.py (wrapper; Myriam's file unchanged, run from a patched copy)
+    calls:
+    - behaviour_analysis/glm_behavior/glm_behavior_v3.process_one_mouse
+    params:
+      settings: 'her __main__ defaults: bin 0.2 s, pre-stim window -0.2..0 s, 10 CV folds, RT head, nested comparison, shuffle
+        importance 10 repeats, whole session'
+      mice: reference-sheet learners
+      predictors: lick n-1..n-3, spontaneous lick rate, time since reward, cumulative reward fraction, jaw/nose/whisker
+        speed, pupil area (pre-stimulus)
+      nose_speed: '|nose_velocity|, side view only (user 2026-11-05; her code combines side and top views, which fails for
+        sessions without the top view)'
+      sessions: session NWBs only (*_backup_<date>.nwb excluded, 2026-11-05)
+  movements:
+    code: shared_movements.load (dlc_helpers)
+    calls:
+    - NWB_reader/NWB_reader_functions.get_dlc_data_dict
+    params:
+      mice: with_dual_view == 1
+      metrics: motion energy (mean |diff|) of jaw_distance, nose_norm_distance, whisker_angle in [-0.2, 0) s; mean pupil_area
+        in [-2, 0) s
+  movement_peth:
+    code: shared_movement_peth.load (dlc_helpers)
+    calls:
+    - NWB_reader/NWB_reader_functions.get_dlc_data_dict
+    params:
+      mice: with_dual_view == 1
+      version: 5
+      signals: whisker speed (-0.05..0.1 s), jaw_distance (-0.1..0.3 s), pupil_area (-1..3 s), physical units
+      split: trial type x lick / no lick; aligned at the stimulus and at the lick (start_time + computed_reaction_time)
+      normalisation: minus each trial's pre-stimulus mean (both alignments)
 panels:
-  # ---- row 0: task and pretraining
-  - id: a
-    title: Task and training schedule
-    cell: {row: 0, col: 0, ncols: 2}
-    kind: drawing
-    status: placeholder
-  - id: b
-    title: Auditory pretraining is comparable across cohorts
-    caption: >-
-      Number of trials performed during auditory pretraining (all auditory days, after exclusions), per mouse. Dots,
-      mice; marker and bar, mean ± s.e.m. n = {stats.n_R+} R+ and {stats.n_R-} R- mice; Mann-Whitney U =
-      {stats.mannwhitney_U:.0f}, {stats.mannwhitney_p:p}; Welch's t = {stats.welch_t:.2f}, {stats.welch_p:p}. Median
-      number of auditory days, {median_days.R+:.0f} (R+) and {median_days.R-:.0f} (R-); Mann-Whitney
-      {stats_days.mannwhitney_p:p}, Welch {stats_days.welch_p:p}.
-    cell: {row: 0, col: 2}
-    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_pretraining (logic)]
-    params: {measure: "number of trials during auditory pretraining (all auditory days, active trials, per mouse)"}
-    stats: "Mann-Whitney U + Welch t, R+ vs R-, mice"
-    data: Fig1b_auditory_pretraining.csv
-    status: filled
-  - id: c
-    title: Performance from the last auditory day to whisker day 0
-    caption: >-
-      Lick probability on whisker (cohort colour), auditory (blue) and no-stimulus trials (black) on the last
-      auditory day (day -1) and whisker day 0; R+ solid, R- dashed; mean ± s.e.m. over mice. n = {n.R+.-1} and
-      {n.R+.0} R+ and {n.R-.-1} and {n.R-.0} R- mice. Day 0, R+ versus R-: whisker, Mann-Whitney
-      {stats_day0.whisker_trial.mannwhitney_p:p}, Welch {stats_day0.whisker_trial.welch_p:p}; auditory, Mann-Whitney
-      {stats_day0.auditory_trial.mannwhitney_p:p}, Welch {stats_day0.auditory_trial.welch_p:p}; no stimulus,
-      Mann-Whitney {stats_day0.no_stim_trial.mannwhitney_p:p}, Welch {stats_day0.no_stim_trial.welch_p:p}.
-    cell: {row: 0, col: 3, ncols: 2}
-    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_across_days (logic)]
-    params: {days: [-1, 0], unit: "mouse", trials: "early_lick == 0"}
-    data: Fig1c_performance_days.csv
-    status: filled
-  - id: d
-    title: Reaction-time distributions
-    caption: >-
-      Reaction times on whisker day 0 for licks on whisker (cohort colour), auditory (blue) and no-stimulus trials
-      (false alarms, black), trials pooled across mice (25 ms bins, normalised to unit area); R+ solid, R- dashed.
-      Reaction time is measured from the start of the response window. n = {n_trials.R+ whisker_trial}, {n_trials.R+
-      auditory_trial} and {n_trials.R+ no_stim_trial} R+ and {n_trials.R- whisker_trial}, {n_trials.R-
-      auditory_trial} and {n_trials.R- no_stim_trial} R- whisker, auditory and no-stimulus licks from {n.R+.mice} R+
-      and {n.R-.mice} R- mice. Per-mouse median reaction time, R+ versus R-: whisker, Mann-Whitney
-      {stats_mouse_median.whisker_trial.mannwhitney_p:p}, Welch {stats_mouse_median.whisker_trial.welch_p:p};
-      auditory, Mann-Whitney {stats_mouse_median.auditory_trial.mannwhitney_p:p}, Welch
-      {stats_mouse_median.auditory_trial.welch_p:p}; false alarms, Mann-Whitney
-      {stats_mouse_median.no_stim_trial.mannwhitney_p:p}, Welch {stats_mouse_median.no_stim_trial.welch_p:p}.
-    cell: {row: 0, col: 5}
-    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_reaction_time (logic)]
-    params: {reaction_time: "lick_time - response_window_start_time", trials: "licks on whisker, auditory and no-stim (FA) trials, early_lick == 0", days: [0]}
-    stats: "per-mouse median whisker RT, Mann-Whitney U + Welch t"
-    data: Fig1d_reaction_times.csv
-    status: filled
-  # ---- row 1: example sessions and learning outcome
-  # ---- row 1: example sessions only (user 2026-11-02), learning curves with performance states
-  - id: e
-    title: Example R+ learner
-    caption: >-
-      Whisker day 0 of an example R+ learner ({mouse_id}; {n_whisker_trials} whisker trials). Learning curves
-      estimated with an exact state-space (hidden Markov) model of lick probability (random-walk sigma = 1 in logit
-      units), fitted separately to whisker trials (cohort colour; shading, 80% posterior interval), no-stimulus
-      trials (black; chance) and auditory trials (blue), the last two interpolated in time onto whisker trials.
-      Ticks, whisker trials with a lick (top, green) or without (bottom, magenta). Background, high-performance
-      state: at least 5 consecutive whisker trials whose lower bound exceeds the chance curve (R+) or lies below it
-      (R-); grey, low-performance state after a high state with whisker and false-alarm rates below 0.2 and 0.1
-      until the end of the session. Learners and non-learners as classified in the reference sheet.
-    cell: {row: 1, col: 0}
-    inputs: [day0_curves, perf_states, learner_label]
-    params: {example: AB164}
-    data: Fig1e_example_rplus_learner.csv
-    status: filled
-  - id: f
-    title: Example R+ non-learner
-    caption: >-
-      As in e for an R+ non-learner ({mouse_id}; {n_whisker_trials} whisker trials).
-    cell: {row: 1, col: 1}
-    inputs: [day0_curves, perf_states, learner_label]
-    params: {example: AB151}
-    data: Fig1f_example_rplus_nonlearner.csv
-    status: filled
-  - id: g
-    title: Example R- learner
-    caption: >-
-      As in e for an R- learner ({mouse_id}; {n_whisker_trials} whisker trials).
-    cell: {row: 1, col: 2}
-    inputs: [day0_curves, perf_states, learner_label]
-    params: {example: AB158}
-    data: Fig1g_example_rminus_learner.csv
-    status: filled
-  - id: h
-    title: Example R- non-learner
-    caption: >-
-      As in e for an R- non-learner ({mouse_id}; {n_whisker_trials} whisker trials).
-    cell: {row: 1, col: 3}
-    inputs: [day0_curves, perf_states, learner_label]
-    params: {example: MH064}
-    data: Fig1h_example_rminus_nonlearner.csv
-    status: filled
-  - id: i
-    title: Fraction of mice that learn
-    caption: >-
-      Fraction of mice classified as learners (reference-sheet category good or moderate; non-learners, bad) among
-      mice with a whisker day-0 session; numbers, learners/mice. Two-sided Fisher's exact test, odds ratio =
-      {stats.fisher_odds_ratio:.2f}, {stats.fisher_p:p}.
-    cell: {row: 1, col: 4}
-    inputs: [learner_label]
-    stats: "Fisher exact test"
-    data: Fig1i_fraction_learners.csv
-    status: filled
-  - id: r
-    title: Whisker trials before the first whisker lick
-    caption: >-
-      Number of whisker trials before the first whisker-trial lick on whisker day 0. Dots, mice; marker and bar,
-      mean ± s.e.m. n = {stats.n_R+} R+ and {stats.n_R-} R- mice; Mann-Whitney U = {stats.mannwhitney_U:.0f},
-      {stats.mannwhitney_p:p}; Welch's t = {stats.welch_t:.2f}, {stats.welch_p:p}.
-    cell: {row: 3, col: 5}
-    calls: [behaviour_analysis/beh_plotting_functions.plot_multi_mouse_trials_to_first_lick (logic)]
-    stats: "Mann-Whitney U + Welch t, mice"
-    data: Fig1r_trials_to_first_lick.csv
-    status: filled
-  - id: j
-    title: Performance per state
-    caption: >-
-      Lick probability on whisker (W), auditory (A) and no-stimulus (FA) trials in the low (open) and high (filled)
-      performance states of whisker day 0 (states as in e; auditory and no-stimulus trials take the state of the
-      nearest whisker trial), mean ± s.e.m. over mice; R+ left, R- right of each pair. High versus low within
-      cohort: R+ whisker, Wilcoxon {stats_high_vs_low.R+ whisker_trial.wilcoxon_p:p}, paired t {stats_high_vs_low.R+
-      whisker_trial.paired_t_p:p}; R+ FA, Wilcoxon {stats_high_vs_low.R+ no_stim_trial.wilcoxon_p:p}, paired t
-      {stats_high_vs_low.R+ no_stim_trial.paired_t_p:p}; R- whisker, Wilcoxon {stats_high_vs_low.R-
-      whisker_trial.wilcoxon_p:p}, paired t {stats_high_vs_low.R- whisker_trial.paired_t_p:p}; R- FA, Wilcoxon
-      {stats_high_vs_low.R- no_stim_trial.wilcoxon_p:p}, paired t {stats_high_vs_low.R- no_stim_trial.paired_t_p:p}
-      (n = {stats_high_vs_low.R+ whisker_trial.n_mice} R+ and {stats_high_vs_low.R- whisker_trial.n_mice} R- mice
-      with both states).
-    cell: {row: 1, col: 5}
-    inputs: [perf_states]
-    calls: [behaviour_analysis/perf_state_plots.plot_low_vs_high_perf_sidebyside (logic)]
-    params: {measures: "hit, FA (and auditory) rates in low vs high state"}
-    stats: "paired low vs high within cohort (Wilcoxon + paired t), R+ vs R- per state"
-    data: Fig1j_performance_per_state.csv
-    status: filled
-  # ---- row 2: within-session dynamics
-  - id: k
-    title: Performance (whisker - FA) across the session
-    caption: >-
-      Performance (whisker learning curve minus the chance, no-stimulus curve; curves as in e) across whisker day 0,
-      with session time normalised from the first (0) to the last (1) whisker trial, mean ± s.e.m. over mice. n =
-      {n.R+.mice} R+ and {n.R-.mice} R- mice.
-    cell: {row: 2, col: 0, ncols: 2}
-    inputs: [day0_curves]
-    calls: [behaviour_analysis/learning_utils.align_curves_at_first_whisker_hit, beh_plotting_functions.plot_multi_mouse_binned_session (logic)]
-    params: {alignment: "first whisker stimulus", x: "normalised session time"}
-    data: Fig1k_performance_session.csv
-    status: filled
-  - id: l
-    title: False-alarm rate aligned to the first whisker lick
-    caption: >-
-      Cumulative number of false alarms over the 30 whisker trials following the first whisker-trial lick of whisker
-      day 0, mean ± s.e.m. over mice. n = {n.R+.mice} R+ and {n.R-.mice} R- mice.
-    cell: {row: 2, col: 2}
-    calls: [behaviour_analysis/beh_plotting_functions.plot_cumulative_fa_vs_whisker_trials (day-0 subplot, logic)]
-    params: {alignment: "first whisker-trial lick", n_trials: 30, trials: "untrimmed day 0 (warm-up auditory rewards count)"}
-    data: Fig1l_fa_aligned_first_whisker_lick.csv
-    status: filled
-  - id: m
-    title: False-alarm change vs day -1 at matched reward count
-    caption: >-
-      Cumulative number of false alarms over the 30 no-stimulus trials of the last auditory day (day -1) following
-      the trial at which each mouse had collected as many auditory rewards as before its first whisker lick on day
-      0, mean ± s.e.m. over mice. n = {n.R+.mice} R+ and {n.R-.mice} R- mice.
-    cell: {row: 2, col: 3}
-    calls: [behaviour_analysis/beh_plotting_functions.plot_cumulative_fa_vs_whisker_trials (day -1 subplot, logic)]
-    params: {comparison: "auditory day -1, anchored where the mouse has the same number of auditory rewards as at its day-0 first whisker lick", n_trials: 30}
-    data: Fig1m_fa_vs_day_minus1.csv
-    status: filled
-  - id: n
-    title: False-alarm change, statistics
-    caption: >-
-      Change in early-session false-alarm rate (first 20 no-stimulus trials after the anchors of l and m), day 0
-      minus day -1, per mouse. Dots, mice; marker and bar, mean ± s.e.m. n = {stats.n_R+} R+ and {stats.n_R-} R-
-      mice; Mann-Whitney U = {stats.mannwhitney_U:.0f}, {stats.mannwhitney_p:p}; Welch's t = {stats.welch_t:.2f},
-      {stats.welch_p:p}; one-sided permutation test (R+ > R-, 10,000 permutations) {permutation.p_one_sided:p}.
-      Change versus zero: R+, Wilcoxon {stats_delta_vs_0.R+.wilcoxon_p:p}, t {stats_delta_vs_0.R+.t_p:p}; R-,
-      Wilcoxon {stats_delta_vs_0.R-.wilcoxon_p:p}, t {stats_delta_vs_0.R-.t_p:p}.
-    cell: {row: 2, col: 4}
-    calls: [behaviour_analysis/beh_plotting_functions.plot_fa_rate_day_change (logic)]
-    params: {measure: "early-session FA rate (first 20 no-stim trials after the anchor), day 0 - day -1", n_trials_early: 20}
-    stats: "Mann-Whitney U + Welch t, R+ vs R- (user rule); also the function's one-sided permutation test R+ > R-"
-    data: Fig1n_fa_change_stats.csv
-    status: filled
-  - id: o
-    title: Auto- and cross-correlation of whisker and FA curves
-    caption: >-
-      Cross-correlation between the whisker learning curve and the chance (no-stimulus) curve of whisker day 0
-      (curves as in e) as a function of lag (positive, whisker curve leads), mean ± s.e.m. over mice; dashed lines,
-      mean lag-0 correlation under a linear-shift null (500 shifts of more than 10 trials). Lag-0 correlation versus
-      the null: R+, Wilcoxon {lag0_vs_shift_null.R+.wilcoxon_p:p}, t {lag0_vs_shift_null.R+.t_p:p}; R-, Wilcoxon
-      {lag0_vs_shift_null.R-.wilcoxon_p:p}, t {lag0_vs_shift_null.R-.t_p:p}. R+ versus R- at lag 0: Mann-Whitney
-      {lag0_rplus_vs_rminus.mannwhitney_p:p}, Welch {lag0_rplus_vs_rminus.welch_p:p}. n = {n.R+.mice} R+ and
-      {n.R-.mice} R- mice.
-    cell: {row: 2, col: 5}
-    calls: [behaviour_analysis/beh_correlates/beh_correlates_lick_decoding.py HR vs FAR cross-correlation (logic)]
-    inputs: [day0_curves]
-    params: {lags: "-10..10 whisker trials", null: "linear shifts > 10 trials, 500"}
-    data: Fig1o_whisker_fa_xcorr.csv
-    status: filled
-  # ---- row 3: correlates of learning (movements)
-  - id: p
-    title: Example R+ session with movements, trial by trial
-    caption: >-
-      Whisker day 0 of the R+ learner of e ({mouse_id}; {n_whisker_trials} whisker trials): whisker (green) and
-      chance (black) learning curves and, below, pre-stimulus jaw, nose and whisker motion energy (mean absolute
-      frame-to-frame change in the 200 ms before the trial) and pupil area (mean over the 2 s before the trial) per
-      whisker trial, z-scored within the session (clipped at ± 3 s.d.).
-    cell: {row: 3, col: 0, ncols: 3}
-    inputs: [movements, day0_curves]
-    params: {example: "same R+ mouse as e", variables: "pre-stimulus jaw, nose and whisker motion energy, pupil area (z-scored within session)"}
-    data: Fig1p_example_movements.csv
-    status: filled
-  - id: q
-    title: Learning curve vs movement variables, linear-shift null
-    caption: >-
-      Correlation between performance (whisker minus chance curve) and each pre-stimulus movement across the whisker
-      trials of whisker day 0, minus the mean of a linear-shift null (500 shifts of more than 10 trials), per mouse
-      with video. Dots, mice; marker and bar, mean ± s.e.m.; R+ left, R- right. Versus the null (Wilcoxon): jaw, R+
-      {stats.jaw_motion.R+_vs_null.wilcoxon_p:p}, R- {stats.jaw_motion.R-_vs_null.wilcoxon_p:p}; nose, R+
-      {stats.nose_motion.R+_vs_null.wilcoxon_p:p}, R- {stats.nose_motion.R-_vs_null.wilcoxon_p:p}; whisker, R+
-      {stats.whisker_motion.R+_vs_null.wilcoxon_p:p}, R- {stats.whisker_motion.R-_vs_null.wilcoxon_p:p}; pupil, R+
-      {stats.pupil_area.R+_vs_null.wilcoxon_p:p}, R- {stats.pupil_area.R-_vs_null.wilcoxon_p:p}. n = {n.R+.mice} R+
-      and {n.R-.mice} R- mice.
-    cell: {row: 3, col: 3, ncols: 2}
-    inputs: [movements, day0_curves]
-    calls: [behaviour_analysis/beh_correlates/beh_correlates_lick_decoding.py _compute_lagged_correlation, _shift_shuffle_corr (logic)]
-    params: {performance: "whisker curve - chance curve", lag: 0, null: "linear shifts > 10 trials, 500"}
-    stats: "correlation vs linear-shift null, per cohort"
-    data: Fig1q_curve_movement_correlation.csv
-    status: filled
-  # ---- row 4: behavioural GLM (glm_behavior_v3)
-  - id: s
-    title: Behavioural GLM schematic
-    cell: {row: 4, col: 0}
-    kind: drawing
-    status: placeholder
-  - id: t
-    title: Example session, GLM predictions
-    caption: >-
-      Whisker-trial licks of the R+ learner of e ({mouse_id}; ticks as in e) with the cross-validated (out-of-fold,
-      10 folds) lick probability predicted by the behavioural GLM (cohort colour) and the observed lick rate (grey,
-      10-trial running mean). Test AUC = {test_auc:.2f}.
-    cell: {row: 4, col: 1}
-    inputs: [glm_v3]
-    data: Fig1t_glm_example_predictions.csv
-    status: filled
-  - id: u
-    title: GLM performance across mice and cohorts
-    caption: >-
-      Cross-validated performance (test AUC, 10-fold) of the behavioural GLM on whisker day 0 per mouse. Dots, mice;
-      marker and bar, mean ± s.e.m.; dotted line, chance. AUC versus 0.5: R+, Wilcoxon {auc_vs_chance.R+.wilcoxon_p:p};
-      R-, Wilcoxon {auc_vs_chance.R-.wilcoxon_p:p}. R+ versus R-: Mann-Whitney {stats.mannwhitney_p:p}, Welch
-      {stats.welch_p:p}. n = {stats.n_R+} R+ and {stats.n_R-} R- learner mice.
-    cell: {row: 4, col: 2}
-    inputs: [glm_v3]
-    calls: [behaviour_analysis/glm_behavior/glm_behavior_plotting_new.plot_goodness_of_fit_compact (logic)]
-    data: Fig1u_glm_performance.csv
-    status: filled
-  - id: v
-    title: GLM weights by magnitude, per cohort
-    caption: >-
-      GLM weights (standardised predictors, L2-regularised logistic regression fitted on all whisker trials of
-      whisker day 0) ordered by mean absolute weight across mice, mean ± s.e.m. over mice; R+ left, R- right of each
-      pair. Predictors: whisker-trial licks on the previous 1-3 whisker trials, spontaneous lick rate in the
-      preceding inter-trial interval, time since the last reward, cumulative fraction of rewarded trials,
-      pre-stimulus jaw, nose and whisker speed and pupil area. Per-predictor tests (R+ versus R-, and versus zero)
-      in the generation note. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.
-    cell: {row: 4, col: 3, ncols: 2}
-    inputs: [glm_v3]
-    calls: [behaviour_analysis/glm_behavior/glm_behavior_plotting_new.plot_feature_importance_summary (logic)]
-    stats: "per predictor R+ vs R- (Mann-Whitney U + Welch t)"
-    data: Fig1v_glm_weights.csv
-    status: filled
-  - id: w
-    title: Drop in performance per predictor
-    caption: >-
-      Drop in cross-validated AUC when each predictor (or all movement predictors together) is shuffled across
-      trials (10 repeats per fold), mean ± s.e.m. over mice, ordered by mean drop. Per-predictor tests in the
-      generation note. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.
-    cell: {row: 4, col: 5}
-    inputs: [glm_v3]
-    calls: [behaviour_analysis/glm_behavior/glm_behavior_plotting_new.plot_shuffle_importance_summary (logic)]
-    params: {importance: "shuffle importance (user 2026-11-02)"}
-    data: Fig1w_glm_predictor_drop.csv
-    status: filled
+- id: a
+  key: task
+  title: Task schematic
+  kind: drawing
+  status: placeholder
+  cell:
+    x_mm: 0.0
+    y_mm: 0.0
+    w_mm: 66.0
+    h_mm: 40.0
+  caption: ''
+- id: b
+  key: days
+  title: Performance across days and R+ minus R- difference
+  data: Fig1_days.csv
+  status: filled
+  calls:
+  - behaviour_analysis/beh_plotting_functions.plot_multi_mouse_across_days (logic)
+  params:
+    days: -2, -1, 0, +1 to +3 pooled per mouse
+    trials: early_lick == 0
+  caption: 'Left, lick probability on whisker (W; cohort colours), auditory (A) and no-stimulus trials (FA; grey, darker for
+    R+) on auditory days -2 and -1, whisker day 0 (shaded) and whisker days +1 to +3 (averaged per mouse; day +3 exists for
+    9 mice), mean ± s.e.m. over mice. Right, R+ minus R- lick probability per day and trial type (W, A, FA), mean difference
+    ± s.e.m. (s.e.m. of the two cohorts combined); asterisks, Mann-Whitney R+ versus R- (P < 0.05). Day 0: whisker, Mann-Whitney
+    {stats.day0 whisker_trial.mannwhitney_p:p}, Welch {stats.day0 whisker_trial.welch_p:p}; false alarms, Mann-Whitney {stats.day0
+    no_stim_trial.mannwhitney_p:p}, Welch {stats.day0 no_stim_trial.welch_p:p}; auditory, Mann-Whitney {stats.day0 auditory_trial.mannwhitney_p:p},
+    Welch {stats.day0 auditory_trial.welch_p:p}. Days +1-3, whisker: Mann-Whitney {stats.day>0 whisker_trial.mannwhitney_p:p},
+    Welch {stats.day>0 whisker_trial.welch_p:p}. The per-mouse day-0 values are in Supplementary Fig. 1b. n = {n.R+.0} R+
+    and {n.R-.0} R- mice on day 0 ({n.R+.>0} and {n.R-.>0} after day 0).'
+  cell:
+    x_mm: 68.0
+    y_mm: 0.0
+    w_mm: 44.0
+    h_mm: 40.0
+- id: c
+  key: rt
+  title: Reaction times
+  data: Fig1_rt.csv
+  status: filled
+  calls:
+  - behaviour_analysis/beh_plotting_functions.plot_multi_mouse_reaction_time (logic)
+  caption: 'Mean over mice of the median reaction time per mouse on whisker day 0 for licks on whisker, auditory and no-stimulus
+    trials, from the start of the response window; bars, mean ± s.e.m. over mice. R+ versus R- (asterisks): whisker, Mann-Whitney
+    {stats_mouse_median.whisker_trial.mannwhitney_p:p}, Welch {stats_mouse_median.whisker_trial.welch_p:p}; auditory, Mann-Whitney
+    {stats_mouse_median.auditory_trial.mannwhitney_p:p}, Welch {stats_mouse_median.auditory_trial.welch_p:p}; false alarms,
+    Mann-Whitney {stats_mouse_median.no_stim_trial.mannwhitney_p:p}, Welch {stats_mouse_median.no_stim_trial.welch_p:p}. Between
+    trial types within cohort (Wilcoxon signed-rank): R+ whisker versus auditory {stats_across_trial_types.R+ whisker_trial
+    vs auditory_trial.wilcoxon_p:p}, whisker versus false alarm {stats_across_trial_types.R+ whisker_trial vs no_stim_trial.wilcoxon_p:p};
+    R- whisker versus auditory {stats_across_trial_types.R- whisker_trial vs auditory_trial.wilcoxon_p:p}, whisker versus
+    false alarm {stats_across_trial_types.R- whisker_trial vs no_stim_trial.wilcoxon_p:p}. n = {n.R+.mice} R+ and {n.R-.mice}
+    R- mice.'
+  cell:
+    x_mm: 116.0
+    y_mm: 0.0
+    w_mm: 23.0
+    h_mm: 40.0
+- id: d
+  key: lick_course
+  title: Jaw opening and licking on lick trials
+  data: Fig1_lick_course.csv
+  status: filled
+  caption: Jaw and tongue after the stimulus on whisker and auditory lick trials of whisker day 0, mean ± s.e.m. over learner
+    mice. Left, jaw opening (DeepLabCut jaw distance, mm) minus each trial's pre-stimulus mean (n = {n.jaw.R+.mice} R+ and
+    {n.jaw.R-.mice} R- mice with dual-view video); right, probability of at least one piezo lick in 30-ms bins (NWB piezo lick
+    times; n = {n.piezo.R+.mice} R+ and {n.piezo.R-.mice} R- mice).
+  cell:
+    x_mm: 143.0
+    y_mm: 0.0
+    w_mm: 40.0
+    h_mm: 40.0
+- id: e
+  key: ex_rplus_learner
+  title: Example R+ learner
+  data: Fig1_ex_rplus_learner.csv
+  status: filled
+  params:
+    example: AB164
+  caption: 'Whisker day 0 of an example R+ learner ({mouse_id}; {n_whisker_trials} whisker trials). Learning curves estimated
+    with an exact state-space model of lick probability (random-walk sigma = 1 in logit units), fitted to whisker trials (cohort
+    colour; shading, 80% posterior interval), no-stimulus trials (black; chance) and auditory trials (blue), the last two
+    interpolated in time onto whisker trials. Ticks, whisker trials with (top) or without (bottom) a lick.'
+  cell:
+    x_mm: 0.0
+    y_mm: 45.0
+    w_mm: 53.2
+    h_mm: 40.0
+- id: f
+  key: ex_rminus_learner
+  title: Example R- learner
+  data: Fig1_ex_rminus_learner.csv
+  status: filled
+  params:
+    example: AB158
+  caption: As in e for an R- learner ({mouse_id}; {n_whisker_trials} whisker trials).
+  cell:
+    x_mm: 57.0
+    y_mm: 45.0
+    w_mm: 53.2
+    h_mm: 40.0
+- id: g
+  key: learners
+  title: Fraction of learners
+  data: Fig1_learners.csv
+  status: filled
+  caption: Fraction of mice classified as learners in the reference sheet (category good or moderate) among mice with a whisker
+    day-0 session; numbers, learners/mice. Fisher's exact test, {stats.fisher_p:p}. The fraction that reaches a high-performance
+    state on day 0 (states as in e, f) agrees with the sheet for {sheet_vs_high_state_agreement:.0%} of mice (Fisher {stats_high_state.fisher_p:p}).
+  cell:
+    x_mm: 114.0
+    y_mm: 45.0
+    w_mm: 19.0
+    h_mm: 40.0
+- id: h
+  key: xcorr
+  title: Cross-correlation of whisker and false-alarm curves (learners)
+  data: Fig1_xcorr.csv
+  status: filled
+  caption: 'Left, cross-correlation between the whisker and chance learning curves of whisker day 0 (as in e, f) against lag (positive,
+    whisker curve leads), mean ± s.e.m. over learner mice; dashed, mean lag-0 correlation under a linear-shift null (500 shifts
+    of more than 10 trials). Right, correlation at lag 0 per cohort, mean ± s.e.m. over mice; asterisks, Mann-Whitney.
+    Lag 0 versus the null: R+ Wilcoxon {lag0_vs_shift_null.R+.wilcoxon_p:p}; R- Wilcoxon {lag0_vs_shift_null.R-.wilcoxon_p:p}.
+    R+ versus R-: Mann-Whitney {lag0_rplus_vs_rminus.mannwhitney_p:p}, Welch {lag0_rplus_vs_rminus.welch_p:p}. n = {n.R+.mice}
+    R+ and {n.R-.mice} R- learner mice.'
+  cell:
+    x_mm: 140.0
+    y_mm: 45.0
+    w_mm: 43.0
+    h_mm: 40.0
+- id: i
+  key: first_hit_licks
+  title: Whisker, spontaneous and auditory licking around the first whisker hit (learners)
+  data: Fig1_first_hit_licks.csv
+  status: filled
+  calls:
+  - explore_fa_divergence.session_tables (trial_types whisker, auditory), per_mouse ('fa_time' for whisker and auditory,
+    'licks' for spontaneous licks), bin_tests, prepost_tests (user 2026-11-10, replaces aligned_curves and spont_licks)
+  params:
+    order: whisker, spontaneous licks, auditory
+    trials: whisker day 0 untrimmed (auditory warm-up block kept), active, learners; first whisker hit = first licked
+      whisker trial
+    whisker_auditory: fraction of licked trials of the type per mouse and bin, early-lick trials dropped
+    licks: NWB piezo_lick_times
+    excluded: every trial 0-1 s from start; rewarded trials (licked auditory; licked whisker in R+; no early lick) from
+      start to reward + 5 s
+    bins: 1 min from the first whisker hit, -6 to 20 min; spontaneous licks >= 20 s outside the excluded windows
+    pre_post: -5..0 min and 0..5 min; whisker / auditory >= 3 trials in pre; spontaneous licks >= 60 s covered
+    bin_tests: R+ vs R- Mann-Whitney (and Welch, saved), Benjamini-Hochberg over bins, >= 8 mice per cohort
+    whisker: pre = 0 by definition (all misses), no tests against pre
+  caption: 'Lick behaviour of learner mice around the first whisker hit of whisker day 0 (auditory warm-up block included),
+    in 1-min bins of time from the hit; mean ± s.e.m. over mice; grey, pre window (-5 to 0 min). Left, lick probability
+    on whisker trials (fraction of licked trials per mouse and bin, early-lick trials excluded; cohort colours). Middle,
+    spontaneous lick rate: NWB piezo licks outside every trial''s first second and, after rewarded trials (licked auditory
+    trials, and licked whisker trials in R+), outside the time up to 5 s after the reward, per minute of time outside
+    those windows (R+ black, R- grey). Right, lick probability on auditory trials (as left; blue, lighter for R-). Black
+    bars, bins where the cohorts differ (Mann-Whitney, Benjamini-Hochberg over bins, q < 0.05; bins with at least 8 mice
+    per cohort; Welch tests in the generation note). Whisker: {whisker.bins_sig_after_hit} of {whisker.bins_after_hit}
+    bins after the hit differ (minutes {whisker.sig_minutes_text}); before the hit lick probability is 0 by definition
+    (all misses), so whisker trials are not tested against the pre window; from 0 to 5 min, R+ {whisker.pre_post.R+.post_mean:.2f}
+    ± {whisker.pre_post.R+.post_sem:.2f} and R- {whisker.pre_post.R-.post_mean:.2f} ± {whisker.pre_post.R-.post_sem:.2f}
+    (Mann-Whitney {whisker.prepost.R+ vs R- post.mannwhitney_p:p}, Welch {whisker.prepost.R+ vs R- post.welch_p:p}).
+    Spontaneous licks: {spont_licks.bins_sig_after_hit} of {spont_licks.bins_after_hit} bins after the hit differ; before
+    the hit the cohorts do not differ (Mann-Whitney {spont_licks.prepost.R+ vs R- pre.mannwhitney_p:p}, Welch {spont_licks.prepost.R+
+    vs R- pre.welch_p:p}); from before to after the hit (0 to 5 min), R+ goes from {spont_licks.pre_post.R+.pre_mean:.1f}
+    to {spont_licks.pre_post.R+.post_mean:.1f} licks per min (Wilcoxon signed-rank {spont_licks.prepost.R+ post vs pre.p:p})
+    and R- from {spont_licks.pre_post.R-.pre_mean:.1f} to {spont_licks.pre_post.R-.post_mean:.1f} (Wilcoxon {spont_licks.prepost.R-
+    post vs pre.p:p}); change R+ versus R-, Mann-Whitney {spont_licks.prepost.R+ vs R- change.mannwhitney_p:p}, Welch
+    {spont_licks.prepost.R+ vs R- change.welch_p:p}. Auditory: {auditory.bins_sig_after_hit} of {auditory.bins_after_hit}
+    bins after the hit differ; before the hit, R+ {auditory.pre_post.R+.pre_mean:.2f} and R- {auditory.pre_post.R-.pre_mean:.2f}
+    (Mann-Whitney {auditory.prepost.R+ vs R- pre.mannwhitney_p:p}, Welch {auditory.prepost.R+ vs R- pre.welch_p:p});
+    after (0 to 5 min), R+ {auditory.pre_post.R+.post_mean:.2f} (Wilcoxon versus pre {auditory.prepost.R+ post vs pre.p:p})
+    and R- {auditory.pre_post.R-.post_mean:.2f} ({auditory.prepost.R- post vs pre.p:p}); change R+ versus R-, Mann-Whitney
+    {auditory.prepost.R+ vs R- change.mannwhitney_p:p}, Welch {auditory.prepost.R+ vs R- change.welch_p:p}. Pre and post
+    values need at least 3 trials (whisker, auditory) or 60 s of counted time (spontaneous licks) in the window. n = {n.R+.mice}
+    R+ and {n.R-.mice} R- learner mice (pre / post: whisker {whisker.pre_post.R+.n} and {whisker.pre_post.R-.n}; spontaneous
+    licks {spont_licks.pre_post.R+.n} and {spont_licks.pre_post.R-.n}; auditory {auditory.pre_post.R+.n} and {auditory.pre_post.R-.n}).'
+  cell:
+    x_mm: 0.0
+    y_mm: 93.0
+    w_mm: 96.0
+    h_mm: 40.0
+- id: j
+  key: perf_session
+  title: Performance across the session
+  data: Fig1_perf_session.csv
+  status: filled
+  params:
+    alignment: first whisker trial
+    x: session time normalised to the first and last whisker trial
+    groups: learners (planner 2026-11-09)
+  caption: Performance (whisker minus chance curve, curves as in e, f) across whisker day 0 in learner mice, with session
+    time normalised from the first (0) to the last (1) whisker trial, mean ± s.e.m. over mice. Bar, time bins where the cohorts
+    differ (cluster-based permutation test on Welch t, 1,000 permutations of cohort labels, cluster P < 0.05; clusters in
+    the generation note). n = {n.learner.R+.mice} R+ and {n.learner.R-.mice} R- learner mice.
+  cell:
+    x_mm: 100.0
+    y_mm: 93.0
+    w_mm: 31.0
+    h_mm: 40.0
+- id: k
+  key: rt_learning
+  title: Reaction time and learning
+  data: Fig1_rt_learning.csv
+  status: filled
+  calls:
+  - compute.rt_change_from_start (left; explore_rt_time_b column 7, user 2026-11-10)
+  - compute.sign_flip_clusters, compute.cluster_test, common.two_group_tests
+  params:
+    mice: learners
+    trials: licked trials, early licks dropped; reaction time 0-1 s
+    left: 'first 30 whisker hits with a reaction time; per hit, RT minus the mouse''s median over its first 5 hits; hit by hit
+      (no binning, user 2026-11-10); late change = per-mouse mean over hits 21-30;
+      slope = per-mouse least-squares slope on hit number (per 10 hits, mice with >= 10 hits); clusters on bins with >= 8
+      mice per cohort'
+    stats_left: 'late change and slope: Wilcoxon signed-rank (and one-sample t) vs 0 within cohort; R+ vs R- Mann-Whitney
+      and Welch; cohort vs 0 sign-flip cluster test on the bins after the first; R+ vs R- cluster permutation test (Welch
+      t); 1,000 permutations, cluster P < 0.05'
+    'null': linear shifts, |shift| > 10 trials, median
+  caption: 'Left, change in reaction time of whisker hits from the start of whisker day 0: for each of the first 30 whisker
+    hits, reaction time minus the mouse''s median over its first 5 hits, hit by hit, mean ± s.e.m. over learner mice; shown in
+    bins of 5 hits; dashed lines, mean per-mouse least-squares fit over single hits 1-30. Middle, the per-mouse slopes (grey,
+    mice; mean ± s.e.m.); coloured stars, Wilcoxon versus 0; bracket, R+ versus R- Mann-Whitney. Late change (mean over hits 21-30 per mouse; {rt_change.late.R+.n} R+ and {rt_change.late.R-.n} R- mice with such hits): R+ {rt_change.late.R+.mean:+.0f}
+    ± {rt_change.late.R+.sem:.0f} ms (Wilcoxon versus 0, {rt_change.late.R+.wilcoxon_p:p}), R- {rt_change.late.R-.mean:+.0f}
+    ± {rt_change.late.R-.sem:.0f} ms ({rt_change.late.R-.wilcoxon_p:p}); R+ versus R- Mann-Whitney {rt_change.late.rplus_vs_rminus.mannwhitney_p:p},
+    Welch {rt_change.late.rplus_vs_rminus.welch_p:p}. Slope over hits 1-30 (per-mouse least-squares fit, per 10 hits; {rt_change.slope.R+.n} R+ and {rt_change.slope.R-.n} R- mice with at least 10 hits): R+
+    {rt_change.slope.R+.mean:+.0f} ± {rt_change.slope.R+.sem:.0f} ms ({rt_change.slope.R+.wilcoxon_p:p}), R- {rt_change.slope.R-.mean:+.0f}
+    ± {rt_change.slope.R-.sem:.0f} ms ({rt_change.slope.R-.wilcoxon_p:p}); R+ versus R- Mann-Whitney {rt_change.slope.rplus_vs_rminus.mannwhitney_p:p},
+    Welch {rt_change.slope.rplus_vs_rminus.welch_p:p}. Trial-based slope (linear mixed model of the change
+    on hit number over single hits, random intercept and slope per mouse, REML): R+ {rt_change.lmm.R+.slope:+.0f} ± {rt_change.lmm.R+.se:.0f}
+    ms per 10 hits ({rt_change.lmm.R+.p:p}; {rt_change.lmm.R+.n_trials} hits), R- {rt_change.lmm.R-.slope:+.0f} ± {rt_change.lmm.R-.se:.0f}
+    ms ({rt_change.lmm.R-.p:p}; {rt_change.lmm.R-.n_trials} hits); cohort × hit-number interaction {rt_change.lmm.rplus_vs_rminus.slope:+.0f}
+    ± {rt_change.lmm.rplus_vs_rminus.se:.0f} ms ({rt_change.lmm.rplus_vs_rminus.p:p}). Coloured bars, hits after the first where a cohort differs from 0
+    (sign-flip cluster test over mice); black bar, hits where the cohorts differ (cluster-based permutation test of cohort
+    labels on Welch t); 1,000 permutations, cluster P < 0.05, hits with at least 8 mice per cohort. Significant clusters:
+    R+ versus 0, {rt_change.sig_clusters_text.R+}; R- versus 0, {rt_change.sig_clusters_text.R-}; R+ versus R-, {rt_change.sig_clusters_text.rplus_vs_rminus}.
+    n = {rt_change.n.R+.mice} R+ and {rt_change.n.R-.mice} R- learner mice. Right, Spearman correlation between reaction time and the whisker learning curve
+    across the licked trials of each mouse (whisker hits, auditory hits, false alarms; curve at the trial or the preceding
+    whisker trial), minus the median correlation over linear shifts of the trial sequence (|shift| > 10 trials); mean ±
+    s.e.m. over mice; stars, Wilcoxon signed-rank versus 0. Whisker hits: R+ Wilcoxon {stats_rho.whisker_trial.R+_vs_0.wilcoxon_p:p},
+    R- {stats_rho.whisker_trial.R-_vs_0.wilcoxon_p:p}; R+ versus R- Mann-Whitney {stats_rho.whisker_trial.rplus_vs_rminus.mannwhitney_p:p},
+    Welch {stats_rho.whisker_trial.rplus_vs_rminus.welch_p:p}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
+  cell:
+    x_mm: 135.0
+    y_mm: 93.0
+    w_mm: 48.0
+    h_mm: 40.0
+- id: l
+  key: glm_schematic
+  title: Behavioural GLM schematic
+  data: Fig1_glm_schematic.csv
+  status: filled
+  cell:
+    x_mm: 0.0
+    y_mm: 138.0
+    w_mm: 32.0
+    h_mm: 40.0
+  caption: 'Behavioural GLM: on each whisker trial of whisker day 0, a logistic regression predicts the lick from recent
+    licking (licks on the previous 1-3 whisker trials), spontaneous lick rate, time since the last reward, cumulative
+    reward fraction and pre-stimulus jaw, nose and whisker speed and pupil area. Example design matrix of the session in m
+    ({mouse_id}, {n_whisker_trials} whisker trials), predictors z-scored over the session (red, high; blue, low), and the
+    lick outcome (black, lick).'
+- id: m
+  key: glm_example
+  title: Example session, GLM predictions
+  data: Fig1_glm_example.csv
+  status: filled
+  caption: 'Whisker-trial licks of a well predicted, typical R+ learner session ({mouse_id}, {n_whisker_trials} whisker trials;
+    test AUC closest to the 75th percentile of R+ learner sessions with at least 100 whisker trials; title, its
+    cross-validated balanced accuracy) with the held-out lick probability of the behavioural GLM, averaged over the
+    10 cross-validation repeats (each repeat: 5 contiguous test blocks with shifted boundaries; band, range over
+    repeats; cohort colour), and the observed lick rate (grey, 10-trial running mean).'
+  cell:
+    x_mm: 36.8
+    y_mm: 138.0
+    w_mm: 44.0
+    h_mm: 40.0
+- id: n
+  key: glm_fit
+  title: GLM balanced accuracy
+  data: Fig1_glm_fit.csv
+  status: filled
+  caption: 'Balanced accuracy of the behavioural GLM on whisker day 0 per learner mouse (cross-validated with 5 contiguous
+    blocks of whisker trials (3 whisker trials on each side of the test block left out of training; one L2 penalty per session, the one maximising the held-out log-likelihood of all other sessions), repeated 10 times with shifted block boundaries; held-out predictions
+    thresholded at the training lick rate; mean over repeats). Grey dots, mice; coloured dot, mean ± s.e.m.; circled, the
+    session of m. Dotted line, chance. Versus 0.5: R+ Wilcoxon {ba_vs_chance.R+.wilcoxon_p:p}; R- Wilcoxon {ba_vs_chance.R-.wilcoxon_p:p}.
+    R+ versus R-: Mann-Whitney {stats.mannwhitney_p:p}, Welch {stats.welch_p:p}. n = {stats.n_R+} R+ and {stats.n_R-} R- learner
+    mice. Against a recent-licking baseline (logistic regression on the running mean of the previous 10 whisker-trial licks,
+    same splits), held-out log-likelihood per trial changes by {vs_baseline.R+.delta_ll_vs_baseline.mean:+.3f} nats in R+
+    (Wilcoxon {vs_baseline.R+.delta_ll_vs_baseline.wilcoxon_p:p}) and {vs_baseline.R-.delta_ll_vs_baseline.mean:+.3f} in
+    R- ({vs_baseline.R-.delta_ll_vs_baseline.wilcoxon_p:p}); AUC by {vs_baseline.R+.delta_auc_vs_baseline.mean:+.3f} (R+,
+    {vs_baseline.R+.delta_auc_vs_baseline.wilcoxon_p:p}) and {vs_baseline.R-.delta_auc_vs_baseline.mean:+.3f} (R-,
+    {vs_baseline.R-.delta_auc_vs_baseline.wilcoxon_p:p}).'
+  cell:
+    x_mm: 84.0
+    y_mm: 138.0
+    w_mm: 19.6
+    h_mm: 40.0
+- id: o
+  key: glm_weights_auc
+  title: GLM weights and predictor importance (shuffled AUC, removed log-likelihood)
+  data: Fig1_glm_weights_auc.csv
+  status: filled
+  caption: 'Left, GLM weights (standardised predictors, L2-regularised logistic regression on the whisker trials of whisker
+    day 0; mean over folds and repeats), predictors in a fixed order (planner); middle, drop in held-out AUC when the predictor
+    is shuffled across trials and the model refitted (10 permutations per fold); right, drop in held-out log-likelihood per
+    trial (nats) when the predictor is removed and the model refitted. Cross-validation: 5 contiguous blocks of whisker trials
+    (3 whisker trials on each side of the test block left out of training; one L2 penalty per session, the one maximising the held-out log-likelihood of all other sessions), repeated 10 times with shifted block boundaries; scores are the mean over repeats. Mean ± s.e.m.
+    over mice. Filled markers, different from zero within the cohort (Wilcoxon signed-rank, P < 0.05); asterisks, R+ versus
+    R- (Mann-Whitney, P < 0.05; Welch tests in the generation note). n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
+  cell:
+    x_mm: 107.0
+    y_mm: 138.0
+    w_mm: 76.0
+    h_mm: 40.0

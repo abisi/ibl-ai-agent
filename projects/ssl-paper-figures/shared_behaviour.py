@@ -13,10 +13,11 @@ from multiprocessing import Pool
 
 import pandas as pd
 
-from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET, import_external_repos
+from common import CACHE_DIR, REFERENCE_SHEET, import_external_repos, session_nwbs
 
-PARAMS = {"nwb_dir": "NWB_ks4", "auditory_days": "all (pretraining)", "whisker_days": [0, 1, 2],
-          "behaviors": ["auditory", "whisker"], "version": 4}  # v3: canonical NAS repo; v4: every auditory day
+PARAMS = {"nwb_dir": "NWB_ks4", "auditory_days": "all (pretraining)", "whisker_days": [0, 1, 2, 3],
+          "behaviors": ["auditory", "whisker"], "version": 5}  # v3: canonical NAS repo; v4: every auditory day;
+# v5: whisker day +3 (planner 2026-11-06: days after 0 = 1, 2, 3)
 CACHE_FILE = CACHE_DIR / f"behaviour_table_v{PARAMS['version']}.parquet"
 UNTRIMMED_DAY0_FILE = CACHE_DIR / f"behaviour_table_v{PARAMS['version']}_day0_untrimmed.parquet"
 KEEP_COLUMNS = ["mouse_id", "session_id", "behavior", "day", "trial_id", "start_time", "trial_type", "perf",
@@ -54,7 +55,7 @@ def build(n_workers=16):
     import_external_repos()
     import behavior_analysis_utils as bhv_utils
     ref = mouse_reference()
-    files = sorted(f for f in NWB_DIR.glob("*.nwb") if f.name.split("_")[0] in set(ref.mouse_id))
+    files = [f for f in session_nwbs() if f.name.split("_")[0] in set(ref.mouse_id)]
     with Pool(n_workers) as pool:
         tables = [t for t in pool.map(_one_file, files) if t is not None]
     table = pd.concat(tables, ignore_index=True)
@@ -62,6 +63,11 @@ def build(n_workers=16):
     # reindex_whisker_days offsets every column containing "time" when it merges whisker_on_1/_2 sessions, including
     # computed_reaction_time (AB077-AB107 day +2): recompute it after the merge
     table["computed_reaction_time"] = table.lick_time - table.response_window_start_time
+    # each session once (no *_backup_*.nwb, no file read twice); trial_id restarts in merged day +2 sessions, so the
+    # trial key is (session_id, start_time)
+    dup = table.duplicated(["session_id", "start_time"])
+    if dup.any():
+        raise ValueError(f"{dup.sum()} duplicated trials in {table[dup].session_id.nunique()} sessions: a session was loaded twice")
     table = table[((table.behavior == "auditory") & (table.day < 0))
                   | ((table.behavior == "whisker") & table.day.isin(PARAMS["whisker_days"]))]
     # whisker trials only on whisker days (MH010 has 5 whisker trials on auditory day -2)

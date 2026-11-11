@@ -43,12 +43,16 @@ def assemble(spec, out, plot):
     grid = PaperGrid(**spec["grid"])
     for panel in spec["panels"]:
         cell = {"nrows": 1, "ncols": 1, **panel["cell"]}
-        ax = grid.axes(cell["row"], cell["col"], cell["nrows"], cell["ncols"], letter=panel["id"])
+        if "x_mm" in cell:  # box drawn in the figure planner
+            ax = grid.axes_mm(cell["x_mm"], cell["y_mm"], cell["w_mm"], cell["h_mm"], letter=panel["id"])
+        else:
+            ax = grid.axes(cell["row"], cell["col"], cell["nrows"], cell["ncols"], letter=panel["id"])
         csv = out / "data" / panel["data"] if "data" in panel else None
-        if csv is None or not csv.exists() or plot is None or not hasattr(plot, f"plot_{panel['id']}"):
+        fn = f"plot_{panel.get('key', panel['id'])}"  # panels are drawn by their stable key; letters follow the layout
+        if csv is None or not csv.exists() or plot is None or not hasattr(plot, fn):
             grid.placeholder(ax, f"{panel['title']}\n({panel.get('kind', 'not filled')})")
             continue
-        getattr(plot, f"plot_{panel['id']}")(ax, pd.read_csv(csv))
+        getattr(plot, fn)(ax, pd.read_csv(csv))
     return grid
 
 
@@ -58,7 +62,7 @@ def generation_note(spec, out, grid, files, fig_dir):
     lines = [f"# {spec['figure']} -- generation note", "",
              f"- Built: {datetime.datetime.now().isoformat(timespec='minutes')}",
              f"- Figure block: {spec['grid']['width_mm']} x {grid.figure_height_mm():.0f} mm on A4, unit cell "
-             f"{grid.unit:.1f} mm",
+             f"{grid.unit:.1f} x {grid.unit_h:.1f} mm",
              f"- ibl-ai-agent: {json.dumps(repo_state(REPO, figure_code(fig_dir)))}",
              f"- behaviour_analysis: {json.dumps(repo_state(EXTERNAL_REPOS['behaviour_analysis'], BEHAVIOUR_FILES))}",
              f"- NWB_reader: {json.dumps(repo_state(EXTERNAL_REPOS['NWB_reader'], ['NWB_reader_functions.py']))}",
