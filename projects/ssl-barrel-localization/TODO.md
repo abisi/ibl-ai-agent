@@ -14,5 +14,7 @@
       transfer, `trk_`); this reproduces Lana's per-track barrel calls. Direct inverse mapping and global labels kept
       for comparison. Latency unsmoothed (user).
 - [X] pilot review with the user: run all brains (2026-11-11)
-- [ ] all barrel-field brains (running 2026-11-11); C2 vs surround vs septa by layer; R+ / R-; registration validation
+- [X] all barrel-field brains (2026-11-11): 49 of 58 D2 brains have a wS1 probe and are linked (57 probes); MH007, MH020
+      have no units on a DiI track. Global vs D2 barrel agree for 17 % of units (median shift 277 um, pilot AB156 was
+      the exception). C2 L4 latency 7 ms vs 9 ms in neighbours.
 - [ ] full results to the user  **consult user**; report

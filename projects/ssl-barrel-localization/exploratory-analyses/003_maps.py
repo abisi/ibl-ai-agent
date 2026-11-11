@@ -184,7 +184,7 @@ def summary_figure(df, path):
 def cohorts():
     sheet = next(p for p in (Path("/mnt/share_internal"), Path(r"M:\share_internal")) if p.exists())
     ref = pd.read_excel(sheet / "Axel_Bisi_Share" / "dataset_info" / "joint_mouse_reference_weight.xlsx")
-    return ref.set_index("mouse_name").reward_group.to_dict()
+    return ref.set_index("mouse_id").reward_group.to_dict()
 
 
 def main(mice):
