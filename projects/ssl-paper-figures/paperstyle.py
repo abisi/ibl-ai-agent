@@ -1,6 +1,6 @@
 """Shared figure style for the Bisi & Hamon manuscript: Nature rcParams, square-cell grid on an A4 page, placeholder
 panels, exports (PDF, SVG, AI, EPS, PNG, JPG) and the Nature source-data workbook.
-Canonical template: skills/ssl-paper-figures/references/paperstyle_template.py."""
+Style rules: skills/ssl-figure-style; manuscript organisation: skills/ssl-paper-figures."""
 
 import datetime
 import math
@@ -116,7 +116,8 @@ class PaperGrid:
 
 def save_figure(fig, out_dir, name, raster_dpi=RASTER_DPI):
     """PDF, SVG, EPS (vector, editable text), AI (the PDF under .ai: Illustrator opens it as a PDF-compatible AI file
-    with editable text), PNG and JPG at `raster_dpi`."""
+    with editable text), PNG and JPG at `raster_dpi`. Artists drawn with rasterized=True (dense rasters) are embedded
+    in the vector formats at `raster_dpi` too: the matplotlib default (figure dpi, 100) looks pixelated in Figma."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
@@ -134,7 +135,7 @@ def save_figure(fig, out_dir, name, raster_dpi=RASTER_DPI):
         return path
 
     for ext in ("pdf", "svg", "eps"):
-        pdf = _save(ext, lambda p: fig.savefig(p))
+        pdf = _save(ext, lambda p: fig.savefig(p, dpi=raster_dpi))
         if ext == "pdf":
             pdf_path = pdf
     _save("ai", lambda p: shutil.copyfile(pdf_path, p))

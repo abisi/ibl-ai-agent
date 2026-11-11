@@ -82,14 +82,14 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
   Axes are positioned by the axes box, not the bounding box, so tick labels never shift alignment.
 - Nature format: figure block 183 mm wide (89 mm for a single-column figure), at most ~170 mm tall, placed on an A4
   page at final size for import into Figma. Arial 5-7 pt, panel letters 8 pt bold lowercase on one line per grid row,
-  lines >= 0.25 pt. This overrides the 7.4 in width and 9 pt letters of `ssl-figure-style` rule 7 for the paper; all
-  other `ssl-figure-style` rules (colours, edge-free shading, PSTH baseline and averaging, quantification panels,
-  explicit labels, area names), the area colour palette and the no-clip axis margins apply.
+  lines >= 0.25 pt. Every other style rule (colours and area palette, shading, PSTHs, quantification and correlation
+  panels, labels, area names, margins, dense rasters) is in `ssl-figure-style`, the single home of SSL style rules.
 - Exports (user, 2026-10-30): PDF, SVG, AI, EPS, PNG, JPG. SVG with `svg.fonttype = "none"` (text editable in Figma);
   PDF, AI and EPS with `pdf.fonttype` / `ps.fonttype = 42` (embedded TrueType, editable text). The `.ai` file is the
   PDF saved under `.ai`: Illustrator opens it as a PDF-compatible AI document with editable text (Arial must be
   installed). EPS has no transparency, so shaded bands and scatter use opaque light colours (`paperstyle.light()`),
-  never `alpha`. PNG and JPG at 1200 dpi (Nature line-art resolution). Grid, rcParams, colours, placeholder and export
+  never `alpha`. PNG and JPG at 1200 dpi (Nature line-art resolution); rasterized layers inside PDF, SVG and EPS are
+  also written at 1200 dpi. Grid, rcParams, colours, placeholder and export
   helpers: `projects/ssl-paper-figures/paperstyle.py` (canonical); paths, external-repo imports, provenance and the
   R+ vs R- test pair: `projects/ssl-paper-figures/common.py`. Worked example (dummy figure, 14 behaviour panels):
   `projects/ssl-paper-figures/figures/Example_behaviour/`.
