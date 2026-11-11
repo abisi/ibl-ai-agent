@@ -81,7 +81,8 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
   rectangular panel spans whole cells (2x1, 1x2, 2x2, ...), so its edges align with the neighbouring panels.
   Axes are positioned by the axes box, not the bounding box, so tick labels never shift alignment.
 - Nature format: figure block 183 mm wide (89 mm for a single-column figure), at most ~170 mm tall, placed on an A4
-  page at final size for import into Figma. Arial 5-7 pt, panel letters 8 pt bold lowercase on one line per grid row,
+  page at final size for import into Figma. Arial 5-7 pt, panel letters 8 pt bold capitals (A, B, …; user 2026-11-11; drawn and captioned from the lowercase panel `id`, which
+  CSV, sheet and meta names keep, e.g. `Fig1a`) on one line per grid row,
   lines >= 0.25 pt. Every other style rule (colours and area palette, shading, PSTHs, quantification and correlation
   panels, labels, area names, margins, dense rasters) is in `ssl-figure-style`, the single home of SSL style rules.
 - Exports (user, 2026-10-30): PDF, SVG, AI, EPS, PNG, JPG. SVG with `svg.fonttype = "none"` (text editable in Figma);
@@ -103,7 +104,7 @@ parametric unpaired test for R+ vs R-, correction, exact p); CSV name and column
 
 ## Caption (`<FigureN_topic>_caption.md`, in the snapshot)
 A Nature-style legend draft, deliberately exhaustive so the user can cut it down: `**Fig. N | Title.**` then
-`**a**, ...` for every panel, then a footer with the shared methods (trial exclusions, cohort definition, colours,
+`**A**, ...` for every panel, then a footer with the shared methods (trial exclusions, cohort definition, colours,
 error bars, tests, multiple-comparison handling). Written by `common.write_caption` from the spec:
 - `caption.title` and `caption.footer` at figure level, `caption` per panel (YAML folded block `>-`).
 - Each panel caption says what is plotted (axes, measure, unit of analysis, what dots/lines/shading are), the

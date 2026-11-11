@@ -129,7 +129,7 @@ def write_caption(spec, meta, path):
     parts = [f"**Fig. {spec['number']} | {fill_caption(caption.get('title', spec['figure']), shared)}**"]
     for panel in spec["panels"]:
         text = panel.get("caption") or f"[caption missing: {panel['title']}]"
-        parts.append(f"**{panel['id']}**, {fill_caption(text, {**shared, **meta.get(panel['id'], {})})}")
+        parts.append(f"**{panel['id'].upper()}**, {fill_caption(text, {**shared, **meta.get(panel['id'], {})})}")
     if caption.get("footer"):
         parts.append(fill_caption(caption["footer"], shared))
     text = f"# {spec['figure']} -- caption (draft, generated)\n\n" + " ".join(parts) + "\n"

@@ -61,9 +61,9 @@ description: Use this skill whenever making publication, abstract (e.g. COSYNE),
     corrections in the caption. Decoding publication figure sets (hit/miss project `112_publication_sets.py`) show the
     learning stage only.
 11. **Layout and exports**
-    - General figures: two-column width 7.4 in, Arial/Helvetica 5–7.5 pt, panel letters bold 9 pt aligned on one row
+    - General figures: two-column width 7.4 in, Arial/Helvetica 5–7.5 pt, panel letters bold capitals (A, B, …) 9 pt aligned on one row
       per figure row (same y, left of each axis), no overlapping text; png at 300 dpi, pdf and svg.
-    - Manuscript figures: Nature format instead (183 / 89 mm wide, Arial 5–7 pt, 8 pt bold lowercase letters, lines
+    - Manuscript figures: Nature format instead (183 / 89 mm wide, Arial 5–7 pt, 8 pt bold capital letters, lines
       ≥ 0.25 pt, PNG/JPG at 1200 dpi); details and helpers in `ssl-paper-figures` and its `paperstyle.py`.
     - Editable text everywhere: `pdf.fonttype = 42`, `ps.fonttype = 42`, `svg.fonttype = "none"`.
     - Transparency: figures that are exported to EPS (all manuscript figures) use opaque light colours

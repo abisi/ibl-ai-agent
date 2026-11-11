@@ -83,7 +83,7 @@ class PaperGrid:
         ax = self.fig.add_axes([x / pw, 1 - (y + h) / ph, w / pw, h / ph])
         if letter:
             # same row -> same y; letter sits in the left padding, above the axes top
-            self.fig.text((x - self.col_gap + 1) / pw, 1 - (y - 4) / ph, letter,
+            self.fig.text((x - self.col_gap + 1) / pw, 1 - (y - 4) / ph, str(letter).upper(),
                           fontsize=8, fontweight="bold", va="bottom", ha="left")
         return ax
 
@@ -100,7 +100,8 @@ class PaperGrid:
         ax_w, ax_h = w_mm - left - right, h_mm - top - bottom
         ax = self.fig.add_axes([(x + left) / pw, 1 - (y + top + ax_h) / ph, ax_w / pw, ax_h / ph])
         if letter:
-            self.fig.text((x - 0.5) / pw, 1 - y / ph, letter, fontsize=8, fontweight="bold", va="top", ha="left")
+            self.fig.text((x - 0.5) / pw, 1 - y / ph, str(letter).upper(), fontsize=8, fontweight="bold", va="top",
+                          ha="left")
         return ax
 
     def placeholder(self, ax, label):
