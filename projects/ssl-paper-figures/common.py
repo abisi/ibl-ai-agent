@@ -17,6 +17,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 from axel_bisi_paths import axel_bisi_root  # noqa: E402
+from ssl_nwb_freshness import fingerprint as nwb_fingerprint, warn_if_stale  # noqa: E402
 
 # canonical git checkouts on the NAS (GitHub abisi/behaviour_analysis, abisi/NWB_reader); ~/code copies on haas are old
 EXTERNAL_REPOS = {"behaviour_analysis": axel_bisi_root() / "behaviour_analysis", "NWB_reader": axel_bisi_root() / "NWB_reader"}
@@ -34,6 +35,16 @@ def session_nwbs(mouse_id=None):
     """Session NWB files in NWB_DIR (one per session; backups excluded), optionally of one mouse."""
     files = (f for f in NWB_DIR.glob(f"{mouse_id or '*'}_*.nwb") if SESSION_NWB.match(f.name))
     return sorted(files)
+
+
+def load_cache(cache_file, label):
+    """Read a figure cache built from NWB_ks4 and warn if any NWB of its mice changed since (scripts/ssl_nwb_freshness;
+    user 2026-11-11: NWB is the single source, caches must say when they are stale)."""
+    import pandas as pd
+    df = pd.read_parquet(cache_file)
+    mice = set(df.mouse_id.unique())
+    warn_if_stale(cache_file, label, sessions={s for s in nwb_fingerprint() if s.split("_")[0] in mice})
+    return df
 
 
 def import_external_repos():

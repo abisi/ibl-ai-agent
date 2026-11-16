@@ -29,24 +29,6 @@ def _hit_axis(a, df):
     a.set_xlim(-0.6, nb - 0.4)
 
 
-def plot_rt_hits_other(ax, df):
-    axes = _split(ax, 3, gap=0.18)
-    for a, (tt, lat, title) in zip(axes, [("auditory_trial", "rt_ms", "Auditory hits, RT"),
-                                          ("no_stim_trial", "rt_ms", "False alarms, RT"),
-                                          ("whisker_trial", "jaw_ms", "Whisker hits, jaw onset")]):
-        d = df[(df.trial_type == tt) & (df.latency == lat)]
-        for k, c in enumerate(COHORTS):
-            for b, g in d[d.cohort == c].groupby("hit_bin"):
-                _median_iqr(a, b + (k - 0.5) * 0.25, g.value, group_color(tt, c))
-        _hit_axis(a, d)
-        a.set_title(title, fontsize=5.5, pad=2)
-        a.set_xlabel("Hit", labelpad=0, fontsize=5)
-    axes[0].set_ylabel("Latency (ms)", labelpad=1)
-
-
-plot_lick_course = fig1.plot_lick_course  # moved to Figure 1 panel d (planner 2026-11-09)
-
-
 def plot_rt_curves(ax, df):
     axes = _split(ax, 3, gap=0.1)
     for a, cu in zip(axes, ["whisker", "false_alarm", "difference"]):
@@ -61,10 +43,12 @@ def plot_rt_curves(ax, df):
         a.axhline(0, color="0.6", lw=0.4, ls=":")
         a.set_xticks(range(3), ["W", "A", "FA"])
         a.set_title(f"vs {cu.replace('_', '-')} curve", fontsize=5.5, pad=2)
-    axes[0].set_ylabel("ρ(RT, curve) − shift", labelpad=1)
     for a in axes[1:]:
         a.sharey(axes[0])
-        a.tick_params(labelleft=False)
+    for a in axes:  # every axis labelled (user 2026-11-12)
+        a.set_ylabel("ρ(RT, curve) − shift", labelpad=1)
+    fig1._legend(axes[0], [("Left: R+", "0.2", dict(marker="o", ms=2, lw=0)),
+                           ("Right: R−", "0.6", dict(marker="o", ms=2, lw=0))], loc="lower left")
 
 
 def plot_bouts(ax, df):
@@ -88,23 +72,67 @@ def plot_bouts(ax, df):
     right.set_xlabel("Whisker hit", labelpad=0, fontsize=5)
 
 
+BODYPARTS = ("jaw", "nose", "whisker", "pupil")
+
+
 def plot_posture_curve(ax, df):
-    metrics = [f"{bp}_pre_{k}" for bp in ("jaw", "nose", "whisker", "pupil") for k in ("posture", "movement")]
-    labels = [f"{m.split('_')[0].capitalize()} {'posture' if m.endswith('posture') else 'movement'}" for m in metrics]
-    for i, m in enumerate(metrics):
-        vals = {}
-        for k, c in enumerate(COHORTS):
-            v = df[(df.metric == m) & (df.cohort == c)].spearman_vs_null.dropna()
-            x = i + (k - 0.5) * 0.3
-            _median_iqr(ax, x, v, COLORS[c])
-            p = stats.wilcoxon(v).pvalue if len(v) > 5 else np.nan
+    """User 2026-11-12: Spearman only; left posture, right movement. Per half: real rho per mouse (cohort colour, mean
+    +- s.e.m.) next to each mouse's linear-shift-null median (grey, hollow), per body part; stars, paired Wilcoxon real vs
+    null (cohort colour) and R+ vs R- on real - null (black, top). Then the cross-correlation with the whisker curve per
+    body part (lags -10..10 whisker trials, mean +- s.e.m. over mice; dashed, the cohort's mean shift-null level)."""
+    lag0, lag = df[df.kind == "lag0"], df[df.kind == "lag"]
+    ax.axis("off")
+    W = 0.5  # each half: lag-0 dots, then a 2 x 2 grid of cross-correlations (one per body part)
+    for h, kind in enumerate(("posture", "movement")):
+        x0 = h * W
+        dots = ax.inset_axes([x0 + 0.04, 0.08, 0.18, 0.92])  # 131 mm wide (planner 2026-11-13)
+        for i, bp in enumerate(BODYPARTS):
+            m = f"{bp}_pre_{kind}"
+            vals = {}
+            for k, c in enumerate(COHORTS):
+                g = lag0[(lag0.metric == m) & (lag0.cohort == c)]
+                x = i + (k - 0.5) * 0.42
+                for col, dx, face in (("spearman_null", -0.08, "white"), ("spearman", 0.08, None)):
+                    v = g[col].dropna()
+                    clr = "0.6" if face else COLORS[c]
+                    # no single-mouse dots (planner 2026-11-13): mean +- s.e.m. only
+                    dots.errorbar(x + dx, v.mean(), v.sem(), color=clr, marker="o", ms=1.8, mfc=face or clr, mew=0.5,
+                                  lw=0, elinewidth=0.6, capsize=0, zorder=3)
+                d = g.spearman_vs_null.dropna()
+                p = stats.wilcoxon(d).pvalue if len(d) > 5 else np.nan
+                if p < 0.05:
+                    dots.text(x, 0.9, stars(p), transform=dots.get_xaxis_transform(), ha="center", fontsize=4,
+                              color=COLORS[c])
+                vals[c] = d
+            p = fig1._mw_p(vals["R+"], vals["R-"])
             if p < 0.05:
-                ax.text(x, np.percentile(v, 75) + 0.015, stars(p), ha="center", va="bottom", fontsize=4.5, color=COLORS[c])
-            vals[c] = v
-        p = fig1._mw_p(vals["R+"], vals["R-"])
-        if p < 0.05:
-            ax.text(i, 1.0, stars(p), transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=5)
-    ax.axhline(0, color="0.6", lw=0.4, ls=":")
-    ax.set_xticks(range(len(metrics)), labels, fontsize=4.5, rotation=30, ha="right")
-    ax.set_xlim(-0.6, len(metrics) - 0.4)
-    ax.set_ylabel("ρ(pre-stim., W curve) − shift", labelpad=1)
+                dots.text(i, 0.97, stars(p), transform=dots.get_xaxis_transform(), ha="center", fontsize=4.5)
+        dots.axhline(0, color="0.6", lw=0.4, ls=":")
+        dots.set_xticks(range(4), [b.capitalize() for b in BODYPARTS], fontsize=4.2)
+        dots.set_xlim(-0.6, 3.6)
+        dots.tick_params(labelsize=4.2)
+        dots.set_ylabel(f"ρ(pre-stim. {kind}, W curve)", labelpad=1, fontsize=4.5)
+        dots.set_title(f"{kind.capitalize()}: lag 0", fontsize=5, pad=2)
+        if h == 0:
+            fig1._legend(dots, [("R+", COLORS["R+"], dict(marker="o", ms=2, lw=0)),
+                                ("R−", COLORS["R-"], dict(marker="o", ms=2, lw=0)),
+                                ("Shift null", "0.6", dict(marker="o", ms=2, lw=0, mfc="white", mew=0.5))],
+                         loc="lower left")
+        for i, bp in enumerate(BODYPARTS):
+            r, c = divmod(i, 2)
+            a = ax.inset_axes([x0 + 0.27 + c * 0.13, 0.62 - r * 0.62, 0.075, 0.36])
+            m = f"{bp}_pre_{kind}"
+            for c in COHORTS:
+                g = lag[(lag.metric == m) & (lag.cohort == c)]
+                fig1._mean_band(a, g, "lag", "spearman", COLORS[c], lw=0.6, fill=0.75)
+                a.axhline(lag0[(lag0.metric == m) & (lag0.cohort == c)].spearman_null.mean(), color=COLORS[c], lw=0.5,
+                          ls="--")
+            a.axvline(0, color="0.6", lw=0.4, ls=":")
+            a.axhline(0, color="0.8", lw=0.3)
+            a.set_xlim(-10, 10)
+            a.set_xticks([-10, 0, 10])
+            a.tick_params(labelsize=4)
+            a.yaxis.set_major_locator(fig1.mpl.ticker.MaxNLocator(3))
+            a.text(0.03, 0.97, bp.capitalize(), transform=a.transAxes, ha="left", va="top", fontsize=4.5)  # inside: no clash
+            a.set_xlabel("Lag (W trials)", fontsize=4.2, labelpad=0.5)
+            a.set_ylabel("ρ", fontsize=4.5, labelpad=0.5)

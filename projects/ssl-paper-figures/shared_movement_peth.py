@@ -9,7 +9,8 @@ trials only): lick time = start_time + computed_reaction_time (= start_time + li
 which removes the NWB lick_time artifact offset), same windows. v5 (user 2026-11-06): both alignments use each trial's
 pre-stimulus mean as baseline (the pre-lick period already contains jaw opening). Rows: per session, trial type, lick
 and alignment, the mean trace (value) and the mean of each trial's trace minus its pre-stimulus mean (value_delta).
-Trials: whisker
+2026-11-12: pupil NaN on trials with a blink / squint in the
+window (dlc_helpers.pupil_trial_ok; same file name). Trials: whisker
 and auditory trials of the shared behaviour table (early_lick == 0). Cached in Figures/_cache/.
 """
 
@@ -20,15 +21,16 @@ import numpy as np
 import pandas as pd
 
 import shared_behaviour
-from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET
+from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET, load_cache, nwb_fingerprint
 from shared_movements import data_utils, dlc_helpers, dlc_signals
 
-PARAMS = {"version": 6, "loader": "ephys_utilities.helpers.dlc_helpers (via shared_movements.dlc_signals; peth)",
+PARAMS = {"version": 7,  # v7 (planner 2026-11-12, Fig. 1d): jaw window to 0.5 s "loader": "ephys_utilities.helpers.dlc_helpers (via shared_movements.dlc_signals; peth)",
           "signals": {"whisker_speed": {"source": "whisker_speed", "window_s": [-0.05, 0.1], "dt_s": 0.005},
-                      "jaw_opening": {"source": "jaw_distance", "window_s": [-0.1, 0.3], "dt_s": 0.005},
+                      "jaw_opening": {"source": "jaw_distance", "window_s": [-0.1, 0.5], "dt_s": 0.005},
                       "pupil_area": {"source": "pupil_area", "window_s": [-1.0, 3.0], "dt_s": 0.05}},
           "trial_types": ["whisker_trial", "auditory_trial"], "alignments": ["stimulus", "lick"],
-          "lick_time": "start_time + computed_reaction_time", "baseline": "each trial's pre-stimulus mean (both alignments)"}
+          "lick_time": "start_time + computed_reaction_time", "baseline": "each trial's pre-stimulus mean (both alignments)",
+          "pupil_trial_qc": "dlc_helpers.pupil_trial_ok over each alignment's window (2026-11-12)"}
 CACHE_FILE = CACHE_DIR / f"movement_peth_day0_v{PARAMS['version']}.parquet"
 
 
@@ -51,6 +53,8 @@ def _one_session(args):
             win, dt = tuple(spec["window_s"]), spec["dt_s"]
             starts = tr.start_time.to_numpy()
             grid_s, m_s = dh.peth(x, ts, starts, window=win, dt=dt)
+            if name == "pupil_area":  # trial-wise pupil QC: no blink / squint in the window
+                m_s[~dh.pupil_trial_ok(session_id, starts, window=win)] = np.nan
             with np.errstate(all="ignore"):
                 base_s = np.nanmean(m_s[:, grid_s < 0], 1)  # each trial's pre-stimulus mean
             aligned = {"stimulus": (grid_s, m_s, base_s)}
@@ -59,6 +63,8 @@ def _one_session(args):
                 v = np.isfinite(rt) & (rt > 0)
                 if v.any():
                     grid_l, m_l = dh.peth(x, ts, (starts + rt)[v], window=win, dt=dt)
+                    if name == "pupil_area":
+                        m_l[~dh.pupil_trial_ok(session_id, (starts + rt)[v], window=win)] = np.nan
                     aligned["lick"] = (grid_l, m_l, base_s[v])  # v5: pre-stimulus baseline, not pre-lick
             for align, (grid, m, base) in aligned.items():
                 ok = (np.isfinite(m).mean(1) > 0.5) & np.isfinite(base)  # most of the window tracked
@@ -90,11 +96,13 @@ def build(n_workers=16):
 
 def load(rebuild=False):
     if CACHE_FILE.exists() and not rebuild:
-        return pd.read_parquet(CACHE_FILE)
+        return load_cache(CACHE_FILE, "movement PETH table " + CACHE_FILE.name)
+    nwbs = nwb_fingerprint()  # before reading the files
     df, n_jobs = build()
     tmp = CACHE_FILE.with_suffix(".tmp")
     df.to_parquet(tmp)
     tmp.rename(CACHE_FILE)
-    json.dump({**PARAMS, "n_sessions_requested": n_jobs, "n_sessions": int(df.session_id.nunique())},
+    json.dump({**PARAMS, "n_sessions_requested": n_jobs, "n_sessions": int(df.session_id.nunique()),
+               "nwb_fingerprint": nwbs},
               open(CACHE_FILE.with_suffix(".json"), "w"), indent=1)
     return df

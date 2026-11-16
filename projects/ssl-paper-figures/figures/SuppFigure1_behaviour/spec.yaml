@@ -1,4 +1,4 @@
-# Supplementary Figure 1 -- behaviour. Layout from the figure planner (2026-11-09): panels moved out of Figure 1
+# Supplementary Figure 1 -- behaviour. Layout from the figure planner (2026-11-13: movement PETH deleted, history next to RT curves, posture next to xcorr; 2026-11-11 13:12: fraction of learners from Figure 1 as c, latency panel rt_hits_other deleted; 2026-11-11: xcorr from Figure 1; 2026-11-09): panels moved out of Figure 1
 # (pretraining, day-0 close-up) and two ideas (placeholders until described in the planner).
 # Same data and conventions as Figure1_behaviour (shared behaviour table, cohort and learner labels from the reference
 # sheet, mean +- s.e.m. over mice, R+ vs R- Mann-Whitney and Welch, both reported).
@@ -56,24 +56,18 @@ panels:
     w_mm: 49.0
     h_mm: 38.5
 - id: c
-  key: movement_peth
-  title: Stimulus-aligned movements (learners)
-  data: FigS1_movement_peth.csv
+  key: learners
+  title: Fraction of learners
+  data: FigS1_learners.csv
   status: filled
-  params:
-    mice: learners with dual-view video
-    signals: whisker speed (-50 to 100 ms), jaw opening (-100 to 300 ms), pupil area (-1 to 3 s)
-    split: lick (solid) / no lick (dashed); stimulus-aligned; auditory misses not shown
-  caption: 'Whisker speed, jaw opening and pupil area aligned at stimulus onset on whisker (left; lick trials solid, no-lick
-    trials dashed) and auditory trials (right; hits only) of whisker day 0, in physical units relative to each trial''s pre-stimulus
-    mean (DLC loaded and cleaned with dlc_helpers: mm, reference-point fix, pupil QC); mean ± s.e.m. over learner mice with
-    video; whisker trials in cohort colours, auditory trials blue (lighter for R-). Bars, R+ versus R- difference on lick
-    trials (cluster-based permutation test); no-lick clusters in the generation note. n = {n.R+.mice} R+ and {n.R-.mice} R-
-    learner mice.'
+  moved_from: Figure1_behaviour g (planner 2026-11-11)
+  caption: Fraction of mice classified as learners in the reference sheet (category good or moderate) among mice with a whisker
+    day-0 session; numbers, learners/mice. Fisher's exact test, {stats.fisher_p:p}. The fraction that reaches a high-performance
+    state on day 0 (states as in Fig. 1E, F) agrees with the sheet for {sheet_vs_high_state_agreement:.0%} of mice (Fisher {stats_high_state.fisher_p:p}).
   cell:
     x_mm: 80.8
     y_mm: 0.0
-    w_mm: 102.2
+    w_mm: 19.2
     h_mm: 38.5
 - id: d
   key: rates_correlation
@@ -91,9 +85,9 @@ panels:
     n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice (fewer where a day is missing).
   cell:
     x_mm: 0.0
-    y_mm: 43.3
+    y_mm: 46.0
     w_mm: 183.0
-    h_mm: 38.5
+    h_mm: 32.0
 - id: e
   key: ex_rplus_nonlearner
   title: Example R+ non-learner
@@ -101,7 +95,7 @@ panels:
   status: filled
   params:
     example: AB151
-  caption: 'Whisker day 0 of an example R+ non-learner ({mouse_id}; {n_whisker_trials} whisker trials), as Fig. 1e: exact
+  caption: 'Whisker day 0 of an example R+ non-learner ({mouse_id}; {n_whisker_trials} whisker trials), as Fig. 1E: exact
     learning curves of whisker (cohort colour; shading, 80% posterior interval), no-stimulus (black) and auditory trials (blue);
     ticks, whisker trials with (top) and without a lick (bottom); background, high-performance state.'
   cell:
@@ -123,6 +117,47 @@ panels:
     w_mm: 57.0
     h_mm: 40.0
 - id: g
+  key: rt_change_auditory
+  title: Reaction-time change of auditory hits from the start of whisker day 0
+  data: FigS1_rt_change_auditory.csv
+  status: filled
+  calls:
+  - Figure1_behaviour/compute.rt_change_from_start (trial_type auditory_trial; as Fig. 1J left, user 2026-11-10)
+  params:
+    mice: learners
+    trials: licked auditory trials of whisker day 0, early licks dropped; reaction time 0-1 s
+    hits: first 30 auditory hits with a reaction time; RT minus the mouse's median over its first 5 auditory hits; hit by hit
+    stats: as Figure 1 j (per-mouse slopes, Wilcoxon vs 0, R+ vs R- Mann-Whitney and Welch; linear mixed model; cluster tests)
+  caption: 'As Fig. 1J (left, middle) for auditory hits of whisker day 0: for each of the first 30 auditory hits, reaction time
+    minus the mouse''s median over its first 5 auditory hits, mean ± s.e.m. over learner mice (blue, lighter for R-), shown in
+    bins of 5 hits; dashed lines, mean per-mouse least-squares fit over single hits 1-30. Right, per-mouse slopes. Slope per
+    10 hits ({slope.R+.n} R+ and {slope.R-.n} R- mice with at least 10 hits): R+ {slope.R+.mean:+.0f} ± {slope.R+.sem:.0f} ms
+    (Wilcoxon versus 0, {slope.R+.wilcoxon_p:p}), R- {slope.R-.mean:+.0f} ± {slope.R-.sem:.0f} ms ({slope.R-.wilcoxon_p:p});
+    R+ versus R- Mann-Whitney {slope.rplus_vs_rminus.mannwhitney_p:p}, Welch {slope.rplus_vs_rminus.welch_p:p}. Linear mixed
+    model over single hits (random intercept and slope per mouse): R+ {lmm.R+.slope:+.0f} ± {lmm.R+.se:.0f} ms ({lmm.R+.p:p}),
+    R- {lmm.R-.slope:+.0f} ± {lmm.R-.se:.0f} ms ({lmm.R-.p:p}); interaction {lmm.rplus_vs_rminus.slope:+.0f} ±
+    {lmm.rplus_vs_rminus.se:.0f} ms ({lmm.rplus_vs_rminus.p:p}). Significant clusters: R+ versus 0, {sig_clusters_text.R+};
+    R- versus 0, {sig_clusters_text.R-}; R+ versus R-, {sig_clusters_text.rplus_vs_rminus}. n = {n.R+.mice} R+ and
+    {n.R-.mice} R- learner mice.'
+  cell:
+    x_mm: 124.0
+    y_mm: 86.0
+    w_mm: 59.0
+    h_mm: 40.0
+- id: h
+  key: rt_curves
+  title: Reaction time against the three learning curves
+  data: FigS1_rt_curves.csv
+  status: filled
+  caption: Spearman correlation between reaction time and the whisker, false-alarm and difference (whisker minus false alarm)
+    learning curves across the licked trials of each mouse (whisker hits, auditory hits, false alarms), minus the shift-null
+    median; median over mice with interquartile range; stars, Wilcoxon signed-rank versus 0.
+  cell:
+    x_mm: 0.0
+    y_mm: 128.6
+    w_mm: 76.0
+    h_mm: 35.0
+- id: i
   key: history
   title: Trial-by-trial history, performance and reaction time
   data: FigS1_history.csv
@@ -138,78 +173,40 @@ panels:
     median for that trial type). Mean ± s.e.m. over mice; asterisks, Mann-Whitney R+ versus R- (P < 0.05; Welch tests in the
     generation note). n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
-    x_mm: 121.0
-    y_mm: 86.0
-    w_mm: 62.0
-    h_mm: 40.0
-- id: h
-  key: rt_hits_other
-  title: Latencies by hit number, other trial types and jaw onset
-  data: FigS1_rt_hits_other.csv
-  status: filled
-  caption: Reaction time of auditory hits and false alarms, and jaw onset of whisker hits, by hit number (bins of 5 licked
-    trials of that type; per-mouse median; bins with at least 8 mice per cohort), median over mice with interquartile range.
-    Jaw onset from the DLC jaw trace (behaviour_analysis dlc_jaw_onset_times; mice with video).
-  cell:
-    x_mm: 0.0
-    y_mm: 131.0
-    w_mm: 93.0
-    h_mm: 35.0
-- id: i
-  key: rt_curves
-  title: Reaction time against the three learning curves
-  data: FigS1_rt_curves.csv
-  status: filled
-  caption: Spearman correlation between reaction time and the whisker, false-alarm and difference (whisker minus false alarm)
-    learning curves across the licked trials of each mouse (whisker hits, auditory hits, false alarms), minus the shift-null
-    median; median over mice with interquartile range; stars, Wilcoxon signed-rank versus 0.
-  cell:
-    x_mm: 96.0
-    y_mm: 131.0
-    w_mm: 87.0
+    x_mm: 80.8
+    y_mm: 128.6
+    w_mm: 102.2
     h_mm: 35.0
 - id: j
+  key: xcorr
+  title: Cross-correlation of whisker and false-alarm curves (learners)
+  data: FigS1_xcorr.csv
+  status: filled
+  caption: 'Left, cross-correlation between the whisker and chance learning curves of whisker day 0 (as in Fig. 1E, F) against lag (positive,
+    whisker curve leads), mean ± s.e.m. over learner mice; dashed, mean lag-0 correlation under a linear-shift null (500 shifts
+    of more than 10 trials). Right, correlation at lag 0 per cohort, mean ± s.e.m. over mice; asterisks, Mann-Whitney.
+    Lag 0 versus the null: R+ Wilcoxon {lag0_vs_shift_null.R+.wilcoxon_p:p}; R- Wilcoxon {lag0_vs_shift_null.R-.wilcoxon_p:p}.
+    R+ versus R-: Mann-Whitney {lag0_rplus_vs_rminus.mannwhitney_p:p}, Welch {lag0_rplus_vs_rminus.welch_p:p}. n = {n.R+.mice}
+    R+ and {n.R-.mice} R- learner mice.'
+  cell:
+    x_mm: 0.0
+    y_mm: 170.0
+    w_mm: 46.0
+    h_mm: 34.5
+- id: k
   key: posture_curve
   title: Pre-stimulus posture and movement against the whisker curve
   data: FigS1_posture_curve.csv
   status: filled
-  caption: Spearman correlation between pre-stimulus posture (window mean) or movement (mean absolute frame-to-frame change)
-    of the jaw, nose, whisker and pupil ([-0.2, 0) s; pupil [-2, 0) s; DLC through dlc_helpers) and the whisker learning curve
-    across all whisker trials of each mouse, minus the shift-null median; median over mice with interquartile range; stars,
-    Wilcoxon versus 0; asterisks above, R+ versus R- Mann-Whitney.
+  caption: Spearman correlation between pre-stimulus posture (window mean; left) or movement (mean absolute frame-to-frame
+    change; right) of the jaw, nose, whisker and pupil ([-0.2, 0) s; pupil [-2, 0) s; DLC through dlc_helpers) and the whisker
+    learning curve across all whisker trials of each learner mouse. Lag 0, real rho (cohort colour) next to the
+    linear-shift-null median (grey, hollow; shifts of 10-50 % of the trials, both directions, no wrapping), mean ± s.e.m.
+    over mice; coloured stars, real versus null (paired Wilcoxon); black stars, R+ versus R- on real minus null
+    (Mann-Whitney). Cross-correlations, rho of the measure at whisker trial t with the curve at t + lag (positive lag, the
+    measure leads), mean ± s.e.m. over mice; dashed, the cohort's mean shift-null level (user 2026-11-12).
   cell:
-    x_mm: 0.0
+    x_mm: 52.0
     y_mm: 170.0
-    w_mm: 93.0
-    h_mm: 34.5
-- id: k
-  key: rt_change_auditory
-  title: Reaction-time change of auditory hits from the start of whisker day 0
-  data: FigS1_rt_change_auditory.csv
-  status: filled
-  calls:
-  - Figure1_behaviour/compute.rt_change_from_start (trial_type auditory_trial; as Fig. 1k left, user 2026-11-10)
-  params:
-    mice: learners
-    trials: licked auditory trials of whisker day 0, early licks dropped; reaction time 0-1 s
-    hits: first 30 auditory hits with a reaction time; RT minus the mouse's median over its first 5 auditory hits; per-mouse
-      median per bin of 5 hits
-    stats: as Figure 1 k left (late change hits 21-30 and slope per 10 hits, Wilcoxon vs 0, R+ vs R- Mann-Whitney and Welch;
-      cohort vs 0 sign-flip and R+ vs R- cluster tests, 1,000 permutations, cluster P < 0.05)
-  caption: 'As Fig. 1k (left) for auditory hits of whisker day 0: for each of the first 30 auditory hits, reaction time minus
-    the mouse''s median over its first 5 auditory hits, per-mouse median in bins of 5 hits (the first bin is 0 by construction),
-    mean ± s.e.m. over learner mice (blue, lighter for R-). Late change (mean over hits 21-30 per mouse; {late.R+.n} R+ and {late.R-.n} R- mice with such hits): R+ {late.R+.mean:+.0f}
-    ± {late.R+.sem:.0f} ms (Wilcoxon versus 0, {late.R+.wilcoxon_p:p}), R- {late.R-.mean:+.0f} ± {late.R-.sem:.0f} ms ({late.R-.wilcoxon_p:p});
-    R+ versus R- Mann-Whitney {late.rplus_vs_rminus.mannwhitney_p:p}, Welch {late.rplus_vs_rminus.welch_p:p}. Slope over
-    hits 1-30 (per-mouse least-squares fit, per 10 hits; {slope.R+.n} R+ and {slope.R-.n} R- mice with at least 10 hits): R+ {slope.R+.mean:+.0f} ± {slope.R+.sem:.0f} ms ({slope.R+.wilcoxon_p:p}), R- {slope.R-.mean:+.0f}
-    ± {slope.R-.sem:.0f} ms ({slope.R-.wilcoxon_p:p}); R+ versus R- Mann-Whitney {slope.rplus_vs_rminus.mannwhitney_p:p},
-    Welch {slope.rplus_vs_rminus.welch_p:p}. Coloured bars, bins after the first where a cohort differs from 0 (sign-flip
-    cluster test); black bar, bins where the cohorts differ (cluster permutation test); 1,000 permutations, cluster P <
-    0.05, bins with at least 8 mice per cohort. Significant clusters: R+ versus 0, {sig_clusters_text.R+}; R- versus 0,
-    {sig_clusters_text.R-}; R+ versus R-, {sig_clusters_text.rplus_vs_rminus}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner
-    mice.'
-  cell:
-    x_mm: 96.0
-    y_mm: 170.0
-    w_mm: 44.0
+    w_mm: 131.0
     h_mm: 34.5

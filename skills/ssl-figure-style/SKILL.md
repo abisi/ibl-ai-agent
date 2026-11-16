@@ -37,6 +37,14 @@ description: Use this skill whenever making publication, abstract (e.g. COSYNE),
    "Similarity of whisker hits to auditory hits (0 = false-alarm-like, 1 = auditory-hit-like)"). Avoid symbols or
    jargon (λ, d′, "transfer") in abstract figures; define them in the caption if used in full figures. Say
    "whisker vs auditory decoding", not "stimulus modality".
+   - Lick probability is always written "P(lick)" (axis labels, titles, legends, captions' axis wording), never
+     "Lick probability" (user 2026-11-12).
+   - Every axis carries its own axis label and tick labels, also when sub-panels share an axis (user 2026-11-12):
+     never drop a y label or blank the tick labels of the second / third sub-panel. Only a categorical axis
+     repeated in the same order across side-by-side sub-panels (e.g. GLM predictor names) may show its names once.
+   - Every panel that shows cohorts or trial types names them on the panel (legend or coloured text: R+ / R−,
+     whisker / auditory / false alarm), unless the tick labels already do; marker conventions (open vs filled,
+     null vs real) get a legend entry too.
 7. **Colours**
    - Task: whisker #f7b519, auditory #2c2cdb, false alarm / no-stim #262626 (very dark grey). Cohorts: R+ #00B400,
      R− #C800C8, never matplotlib defaults.

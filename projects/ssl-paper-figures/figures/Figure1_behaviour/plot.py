@@ -133,6 +133,22 @@ def _mean_band(ax, df, x, value, color, ls="-", lw=0.8, fill=0.7):
     ax.plot(m.index, m, color=color, lw=lw, ls=ls)
 
 
+def _runs(xs, step):
+    """Contiguous runs of sorted x values (gap <= 1.5 step) as (start, end) pairs."""
+    xs = np.sort(np.asarray(xs, float))
+    if not len(xs):
+        return []
+    cut = np.flatnonzero(np.diff(xs) > 1.5 * step) + 1
+    return [(r[0], r[-1]) for r in np.split(xs, cut)]
+
+
+def _p_label(ax, x, y, p, color="k"):
+    """p-value of a significance bar, above its centre (planner 2026-11-12: bars annotated with their p-value)."""
+    if np.isfinite(p):
+        ax.text(x, y, f"p = {p:.2g}" if p >= 0.001 else "p < 0.001", transform=ax.get_xaxis_transform(), ha="center",
+                va="bottom", fontsize=3.8, color=color, clip_on=False)
+
+
 def _sig_bar(ax, df, x):
     """Black bar at the top of the axes over x values inside a significant cluster."""
     if "cluster_sig" not in df:
@@ -144,6 +160,25 @@ def _sig_bar(ax, df, x):
     for x0 in xs:
         ax.plot([x0 - step / 2, x0 + step / 2], [0.97, 0.97], transform=ax.get_xaxis_transform(), color="k", lw=1.2,
                 solid_capstyle="butt")
+    if "cluster_p" in df:
+        for a, b in _runs(xs, step):
+            _p_label(ax, (a + b) / 2, 0.98, df[df[x].between(a, b)].cluster_p.min())
+
+
+def _legend(ax, entries, loc="upper right", marker=None, **kw):
+    """Small frameless legend (user 2026-11-12: every panel names its cohorts / trial types / marker conventions).
+    entries: (label, color) for lines, or (label, color, dict of Line2D kwargs)."""
+    handles = []
+    for e in entries:
+        label, color, extra = (*e, {}) if len(e) == 2 else e
+        style = dict(marker=marker, ms=2, lw=0) if marker else dict(lw=0.8)
+        handles.append(mpl.lines.Line2D([], [], color=color, label=label, **{**style, **extra}))
+    ax.legend(handles=handles, loc=loc, fontsize=kw.pop("fontsize", 4.5), frameon=False, handlelength=1 if not marker else 0.8,
+              handletextpad=0.3, borderaxespad=0.2, labelspacing=0.2, **kw)
+
+
+def _cohort_entries(tt="whisker_trial"):
+    return [(c.replace("-", "−"), group_color(tt, c)) for c in COHORTS]
 
 
 def _split(ax, n=2, gap=0.3):
@@ -168,46 +203,53 @@ CONTEXT_GREY = {"auditory_trial": ("0.45", "0.7"), "no_stim_trial": ("0.15", "0.
 
 
 def plot_days(ax, df):
-    """Planner 2026-11-09 (options 2 + 3 of explore_panel_b): left, lick probability across days with whisker in cohort
-    colours and auditory / false alarm in grey, day 0 shaded; right, R+ minus R- per day and trial type, mean
-    difference +- s.e.m. (sqrt of the summed squared s.e.m. of the two cohorts over mice), no CIs."""
-    left, right = _split(ax, 2, gap=0.3)
+    """Lick probability across days of learner mice (planner 2026-11-11: the R+ - R- difference sub-panel dropped), whisker
+    in cohort colours and auditory / false alarm in grey, day 0 shaded; mean +- s.e.m. over mice. Right (planner
+    2026-11-12): day-0 lick probability per trial type as bars (as panel c); brackets, W vs FA within each cohort (paired
+    Wilcoxon, cohort colour) and R+ W vs R- W (Mann-Whitney, black)."""
+    ax, right = _split(ax, 2, gap=0.3)
     x = np.arange(len(DAYS))
     for tt in TRIAL_TYPES:
         for k, cohort in enumerate(COHORTS):
             g = df[(df.trial_type == tt) & (df.cohort == cohort)].groupby("day_group").lick_probability
             m, s = g.mean().reindex(DAYS), g.sem().reindex(DAYS)
             w = tt == "whisker_trial"
-            left.errorbar(x + (k - 0.5) * 0.08, m, s, color=group_color(tt, cohort) if w else CONTEXT_GREY[tt][k],
-                          marker="o", ms=1.8 if w else 1.2, lw=0.9 if w else 0.5, elinewidth=0.5, capsize=0,
-                          zorder=3 if w else 2)
+            ax.errorbar(x + (k - 0.5) * 0.08, m, s,  # auditory in auditory colours (planner 2026-11-11)
+                        color=group_color(tt, cohort) if tt != "no_stim_trial" else CONTEXT_GREY[tt][k],
+                        marker="o", ms=1.8 if w else 1.2, lw=0.9 if w else 0.5, elinewidth=0.5, capsize=0,
+                        zorder=3 if w else 2)
+    ax.axvspan(1.6, 2.4, color="0.92", lw=0, zorder=0)
+    ax.set_xticks(x, ["-2", "-1", "0", "1-3"])
+    ax.tick_params(axis="x", labelsize=4.5)
+    ax.set_xlim(-0.4, len(DAYS) - 0.6)
+    ax.set_xlabel("Day", labelpad=1)
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
+    ax.set_ylabel("P(lick)", labelpad=1)
+    _legend(ax, [*[(f"W {c}", color) for c, color in _cohort_entries()],  # in the empty band below A
+                 *[(f"{TT_SHORT[tt]} {c.replace('-', '−')}", group_color(tt, c) if tt != "no_stim_trial" else CONTEXT_GREY[tt][k])
+                   for tt in ("auditory_trial", "no_stim_trial") for k, c in enumerate(COHORTS)]],
+            loc="center left", marker="o", bbox_to_anchor=(0, 0.6), ncol=1, fontsize=4)
+    d0 = df[df.day_group == "0"]
+    v = {}
     for i, tt in enumerate(TRIAL_TYPES):
-        for j, dg in enumerate(DAYS):
-            a = df[(df.trial_type == tt) & (df.cohort == "R+") & (df.day_group == dg)].lick_probability.dropna()
-            b = df[(df.trial_type == tt) & (df.cohort == "R-") & (df.day_group == dg)].lick_probability.dropna()
-            if len(a) < 2 or len(b) < 2:
-                continue
-            d, e = a.mean() - b.mean(), np.hypot(a.sem(), b.sem())
-            xi = j + (i - 1) * 0.2
-            right.errorbar(xi, d, e, color=group_color(tt, "R+"), marker="o", ms=1.8, elinewidth=0.6, capsize=0)
-            p = _mw_p(a, b)
-            if p < 0.05:
-                right.text(xi, d + e + 0.015, stars(p), ha="center", va="bottom", fontsize=4, rotation=90)
-    right.axhline(0, color="0.5", lw=0.4, ls=":")
-    for a in (left, right):
-        a.axvspan(1.6, 2.4, color="0.92", lw=0, zorder=0)
-        a.set_xticks(x, ["-2", "-1", "0", "1-3"])
-        a.tick_params(axis="x", labelsize=4.5)
-        a.set_xlim(-0.4, len(DAYS) - 0.6)
-        a.set_xlabel("Day", labelpad=1)
-    left.set_ylim(-0.03, 1.03)
-    left.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
-    left.set_ylabel("Lick probability", labelpad=1)
-    right.set_ylabel("R+ − R-", labelpad=1)
-    for tt, y, yl in zip(TRIAL_TYPES, (0.98, 0.88, 0.78), (0.78, 0.68, 0.58)):  # left: in the empty band below A
-        left.text(0.03, yl, TT_SHORT[tt], transform=left.transAxes, fontsize=4.5, va="top",
-                  color=group_color(tt, "R+") if tt == "whisker_trial" else CONTEXT_GREY[tt][0])
-        right.text(0.03, y, TT_SHORT[tt], transform=right.transAxes, fontsize=4.5, va="top", color=group_color(tt, "R+"))
+        for k, c in enumerate(COHORTS):
+            v[tt, c] = d0[(d0.trial_type == tt) & (d0.cohort == c)].set_index("mouse_id").lick_probability.dropna()
+            _bars(right, i * 1.1 + (k - 0.5) * 0.42, v[tt, c], group_color(tt, c), width=0.38)
+    paired = lambda c: stats.wilcoxon(*v["whisker_trial", c].align(v["no_stim_trial", c], join="inner")).pvalue
+    for (x0, x1, y, p, color) in ((-0.21, 2.2 - 0.21, 1.02, paired("R+"), COLORS["R+"]),
+                                  (0.21, 2.2 + 0.21, 1.12, paired("R-"), COLORS["R-"]),
+                                  (-0.21, 0.21, 0.86, _mw_p(v["whisker_trial", "R+"], v["whisker_trial", "R-"]), "k"),
+                                  (2.2 - 0.21, 2.2 + 0.21, 0.5,  # user 2026-11-12: FA rate R+ vs R-
+                                   _mw_p(v["no_stim_trial", "R+"], v["no_stim_trial", "R-"]), "k")):
+        right.plot([x0, x0, x1, x1], [y - 0.02, y, y, y - 0.02], color=color, lw=0.4)
+        right.text((x0 + x1) / 2, y, stars(p), ha="center", va="bottom", fontsize=4.5, color=color)
+    right.set_xticks([0, 1.1, 2.2], ["W", "A", "FA"])
+    right.set_xlim(-0.5, 2.7)
+    right.set_ylim(0, 1.25)
+    right.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
+    right.set_ylabel("P(lick), day 0", labelpad=1)
+    right.set_xlabel("Bars: R+ left, R− right", labelpad=1, fontsize=4.5)
 
 
 def plot_rt(ax, df):
@@ -219,10 +261,20 @@ def plot_rt(ax, df):
             vals[cohort] = v
         top = max(v.mean() + v.sem() for v in vals.values())
         _bracket(ax, i * 1.1 - 0.21, i * 1.1 + 0.21, top * 1.08, _mw_p(vals["R+"], vals["R-"]))
+    # user / planner 2026-11-12: whisker vs auditory, cohorts pooled (paired over mice, Wilcoxon), with its p-value
+    top = df.groupby(["trial_type", "cohort"]).median_reaction_time_s.agg(lambda v: v.mean() + v.sem()).max()
+    w = df.pivot_table(index="mouse_id", columns="trial_type", values="median_reaction_time_s")
+    pair = w[["whisker_trial", "auditory_trial"]].dropna()
+    p = stats.wilcoxon(pair.whisker_trial, pair.auditory_trial).pvalue if len(pair) > 5 else np.nan
+    y = top * 1.22
+    ax.plot([0, 0, 1.1, 1.1], [y - 0.012, y, y, y - 0.012], color="k", lw=0.4)
+    ax.text(0.55, y, f"W vs A pooled {stars(p)}", ha="center", va="bottom", fontsize=4)
     ax.set_xticks([0, 1.1, 2.2], ["W", "A", "FA"])
     ax.set_xlim(-0.5, 2.7)
-    ax.set_ylim(bottom=0)
+    ax.set_ylim(0, y * 1.12)  # headroom for the pooled bracket
+    ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(4))
     ax.set_ylabel("Mean of median RT (s)", labelpad=1)
+    ax.set_xlabel("Bars: R+ left, R− right", labelpad=1, fontsize=4.5)
 
 
 # ---------------------------------------------------------------- examples
@@ -243,10 +295,10 @@ def _example(ax, df, title, first=False):
     ax.set_yticks([0, 0.5, 1])
     ax.set_xlim(0, x.max() + 1)
     ax.set_xlabel("Whisker trial", labelpad=1)
-    if first:  # the four examples share the y axis; label it once
-        ax.set_ylabel("Lick probability", labelpad=1)
-    else:
-        ax.set_yticklabels([])
+    ax.set_ylabel("P(lick)", labelpad=1)  # every example labelled (user 2026-11-12), also when sharing y
+    if first:
+        _legend(ax, [("Whisker", color), ("Auditory", TRIAL_TYPE_COLORS["auditory_trial"]),
+                     ("False alarm", COLORS["no_stim"])], loc="center right")
     ax.set_title(f"{title} ({df.mouse_id.iloc[0]})", fontsize=5.5, pad=2)
     ax.tick_params(length=2.5, width=0.6, labelsize=5.5)  # planner: ticks more visible
 
@@ -269,12 +321,14 @@ def plot_ex_rminus_nonlearner(ax, df):
 
 # ---------------------------------------------------------------- first lick and false alarms
 
-def plot_rt_change(ax, df, xlabel, fit=None, display_bin=5):
+def plot_rt_change(ax, df, xlabel, fit=None, display_bin=5, mice=None):
     """Reaction-time change from the mouse's first 5 hits (kind 'bin' rows of compute.rt_change_from_start, one per
     mouse and hit): for display, per-mouse mean over bins of `display_bin` hits, then mean +- s.e.m. over mice, cohorts
     side by side (group_color); coloured bars, hits in a cohort-vs-0 cluster (sig_vs0); black bar, hits in an R+ vs R-
     cluster (sig_cohorts; clusters are tested hit by hit). `fit` (kind 'fit' rows): mean of the per-mouse hit-by-hit
-    least-squares fits, dashed line over hits 1-30."""
+    least-squares fits, dashed line over hits 1-30. `mice` (kind 'mouse' rows; planner 2026-11-11): last versus first
+    bin of 5 hits per mouse (last_minus_first_ms); coloured stars next to the last bin, Wilcoxon vs 0 within cohort;
+    bracket, R+ vs R- Mann-Whitney."""
     tt = df.trial_type.iloc[0]
     step = float(np.min(np.diff(np.sort(df.hit_bin_centre.unique()))))
     shown = df.assign(x=((df.hit_bin_centre - 1) // display_bin) * display_bin + (display_bin + 1) / 2)
@@ -291,17 +345,33 @@ def plot_rt_change(ax, df, xlabel, fit=None, display_bin=5):
                     ls="--", zorder=1)
     lo, hi = ax.get_ylim()
     ax.set_ylim(lo, hi + 0.22 * (hi - lo))  # headroom for the cluster bars
-    bars = [(df[df.sig_cohorts.astype(bool)], "k", 0.98)]
-    bars += [(df[(df.cohort == c) & df.sig_vs0.astype(bool)], group_color(tt, c), 0.93 - 0.05 * k)
+    bars = [(df[df.sig_cohorts.astype(bool)], "k", 0.98, "sig_cohorts_p")]
+    bars += [(df[(df.cohort == c) & df.sig_vs0.astype(bool)], group_color(tt, c), 0.93 - 0.05 * k, "sig_vs0_p")
              for k, c in enumerate(COHORTS)]
-    for d, color, y in bars:
+    for d, color, y, pcol in bars:
         for x0 in np.sort(d.hit_bin_centre.unique()):
             ax.plot([x0 - step / 2, x0 + step / 2], [y, y], transform=ax.get_xaxis_transform(), color=color, lw=1,
                     solid_capstyle="butt")
+        if pcol in d:
+            for s0, s1 in _runs(d.hit_bin_centre.unique(), step):
+                _p_label(ax, (s0 + s1) / 2, y + 0.005, d[d.hit_bin_centre.between(s0, s1)][pcol].min(), color)
     ax.set_xlim(0, df.hit_bin_centre.max() + 1)
+    if mice is not None and "last_minus_first_ms" in mice:
+        x_last = shown.x.max()
+        last = {c: shown[(shown.cohort == c) & (shown.x == x_last)].value.mean() for c in COHORTS}
+        v = {c: mice[mice.cohort == c].last_minus_first_ms.dropna() for c in COHORTS}
+        for k, c in enumerate(COHORTS):
+            ax.text(x_last + 1.6, last[c], stars(stats.wilcoxon(v[c]).pvalue), ha="left", va="center", fontsize=4.5,
+                    color=group_color(tt, c))
+        xb = x_last + 4.6
+        ax.plot([xb - 0.5, xb, xb, xb - 0.5], [last["R+"], last["R+"], last["R-"], last["R-"]], color="k", lw=0.5)
+        ax.text(xb + 0.6, np.mean(list(last.values())), stars(stats.mannwhitneyu(v["R+"], v["R-"]).pvalue), ha="left",
+                va="center", fontsize=4.5, rotation=90)
+        ax.set_xlim(0, x_last + 7)
     ax.set_xticks([1, 10, 20, 30])
     ax.set_xlabel(xlabel, labelpad=1)
     ax.set_ylabel("Δ RT from first 5 hits (ms)", labelpad=1)
+    _legend(ax, _cohort_entries(tt), loc="upper left", marker="o")
 
 
 def plot_rt_slopes(ax, mice, tt="whisker_trial"):
@@ -320,25 +390,32 @@ def plot_rt_slopes(ax, mice, tt="whisker_trial"):
 
 def plot_rt_learning(ax, df):
     """Left: whisker-hit reaction time change from the mouse's first 5 hits (plot_rt_change, shown in bins of 5 hits).
-    Middle: per-mouse hit-by-hit slopes (plot_rt_slopes; user 2026-11-10). Right: Spearman rho (reaction time vs
-    whisker curve) minus the shift-null median, per licked trial type; mean +- s.e.m. over mice; stars, Wilcoxon vs 0."""
-    left, mid, right = _split(ax, 3, gap=0.22)
-    plot_rt_change(left, df[df.kind == "bin"], "Whisker hit", df[df.kind == "fit"])
-    plot_rt_slopes(mid, df[df.kind == "mouse"])
-    rho = df[df.kind == "rho"]
+    Stars: last versus first bin (planner 2026-11-11; the slope sub-axis was dropped). Right: Spearman rho (reaction
+    time vs whisker curve) per licked trial type, mean +- s.e.m. over mice; grey dot +- s.d., the cohort mean under the
+    linear-shift null (planner / user 2026-11-11); stars, Wilcoxon of rho minus each mouse's shift-null median vs 0."""
+    left, right = _split(ax, 2, gap=0.3)
+    plot_rt_change(left, df[df.kind == "bin"], "Whisker hit", df[df.kind == "fit"], mice=df[df.kind == "mouse"])
+    rho, null = df[df.kind == "rho"], df[df.kind == "rho_null"]
     for i, tt in enumerate(TRIAL_TYPES):
         for k, cohort in enumerate(COHORTS):
-            v = rho[(rho.trial_type == tt) & (rho.cohort == cohort)].value.dropna()
-            x = i + (k - 0.5) * 0.35
+            g = rho[(rho.trial_type == tt) & (rho.cohort == cohort)]
+            v, x = g.rho.dropna(), i + (k - 0.5) * 0.35
+            nd = null[(null.trial_type == tt) & (null.cohort == cohort)].rho.dropna()
+            if len(nd):  # shift-null cohort mean +- s.d., left of the real dot; hollow (user 2026-11-12)
+                right.errorbar(x - 0.12, nd.mean(), nd.std(), color="0.55", marker="o", ms=1.8, mfc="white", mew=0.5,
+                               lw=0, elinewidth=0.6, capsize=0, zorder=2)
             right.errorbar(x, v.mean(), v.sem(), color=group_color(tt, cohort), marker="o", ms=2.2, lw=0, elinewidth=0.6,
-                           capsize=0)
-            p = stats.wilcoxon(v).pvalue if len(v) > 5 else np.nan
+                           capsize=0, zorder=3)
+            d = g.value.dropna()  # rho minus the mouse's shift-null median
+            p = stats.wilcoxon(d).pvalue if len(d) > 5 else np.nan
             if p < 0.05:
-                right.text(x, v.mean() + v.sem() + 0.02, stars(p), ha="center", va="bottom", fontsize=4.5)
+                top = max(v.mean() + v.sem(), nd.mean() + nd.std() if len(nd) else -np.inf)
+                right.text(x, top + 0.02, stars(p), ha="center", va="bottom", fontsize=4.5)
     right.axhline(0, color="0.6", lw=0.4, ls=":")
     right.set_xticks(range(3), ["W", "A", "FA"])
     right.set_xlim(-0.6, 2.6)
-    right.set_ylabel("ρ(RT, W curve) − shift", labelpad=1)
+    right.set_ylabel("ρ(RT, W curve)", labelpad=1)
+    right.set_xlabel("R+ left, R− right;\nopen = linear-shift null", labelpad=1, fontsize=4.5)
 
 
 def plot_first_lick(ax, df):
@@ -377,56 +454,91 @@ def plot_aligned_curves(ax, df):
 
 
 def plot_first_hit_licks(ax, df):
-    """Whisker | spontaneous licks | auditory in 1-min bins from the first whisker hit (user 2026-11-10; mean +- s.e.m.
-    over mice, group_color of the trial type; spontaneous licks in FA colours); grey band, the pre window; black bar, bins
-    where R+ and R- differ (BH-corrected Mann-Whitney, column cohort_sig)."""
-    axes = _split(ax, 3, gap=0.2)
-    spec = {"whisker": ("whisker_trial", "Whisker", "P(lick), W trials", "upper left"),
-            "spont_licks": ("no_stim_trial", "Spontaneous licks", "Spont. licks / min", "lower left"),
-            "auditory": ("auditory_trial", "Auditory", "P(lick), A trials", "lower right")}
+    """Planner 2026-11-11: whisker | auditory | false alarm, P(lick) by trial of the type from the first whisker hit in
+    5-trial bins (x = bin centre; first 90% of session time); mean +- s.e.m. over mice, group_color of the trial type;
+    grey band, the pre window; black bar, bins where R+ and R- differ (BH-corrected Mann-Whitney)."""
+    axes = _split(ax, 3, gap=0.1)  # planner 2026-11-11 14:19: spontaneous licks dropped
+    spec = {"whisker": ("whisker_trial", "Whisker", "P(lick)", "lower right"),  # every axis labelled (user 2026-11-12)
+            "auditory": ("auditory_trial", "Auditory", "P(lick)", "lower right"),
+            "false_alarm": ("no_stim_trial", "False alarm", "P(lick)", "upper right")}
     for a, (sub, (tt, title, ylabel, loc)) in zip(axes, spec.items()):
-        d = df[df.sub_panel == sub].assign(t=lambda x: x.minute + 0.5)
-        a.axvspan(-5, 0, color="0.93", lw=0, zorder=0)
-        a.axvline(0, color="0.6", lw=0.4, ls=":")
+        d = df[df.sub_panel == sub]
+        trial = (d.x_unit == "trial").all()
+        # trial bins: x = centre of the bin's trials (whisker: the hit, trial 0, is its own bin at 1 by definition)
+        d = d.assign(t=(d.bin_start + d.bin_end - 1) / 2 if trial else d.bin_start + 0.5)
+        if trial:
+            d = d[d.bin_start < 30]  # user 2026-11-12: back to 30 trials
+            a.axvspan(-5.5, -0.5, color="0.93", lw=0, zorder=0)
+            a.axvline(-0.5, color="0.6", lw=0.4, ls=":")
+        else:
+            a.axvspan(-5, 0, color="0.93", lw=0, zorder=0)
+            a.axvline(0, color="0.6", lw=0.4, ls=":")
         for cohort in COHORTS:
             _mean_band(a, d[d.cohort == cohort], "t", "value", group_color(tt, cohort))
-        for m in np.sort(d[d.cohort_sig.astype(bool)].minute.unique()):
-            a.plot([m, m + 1], [1.02, 1.02], transform=a.get_xaxis_transform(), color="k", lw=1.2, solid_capstyle="butt",
+        sig = d[d.cohort_sig.astype(bool)].drop_duplicates("bin_start")
+        for m, m_end in zip(sig.bin_start, sig.bin_end if trial else sig.bin_start + 1):
+            x0, x1 = (m - 0.5, m_end - 0.5) if trial else (m, m_end)
+            a.plot([x0, x1], [1.02, 1.02], transform=a.get_xaxis_transform(), color="k", lw=1.2, solid_capstyle="butt",
                    clip_on=False)
-        a.set_xlim(d.minute.min(), d.minute.max() + 1)
-        if sub == "spont_licks":
-            a.set_ylim(bottom=0)
-        else:
+        if len(sig):  # planner 2026-11-12: the bars' p-value (largest BH q of the significant bins)
+            q = sig.cohort_q_bh.max()
+            a.text(0.98, 1.03, f"q ≤ {q:.2g}" if q >= 0.001 else "q < 0.001", transform=a.transAxes, ha="right",
+                   va="bottom", fontsize=3.8)
+        if trial:
+            a.set_xlim(-10.5, 29.5)
+            a.set_xticks([-10, 0, 10, 20])
             a.set_ylim(-0.02, 1.04)  # headroom so the bands are not clipped at 0 and 1
             a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
-        a.set_xticks([-5, 0, 5, 10, 15, 20])
+            a.set_xlabel("Trials from 1st W hit", labelpad=1, fontsize=4.5)
+        else:
+            a.set_xlim(d.bin_start.min(), d.bin_start.max() + 1)
+            a.set_xticks([-5, 0, 10, 20])
+            a.set_ylim(bottom=0)
+            a.set_xlabel("Time from 1st W hit (min)", labelpad=1, fontsize=4.5)
+        a.tick_params(axis="x", labelsize=4.5)
         a.set_title(title, fontsize=5.5, pad=7)  # above the significance bars (y = 1.02)
-        a.set_ylabel(ylabel, labelpad=1)
+        if ylabel:
+            a.set_ylabel(ylabel, labelpad=1)
         a.legend(handles=[mpl.lines.Line2D([], [], color=group_color(tt, c), lw=0.8, label=c) for c in COHORTS],
                  loc=loc, fontsize=4.5, frameon=False, handlelength=1, borderaxespad=0.2)
-    axes[1].set_xlabel("Time from 1st W hit (min)", labelpad=1)
 
 
-def plot_lick_course(ax, df):
-    """Lick trials (user 2026-11-10): left, DLC jaw opening minus each trial's pre-stimulus mean (mm); right,
-    P(piezo lick in the 30-ms bin); whisker and auditory on the same axes, both cohorts (group_color), mean +- s.e.m.
-    over mice."""
-    axes = _split(ax, 2, gap=0.38)
-    spec = [("jaw", "Jaw opening", "Δ jaw opening (mm)", (-0.1, 0.3)),
-            ("piezo", "Piezo licks", "P(lick in 30 ms)", (-0.2, 1.5))]
-    for a, (measure, title, ylabel, xlim) in zip(axes, spec):
+def plot_movement_course(ax, df):
+    """Lick trials (planner 2026-11-11): whisker speed, jaw opening, pupil area minus each trial's pre-stimulus mean;
+    whisker and auditory on the same axes, both cohorts (group_color), mean +- s.e.m. over mice. Bars, R+ vs R-
+    clusters: whisker trials (black, top), auditory trials (auditory blue, below)."""
+    axes = _split(ax, 2, gap=0.3)  # planner 2026-11-12: pupil dropped, whisker speed and jaw opening only
+    window = {"whisker_speed": (-0.05, 0.1), "jaw_opening": (-0.1, 0.5), "pupil_area": (-1.0, 2.0)}  # planner 2026-11-12
+    for a, (sig, label, unit) in zip(axes, SIGNALS[:2]):
+        d = df[(df.signal == sig) & df.time_s.between(*window[sig])]
         for tt in ("whisker_trial", "auditory_trial"):
             for c in COHORTS:
-                g = df[(df.measure == measure) & (df.trial_type == tt) & (df.cohort == c)].groupby("time_s").value
-                a.plot(g.mean().index, g.mean(), color=group_color(tt, c), lw=0.7)
-                a.fill_between(g.mean().index, g.mean() - g.sem(), g.mean() + g.sem(), color=group_color(tt, c),
-                               alpha=0.25, lw=0)
+                dd = d[(d.trial_type == tt) & (d.cohort == c)]
+                if len(dd):
+                    _mean_band(a, dd, "time_s", "value", group_color(tt, c), lw=0.6, fill=0.75)
+        step = np.min(np.diff(np.sort(d.time_s.unique()))) if d.time_s.nunique() > 1 else 0
+        for tt, color, y in (("whisker_trial", "k", 0.98), ("auditory_trial", group_color("auditory_trial", "R+"), 0.93)):
+            on = d[(d.trial_type == tt) & d.cluster_sig.astype(bool)]
+            for x0 in np.sort(on.time_s.unique()):
+                a.plot([x0 - step / 2, x0 + step / 2], [y, y], transform=a.get_xaxis_transform(), color=color, lw=1,
+                       solid_capstyle="butt")
+            if "cluster_p" in on:
+                for s0, s1 in _runs(on.time_s.unique(), step):
+                    _p_label(a, (s0 + s1) / 2, y + 0.01, on[on.time_s.between(s0, s1)].cluster_p.min(), color)
         a.axvline(0, color="0.6", lw=0.4, ls=":")
-        a.set_xlim(*xlim)
-        a.set_title(title, fontsize=5.5, pad=2)
+        if len(d):
+            a.set_xlim(d.time_s.min(), d.time_s.max())
+        lo, hi = a.get_ylim()
+        a.set_ylim(lo, hi + 0.15 * (hi - lo))  # headroom for the cluster bars
+        a.yaxis.set_major_locator(mpl.ticker.MaxNLocator(3))
+        xmax = window[sig][1]
+        a.set_xticks([0, xmax], ["0", f"{xmax:g}"])
+        a.set_ylabel(f"{label} ({unit})", labelpad=0.5, fontsize=4.5)  # planner 2026-11-12: y label = the quantity
+        a.tick_params(axis="y", labelsize=4.5, pad=1)
         a.set_xlabel("Time (s)", labelpad=0)
-        a.set_ylabel(ylabel, labelpad=1)
-    axes[1].set_ylim(bottom=-0.005)
+    _legend(axes[1], [(f"{TT_SHORT[tt]} {c}", color) for tt in ("whisker_trial", "auditory_trial")
+                      for c, color in _cohort_entries(tt)], loc="upper left", bbox_to_anchor=(0, 0.88))
+    ax.set_title("Evoked movement", fontsize=5.5, pad=6)  # planner 2026-11-12
 
 
 def plot_cumulative_fa(ax, df):
@@ -454,10 +566,10 @@ def plot_perf_session(ax, df):
             _mean_band(a, d[d.cohort == cohort], "session_time_norm", "performance", COLORS[cohort])
         _sig_bar(a, d, "session_time_norm")
         a.axhline(0, color="0.6", lw=0.4, ls=":")
-        a.set_xlim(0, 1)
-        a.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
+        a.set_xlim(0, d.session_time_norm.max())  # planner 2026-11-11: last 15 % of session time cut
+        a.set_xticks([0, 0.4, 0.8], ["0", "0.4", "0.8"])
         n = {c: d[d.cohort == c].mouse_id.nunique() for c in COHORTS}
-        a.set_title(f"{grp.capitalize()}s\nR+ n = {n['R+']}, R- n = {n['R-']}", fontsize=5, pad=2, linespacing=1.1)
+        a.set_title(f"{grp.capitalize()}s\nR+ n = {n['R+']}, R- n = {n['R-']}", fontsize=5, pad=8, linespacing=1.1)  # room for the bar p-value
         y0, y1 = a.get_ylim()
         lo, hi = min(lo, y0), max(hi, y1)
     for k, a in enumerate(axes):
@@ -466,6 +578,7 @@ def plot_perf_session(ax, df):
             a.set_yticklabels([])
     axes[0].set_xlabel("Session time (norm.)", labelpad=1)
     axes[0].set_ylabel("Δ P(lick) (W - FA)", labelpad=1)
+    _legend(axes[0], _cohort_entries(), loc="upper left")
 
 
 def plot_xcorr(ax, df):
@@ -519,7 +632,7 @@ def plot_lick_states(ax, df):
     _state_pairs(ax, df, "lick_probability")
     ax.set_ylim(-0.03, 1.03)
     ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
-    ax.set_ylabel("Lick probability", labelpad=1)
+    ax.set_ylabel("P(lick)", labelpad=1)
     handles = [mpl.lines.Line2D([], [], color="0.3", marker="o", mfc="white", ms=2, lw=0, label="Low"),
                mpl.lines.Line2D([], [], color="0.3", marker="o", ms=2, lw=0, label="High")]
     ax.legend(handles=handles, loc="center", bbox_to_anchor=(0.5, 0.45), fontsize=4.5, handletextpad=0.2,
@@ -535,6 +648,9 @@ SIGNALS = [("whisker_speed", "Whisker speed", "Δ deg/s"), ("jaw_opening", "Jaw 
            ("pupil_area", "Pupil area", "Δ mm²")]
 
 
+SUPP_WINDOW = {"whisker_speed": (-0.05, 0.1), "jaw_opening": (-0.1, 0.3), "pupil_area": (-1.0, 3.0)}  # Supp. Fig. 1d planner
+
+
 def plot_movement_peth(ax, df):
     """Rows: whisker speed, jaw opening, pupil area; columns: whisker, auditory trials; stimulus-aligned; lick solid,
     no lick dashed (whisker trials; auditory hits only). Bars: R+ vs R- clusters on lick trials."""
@@ -543,6 +659,7 @@ def plot_movement_peth(ax, df):
         for c, tt in enumerate(["whisker_trial", "auditory_trial"]):
             a = grid[r][c]
             d = df[(df.signal == sig) & (df.trial_type == tt) & (df["align"] == "stimulus")]
+            d = d[d.time_s.between(*SUPP_WINDOW[sig])]  # PETH cache v7 runs the jaw to 0.5 s (Fig. 1d)
             for lick, ls in ((1, "-"), (0, "--")):
                 for cohort in COHORTS:
                     dd = d[(d.lick == lick) & (d.cohort == cohort)]
@@ -556,10 +673,8 @@ def plot_movement_peth(ax, df):
             a.tick_params(labelsize=3.8, length=1.5, pad=1)
             if r == 0:
                 a.set_title("Whisker" if tt == "whisker_trial" else "Auditory", fontsize=4.5, pad=1.5)
-            if c == 0:
-                a.set_ylabel(f"{label.split()[0]}\n({unit})", labelpad=1, fontsize=4)
-            if r == len(SIGNALS) - 1:
-                a.set_xlabel("Time (s)", labelpad=0.5, fontsize=4)
+            a.set_ylabel(f"{label.split()[0]}\n({unit})", labelpad=1, fontsize=4)  # every axis (user 2026-11-12)
+            a.set_xlabel("Time (s)", labelpad=0.5, fontsize=4)
 
 
 def plot_movement_peth_grid(ax, df):
@@ -658,6 +773,7 @@ def plot_glm_schematic(ax, df):
     """Design matrix of the GLM example session (user 2026-11-10): predictors (rows, z-scored over the session) by
     whisker trial, the lick outcome below, and the model."""
     ax.axis("off")
+    ax.set_title("GLM of whisker performance", fontsize=5.5, pad=2)  # planner 2026-11-12
     order = list(df.feature.drop_duplicates())
     z = df.pivot(index="feature", columns="whisker_trial", values="z").loc[order].to_numpy()
     y = df.drop_duplicates("whisker_trial").sort_values("whisker_trial").lick.to_numpy()
@@ -735,16 +851,21 @@ def plot_glm_weights(ax, df):
 
 
 def plot_glm_weights_auc(ax, df):
-    """Weights (predictor names), then the drop in held-out log-likelihood and in balanced accuracy when the predictor
-    is shuffled (planner 2026-11-09), same predictor order."""
-    axes = _split(ax, 3, gap=0.06)
+    """Weights (predictor names), then the drop in held-out log-likelihood per trial when the predictor is removed and
+    the model refitted, same predictor order (user 2026-11-12: shuffled balanced accuracy dropped; kept in the CSV)."""
+    axes = _split(ax, 2, gap=0.08)
+    ax.set_title("GLM weights and model comparison", fontsize=5.5, pad=6)  # planner 2026-11-12
     left = axes[0]
     order = df[df.metric == "weight"].drop_duplicates("feature").sort_values("rank_by_mean_abs").feature.tolist()
     _feature_rows(left, df[df.metric == "weight"], "value", order, "Weight")
-    _feature_rows(axes[1], df[df.metric == "delta_auc"], "value", order, "Δ AUC\n(shuffled)")
-    _feature_rows(axes[2], df[df.metric == "delta_ll_drop"], "value", order, "Δ log-lik./trial\n(removed)")
-    for a in axes[1:]:
+    _feature_rows(axes[1], df[df.metric == "delta_ll_drop"], "value", order,
+                  "Δ log-lik./trial (nats)\nfull − predictor removed")
+    for a in axes[1:]:  # same predictor order: names once (ssl-figure-style rule 6)
         a.set_yticklabels([])
+    _legend(axes[0], [("R+", COLORS["R+"], dict(marker="o", ms=2, lw=0)), ("R−", COLORS["R-"], dict(marker="o", ms=2, lw=0)),
+                      ("≠ 0", "0.3", dict(marker="o", ms=2, lw=0)),
+                      ("n.s.", "0.3", dict(marker="o", ms=2, lw=0, mfc="white", mew=0.5))],
+            loc="lower left")
     for a in axes:  # narrow axes: few ticks
         a.xaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=2, symmetric=a is left))
 

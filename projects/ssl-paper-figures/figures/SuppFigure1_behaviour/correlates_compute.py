@@ -55,16 +55,6 @@ def _binned(df, value, by):
     return m.merge(ok, on=[*by, "hit_bin"])
 
 
-def compute_rt_hits_other(ctx):
-    f = latest("rt_hits_20*-*-??.csv")
-    h = pd.read_csv(f)
-    h = h[h.mouse_id.isin(learners(ctx))]
-    parts = [_binned(h[h.trial_type.isin(["auditory_trial", "no_stim_trial"])], "rt_ms", ["trial_type"]).assign(latency="rt_ms"),
-             _binned(h[h.trial_type == "whisker_trial"], "jaw_ms", ["trial_type"]).assign(latency="jaw_ms")]
-    df = pd.concat(parts, ignore_index=True)
-    return df, {"n": fig1.n_by_cohort(df), "source": f.name}
-
-
 def compute_lick_course(ctx):
     f = latest("lick_proba_variants_20*-*-??.csv")
     d = pd.read_csv(f)
@@ -94,14 +84,20 @@ def compute_bouts(ctx):
 
 
 def compute_posture_curve(ctx):
+    """Spearman only (user 2026-11-12). kind 'lag0': per mouse rho and its linear-shift-null median (real vs null drawn
+    side by side); kind 'lag': rho at lags -10..10 whisker trials (explore_movement_corr _lagged.csv). Stats on rho minus
+    the mouse's null: Wilcoxon vs 0 within cohort (paired real vs null), R+ vs R- Mann-Whitney + Welch."""
     f = latest("movement_corr_20*-*-??.csv")
+    keep = learners(ctx)
     d = pd.read_csv(f)
-    d = d[(d.curve == "whisker") & d.metric.str.contains("_pre_") & d.mouse_id.isin(learners(ctx))][
-        ["mouse_id", "cohort", "metric", "spearman", "spearman_null", "spearman_vs_null", "pearson_vs_null", "n_trials"]]
-    tests = {m: {**{f"{c}_vs_0": float(stats.wilcoxon(g[g.cohort == c].spearman_vs_null).pvalue) for c in ("R+", "R-")},
+    d = d[(d.curve == "whisker") & d.metric.str.contains("_pre_") & d.mouse_id.isin(keep)][
+        ["mouse_id", "cohort", "metric", "spearman", "spearman_null", "spearman_vs_null", "n_trials"]].assign(kind="lag0")
+    lag = pd.read_csv(str(f).replace(".csv", "_lagged.csv"))
+    lag = lag[lag.mouse_id.isin(keep)][["mouse_id", "cohort", "metric", "lag", "spearman"]].assign(kind="lag")
+    tests = {m: {**{f"{c}_vs_null": float(stats.wilcoxon(g[g.cohort == c].spearman_vs_null).pvalue) for c in ("R+", "R-")},
                  "rplus_vs_rminus": two_group_tests(g[g.cohort == "R+"].spearman_vs_null, g[g.cohort == "R-"].spearman_vs_null)}
              for m, g in d.groupby("metric")}
-    return d, {"n": fig1.n_by_cohort(d), "stats": tests, "source": f.name}
+    return pd.concat([d, lag], ignore_index=True), {"n": fig1.n_by_cohort(d), "stats": tests, "source": f.name}
 
 
 def main():

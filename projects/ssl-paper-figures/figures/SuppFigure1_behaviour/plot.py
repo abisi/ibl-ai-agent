@@ -14,7 +14,6 @@ plot_movement_peth = fig1.plot_movement_peth
 _spec2 = importlib.util.spec_from_file_location("s1_correlates_plot", Path(__file__).resolve().parent / "correlates_plot.py")
 s2 = importlib.util.module_from_spec(_spec2)
 _spec2.loader.exec_module(s2)
-plot_lick_course, plot_rt_hits_other = s2.plot_lick_course, s2.plot_rt_hits_other
 plot_rt_curves, plot_posture_curve = s2.plot_rt_curves, s2.plot_posture_curve
 PREV = ["prev_whisker_hit", "prev_whisker_miss", "prev_auditory_hit", "prev_auditory_miss"]
 PREV_LABEL = ["W hit", "W miss", "A hit", "A miss"]
@@ -24,9 +23,15 @@ RATE_VARS = {"aud_day0": "Auditory day 0", "fa_day0": "No-stim day 0", "aud_daym
              "rt_wh_day0": "Whisker RT day 0 (s)"}  # as compute.RATE_VARS
 
 
+plot_xcorr = fig1.plot_xcorr  # moved from Figure 1 (planner 2026-11-11)
+plot_learners = fig1.plot_learners  # moved from Figure 1 (planner 2026-11-11, 13:12)
+
+
 def plot_rt_change_auditory(ax, df):
-    """Auditory-hit version of Figure 1 k left (user 2026-11-10)."""
-    fig1.plot_rt_change(ax, df[df.kind == "bin"], "Auditory hit", df[df.kind == "fit"])
+    """Auditory-hit version of Figure 1 j left and middle (user 2026-11-10): change curve and per-mouse slopes."""
+    left, right = fig1._split(ax, 2, gap=0.25)
+    fig1.plot_rt_change(left, df[df.kind == "bin"], "Auditory hit", df[df.kind == "fit"])
+    fig1.plot_rt_slopes(right, df[df.kind == "mouse"], tt="auditory_trial")
 
 
 def plot_ex_rplus_nonlearner(ax, df):
@@ -40,10 +45,9 @@ def plot_ex_rminus_nonlearner(ax, df):
 def plot_history(ax, df):
     """Bars (planner 2026-11-09): P(lick) shift (rate given the previous stimulus trial minus the mouse's overall rate)
     and RT shift on hits, for W and A trials; mean +- s.e.m. over mice, Mann-Whitney asterisks R+ vs R-."""
-    grid = fig1._subgrid(ax, 2, 2, wgap=0.45, hgap=0.75)  # rows W, A; columns P(lick) shift, RT shift
-    axes = [grid[0][0], grid[0][1], grid[1][0], grid[1][1]]
-    panels = [("whisker_trial", "p_lick_shift", "W trial"), ("whisker_trial", "rt_shift_s", "W hit"),
-              ("auditory_trial", "p_lick_shift", "A trial"), ("auditory_trial", "rt_shift_s", "A hit")]
+    axes = fig1._split(ax, 4, gap=0.075)  # one row (planner 2026-11-13): P(lick) shift W, A, then RT shift W, A
+    panels = [("whisker_trial", "p_lick_shift", "W trial"), ("auditory_trial", "p_lick_shift", "A trial"),
+              ("whisker_trial", "rt_shift_s", "W hit"), ("auditory_trial", "rt_shift_s", "A hit")]
     for a, (tt, v, lab) in zip(axes, panels):
         for i, cond in enumerate(PREV):
             vals = {}
@@ -58,11 +62,12 @@ def plot_history(ax, df):
         a.axhline(0, color="0.4", lw=0.4)
         a.set_ylabel("Δ P(lick)" if v == "p_lick_shift" else "Δ RT (s)", labelpad=0.5, fontsize=4.5)
         a.tick_params(labelsize=4)
-        a.set_xticks(range(4), PREV_LABEL if a in axes[2:] else [], rotation=45, fontsize=4)
+        a.set_xticks(range(4), PREV_LABEL, rotation=45, fontsize=4)  # every axis labelled (user 2026-11-12)
         a.set_xlim(-0.5, 3.5)
-        a.set_title(lab, fontsize=5, pad=8)
-    for a in axes[2:]:
+        a.set_title(lab, fontsize=5, pad=6)
         a.set_xlabel("Previous trial", labelpad=1, fontsize=4.5)
+    for a, tt in ((axes[0], "whisker_trial"), (axes[1], "auditory_trial")):
+        fig1._legend(a, fig1._cohort_entries(tt), loc="lower left", marker="s")
 
 
 def plot_rates_correlation(ax, df):
@@ -70,7 +75,7 @@ def plot_rates_correlation(ax, df):
     p < 0.05, dashed otherwise), r and p in the corner."""
     from scipy import stats
     vars_ = list(RATE_VARS)
-    axes = fig1._split(ax, len(vars_), gap=0.025)
+    axes = fig1._split(ax, len(vars_), gap=0.032)  # much wider sub-panels (planner 2026-11-13), y label still on each
     for k, (a, v) in enumerate(zip(axes, vars_)):
         titles = []
         for j, c in enumerate(fig1.COHORTS):
@@ -90,11 +95,12 @@ def plot_rates_correlation(ax, df):
         for j, (txt, col) in enumerate(titles):  # planner: correlation annotations as title
             a.text(0.5, 1.03 + 0.11 * (len(titles) - 1 - j), txt, transform=a.transAxes, ha="center", fontsize=3.6, color=col)
         a.set_ylim(-0.05, 1.05)
-        a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"] if k == 0 else [])
-        a.tick_params(axis="x", labelsize=3.8)
-        a.xaxis.set_major_locator(fig1.mpl.ticker.MaxNLocator(nbins=3))
+        a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
+        a.tick_params(labelsize=3.8)
+        a.xaxis.set_major_locator(fig1.mpl.ticker.MaxNLocator(nbins=1, min_n_ticks=2))  # two ticks: no overlap
+        a.xaxis.set_major_formatter(fig1.mpl.ticker.FuncFormatter(lambda x, _: f"{x / 1000:g}k" if abs(x) >= 1000 else f"{x:g}"))
         a.set_xlabel(RATE_VARS[v], fontsize=4, labelpad=1)
-    axes[0].set_ylabel("Whisker P(lick) day 0", labelpad=1, fontsize=5)
+        a.set_ylabel("W P(lick) day 0", labelpad=0.5, fontsize=4)
 
 
 def plot_day0_closeup(ax, df):
@@ -117,3 +123,4 @@ def plot_day0_closeup(ax, df):
     ax.set_ylim(-0.03, 1.15)
     ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
     ax.set_ylabel("P(lick)", labelpad=1)
+    ax.set_xlabel("Left R+, right R−", labelpad=1, fontsize=4.5)

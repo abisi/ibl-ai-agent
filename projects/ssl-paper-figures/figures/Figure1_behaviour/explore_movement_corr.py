@@ -7,9 +7,13 @@ beh_correlates measures through dlc_helpers (explore_movement_session.one_sessio
 (mean |frame-to-frame difference|) of jaw, nose, whisker angle and pupil area, pre-stimulus windows [-0.2, 0) s (pupil
 [-2, 0) s); post-stimulus windows also computed and saved. Curves at each whisker trial: whisker (p_mean), false alarm
 (p_chance) and their difference (exact curves of Figure 1).
-Per mouse and pair: Pearson r and Spearman rho (= Pearson on ranks); linear-shift null as beh_correlates: the measure is
-circularly shifted against the curve by every shift with |shift| > 10 trials (up to 500 shifts, evenly spaced); value
+Per mouse and pair: Pearson r and Spearman rho (= Pearson on ranks); linear-shift null (user 2026-11-11: always linear,
+never circular; convention of ssl-whisker-hitmiss-timeresolved-decoding shift_null.py): the measure is shifted against the
+curve by k = 10-50 % of the trials in both directions without wrapping, the correlation recomputed on the overlap; value
 reported = observed minus the null median (user 2026-11-09). Mean +- s.e.m. over mice per cohort; Wilcoxon against 0.
+Lagged (user 2026-11-12, Supp. Fig. 1l cross-correlations): Spearman rho of each pre-stimulus measure at whisker trial t
+with the whisker curve at t + lag, lags -10..10 (positive lag: the measure leads the curve), on the overlapping trials;
+_lagged.csv.
 Learners and all mice (figures for both). Output: Figures/_explore/movement_corr_<date>_{learners,all}.{pdf,png} + CSV.
 Run on haas (repo root): .venv/bin/python projects/ssl-paper-figures/figures/Figure1_behaviour/explore_movement_corr.py
 """
@@ -38,20 +42,30 @@ from paperstyle import COLORS, MM, set_nature_rc  # noqa: E402
 
 OUT = FIGURES_ROOT / "_explore"
 EXCLUDE, N_SHIFT, MIN_TRIALS = 10, 500, 30
+LAGS = np.arange(-10, 11)
+
+
+def lagged_spearman(x, y, lags=LAGS):
+    """Spearman rho of x[t] and y[t + lag] on the overlapping trials, per lag."""
+    n, out = len(x), []
+    for lag in lags:
+        a, b = (x[:n - lag], y[lag:]) if lag >= 0 else (x[-lag:], y[:n + lag])
+        out.append(stats.spearmanr(a, b)[0] if len(a) >= 5 else np.nan)
+    return np.asarray(out, float)
 CURVES = ("whisker", "false_alarm", "difference")
 
 
 def corr_with_null(x, y):
-    """Pearson r of x, y and the median r over circular shifts of x with |shift| > EXCLUDE (user 2026-11-09: median)."""
-    x = (x - x.mean()) / x.std()
-    y = (y - y.mean()) / y.std()
+    """Pearson r of x, y and the median r over linear shifts (user 2026-11-11, replaces circular shifts): y shifted against
+    x by k = 10-50 % of the trials, both directions, no wrapping, r on the overlap (shift_null.py convention). Rank the
+    inputs first for Spearman."""
     n = len(x)
-    r = float(np.mean(x * y))
-    shifts = np.array([s for s in range(-n + 1, n) if abs(s) > EXCLUDE and abs(s) < n - EXCLUDE])
-    if len(shifts) > N_SHIFT:
-        shifts = shifts[np.linspace(0, len(shifts) - 1, N_SHIFT).astype(int)]
-    null = np.array([np.mean(np.roll(x, s) * y) for s in shifts]) if len(shifts) else np.array([np.nan])
-    return r, float(np.nanmedian(null))
+    r = float(stats.pearsonr(x, y)[0])
+    lags = range(max(1, int(0.1 * n)), max(1, int(0.5 * n)) + 1)
+    null = [stats.pearsonr(x[k:], y[:n - k])[0] if d else stats.pearsonr(x[:n - k], y[k:])[0]
+            for k in lags for d in (0, 1) if n - k >= 5]
+    null = np.asarray(null, float)
+    return r, float(np.nanmedian(null)) if np.isfinite(null).any() else np.nan
 
 
 def main():
@@ -66,7 +80,7 @@ def main():
         parts = [p for p in pool.map(one_session, list(w.groupby("session_id"))) if p is not None]
     mv = pd.concat(parts, ignore_index=True)
     metrics = [c for c in mv.columns if c.endswith(("posture", "movement"))]
-    rows, ctx = [], {}
+    rows, lag_rows, ctx = [], [], {}
     for sid, m in mv.groupby("session_id"):
         curves, _, _ = session_curves(d0[d0.session_id == sid], ctx)
         if len(curves) != len(m):
@@ -84,12 +98,17 @@ def main():
                 rows.append({"mouse_id": m.mouse_id.iloc[0], "session_id": sid, "cohort": m.cohort.iloc[0],
                              "metric": met, "curve": cu, "n_trials": int(ok.sum()), "pearson": pr, "pearson_null": pn,
                              "spearman": sr, "spearman_null": sn})
+                if cu == "whisker" and "_pre_" in met:
+                    lag_rows += [{"mouse_id": m.mouse_id.iloc[0], "session_id": sid, "cohort": m.cohort.iloc[0],
+                                  "metric": met, "curve": cu, "lag": int(lg), "spearman": v}
+                                 for lg, v in zip(LAGS, lagged_spearman(x[ok], y[ok]))]
     df = pd.DataFrame(rows)
     df["pearson_vs_null"] = df.pearson - df.pearson_null
     df["spearman_vs_null"] = df.spearman - df.spearman_null
     df["learning_category"] = df.mouse_id.map(ref.set_index("mouse_id").learning_category)
     stem = OUT / f"movement_corr_{datetime.date.today()}"
     df.to_csv(f"{stem}.csv", index=False)
+    pd.DataFrame(lag_rows).to_csv(f"{stem}_lagged.csv", index=False)
     for name, sel in (("learners", df.learning_category.isin(["good", "moderate"])), ("all", df.index == df.index)):
         plot(df[sel], f"{stem}_{name}", name)
     pre = df[df.metric.str.contains("_pre_") & df.learning_category.isin(["good", "moderate"])]

@@ -19,15 +19,17 @@ import numpy as np
 import pandas as pd
 
 import shared_behaviour
-from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET, axel_bisi_root
+from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET, load_cache, nwb_fingerprint, axel_bisi_root
 
 PARAMS = {"version": 3, "loader": "ephys_utilities.helpers.dlc_helpers (load_dlc, clean_series, nose_norm, window_metric)",
           "windows_s": {"jaw_motion": [-0.2, 0.0], "nose_motion": [-0.2, 0.0], "whisker_motion": [-0.2, 0.0],
                         "pupil_area": [-2.0, 0.0]},
           "kind": {"jaw_motion": "movement", "nose_motion": "movement", "whisker_motion": "movement",
                    "pupil_area": "posture"},
-          "session_filter": "ephys_utilities data_utils.keep_video_data(views=('side', 'top'))"}
+          "session_filter": "ephys_utilities data_utils.keep_video_data(views=('side', 'top'))",
+          "pupil_trial_qc": "dlc_helpers.pupil_trial_ok over the pupil window (2026-11-12)"}
 # v3 (2026-11-09, user: "use my utils only"): sessions selected with data_utils.keep_video_data (VIDEO_EXCLUDED_SESSIONS)
+# 2026-11-12: pupil NaN on trials with a blink / squint in [-2, 0) s (dlc_helpers.pupil_trial_ok; same file name)
 CACHE_FILE = CACHE_DIR / f"movements_day0_v{PARAMS['version']}.parquet"
 
 
@@ -96,6 +98,9 @@ def _one_session(args):
         x, ts, _ = sig[src]
         out[name] = dh.window_metric(x, ts, out.start_time.to_numpy(), tuple(PARAMS["windows_s"][name]),
                                      kind=PARAMS["kind"][name])
+        if name == "pupil_area":  # trial-wise pupil QC: no blink / squint in the window
+            ok = dh.pupil_trial_ok(session_id, out.start_time.to_numpy(), window=tuple(PARAMS["windows_s"][name]))
+            out[name] = out[name].where(ok)
     return out
 
 
@@ -114,11 +119,13 @@ def build(n_workers=16):
 
 def load(rebuild=False):
     if CACHE_FILE.exists() and not rebuild:
-        return pd.read_parquet(CACHE_FILE)
+        return load_cache(CACHE_FILE, "movements table " + CACHE_FILE.name)
+    nwbs = nwb_fingerprint()  # before reading the files
     df, n_jobs = build()
     tmp = CACHE_FILE.with_suffix(".tmp")
     df.to_parquet(tmp)
     tmp.rename(CACHE_FILE)
-    json.dump({**PARAMS, "n_sessions_requested": n_jobs, "n_sessions": int(df.session_id.nunique())},
+    json.dump({**PARAMS, "n_sessions_requested": n_jobs, "n_sessions": int(df.session_id.nunique()),
+               "nwb_fingerprint": nwbs},
               open(CACHE_FILE.with_suffix(".json"), "w"), indent=1)
     return df

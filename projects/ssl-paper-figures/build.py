@@ -17,7 +17,7 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from common import EXTERNAL_REPOS, REPO, environment, load_spec, repo_state, snapshot_dir, write_caption  # noqa: E402
+from common import EXTERNAL_REPOS, FIGURES_ROOT, REPO, environment, load_spec, repo_state, snapshot_dir, write_caption  # noqa: E402
 from paperstyle import PaperGrid, save_figure, set_nature_rc, write_source_data  # noqa: E402
 
 BEHAVIOUR_FILES = ["behavior_analysis_utils.py", "learning_utils.py"]
@@ -38,6 +38,30 @@ def load_plot_module(fig_dir):
     return module
 
 
+PDFIUM_PATH = Path.home() / ".local" / "pylib_pdfium"  # pypdfium2 installed with uv --target (not in the venv)
+
+
+def render_pdf(src, dst, dpi=1200):
+    """First page of a PDF drawing (e.g. Figures/FromFigma) to PNG, when the PDF is newer than the PNG."""
+    if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
+        return
+    sys.path.insert(0, str(PDFIUM_PATH))
+    import pypdfium2 as pdfium
+    pdfium.PdfDocument(str(src))[0].render(scale=dpi / 72).to_pil().save(dst)
+    print(f"rendered {src.name} -> {dst.name} ({dpi} dpi)")
+
+
+def place_image(ax, path, source=None):
+    """Raster drawing in the panel box, aspect kept, anchored at the top left; re-rendered from `source` (PDF) when that
+    is newer."""
+    import matplotlib.image as mpimg
+    if source is not None:
+        render_pdf(source, path)
+    ax.imshow(mpimg.imread(path), interpolation="lanczos")
+    ax.set_anchor("NW")
+    ax.axis("off")
+
+
 def assemble(spec, out, plot):
     set_nature_rc()
     grid = PaperGrid(**spec["grid"])
@@ -47,6 +71,10 @@ def assemble(spec, out, plot):
             ax = grid.axes_mm(cell["x_mm"], cell["y_mm"], cell["w_mm"], cell["h_mm"], letter=panel["id"])
         else:
             ax = grid.axes(cell["row"], cell["col"], cell["nrows"], cell["ncols"], letter=panel["id"])
+        if "image" in panel:  # drawing exported elsewhere (e.g. Figma), path relative to FIGURES_ROOT
+            place_image(ax, FIGURES_ROOT / panel["image"],
+                        FIGURES_ROOT / panel["source"] if str(panel.get("source", "")).endswith(".pdf") else None)
+            continue
         csv = out / "data" / panel["data"] if "data" in panel else None
         fn = f"plot_{panel.get('key', panel['id'])}"  # panels are drawn by their stable key; letters follow the layout
         if csv is None or not csv.exists() or plot is None or not hasattr(plot, fn):

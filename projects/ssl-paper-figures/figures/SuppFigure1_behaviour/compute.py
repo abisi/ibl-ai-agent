@@ -42,12 +42,17 @@ def compute_lick_course(ctx):
     return s2.compute_lick_course(ctx)
 
 
-def compute_rt_hits_other(ctx):
-    return s2.compute_rt_hits_other(ctx)
+def compute_learners(ctx):
+    return fig1.compute_learners(ctx)  # moved from Figure 1 (planner 2026-11-11)
 
 
 def compute_rt_curves(ctx):
     return s2.compute_rt_curves(ctx)
+
+
+def compute_xcorr(ctx):
+    """Moved from Figure 1 (planner 2026-11-11)."""
+    return fig1.compute_xcorr(ctx)
 
 
 def compute_rt_change_auditory(ctx):

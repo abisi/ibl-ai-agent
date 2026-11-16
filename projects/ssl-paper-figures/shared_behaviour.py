@@ -13,7 +13,7 @@ from multiprocessing import Pool
 
 import pandas as pd
 
-from common import CACHE_DIR, REFERENCE_SHEET, import_external_repos, session_nwbs
+from common import CACHE_DIR, REFERENCE_SHEET, import_external_repos, load_cache, nwb_fingerprint, session_nwbs
 
 PARAMS = {"nwb_dir": "NWB_ks4", "auditory_days": "all (pretraining)", "whisker_days": [0, 1, 2, 3],
           "behaviors": ["auditory", "whisker"], "version": 5}  # v3: canonical NAS repo; v4: every auditory day;
@@ -86,7 +86,8 @@ def _finish(table, ref):
 
 def load(rebuild=False):
     if CACHE_FILE.exists() and not rebuild:
-        return pd.read_parquet(CACHE_FILE)
+        return load_cache(CACHE_FILE, "behaviour table " + CACHE_FILE.name)
+    nwbs = nwb_fingerprint()  # before reading the files: a file changed during the build shows as stale later
     table, untrimmed_day0, n_files = build()
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     for df, path in ((untrimmed_day0, UNTRIMMED_DAY0_FILE), (table, CACHE_FILE)):
@@ -94,7 +95,7 @@ def load(rebuild=False):
         df.to_parquet(tmp)
         tmp.rename(path)
     json.dump({**PARAMS, "n_nwb_files": n_files, "n_mice": int(table.mouse_id.nunique()),
-               "n_sessions": int(table.session_id.nunique())},
+               "n_sessions": int(table.session_id.nunique()), "nwb_fingerprint": nwbs},
               open(CACHE_FILE.with_suffix(".json"), "w"), indent=1)
     return table
 

@@ -118,6 +118,16 @@ def cluster_test(df, x, value, n_perm=1000, alpha=0.05, seed=0):
             for s, e, m in observed]
 
 
+def cluster_p(df, x, clusters, alpha=0.05):
+    """Permutation p of the significant cluster containing each row's x, nan elsewhere (planner 2026-11-12: significance
+    bars annotated with their p-value)."""
+    p = np.full(len(df), np.nan)
+    for c in clusters:
+        if c["p"] < alpha:
+            p[(df[x] >= c["start"]).to_numpy() & (df[x] <= c["end"]).to_numpy()] = c["p"]
+    return p
+
+
 def mark_clusters(df, x, clusters, alpha=0.05):
     """Boolean column: x inside a cluster with permutation p < alpha (for the significance bar of the panel)."""
     sig = np.zeros(len(df), bool)
@@ -131,9 +141,10 @@ def mark_clusters(df, x, clusters, alpha=0.05):
 
 def compute_days(ctx):
     """Lick probability per mouse and trial type on auditory days -2 and -1, whisker day 0 and after day 0 (mean of
-    whisker days +1, +2 and +3 per mouse); planner 2026-11-06: line plot, days -2, -1, 0, >0 (= 1, 2, 3)."""
+    whisker days +1, +2 and +3 per mouse); planner 2026-11-06: line plot, days -2, -1, 0, >0 (= 1, 2, 3); learners only
+    (planner 2026-11-11)."""
     t = ctx["table"]
-    t = t[t.day.isin([-2, -1, 0, 1, 2, 3]) & (t.early_lick == 0)]
+    t = t[t.day.isin([-2, -1, 0, 1, 2, 3]) & (t.early_lick == 0) & t.learning_category.map(LEARNER).fillna(False).astype(bool)]
     per_session = t.groupby(["mouse_id", "cohort", "day", "session_id", "trial_type"]).lick_flag.mean().reset_index()
     per_day = per_session.groupby(["mouse_id", "cohort", "day", "trial_type"]).lick_flag.mean().reset_index()
     per_day["day_group"] = per_day.day.map(lambda d: str(d) if d <= 0 else ">0")
@@ -152,7 +163,7 @@ def compute_days(ctx):
 
 
 def compute_rt(ctx):
-    d0 = day0_table(ctx["table"])
+    d0 = day0_table(ctx["table"], learners_only=True)  # planner 2026-11-11
     licks = d0[(d0.lick_flag == 1) & (d0.early_lick == 0) & d0.trial_type.isin(TRIAL_TYPES)]
     df = licks[["mouse_id", "session_id", "cohort", "trial_type", "computed_reaction_time"]].rename(
         columns={"computed_reaction_time": "reaction_time_s"})
@@ -194,6 +205,7 @@ def compute_pretraining(ctx):
                 "median_days": {c: float(df[df.cohort == c].n_auditory_days.median()) for c in COHORTS}}
 
 
+RT_FIRST_BIN, RT_LAST_BIN = (1, 5), (26, 30)  # first vs last display bin of 5 hits (planner 2026-11-11)
 RT_HITS, RT_BIN, RT_SHIFT_EXCLUDE, RT_N_SHIFT = 30, 1, 10, 500  # RT_BIN 1: hit by hit (user 2026-11-10; was 5)
 RT_START, RT_LATE, RT_MIN_MICE = 5, (21, 30), 8  # change-from-start variant (explore_rt_time_b column 7, user 2026-11-10)
 
@@ -306,20 +318,24 @@ def rt_change_from_start(ctx, trial_type):
         w = wide[c]
         clusters_vs0[c] = sign_flip_clusters(w.loc[:, w.columns > w.columns.min()])  # after the reference bin
         bins.loc[bins.cohort == c, "sig_vs0"] = mark_clusters(bins[bins.cohort == c], "hit_bin_centre", clusters_vs0[c])
+        bins.loc[bins.cohort == c, "sig_vs0_p"] = cluster_p(bins[bins.cohort == c], "hit_bin_centre", clusters_vs0[c])
     both = pd.concat(wide, names=["cohort"]).stack().rename("v").reset_index()
     both = both[both.groupby("hit_bin_centre").cohort.transform("nunique") == 2]
     clusters_cohorts = cluster_test(both, "hit_bin_centre", "v")
     bins["sig_cohorts"] = mark_clusters(bins, "hit_bin_centre", clusters_cohorts)
+    bins["sig_cohorts_p"] = cluster_p(bins, "hit_bin_centre", clusters_cohorts)
     mice = []
     for (m, s, c), g in h.groupby(keys):
         b, a = np.polyfit((g.hit_number - 1) / 10, g.rt_change_ms, 1) if len(g) >= 10 else (np.nan, np.nan)
         mice.append(dict(mouse_id=m, session_id=s, cohort=c, kind="mouse", trial_type=trial_type, n_hits=len(g),
                          slope_ms_per_10_hits=b, intercept_ms=a,
-                         late_change_ms=g[g.hit_number.between(*RT_LATE)].rt_change_ms.mean()))
+                         late_change_ms=g[g.hit_number.between(*RT_LATE)].rt_change_ms.mean(),
+                         last_minus_first_ms=(g[g.hit_number.between(*RT_LAST_BIN)].rt_change_ms.mean()
+                                              - g[g.hit_number.between(*RT_FIRST_BIN)].rt_change_ms.mean())))
     mice = pd.DataFrame(mice)
     tests = {v: {**{c: _summary_vs_zero(mice[mice.cohort == c][v]) for c in COHORTS},
                  "rplus_vs_rminus": two_group_tests(mice[mice.cohort == "R+"][v], mice[mice.cohort == "R-"][v])}
-             for v in ("late_change_ms", "slope_ms_per_10_hits")}
+             for v in ("late_change_ms", "slope_ms_per_10_hits", "last_minus_first_ms")}
     sig = {**{c: [k for k in clusters_vs0[c] if k["p"] < 0.05] for c in COHORTS},
            "rplus_vs_rminus": [k for k in clusters_cohorts if k["p"] < 0.05]}
     lmm = {c: _trial_lmm(h[h.cohort == c], "rt_change_ms ~ hit10", "hit10") for c in COHORTS}
@@ -331,7 +347,8 @@ def rt_change_from_start(ctx, trial_type):
                              wilcoxon_p=tests["slope_ms_per_10_hits"][c]["wilcoxon_p"], lmm_p=lmm[c]["p"])
                         for c in COHORTS])
     return pd.concat([bins, mice, fit], ignore_index=True), {
-        "n": n_by_cohort(mice), "late": tests["late_change_ms"], "slope": tests["slope_ms_per_10_hits"], "lmm": lmm,
+        "n": n_by_cohort(mice), "late": tests["late_change_ms"], "slope": tests["slope_ms_per_10_hits"],
+        "last_vs_first": tests["last_minus_first_ms"], "lmm": lmm,
         "clusters_vs0": clusters_vs0, "clusters_rplus_vs_rminus": clusters_cohorts,
         "n_sig_clusters": {k: len(v) for k, v in sig.items()},
         "sig_clusters_text": {k: "; ".join(f"hits {int(x['start']) - RT_BIN // 2}-{int(x['end']) + RT_BIN // 2}, P = {x['p']:.3g}" for x in v)
@@ -339,15 +356,25 @@ def rt_change_from_start(ctx, trial_type):
 
 
 def _rank_shift_null(x, y):
-    """Spearman rho of x, y and the median rho over circular shifts of x by more than RT_SHIFT_EXCLUDE trials."""
-    x, y = stats.rankdata(x), stats.rankdata(y)
-    x, y = (x - x.mean()) / x.std(), (y - y.mean()) / y.std()
+    """Spearman rho of x, y and its linear-shift null (user 2026-11-11: the former circular np.roll null was biased; now the
+    project's non-wrapping linear shift, as ssl-whisker-hitmiss-timeresolved-decoding shift_null.py): y shifted against x by
+    k = 10-50 % of the trials in both directions, rho recomputed on the overlap (x[k:] vs y[:n-k] and x[:n-k] vs y[k:]).
+    Returns rho, the null median and all null rhos."""
     n = len(x)
-    sh = np.array([s for s in range(-n + 1, n) if RT_SHIFT_EXCLUDE < abs(s) < n - RT_SHIFT_EXCLUDE])
-    if len(sh) > RT_N_SHIFT:
-        sh = sh[np.linspace(0, len(sh) - 1, RT_N_SHIFT).astype(int)]
-    null = [np.mean(np.roll(x, s) * y) for s in sh]
-    return float(np.mean(x * y)), float(np.median(null)) if len(null) else np.nan
+    lags = range(max(1, int(0.1 * n)), max(1, int(0.5 * n)) + 1)
+    null = np.array([stats.spearmanr(x[k:], y[:n - k])[0] if d else stats.spearmanr(x[:n - k], y[k:])[0]
+                     for k in lags for d in (0, 1) if n - k >= 5])
+    null = null[np.isfinite(null)]
+    return float(stats.spearmanr(x, y)[0]), float(np.median(null)) if len(null) else np.nan, null
+
+
+RT_N_NULL_DRAWS = 1000  # cohort-mean null: one random shift per mouse per draw (planner 2026-11-11)
+
+
+def _cohort_null(nulls, rng):
+    """Distribution of the cohort mean rho under the shift null: per draw, one shifted rho per mouse, averaged."""
+    nulls = [n for n in nulls if len(n)]  # mice too short for a shift > RT_SHIFT_EXCLUDE have no null
+    return np.array([np.mean([rng.choice(n) for n in nulls]) for _ in range(RT_N_NULL_DRAWS)])
 
 
 def compute_rt_learning(ctx):
@@ -370,21 +397,35 @@ def compute_rt_learning(ctx):
             r, c = rt[sel], curve[sel]
             ok = np.isfinite(r) & np.isfinite(c)
             if ok.sum() >= 10 and np.std(c[ok]) > 0:
-                rho, null = _rank_shift_null(c[ok], r[ok])
+                rho, null, null_all = _rank_shift_null(c[ok], r[ok])
                 rows.append({**base, "kind": "rho", "trial_type": tt, "rho": rho, "shift_median": null,
-                             "value": rho - null, "n_licked": int(ok.sum())})
+                             "value": rho - null, "n_licked": int(ok.sum()), "_null": null_all})
     rho = pd.DataFrame(rows)
-    stats_rho = {tt: {**{f"{c}_vs_0": vs_zero(rho[(rho.trial_type == tt) & (rho.cohort == c)].value) for c in COHORTS},
-                      "rplus_vs_rminus": two_group_tests(rho[(rho.trial_type == tt) & (rho.cohort == "R+")].value,
-                                                         rho[(rho.trial_type == tt) & (rho.cohort == "R-")].value)}
+    # planner 2026-11-11: raw rho, with the cohort-mean distribution under the shift null in grey
+    rng, null_rows, null_p = np.random.default_rng(0), [], {}
+    for (tt, c), g in rho.groupby(["trial_type", "cohort"]):
+        dist = _cohort_null(list(g._null), rng)
+        obs = g.rho.mean()
+        null_p[f"{tt} {c}"] = {"mean_rho": float(obs), "null_mean": float(dist.mean()),
+                               "p_two_sided": float(min(1, 2 * min(np.sum(dist >= obs) + 1, np.sum(dist <= obs) + 1)
+                                                        / (len(dist) + 1)))}
+        null_rows.append(pd.DataFrame({"kind": "rho_null", "trial_type": tt, "cohort": c, "draw": np.arange(len(dist)),
+                                       "rho": dist}))
+    rho = pd.concat([rho.drop(columns="_null")] + null_rows, ignore_index=True)
+    real = rho[rho.kind == "rho"]
+    stats_rho = {tt: {**{f"{c}_vs_0": vs_zero(real[(real.trial_type == tt) & (real.cohort == c)].value) for c in COHORTS},
+                      "rplus_vs_rminus": two_group_tests(real[(real.trial_type == tt) & (real.cohort == "R+")].value,
+                                                         real[(real.trial_type == tt) & (real.cohort == "R-")].value)}
                  for tt in TRIAL_TYPES}
     change, info = rt_change_from_start(ctx, "whisker_trial")
-    return pd.concat([change, rho], ignore_index=True), {"n": n_by_cohort(rho), "rt_change": info, "stats_rho": stats_rho}
+    return pd.concat([change, rho], ignore_index=True), {"n": n_by_cohort(real), "rt_change": info, "stats_rho": stats_rho,
+                                                         "cohort_mean_vs_shift_null": null_p, "n_null_draws": RT_N_NULL_DRAWS}
 
 
 def compute_first_lick(ctx):
+    """Whisker trials before the first licked whisker trial of whisker day 0, learners (planner 2026-11-11)."""
     rows = []
-    for sid, st in day0_table(ctx["table"]).groupby("session_id"):
+    for sid, st in day0_table(ctx["table"], learners_only=True).groupby("session_id"):
         w = st[(st.trial_type == "whisker_trial") & (st.early_lick == 0)].sort_values("start_time")
         licks = np.flatnonzero(w.lick_flag.to_numpy() == 1)
         rows.append(dict(mouse_id=st.mouse_id.iloc[0], session_id=sid, cohort=st.cohort.iloc[0],
@@ -509,11 +550,14 @@ def compute_learners(ctx):
                 "sheet_vs_high_state_agreement": agree}
 
 
+PERF_SESSION_END = 0.85  # fraction of normalised session time shown (planner 2026-11-11)
+
+
 def compute_perf_session(ctx):
     """Learners and non-learners (planner 2026-11-06: learners left, non-learners right): performance (whisker - chance
     curve) against session time normalised from the first to the last whisker trial; cluster-based permutation test
     R+ vs R- within each group."""
-    grid = np.linspace(0, 1, 51)
+    grid = np.round(np.arange(0, PERF_SESSION_END + 1e-9, 0.02), 3)  # planner 2026-11-11: last 15 % of session time cut
     rows = []
     for sid, st in day0_table(ctx["table"]).groupby("session_id"):
         st = st[st.early_lick == 0].sort_values("start_time")
@@ -531,8 +575,9 @@ def compute_perf_session(ctx):
     for grp, d in df.groupby("group"):
         clusters[grp] = cluster_test(d, "session_time_norm", "performance")
         df.loc[d.index, "cluster_sig"] = mark_clusters(d, "session_time_norm", clusters[grp])
+        df.loc[d.index, "cluster_p"] = cluster_p(d, "session_time_norm", clusters[grp])
         n[grp] = n_by_cohort(d)
-    return df, {"n": n, "clusters": clusters}
+    return df, {"n": n, "clusters": clusters, "session_end": PERF_SESSION_END}
 
 
 def compute_movement_peth(ctx):
@@ -596,7 +641,10 @@ def compute_aligned_curves(ctx):
     return df, {"n": n_by_cohort(df), "clusters": clusters}
 
 
-FIRST_HIT_SUBPANELS = {"whisker": "whisker_trial", "spont_licks": None, "auditory": "auditory_trial"}  # plot order
+FIRST_HIT_SUBPANELS = {"whisker": "whisker_trial", "auditory": "auditory_trial", "false_alarm": "no_stim_trial"}
+# user 2026-11-11: trial 0 alone (whisker: the hit), then 1-5, 6-10, ...; same bins for every trial type (user 2026-11-11)
+FIRST_HIT_WHISKER_EDGES = np.r_[-10, -5, 0, np.arange(1, 52, 5)]
+FIRST_HIT_SESSION_FRACTION = 1.0  # planner 2026-11-12: whole session (was 0.9, first 90% of session time)  # plot order (planner 2026-11-11)
 
 
 def _ranges_text(starts, width=1):
@@ -633,13 +681,13 @@ def _first_hit_tests(fa, kind, b, pp, vs_pre=True):
             "bins_sig_after_hit": int((post.mannwhitney_q_bh < 0.05).sum()), "bins_after_hit": int(len(post)),
             "bins_sig_before_hit": int((bins[bins.bin < 0].mannwhitney_q_bh < 0.05).sum()),
             "sig_minutes": [int(x) for x in bins[bins.mannwhitney_q_bh < 0.05].bin],
-            "sig_minutes_text": _ranges_text(bins[bins.mannwhitney_q_bh < 0.05].bin),
+            "sig_minutes_text": _ranges_text(bins[bins.mannwhitney_q_bh < 0.05].bin, 5 if kind == "fa_count" else 1),
             "bin_tests": bins.drop(columns=["row"]).to_dict(orient="records")}
     return bins, info
 
 
 def compute_first_hit_licks(ctx):
-    """Whisker | spontaneous licks | auditory around the first whisker hit (user 2026-11-10: 'like for FA_divergence'),
+    """Whisker | auditory | spontaneous licks around the first whisker hit (user 2026-11-10: 'like for FA_divergence'),
     all with the explore_fa_divergence time-course logic. Untrimmed whisker day 0 (auditory warm-up block kept, so every
     mouse has a pre-hit baseline), learners, active trials; first whisker hit = first licked whisker trial; 1-min bins
     from it (-6..20 min). Whisker and auditory: fraction of licked trials of the type per mouse and bin (row 2 'fa_time'
@@ -650,7 +698,12 @@ def compute_first_hit_licks(ctx):
     R+ vs R- per bin (Mann-Whitney, BH over bins; Welch saved); pre vs post per cohort (Wilcoxon signed-rank), R+ vs R-
     on pre, post and change; whisker: post only (pre = 0 by definition)."""
     import explore_fa_divergence as fa
-    trials, sessions = fa.session_tables(fa.day0_active(), trial_types=("whisker_trial", "auditory_trial"))
+    # planner 2026-11-11 (14:09): whisker, auditory and false-alarm P(lick) by trial of the type from the first whisker hit
+    # (explore_fa_divergence 'fa_count', 5-trial bins); spontaneous licks per minute of time (unchanged)
+    trials, sessions = fa.session_tables(fa.day0_active(), trial_types=("whisker_trial", "auditory_trial", "no_stim_trial"))
+    span = trials.groupby("session_id").start_time.agg(["min", "max"])
+    t_end = trials.session_id.map(span["min"] + FIRST_HIT_SESSION_FRACTION * (span["max"] - span["min"]))
+    trials = trials[trials.start_time <= t_end]
     sid = {s["mouse_id"]: s["session_id"] for s in sessions}
     rows, info = [], {}
     for sub, tt in FIRST_HIT_SUBPANELS.items():
@@ -658,23 +711,37 @@ def compute_first_hit_licks(ctx):
             kind, measure = "licks", "spontaneous_licks_per_min"
             b, pp = fa.per_mouse(kind, None, sessions)
         else:
-            kind, measure = "fa_time", "lick_probability"
+            kind, measure = "fa_count", "lick_probability"
             tr = trials[trials.trial_type == tt]
-            b, pp = fa.per_mouse(kind, tr, None)
-            n_tr = tr.assign(bin=np.floor(tr.minutes)).groupby(["mouse_id", "bin"]).size().rename("n_trials")
-            b = b.merge(n_tr.reset_index(), on=["mouse_id", "bin"], how="left")
-        bins, info[sub] = _first_hit_tests(fa, kind, b, pp, vs_pre=sub != "whisker")
+            default = fa.ROWS[kind]["edges"]
+            fa.ROWS[kind]["edges"] = FIRST_HIT_WHISKER_EDGES  # all trial types aligned like whisker (user 2026-11-11)
+            try:
+                b, pp = fa.per_mouse(kind, tr, None)
+                e = fa.ROWS[kind]["edges"]
+                n_tr = (tr[(tr.fa_index >= e[0]) & (tr.fa_index < e[-1])]
+                        .assign(bin=lambda d: e[np.searchsorted(e, d.fa_index, side="right") - 1])
+                        .groupby(["mouse_id", "bin"]).size().rename("n_trials"))
+                b = b.merge(n_tr.reset_index(), on=["mouse_id", "bin"], how="left")
+                b["bin_end"] = b.bin.map(dict(zip(e[:-1], e[1:])))  # exclusive end of the bin (trials)
+                bins, info[sub] = _first_hit_tests(fa, kind, b, pp, vs_pre=sub != "whisker")
+            finally:
+                fa.ROWS[kind]["edges"] = default
         info[sub]["n"] = n_by_cohort(b.assign(session_id=b.mouse_id.map(sid)))
         info[sub]["measure"] = measure
         q = bins[["bin", "mannwhitney_q_bh", "welch_q_bh"]].rename(columns={"mannwhitney_q_bh": "cohort_q_bh",
                                                                            "welch_q_bh": "cohort_welch_q_bh"})
-        rows.append(b.merge(q, on="bin", how="left").assign(sub_panel=sub, trial_type=tt or "spontaneous", measure=measure))
-    df = pd.concat(rows, ignore_index=True).rename(columns={"bin": "minute"})
+        rows.append(b.merge(q, on="bin", how="left").assign(sub_panel=sub, trial_type=tt or "spontaneous", measure=measure,
+                                                             x_unit="minute" if tt is None else "trial"))
+    df = pd.concat(rows, ignore_index=True).rename(columns={"bin": "bin_start"})
     df["session_id"] = df.mouse_id.map(sid)
     df["cohort_sig"] = df.cohort_q_bh < 0.05
-    df = df[["mouse_id", "session_id", "cohort", "sub_panel", "trial_type", "measure", "minute", "value", "n_trials",
-             "cohort_q_bh", "cohort_welch_q_bh", "cohort_sig"]]
+    df = df[["mouse_id", "session_id", "cohort", "sub_panel", "trial_type", "measure", "x_unit", "bin_start", "bin_end",
+             "value", "n_trials", "cohort_q_bh", "cohort_welch_q_bh", "cohort_sig"]]
     info["n"] = n_by_cohort(df)
+    info["params_trials"] = {"session_fraction": FIRST_HIT_SESSION_FRACTION, "bin_trials": 5, "edges_trials": [int(fa.ROWS["fa_count"]["edges"][0]),
+                                                                int(fa.ROWS["fa_count"]["edges"][-1])],
+                             "pre_trials": [int(v) for v in fa.ROWS["fa_count"]["pre"]],
+                             "post_trials": [int(v) for v in fa.ROWS["fa_count"]["post"]]}
     info["params"] = {"response_window_s": fa.RESP_WIN, "reward_exclusion_s": fa.REWARD_EXCL, "bin_min": 1,
                       "edges_min": [int(fa.ROWS["licks"]["edges"][0]), int(fa.ROWS["licks"]["edges"][-1])],
                       "pre_min": [-5, 0], "post_min": [0, 5], "min_cover_s": fa.MIN_COVER,
@@ -682,45 +749,34 @@ def compute_first_hit_licks(ctx):
     return df, info
 
 
-LICK_COURSE_EDGES = np.round(np.arange(-0.21, 1.5 + 1e-9, 0.03), 3)  # 30-ms bins, 0 on an edge (user 2026-11-10)
-
-
-def compute_lick_course(ctx):
-    """Jaw opening and piezo licks after the stimulus on whisker and auditory lick trials (user 2026-11-10). Learners,
-    whisker day 0, early licks dropped. Jaw (measure 'jaw'): DLC jaw_distance PETH (shared_movement_peth, dlc_helpers,
-    mice with dual-view video), each trial minus its pre-stimulus mean, mean over trials per session; -0.1 to 0.3 s,
-    5-ms steps. Piezo (measure 'piezo'): per lick trial, whether at least one NWB piezo lick falls in each 30-ms bin
-    from -0.21 to 1.5 s, mean over trials per session. Per mouse: mean over sessions. Column value: mm (jaw) or
-    probability (piezo); time_s = bin centre / sample time."""
-    from multiprocessing import Pool
+def compute_movement_course(ctx):
+    """DLC movements after the stimulus on whisker and auditory lick trials (planner 2026-11-11, replaces the piezo lick
+    course): whisker speed, jaw opening and pupil area from shared_movement_peth (dlc_helpers, mice with dual-view video),
+    stimulus-aligned, each trial minus its pre-stimulus mean, mean over trials per session, then over sessions per mouse.
+    Learners, whisker day 0, sessions with early-lick-free lick trials. Cluster test R+ vs R- per signal and trial type
+    (mice; Welch t, cohort-label permutations)."""
     import shared_movement_peth
-    from explore_lick_proba import session_licks
     d0 = day0_table(ctx["table"], learners_only=True)
     d0 = d0[(d0.early_lick == 0) & (d0.lick_flag == 1) & d0.trial_type.isin(["whisker_trial", "auditory_trial"])]
-    jaw = shared_movement_peth.load()
-    jaw = jaw[(jaw.signal == "jaw_opening") & (jaw["align"] == "stimulus") & (jaw.lick == 1)
-              & jaw.trial_type.isin(["whisker_trial", "auditory_trial"]) & jaw.session_id.isin(set(d0.session_id))]
-    rows = [jaw.assign(measure="jaw", value=jaw.value_delta)[["mouse_id", "session_id", "cohort", "measure", "trial_type",
-                                                              "time_s", "value", "n_trials"]]]
-    with Pool(16) as pool:
-        piezo = {sid: p for sid, p, _ in pool.map(session_licks, list(d0.session_id.unique()))}
-    edges, centre = LICK_COURSE_EDGES, np.round(LICK_COURSE_EDGES[:-1] + 0.015, 3)
-    for sid, st in d0.groupby("session_id"):
-        lk = piezo[sid]
-        if not len(lk):
-            continue
-        for tt, g in st.groupby("trial_type"):
-            m = np.array([np.histogram(lk[np.searchsorted(lk, t + edges[0]):np.searchsorted(lk, t + edges[-1])] - t,
-                                       edges)[0] > 0 for t in g.start_time.to_numpy()])
-            rows.append(pd.DataFrame({"mouse_id": st.mouse_id.iloc[0], "session_id": sid, "cohort": st.cohort.iloc[0],
-                                      "measure": "piezo", "trial_type": tt, "time_s": centre, "value": m.mean(0),
-                                      "n_trials": len(g)}))
-    d = pd.concat(rows, ignore_index=True)
-    d = (d.groupby(["mouse_id", "cohort", "measure", "trial_type", "time_s"])
-         .agg(session_id=("session_id", lambda v: ";".join(sorted(set(v)))), value=("value", "mean"),
+    peth = shared_movement_peth.load()
+    peth = peth[(peth["align"] == "stimulus") & (peth.lick == 1) & peth.trial_type.isin(["whisker_trial", "auditory_trial"])
+                & peth.session_id.isin(set(d0.session_id))]
+    d = (peth.groupby(["mouse_id", "cohort", "signal", "unit", "trial_type", "time_s"])
+         .agg(session_id=("session_id", lambda v: ";".join(sorted(set(v)))), value=("value_delta", "mean"),
               n_trials=("n_trials", "sum"))
          .reset_index())
-    return d, {"n": {m: n_by_cohort(d[d.measure == m]) for m in ("jaw", "piezo")}, "piezo_bin_ms": 30}
+    d["cluster_sig"] = False
+    tests, n = {}, {}
+    for (sig, tt), g in d.groupby(["signal", "trial_type"]):
+        tests[f"{sig} {tt}"] = cluster_test(g, "time_s", "value")
+        d.loc[g.index, "cluster_sig"] = mark_clusters(g, "time_s", tests[f"{sig} {tt}"])
+        d.loc[g.index, "cluster_p"] = cluster_p(g, "time_s", tests[f"{sig} {tt}"])
+        n[f"{sig} {tt}"] = n_by_cohort(g)
+    names = {"whisker_speed": "whisker speed", "jaw_opening": "jaw opening", "pupil_area": "pupil area"}
+    text = [f"{names.get(k.split()[0], k.split()[0])}, {k.split()[1].split('_')[0]} trials, {c['start']:.2f} to {c['end']:.2f} s "
+            f"(P = {c['p']:.3f})" for k, cl in tests.items() for c in cl if c["p"] < 0.05]
+    return d, {"n": n_by_cohort(d), "n_by_group": n, "clusters": tests, "cluster_text": "; ".join(text) or "none",
+               "params": shared_movement_peth.PARAMS}
 
 
 def _anchors(ctx):
@@ -925,9 +981,15 @@ def _glm_files(ctx, kind):
     return out
 
 
+GLM_EXAMPLE_MOUSE = "MH011"  # user 2026-11-12 "change prediction example": explore_glm_examples.py, best balanced accuracy
+                             # among R+ learner sessions with >= 100 trials and lick rate 0.25-0.75 (MH070 licked 75 %)
+
+
 def _glm_example_mouse(ctx):
-    """A well predicted but typical R+ learner session (user 2026-11-09: not the best): among sessions with >= 100
-    whisker trials, the one whose test AUC is closest to the 75th percentile of R+ learner sessions."""
+    """GLM_EXAMPLE_MOUSE when set; else a well predicted but typical R+ learner session (user 2026-11-09: not the best):
+    among sessions with >= 100 whisker trials, the one whose test AUC is closest to the 75th percentile of R+ learners."""
+    if GLM_EXAMPLE_MOUSE:
+        return GLM_EXAMPLE_MOUSE
     metrics = pd.DataFrame([dict(mouse_id=r.mouse_id, test_auc=pd.read_csv(f).test_auc.iloc[0],
                                  n_trials=pd.read_csv(f).n_trials.iloc[0])
                             for r, f in _glm_files(ctx, "results_metrics.csv") if r.cohort == "R+"])
@@ -1015,8 +1077,9 @@ def compute_glm_weights(ctx):
 
 
 def compute_glm_weights_auc(ctx):
-    """Planner 2026-11-06 (panel p): GLM weights, then the same for the shuffle importance (delta AUC), side by side,
-    predictors in the order of mean absolute weight. Long format: metric = weight | delta_auc."""
+    """Planner 2026-11-06 (panel p): GLM weights, then the same for the shuffle importance, side by side, predictors in
+    the order of mean absolute weight. Shuffle importance in balanced accuracy (planner 2026-11-11; was AUC). Long format:
+    metric = weight | delta_bacc | delta_ll_drop."""
     w, w_info = compute_glm_weights(ctx)
     s, s_info = compute_glm_shuffle(ctx)
     rank = lambda d: d.feature.map({f: i for i, f in enumerate(w_info["order"])}).fillna(len(w_info["order"]))
@@ -1029,11 +1092,11 @@ def compute_glm_weights_auc(ctx):
                                   "feature": nm.model.map(_glm_feature), "value": nm.delta_test_ll_per_trial.to_numpy()}))
     drop = pd.concat(rows, ignore_index=True)
     df = pd.concat([w.rename(columns={"coefficient": "value"}).assign(metric="weight"),
-                    s[keep + ["delta_test_auc"]].rename(columns={"delta_test_auc": "value"})
-                     .assign(metric="delta_auc", rank_by_mean_abs=rank),
+                    s[keep + ["delta_test_balanced_accuracy"]].rename(columns={"delta_test_balanced_accuracy": "value"})
+                     .assign(metric="delta_bacc", rank_by_mean_abs=rank),
                     drop.assign(metric="delta_ll_drop", rank_by_mean_abs=rank)], ignore_index=True)
     return df, {"n": w_info["n"], "order": w_info["order"], "stats_weight": w_info["stats"],
-                "stats_delta_auc_shuffle": _feature_tests(s, "delta_test_auc"),
+                "stats_delta_bacc_shuffle": _feature_tests(s, "delta_test_balanced_accuracy"),
                 "stats_delta_ll_drop": _feature_tests(drop, "value")}
 
 
