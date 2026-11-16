@@ -33,3 +33,76 @@
   0.60, N 0.60 vs 0.53, Z 0.64 vs 0.51); strategy parameters poorly recovered (gamma 0.58, nu 0.29, zeta 0.08). Conclusion: session-level
   summaries of one stochastic learning path do not carry enough information to tell these agents apart. 016/017 per-mouse labels not
   interpretable.
+- 2026-10-23: model v4 (model_v4_design.md, rl5_model, 018-020), user: simple Bathellier-style network over the whole training, readout =
+  weights compared across models; "framing an exploration term that only affects false alarm rates"; hypothesis R- fast / R+ slow over
+  days. 018 session boundaries (whisker days, mouse = unit): whisker licking falls within every session (R+ -0.17, R- -0.19) and jumps
+  back at the next start together with FA (R+ whisker +0.30, FA +0.23; auditory at ceiling is a poor thirst control); start-to-start
+  (same thirst state) R+ +0.12, R- -0.09 per day; R- partial overnight recovery after day-0 extinction (+0.11).
+  019 cohort-level pooled fits, 20 models x shared/cohort, 5-fold CV over mice: E3 (exploration = recent reward rate, reset at session
+  start) best by ~0.03 nats/trial held-out (dBIC ~13000), likely because it captures within-session engagement (warm-up, satiation
+  decline) rather than FA learning; cohort-specific > shared everywhere; 2ts adds little (k_c R+ 0.73 = overnight forgetting, not
+  offline gain). gamma fitted ~0 in every model (gamma enters value and update -> effective transfer ~gamma^2; design issue): day-0
+  whisker licking is carried by eps, and the R- day-0 whisker extinction curve (0.38 -> 0.10) is missed by every model. R- alpha- depends
+  on the FA model: 0.67-1 in E0/E1/E2 (the hypothesised fast R- learning), ~0 in E3 (no whisker learning, licks = reward-driven eps);
+  R+ alpha- unidentifiable (no negative outcomes on stimulus trials).
+  Recovery (6 generators from the cohort fits, refit all 40): model recovered 5/6 (B-asym-1ts -> B-asym-2ts, dBIC 24); FA variant and
+  cohort grouping always recovered; sym vs asym weakly separated (dBIC 3-4 for E1/E2); weight (V(W)) and eps trajectories recovered
+  closely; parameters well recovered except E2 alpha-, and gamma biased upward from 0 (0.07-0.16). Recovery tested only at gamma ~ 0.
+- 2026-10-23: model v5 (model_v5_design.md, rl6_model, 021, 022), user "yes go": one transfer parameter g (init: w_W <- g w_A at first
+  whisker trial; overlap: inputs A = (1, g), W = (g, 1)) and an engagement factor on all licking separate from FA exploration. 32 models,
+  cohort parameters, 5-fold CV over mice. Engagement is the big gain (held-out -0.468 -> -0.452 nats/trial, dBIC ~7000); best
+  overlap-E3-eng-asym (init equal within 0.0002/trial: same model at g = 0). g = 0 in every model; warm-start profile (021b, NAS only):
+  g = 0.05 costs +221/+404 (R+ init/overlap) and +60/+127 (R-). R+ beta at the bound (30); with bound 1000 beta -> 219, alpha+ -> lower
+  bound, only beta x alpha+ (~0.03) constrained (report scale-free). R- under E3: alpha- ~ 1e-4, e_min ~ 0.8. Misfits: auditory too low
+  on whisker days (0.85 vs 0.95-0.98); R- day-0 whisker excess over FA (0.40 -> 0.15 over ~100 trials) and the R+ day-0 rise-then-fall
+  still missed.
+  Recovery (5 generators, refit all 32): engagement on/off and the best model recovered; g = 0.5 recovered (R+ 0.58, R- 0.49; dBIC 17
+  over init); at g = 0 init vs overlap and sym vs asym tie (dBIC < 0.2, expected). Parameters recovered closely except R+ alpha-
+  (unidentifiable, 0.24 -> 0.001).
+- 2026-10-23: 024 per-mouse held-out LL (v5 fold fits): engagement wins decisively in 65/67 R+ and 24 R- mice; R- E3 decisive in 32
+  mice, asym in 14 (near-silent late licking). R- E0-2 mice do not have a larger day-0 excess (MWU p = 0.18, Welch p = 0.22; corrects an
+  earlier verbal claim).
+- 2026-10-23: model v6 (model_v6_design.md, rl7_model, 023), user "before running the full thing, let's check predictions": thirst
+  T = max(0, 1 - rho_s S) with per-session capacity rho_s integrated out (Gauss-Hermite), lick bias B(T) linear or threshold, causal
+  predictive and posterior simulation. Per-session thirst + threshold beat v5 (R+ 59558 vs 58057 nll; R- 44037 vs 44148); engagement on
+  top fits better but underpredicts auditory at session start on whisker days (-0.15 R+, -0.19 R-), overpredicts R- FA (+0.12 to +0.16)
+  and the session-start FA spread is 0.05-0.10 vs 0.21 in the data (user: "auditory underpredicted, FA poor, session starts too high or
+  too low").
+  v6b (absorbing disengaged state) killed: with no re-engagement the filter makes h0 -> -inf the only usable value.
+  v6c (023c): +fa (learned FA value, alpha_N, g_N), +dis (engaged/disengaged HMM, hazard from thirst, re-engagement h_back), +kap
+  (thirst exponent on stimulus value), +ctx (step in w_N at whisker onset), +off (per-session lick offset u_s, 2-D quadrature). Best
+  sess-thr-abs-noeng+fa+dis+kap+off+ctx: nll R+ 54496, R- 40113 (vs sess-thr-inst-eng 55628 / 42678). Session-start errors: auditory
+  |err| <= 0.05 on whisker days, R- FA ~0; per-session start FA r = 0.85 / 0.87 (v5 0.57 / 0.64), spread 0.14 / 0.16 vs data 0.20 / 0.21.
+  Remaining: R+ whisker overpredicted in the last ~20 trials, R+ auditory on days -4/-3 slightly high. +ctx without +off converged worse
+  than its nested +kap model (optimiser failure; the full model is unaffected).
+  026 publication figures (figures/pub, numbers in tables/026_figure_numbers.csv); fig3b session-start errors added.
+- 2026-10-23: model v7 (025, rl8_hier) on sess-thr-abs-noeng+fa+dis+kap+off+ctx: mouse-level alpha+, alpha-, beta, c, s_B, mu_rho, theta,
+  EM-Laplace. Summed Laplace evidence not monotone over iterations (first run oscillated): EM now stops when mu moves < 0.02 (max 15) and keeps
+  the last E-step. Per mouse: median alpha+ (R+) 0.0022 vs alpha- (R-) 0.27 (MWU, Welch p < 0.001); V(W) end of day 0/1/2 R+ +0.16/+0.30/+0.42,
+  R- -0.94/-0.98/-0.99. All 7 mouse parameters differ R+ vs R- (partly set by the cohort-level parameters, e.g. kappa 1.77 vs 0). Recovery:
+  Spearman alpha+ R+ 0.75, alpha- R- 0.85, beta 0.82/0.81; c, mu_rho (R-), theta < 0.5; R+ alpha- unidentifiable; cohort tests preserved 8/8;
+  mixed R- cohort AUC 1.00. Mean abs error 0.134 (v5) -> 0.089 (cohort) -> 0.081 (mouse level).
+- 2026-10-23: first report build (report/build_report.py, render.sh; 7 main + 6 supplementary figures, 10 equations; published to
+  abisi/ibl-ai-agent-reports docs/ssl-rl-behaviour-model). 026 fig2 equations updated to the final model; ladder reordered (context step after
+  the session offset).
+- 2026-10-24: v8 lean model (027_lean_model.py; rl7 options +stim, +gw, +hom). Removed g (fitted 0), R+ alpha- (cannot act: delta >= 0 in R+),
+  R+ theta (fixed -0.5; fitted < 0, only trades off with c). Refits from 023c and random starts showed the 023c R- optimum (alpha- = 0.23,
+  report of 2026-10-23) was LOCAL: same model nll 39841 vs 40113 with alpha- = 0.0008. Final: lean-abs-stim (stimulus-specific alpha_A,
+  alpha_W), BIC R+ 108790 (-377 vs valence alpha+-), R- identical. Minimal (go bias + linear satiety + HMM) +494 / +1053 BIC, without HMM
+  +5570 / +4209; no lag +61 / +659. On the valence base: +gw (FA value follows whisker value) -99 / +417 (R- optimum alpha- = 0.67, worse),
+  +hom (reward scaled by thirst) -93 / -53; stim+hom (027d) still running at report time.
+  Mouse level (025S, --lean: alpha_A, alpha_W, beta, mu_rho): median alpha_W 0.0027 R+ vs 0.0024 R- (MWU p = 0.98, Welch p = 0.56); recovery
+  rho alpha_W 0.80 / 0.87, beta 0.74 / 0.92, mu_rho 0.80 / 0.52; mixed-R- AUC 1.00. 028 per-mouse metrics + per-trial latents export.
+  Profiles (027p/q, best of ~11 starts per point, non-monotone = multiple optima): rate 0.2 costs 300 nats R-, 2322 R+; fixing R- at 0.001 is
+  45 nats better than the final R- fit. BUT model-free whisker - FA at session start (R- data 0.11 / 0.07 / 0.02 days 0/1/2) is reproduced by
+  the fast rate (0.15 / 0.07 / 0.06), not by the slow final (0.02 / 0.12 / 0.09): no single rate fits both; both cohorts also change fast over
+  the first ~30 day-0 whisker trials (R+ 0.46 -> 0.62, R- 0.40 -> 0.28). Equal single-rate alpha_W is NOT evidence of equal learning speed.
+  029_pub_figures_v8.py (figures/pub_v8); report v8 rebuilt and published (reports repo ed438aa).
+- 2026-10-30: converged model ("core" = simple-gen + absorbing HMM; user: "Drop for good" lag, kappa, theta, ctx step and -1 coding).
+  030 held-out-mouse CV and 034 evaluation on 10-trial bins (binomial deviance, dispersion, R2_dev vs per-mouse per-day rate): HMM needed
+  (simple-gen without HMM R2_dev 0.015 / -0.07 vs final 0.20 / 0.03). Generalisation g_W0 shared between cohorts (user: "g_W0 should be the
+  same across cohorts"): 035 joint profile of summed nll, minimum g_W0 = 0.123; R- alpha_W only identified with the shared g. rl7 options
+  for single-mouse misfits (user: "improve single-mouse fits especially with R-"): +rec overnight recovery of V_W (Rescorla 2004), +fast
+  two-rate whisker learning (Smith et al. 2006), +pers previous-trial lick (Lau & Glimcher 2005), +hab / +habr whisker habituation drive
+  (Thompson & Spencer 1966; Rankin et al. 2009); neutral values reproduce core exactly. 027l core, 027m add-ons, 030_cv_core, 034core;
+  036 model-recovery matrix (Wilson & Collins 2019).
