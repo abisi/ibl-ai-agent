@@ -25,6 +25,9 @@ RATE_VARS = {"aud_day0": "Auditory day 0", "fa_day0": "No-stim day 0", "aud_daym
 
 plot_xcorr = fig1.plot_xcorr  # moved from Figure 1 (planner 2026-11-11)
 plot_learners = fig1.plot_learners  # moved from Figure 1 (planner 2026-11-11, 13:12)
+plot_first_lick = fig1.plot_first_lick  # moved from Figure 1 g (user 2026-11-16)
+plot_hitmiss_whisker_speed = plot_hitmiss_jaw_opening = fig1.plot_movement_hitmiss  # user 2026-11-16
+plot_hitmiss_pupil_area = plot_hitmiss_nose_speed = fig1.plot_movement_hitmiss
 
 
 def plot_rt_change_auditory(ax, df):
@@ -123,4 +126,4 @@ def plot_day0_closeup(ax, df):
     ax.set_ylim(-0.03, 1.15)
     ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
     ax.set_ylabel("P(lick)", labelpad=1)
-    ax.set_xlabel("Left R+, right R−", labelpad=1, fontsize=4.5)
+    ax.set_xlabel("Trial type", labelpad=1)  # R+ / R- colour key at the figure level (user 2026-11-16)

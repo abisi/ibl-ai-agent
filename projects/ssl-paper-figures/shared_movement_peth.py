@@ -24,10 +24,11 @@ import shared_behaviour
 from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET, load_cache, nwb_fingerprint
 from shared_movements import data_utils, dlc_helpers, dlc_signals
 
-PARAMS = {"version": 7,  # v7 (planner 2026-11-12, Fig. 1d): jaw window to 0.5 s "loader": "ephys_utilities.helpers.dlc_helpers (via shared_movements.dlc_signals; peth)",
+PARAMS = {"version": 8,  # v8 (2026-11-16): nose speed added (Supp. Fig. 1 hit/miss panels); NWBs of MH013/MH017/AB092 corrected. v7 (planner 2026-11-12, Fig. 1d): jaw window to 0.5 s "loader": "ephys_utilities.helpers.dlc_helpers (via shared_movements.dlc_signals; peth)",
           "signals": {"whisker_speed": {"source": "whisker_speed", "window_s": [-0.05, 0.1], "dt_s": 0.005},
                       "jaw_opening": {"source": "jaw_distance", "window_s": [-0.1, 0.5], "dt_s": 0.005},
-                      "pupil_area": {"source": "pupil_area", "window_s": [-1.0, 3.0], "dt_s": 0.05}},
+                      "pupil_area": {"source": "pupil_area", "window_s": [-1.0, 3.0], "dt_s": 0.05},
+                      "nose_speed": {"source": "nose_speed", "window_s": [-0.1, 0.5], "dt_s": 0.005}},
           "trial_types": ["whisker_trial", "auditory_trial"], "alignments": ["stimulus", "lick"],
           "lick_time": "start_time + computed_reaction_time", "baseline": "each trial's pre-stimulus mean (both alignments)",
           "pupil_trial_qc": "dlc_helpers.pupil_trial_ok over each alignment's window (2026-11-12)"}

@@ -38,6 +38,26 @@ def compute_movement_peth(ctx):
     return fig1.compute_movement_peth(ctx)
 
 
+def compute_first_lick(ctx):  # moved from Figure 1 g (user 2026-11-16)
+    return fig1.compute_first_lick(ctx)
+
+
+def compute_hitmiss_whisker_speed(ctx):  # user 2026-11-16: hit / miss per cohort, one panel per DLC measure
+    return fig1.compute_movement_hitmiss(ctx, "whisker_speed")
+
+
+def compute_hitmiss_jaw_opening(ctx):
+    return fig1.compute_movement_hitmiss(ctx, "jaw_opening")
+
+
+def compute_hitmiss_pupil_area(ctx):
+    return fig1.compute_movement_hitmiss(ctx, "pupil_area")
+
+
+def compute_hitmiss_nose_speed(ctx):
+    return fig1.compute_movement_hitmiss(ctx, "nose_speed")
+
+
 def compute_lick_course(ctx):
     return s2.compute_lick_course(ctx)
 

@@ -47,8 +47,7 @@ def plot_rt_curves(ax, df):
         a.sharey(axes[0])
     for a in axes:  # every axis labelled (user 2026-11-12)
         a.set_ylabel("ρ(RT, curve) − shift", labelpad=1)
-    fig1._legend(axes[0], [("Left: R+", "0.2", dict(marker="o", ms=2, lw=0)),
-                           ("Right: R−", "0.6", dict(marker="o", ms=2, lw=0))], loc="lower left")
+    # R+ / R- colour key at the figure level (user 2026-11-16: no 'left / right' legends)
 
 
 def plot_bouts(ax, df):

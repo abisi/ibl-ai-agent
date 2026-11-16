@@ -641,6 +641,69 @@ def compute_aligned_curves(ctx):
     return df, {"n": n_by_cohort(df), "clusters": clusters}
 
 
+ALIGNED_WINDOW = (-10, 30)  # trials of the type from the alignment trial (user 2026-11-12: -10 to +30)
+ALIGNED_MIN_MICE = 8  # per cohort and trial index, for the cluster test
+ALIGNMENTS = {"first_whisker_trial": "1st W trial", "first_whisker_hit": "1st W hit"}  # top row first (user 2026-11-16)
+
+
+def compute_aligned_licks(ctx):
+    """User 2026-11-16 (replaces the 5-trial-bin first_hit_licks panel): whisker | auditory | false alarm, single trials
+    (no binning), two alignments stacked: the first whisker trial (top) and the first whisker hit (bottom). Learners,
+    untrimmed whisker day 0 (auditory warm-up kept, so auditory and no-stimulus trials exist before the alignment),
+    early-lick trials dropped. Each trial type stays on its own trials: index 0 = the first trial of the type at or after
+    the alignment trial (auditory and false alarm: trials after the first whisker trial / hit), negative indices = the
+    trials of the type before it. Data (kind 'data'): the lick outcome (0 / 1) of every trial; curve (kind 'curve'): the
+    exact learning curve of that trial type at the same trials (learning_curve_exact on the untrimmed session; whisker
+    curve from index 0 only). Cluster-based permutation test R+ vs R- on the per-mouse data from index 0 (Welch t,
+    cohort-label permutations, indices with >= ALIGNED_MIN_MICE mice per cohort); cluster P on the bars."""
+    lo, hi = ALIGNED_WINDOW
+    learners = set(day0_table(ctx["table"], learners_only=True).mouse_id)
+    d0 = shared_behaviour.load_untrimmed_day0()
+    d0 = d0[d0.mouse_id.isin(learners) & (d0.early_lick == 0)]
+    rows = []
+    for sid, st in d0.groupby("session_id"):
+        st = st.sort_values("start_time")
+        out = lce.session_learning_curves_exact(st, sigma=CURVE_PARAMS["sigma"], conf_int=CURVE_PARAMS["conf_int"])
+        if "whisker_trial" not in out or not (np.asarray(out["whisker_trial"]["outcomes"]) == 1).any():
+            continue
+        w = out["whisker_trial"]
+        ref = {"first_whisker_trial": w["start_time"][0],
+               "first_whisker_hit": w["start_time"][int(np.argmax(np.asarray(w["outcomes"]) == 1))]}
+        base = dict(mouse_id=st.mouse_id.iloc[0], session_id=sid, cohort=st.cohort.iloc[0])
+        for align, t_ref in ref.items():
+            for tt in TRIAL_TYPES:
+                if tt not in out:
+                    continue
+                y = np.asarray(out[tt]["outcomes"], float)
+                rel = np.arange(len(y)) - int(np.sum(np.asarray(out[tt]["start_time"]) < t_ref))
+                keep = (rel >= lo) & (rel <= hi)
+                common = {**base, "alignment": align, "trial_type": tt, "trial_from_alignment": rel[keep]}
+                rows.append(pd.DataFrame({**common, "kind": "data", "p_lick": y[keep]}))
+                cur = keep & (rel >= 0 if tt == "whisker_trial" else True)
+                rows.append(pd.DataFrame({**base, "alignment": align, "trial_type": tt, "kind": "curve",
+                                          "trial_from_alignment": rel[cur],
+                                          "p_lick": np.asarray(out[tt]["p_mean"])[cur]}))
+    df = pd.concat(rows, ignore_index=True)
+    df["cluster_sig"], df["cluster_p"] = False, np.nan
+    clusters, n = {}, {}
+    x = "trial_from_alignment"
+    for (align, tt), g in df[df.kind == "data"].groupby(["alignment", "trial_type"]):
+        g = g[g[x] >= 0]
+        enough = g.groupby([x, "cohort"]).mouse_id.nunique().unstack().reindex(columns=COHORTS).fillna(0).min(1)
+        g = g[g[x].isin(enough[enough >= ALIGNED_MIN_MICE].index)]
+        key = f"{align} {tt}"
+        clusters[key] = cluster_test(g, x, "p_lick")
+        df.loc[g.index, "cluster_sig"] = mark_clusters(g, x, clusters[key])
+        df.loc[g.index, "cluster_p"] = cluster_p(g, x, clusters[key])
+        n[key] = n_by_cohort(g)
+    text = {k: "; ".join(f"trials {int(c['start'])} to {int(c['end'])}, P = {c['p']:.3g}" for c in cl if c["p"] < 0.05)
+            or "none" for k, cl in clusters.items()}
+    return df, {"n": n_by_cohort(df), "n_by_group": n, "clusters": clusters, "cluster_text": text,
+                "params": {"window_trials": list(ALIGNED_WINDOW), "min_mice_per_cohort": ALIGNED_MIN_MICE,
+                           "session": "untrimmed whisker day 0, early licks dropped", "test": "cluster permutation, "
+                           "Welch t, 1,000 permutations, from trial 0"}}
+
+
 FIRST_HIT_SUBPANELS = {"whisker": "whisker_trial", "auditory": "auditory_trial", "false_alarm": "no_stim_trial"}
 # user 2026-11-11: trial 0 alone (whisker: the hit), then 1-5, 6-10, ...; same bins for every trial type (user 2026-11-11)
 FIRST_HIT_WHISKER_EDGES = np.r_[-10, -5, 0, np.arange(1, 52, 5)]
@@ -776,6 +839,47 @@ def compute_movement_course(ctx):
     text = [f"{names.get(k.split()[0], k.split()[0])}, {k.split()[1].split('_')[0]} trials, {c['start']:.2f} to {c['end']:.2f} s "
             f"(P = {c['p']:.3f})" for k, cl in tests.items() for c in cl if c["p"] < 0.05]
     return d, {"n": n_by_cohort(d), "n_by_group": n, "clusters": tests, "cluster_text": "; ".join(text) or "none",
+               "params": shared_movement_peth.PARAMS}
+
+
+HITMISS_WINDOW = {"whisker_speed": (-0.05, 0.1), "jaw_opening": (-0.1, 0.5), "pupil_area": (-1.0, 3.0),
+                  "nose_speed": (-0.1, 0.5)}
+
+
+def compute_movement_hitmiss(ctx, signal):
+    """User 2026-11-16 (Supp. Fig. 1, one panel per DLC measure): stimulus-aligned `signal` on whisker hits and whisker
+    misses of whisker day 0, per cohort (shared_movement_peth, dlc_helpers, mice with dual-view video; each trial minus
+    its pre-stimulus mean, mean over trials per session, then over sessions per mouse). Learners, early-lick trials
+    dropped. Within each cohort, hit minus miss per mouse (mice with both), sign-flip cluster test vs 0 (1,000
+    permutations, cluster P < 0.05); cluster P on the bars."""
+    import shared_movement_peth
+    learners = set(day0_table(ctx["table"], learners_only=True).session_id)
+    peth = shared_movement_peth.load()
+    peth = peth[(peth["align"] == "stimulus") & (peth.trial_type == "whisker_trial") & (peth.signal == signal)
+                & peth.session_id.isin(learners) & peth.time_s.between(*HITMISS_WINDOW[signal])]
+    d = (peth.groupby(["mouse_id", "cohort", "signal", "unit", "lick", "time_s"])
+         .agg(session_id=("session_id", lambda v: ";".join(sorted(set(v)))), value=("value_delta", "mean"),
+              n_trials=("n_trials", "sum"))
+         .reset_index())
+    d["outcome"] = d.lick.map({1: "hit", 0: "miss"})
+    d["cluster_sig"], d["cluster_p"] = False, np.nan
+    clusters, n = {}, {}
+    for c in COHORTS:
+        g = d[d.cohort == c]
+        wide = g.pivot_table(index="mouse_id", columns=["lick", "time_s"], values="value")
+        if 0 not in wide.columns.get_level_values(0) or 1 not in wide.columns.get_level_values(0):
+            continue
+        diff = (wide[1] - wide[0]).dropna(how="all")
+        clusters[c] = sign_flip_clusters(diff)
+        idx = g.index
+        d.loc[idx, "cluster_sig"] = mark_clusters(g, "time_s", clusters[c])
+        d.loc[idx, "cluster_p"] = cluster_p(g, "time_s", clusters[c])
+        n[c] = {"mice_hit_and_miss": int(len(diff)), "trials_hit": int(g[g.lick == 1].groupby("mouse_id").n_trials.first().sum()),
+                "trials_miss": int(g[g.lick == 0].groupby("mouse_id").n_trials.first().sum())}
+    text = "; ".join(f"{c}, {k['start']:.2f} to {k['end']:.2f} s (P = {k['p']:.3f})"
+                     for c, cl in clusters.items() for k in cl if k["p"] < 0.05) or "none"
+    return d, {"n": n_by_cohort(d), "n_hit_miss": n, "clusters": clusters, "cluster_text": text,
+               "window_s": list(HITMISS_WINDOW[signal]), "unit": d.unit.iloc[0] if len(d) else None,
                "params": shared_movement_peth.PARAMS}
 
 

@@ -50,7 +50,7 @@ def data_utils():
 def dlc_signals(session_id):
     """Cleaned DLC signals of one session in physical units: {name: (values, timestamps, unit)}; missing cameras or
     series are absent. jaw_distance (mm), nose (mm), whisker_angle (deg), whisker_speed (|whisker_velocity|, deg/s),
-    pupil_area (mm^2)."""
+    pupil_area (mm^2), nose_speed (|nose_velocity|, side view, mm/s)."""
     dh = dlc_helpers()
     path = NWB_DIR / f"{session_id}.nwb"
     out = {}
@@ -68,6 +68,8 @@ def dlc_signals(session_id):
                     out["nose"] = (*dh.nose_norm(views, "distance"), "mm")
                 else:
                     out["nose"] = (dh.clean_series(side, "nose_distance")[0], side.timestamps, "mm")
+            if "nose_velocity" in side.data:  # nose speed = |nose_velocity|, side view only (as the GLM; 2026-11-16)
+                out["nose_speed"] = (np.abs(dh.clean_series(side, "nose_velocity")[0]), side.timestamps, "mm/s")
         if top is not None and "whisker_angle" in top.data:
             out["whisker_angle"] = (dh.clean_series(top, "whisker_angle")[0], top.timestamps, "deg")
             out["whisker_speed"] = (np.abs(dh.clean_series(top, "whisker_velocity")[0]), top.timestamps, "deg/s")

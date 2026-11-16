@@ -3,6 +3,9 @@
 # Same data and conventions as Figure1_behaviour (shared behaviour table, cohort and learner labels from the reference
 # sheet, mean +- s.e.m. over mice, R+ vs R- Mann-Whitney and Welch, both reported).
 figure: SuppFigure1_behaviour
+figure_legend:  # top-right R+ / R- key (user 2026-11-16)
+- {label: R+, color: '#00B400'}
+- {label: R−, color: '#C800C8'}
 number: S1
 grid:
   width_mm: 183
@@ -210,3 +213,103 @@ panels:
     y_mm: 170.0
     w_mm: 131.0
     h_mm: 34.5
+- id: l
+  key: first_lick
+  title: Whisker trials before the first whisker lick
+  data: FigS1_first_lick.csv
+  status: filled
+  params:
+    mice: learners (planner 2026-11-11)
+    trials: whisker trials of whisker day 0 in time order, early-lick trials dropped
+  caption: Number of whisker trials before the first licked whisker trial of whisker day 0 per learner mouse (early-lick
+    trials excluded); bars, mean ± s.e.m. over mice; dots, mice. R+ versus R-, Mann-Whitney {stats.mannwhitney_p:p}, Welch
+    {stats.welch_p:p}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.
+  cell:
+    x_mm: 0.0
+    y_mm: 212.0
+    w_mm: 19.0
+    h_mm: 36.0
+- id: m
+  key: hitmiss_whisker_speed
+  title: Whisker speed on whisker hits and misses
+  data: FigS1_hitmiss_whisker_speed.csv
+  status: filled
+  calls:
+  - Figure1 compute.compute_movement_hitmiss (shared_movement_peth v8, dlc_helpers; sign_flip_clusters)
+  params:
+    signal: '|whisker_velocity| (top view), -50 to 100 ms'
+    trials: whisker hits and whisker misses of whisker day 0, learners with dual-view video, early licks dropped
+    test: within cohort, hit minus miss per mouse, sign-flip cluster test vs 0 (1,000 permutations); bars grey to black by P
+  caption: 'Whisker speed (|whisker_velocity| (top view), -50 to 100 ms) after the whisker stimulus on whisker hits (cohort colour) and whisker misses (grey) of
+    whisker day 0, each trial minus its pre-stimulus mean, mean over trials per session and over sessions per mouse;
+    mean ± s.e.m. over learner mice with dual-view video, R+ (left) and R- (right). Bars, hit versus miss clusters within
+    the cohort (sign-flip cluster test on the per-mouse difference, 1,000 permutations; shade from grey to black with
+    decreasing P, P above each bar): {cluster_text}.'
+  cell:
+    x_mm: 22.0
+    y_mm: 212.0
+    w_mm: 39.5
+    h_mm: 36.0
+- id: n
+  key: hitmiss_jaw_opening
+  title: Jaw opening on whisker hits and misses
+  data: FigS1_hitmiss_jaw_opening.csv
+  status: filled
+  calls:
+  - Figure1 compute.compute_movement_hitmiss (shared_movement_peth v8, dlc_helpers; sign_flip_clusters)
+  params:
+    signal: 'jaw distance (side view), -100 to 500 ms'
+    trials: whisker hits and whisker misses of whisker day 0, learners with dual-view video, early licks dropped
+    test: within cohort, hit minus miss per mouse, sign-flip cluster test vs 0 (1,000 permutations); bars grey to black by P
+  caption: 'Jaw opening (jaw distance (side view), -100 to 500 ms) after the whisker stimulus on whisker hits (cohort colour) and whisker misses (grey) of
+    whisker day 0, each trial minus its pre-stimulus mean, mean over trials per session and over sessions per mouse;
+    mean ± s.e.m. over learner mice with dual-view video, R+ (left) and R- (right). Bars, hit versus miss clusters within
+    the cohort (sign-flip cluster test on the per-mouse difference, 1,000 permutations; shade from grey to black with
+    decreasing P, P above each bar): {cluster_text}.'
+  cell:
+    x_mm: 62.5
+    y_mm: 212.0
+    w_mm: 39.5
+    h_mm: 36.0
+- id: o
+  key: hitmiss_pupil_area
+  title: Pupil area on whisker hits and misses
+  data: FigS1_hitmiss_pupil_area.csv
+  status: filled
+  calls:
+  - Figure1 compute.compute_movement_hitmiss (shared_movement_peth v8, dlc_helpers; sign_flip_clusters)
+  params:
+    signal: 'pupil area (side view; trials with a blink or squint dropped), -1 to 3 s'
+    trials: whisker hits and whisker misses of whisker day 0, learners with dual-view video, early licks dropped
+    test: within cohort, hit minus miss per mouse, sign-flip cluster test vs 0 (1,000 permutations); bars grey to black by P
+  caption: 'Pupil area (pupil area (side view; trials with a blink or squint dropped), -1 to 3 s) after the whisker stimulus on whisker hits (cohort colour) and whisker misses (grey) of
+    whisker day 0, each trial minus its pre-stimulus mean, mean over trials per session and over sessions per mouse;
+    mean ± s.e.m. over learner mice with dual-view video, R+ (left) and R- (right). Bars, hit versus miss clusters within
+    the cohort (sign-flip cluster test on the per-mouse difference, 1,000 permutations; shade from grey to black with
+    decreasing P, P above each bar): {cluster_text}.'
+  cell:
+    x_mm: 103.0
+    y_mm: 212.0
+    w_mm: 39.5
+    h_mm: 36.0
+- id: p
+  key: hitmiss_nose_speed
+  title: Nose speed on whisker hits and misses
+  data: FigS1_hitmiss_nose_speed.csv
+  status: filled
+  calls:
+  - Figure1 compute.compute_movement_hitmiss (shared_movement_peth v8, dlc_helpers; sign_flip_clusters)
+  params:
+    signal: '|nose_velocity| (side view), -100 to 500 ms'
+    trials: whisker hits and whisker misses of whisker day 0, learners with dual-view video, early licks dropped
+    test: within cohort, hit minus miss per mouse, sign-flip cluster test vs 0 (1,000 permutations); bars grey to black by P
+  caption: 'Nose speed (|nose_velocity| (side view), -100 to 500 ms) after the whisker stimulus on whisker hits (cohort colour) and whisker misses (grey) of
+    whisker day 0, each trial minus its pre-stimulus mean, mean over trials per session and over sessions per mouse;
+    mean ± s.e.m. over learner mice with dual-view video, R+ (left) and R- (right). Bars, hit versus miss clusters within
+    the cohort (sign-flip cluster test on the per-mouse difference, 1,000 permutations; shade from grey to black with
+    decreasing P, P above each bar): {cluster_text}.'
+  cell:
+    x_mm: 143.5
+    y_mm: 212.0
+    w_mm: 39.5
+    h_mm: 36.0

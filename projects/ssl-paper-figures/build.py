@@ -68,7 +68,8 @@ def assemble(spec, out, plot):
     for panel in spec["panels"]:
         cell = {"nrows": 1, "ncols": 1, **panel["cell"]}
         if "x_mm" in cell:  # box drawn in the figure planner
-            ax = grid.axes_mm(cell["x_mm"], cell["y_mm"], cell["w_mm"], cell["h_mm"], letter=panel["id"])
+            extra = {"margins_mm": tuple(cell["margins_mm"])} if "margins_mm" in cell else {}  # e.g. drawings: no axes
+            ax = grid.axes_mm(cell["x_mm"], cell["y_mm"], cell["w_mm"], cell["h_mm"], letter=panel["id"], **extra)
         else:
             ax = grid.axes(cell["row"], cell["col"], cell["nrows"], cell["ncols"], letter=panel["id"])
         if "image" in panel:  # drawing exported elsewhere (e.g. Figma), path relative to FIGURES_ROOT
@@ -81,7 +82,24 @@ def assemble(spec, out, plot):
             grid.placeholder(ax, f"{panel['title']}\n({panel.get('kind', 'not filled')})")
             continue
         getattr(plot, fn)(ax, pd.read_csv(csv))
+    figure_legend(grid, spec)
     return grid
+
+
+def figure_legend(grid, spec):
+    """Colour key at the top right of the figure block (user 2026-11-16: one R+ / R- key for the whole figure instead
+    of 'Bars: R+ left, R- right' under panels). spec: figure_legend: [{label, color}, ...]."""
+    entries = spec.get("figure_legend")
+    if not entries:
+        return
+    import matplotlib as mpl
+    pw, ph = grid.page
+    right = grid.x0 - grid.pad_left + spec["grid"]["width_mm"]
+    top = grid.y0 - grid.row_gap - 6.0  # above the first row of panels and their titles
+    handles = [mpl.patches.Patch(color=e["color"], label=e["label"]) for e in entries]
+    grid.fig.legend(handles=handles, loc="lower right", bbox_to_anchor=(right / pw, 1 - top / ph), ncol=len(handles),
+                    frameon=False, fontsize=6, handlelength=1.2, handleheight=0.8, handletextpad=0.4, columnspacing=1.0,
+                    borderaxespad=0, borderpad=0)
 
 
 def generation_note(spec, out, grid, files, fig_dir):
