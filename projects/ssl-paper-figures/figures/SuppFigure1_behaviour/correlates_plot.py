@@ -73,6 +73,9 @@ def plot_bouts(ax, df):
 
 
 BODYPARTS = ("jaw", "nose", "whisker", "pupil")
+DLC_NAMES = {"posture": {"jaw": "Jaw opening", "nose": "Nose position", "whisker": "Whisker angle", "pupil": "Pupil area"},
+             "movement": {"jaw": "Jaw speed", "nose": "Nose speed", "whisker": "Whisker speed",
+                          "pupil": "Pupil area change"}}  # DLC names = body part + quantity (planner, user 2026-11-16)
 
 
 def plot_posture_curve(ax, df):
@@ -108,7 +111,8 @@ def plot_posture_curve(ax, df):
             if p < 0.05:
                 dots.text(i, 0.97, stars(p), transform=dots.get_xaxis_transform(), ha="center", fontsize=4.5)
         dots.axhline(0, color="0.6", lw=0.4, ls=":")
-        dots.set_xticks(range(4), [b.capitalize() for b in BODYPARTS], fontsize=4.2)
+        dots.set_xticks(range(4), [DLC_NAMES[kind][b] for b in BODYPARTS], fontsize=4.2, rotation=45, ha="right",
+                        rotation_mode="anchor")
         dots.set_xlim(-0.6, 3.6)
         dots.tick_params(labelsize=4.2)
         dots.set_ylabel(f"ρ(pre-stim. {kind}, W curve)", labelpad=1, fontsize=4.5)
@@ -133,6 +137,6 @@ def plot_posture_curve(ax, df):
             a.set_xticks([-10, 0, 10])
             a.tick_params(labelsize=4)
             a.yaxis.set_major_locator(fig1.mpl.ticker.MaxNLocator(3))
-            a.text(0.03, 0.97, bp.capitalize(), transform=a.transAxes, ha="left", va="top", fontsize=4.5)  # inside: no clash
+            a.text(0.03, 0.97, DLC_NAMES[kind][bp], transform=a.transAxes, ha="left", va="top", fontsize=4.5)  # inside: no clash
             a.set_xlabel("Lag (W trials)", fontsize=4.2, labelpad=0.5)
             a.set_ylabel("ρ", fontsize=4.5, labelpad=0.5)

@@ -23,7 +23,8 @@ TRIAL_TYPES = ["whisker_trial", "auditory_trial", "no_stim_trial"]
 TT_SHORT = {"whisker_trial": "W", "auditory_trial": "A", "no_stim_trial": "FA"}
 INDIVIDUAL = "0.72"  # grey for individual mice
 BODYPART = {"jaw_motion": "#8c510a", "nose_motion": "#01665e", "whisker_motion": "#5e3c99", "pupil_area": "#4d4d4d"}
-MOVEMENT_LABELS = {"jaw_motion": "Jaw", "nose_motion": "Nose", "whisker_motion": "Whisker", "pupil_area": "Pupil"}
+MOVEMENT_LABELS = {"jaw_motion": "Jaw speed", "nose_motion": "Nose speed", "whisker_motion": "Whisker speed",
+                   "pupil_area": "Pupil area"}  # DLC names = body part + quantity (planner, user 2026-11-16)
 
 
 def group_color(trial_type, cohort):
@@ -765,8 +766,8 @@ def plot_movement_rt(ax, df):
 GLM_LABELS = {"lick_whisker_trial_n-1": "Lick n-1", "lick_whisker_trial_n-2": "Lick n-2",
               "lick_whisker_trial_n-3": "Lick n-3", "spontaneous_lick_rate": "Spont. licks",
               "time_since_reward": "Time since rew.", "cumulative_reward_fraction": "Cum. reward",
-              "jaw_speed_pre": "Jaw", "nose_speed_pre": "Nose", "whisker_speed_pre": "Whisker",
-              "pupil_area_pre": "Pupil", "all_movement": "All mvt"}
+              "jaw_speed_pre": "Jaw speed", "nose_speed_pre": "Nose speed", "whisker_speed_pre": "Whisker speed",
+              "pupil_area_pre": "Pupil area", "all_movement": "All movement"}  # DLC names (planner, user 2026-11-16)
 
 
 def plot_glm_schematic(ax, df):
