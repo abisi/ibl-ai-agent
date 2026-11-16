@@ -118,6 +118,32 @@ def cluster_test(df, x, value, n_perm=1000, alpha=0.05, seed=0):
             for s, e, m in observed]
 
 
+def perm_test_per_x(df, x, value, n_perm=5000, seed=0, min_mice=8):
+    """User 2026-11-16: permutation test R+ vs R- at every x (trial resolution): statistic = difference of the cohort
+    means over mice; null = the same with the cohort (reward group) labels of the mice shuffled (one shuffle applied to
+    all x); two-sided p = (1 + #|null| >= |obs|) / (n_perm + 1). x values with fewer than `min_mice` mice in a cohort get
+    no test. Uncorrected over x. Returns a DataFrame [x, n_rplus, n_rminus, diff, p]."""
+    wide = df.pivot_table(index=["mouse_id", "cohort"], columns=x, values=value)
+    lab = wide.index.get_level_values("cohort").to_numpy()
+    data = wide.to_numpy(float)
+    ok = np.isfinite(data)
+
+    def diff(labels):
+        a, b = labels == "R+", labels == "R-"
+        with np.errstate(all="ignore"):
+            return np.nanmean(np.where(a[:, None], data, np.nan), 0) - np.nanmean(np.where(b[:, None], data, np.nan), 0)
+
+    obs = diff(lab)
+    rng = np.random.default_rng(seed)
+    exceed = np.zeros(len(obs))
+    for _ in range(n_perm):
+        exceed += np.abs(diff(rng.permutation(lab))) >= np.abs(obs) - 1e-12
+    n_p, n_m = ok[lab == "R+"].sum(0), ok[lab == "R-"].sum(0)
+    p = (1 + exceed) / (n_perm + 1)
+    p[(n_p < min_mice) | (n_m < min_mice)] = np.nan
+    return pd.DataFrame({x: wide.columns.to_numpy(), "n_rplus": n_p, "n_rminus": n_m, "diff": obs, "p": p})
+
+
 def cluster_p(df, x, clusters, alpha=0.05):
     """Permutation p of the significant cluster containing each row's x, nan elsewhere (planner 2026-11-12: significance
     bars annotated with their p-value)."""
@@ -558,25 +584,39 @@ def compute_perf_session(ctx):
     curve) against session time normalised from the first to the last whisker trial; cluster-based permutation test
     R+ vs R- within each group."""
     grid = np.round(np.arange(0, PERF_SESSION_END + 1e-9, 0.02), 3)  # planner 2026-11-11: last 15 % of session time cut
+    grid_hit = np.round(np.arange(-0.2, PERF_SESSION_END + 1e-9, 0.02), 3)  # first-hit alignment (user 2026-11-16)
     rows = []
     for sid, st in day0_table(ctx["table"]).groupby("session_id"):
         st = st[st.early_lick == 0].sort_values("start_time")
         curves, _, _ = session_curves(st, ctx)
         tw = st[st.trial_type == "whisker_trial"].start_time.to_numpy()
-        x = (tw - tw[0]) / (tw[-1] - tw[0])
-        perf = np.interp(grid, x, (curves.p_mean - curves.p_chance).to_numpy())
+        span = tw[-1] - tw[0]
+        x = (tw - tw[0]) / span
+        perf_w = (curves.p_mean - curves.p_chance).to_numpy()
         learner = bool(LEARNER.get(st.learning_category.iloc[0], False))
-        rows.append(pd.DataFrame({"mouse_id": st.mouse_id.iloc[0], "session_id": sid, "cohort": st.cohort.iloc[0],
-                                  "group": "learner" if learner else "non-learner",
-                                  "session_time_norm": np.round(grid, 3), "performance": perf}))
+        base = {"mouse_id": st.mouse_id.iloc[0], "session_id": sid, "cohort": st.cohort.iloc[0],
+                "group": "learner" if learner else "non-learner"}
+        rows.append(pd.DataFrame({**base, "alignment": "first_whisker_trial", "session_time_norm": np.round(grid, 3),
+                                  "performance": np.interp(grid, x, perf_w)}))
+        # user 2026-11-16: same, 0 = first whisker hit (same normalisation: the whisker period of the session)
+        hits = np.flatnonzero(curves.lick.to_numpy() == 1)
+        if len(hits):
+            xh = (tw - tw[hits[0]]) / span
+            inside = (grid_hit >= xh[0]) & (grid_hit <= xh[-1])
+            rows.append(pd.DataFrame({**base, "alignment": "first_whisker_hit", "session_time_norm": np.round(grid_hit, 3),
+                                      "performance": np.where(inside, np.interp(grid_hit, xh, perf_w), np.nan)}))
     df = pd.concat(rows, ignore_index=True)
     df["cluster_sig"] = False
     clusters, n = {}, {}
-    for grp, d in df.groupby("group"):
-        clusters[grp] = cluster_test(d, "session_time_norm", "performance")
-        df.loc[d.index, "cluster_sig"] = mark_clusters(d, "session_time_norm", clusters[grp])
-        df.loc[d.index, "cluster_p"] = cluster_p(d, "session_time_norm", clusters[grp])
-        n[grp] = n_by_cohort(d)
+    for (grp, align), d in df.groupby(["group", "alignment"]):
+        d = d.dropna(subset=["performance"])
+        enough = d.groupby(["session_time_norm", "cohort"]).mouse_id.nunique().unstack().reindex(columns=COHORTS).fillna(0).min(1)
+        d = d[d.session_time_norm.isin(enough[enough >= 8].index)]
+        key = f"{grp} {align}"
+        clusters[key] = cluster_test(d, "session_time_norm", "performance")
+        df.loc[d.index, "cluster_sig"] = mark_clusters(d, "session_time_norm", clusters[key])
+        df.loc[d.index, "cluster_p"] = cluster_p(d, "session_time_norm", clusters[key])
+        n[key] = n_by_cohort(d)
     return df, {"n": n, "clusters": clusters, "session_end": PERF_SESSION_END}
 
 
@@ -678,30 +718,25 @@ def compute_aligned_licks(ctx):
                 rel = np.arange(len(y)) - int(np.sum(np.asarray(out[tt]["start_time"]) < t_ref))
                 keep = (rel >= lo) & (rel <= hi)
                 common = {**base, "alignment": align, "trial_type": tt, "trial_from_alignment": rel[keep]}
-                rows.append(pd.DataFrame({**common, "kind": "data", "p_lick": y[keep]}))
-                cur = keep & (rel >= 0 if tt == "whisker_trial" else True)
-                rows.append(pd.DataFrame({**base, "alignment": align, "trial_type": tt, "kind": "curve",
-                                          "trial_from_alignment": rel[cur],
-                                          "p_lick": np.asarray(out[tt]["p_mean"])[cur]}))
+                rows.append(pd.DataFrame({**common, "kind": "data", "p_lick": y[keep]}))  # data only (user 2026-11-16)
     df = pd.concat(rows, ignore_index=True)
-    df["cluster_sig"], df["cluster_p"] = False, np.nan
-    clusters, n = {}, {}
-    x = "trial_from_alignment"
-    for (align, tt), g in df[df.kind == "data"].groupby(["alignment", "trial_type"]):
-        g = g[g[x] >= 0]
-        enough = g.groupby([x, "cohort"]).mouse_id.nunique().unstack().reindex(columns=COHORTS).fillna(0).min(1)
-        g = g[g[x].isin(enough[enough >= ALIGNED_MIN_MICE].index)]
-        key = f"{align} {tt}"
-        clusters[key] = cluster_test(g, x, "p_lick")
-        df.loc[g.index, "cluster_sig"] = mark_clusters(g, x, clusters[key])
-        df.loc[g.index, "cluster_p"] = cluster_p(g, x, clusters[key])
-        n[key] = n_by_cohort(g)
-    text = {k: "; ".join(f"trials {int(c['start'])} to {int(c['end'])}, P = {c['p']:.3g}" for c in cl if c["p"] < 0.05)
-            or "none" for k, cl in clusters.items()}
-    return df, {"n": n_by_cohort(df), "n_by_group": n, "clusters": clusters, "cluster_text": text,
-                "params": {"window_trials": list(ALIGNED_WINDOW), "min_mice_per_cohort": ALIGNED_MIN_MICE,
-                           "session": "untrimmed whisker day 0, early licks dropped", "test": "cluster permutation, "
-                           "Welch t, 1,000 permutations, from trial 0"}}
+    # user 2026-11-16: per-trial permutation test (reward-group labels shuffled), trial resolution, from trial 0
+    x, tests, n = "trial_from_alignment", [], {}
+    for (align, tt), g in df.groupby(["alignment", "trial_type"]):
+        t = perm_test_per_x(g[g[x] >= 0], x, "p_lick", min_mice=ALIGNED_MIN_MICE)
+        tests.append(t.assign(alignment=align, trial_type=tt, kind="perm_test"))
+        n[f"{align} {tt}"] = n_by_cohort(g)
+    tests = pd.concat(tests, ignore_index=True)
+    sig = {f"{a} {t}": [int(v) for v in g[g.p < 0.05][x]] for (a, t), g in tests.groupby(["alignment", "trial_type"])}
+    text = {k: _ranges_text(v) for k, v in sig.items()}
+    return pd.concat([df, tests], ignore_index=True), {
+        "n": n_by_cohort(df), "n_by_group": n, "sig_trials": sig, "sig_trials_text": text,
+        "params": {"window_trials": list(ALIGNED_WINDOW), "min_mice_per_cohort": ALIGNED_MIN_MICE,
+                   "session": "untrimmed whisker day 0, early licks dropped",
+                   "test": "per-trial permutation test, R+ minus R- mean, reward-group labels shuffled across mice, "
+                           "5,000 permutations, from trial 0, uncorrected over trials",
+                   "display": "mean over mice of the per-mouse lick fraction in bins of 5 trials (0-4, 5-9, ...; "
+                              "-10 to -6, -5 to -1 before)"}}
 
 
 FIRST_HIT_SUBPANELS = {"whisker": "whisker_trial", "auditory": "auditory_trial", "false_alarm": "no_stim_trial"}
@@ -1137,6 +1172,17 @@ def compute_glm_example(ctx):
                        "predicted_min": pr.min(axis=1).to_numpy(), "predicted_max": pr.max(axis=1).to_numpy(),
                        "observed_rolling10": pd.Series(y).rolling(10, center=True, min_periods=3).mean(),
                        "test_balanced_accuracy": float(res["result"].get("test_balanced_accuracy", np.nan))})
+    # user 2026-11-16: whisker exact learning curve instead of the rolling data
+    st = day0_table(ctx["table"])
+    curves, _, _ = session_curves(st[st.session_id == r.session_id], ctx)
+    if len(curves) == len(df) and (curves.lick.to_numpy() == y).all():
+        df["curve_p_mean"], df["curve_p_low"], df["curve_p_high"] = (curves.p_mean.to_numpy(), curves.p_low.to_numpy(),
+                                                                     curves.p_high.to_numpy())
+    else:  # different trial sets: curve on its own trials, matched by order of whisker trials
+        print("glm_example: curve and GLM trials differ", len(curves), len(df))
+        m = min(len(curves), len(df))
+        for c, col in (("curve_p_mean", "p_mean"), ("curve_p_low", "p_low"), ("curve_p_high", "p_high")):
+            df[c] = np.r_[curves[col].to_numpy()[:m], np.full(len(df) - m, np.nan)]
     return df, {"mouse_id": mouse, "n_whisker_trials": len(df), "test_auc": float(res["result"]["test_auc"]),
                 "test_balanced_accuracy": float(res["result"].get("test_balanced_accuracy", np.nan))}
 

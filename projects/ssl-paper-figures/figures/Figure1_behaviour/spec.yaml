@@ -146,7 +146,7 @@ panels:
   cell:
     x_mm: 59.0
     y_mm: 0.0
-    w_mm: 48.0
+    w_mm: 52.0
     h_mm: 40.0
 - id: c
   key: rt
@@ -169,7 +169,7 @@ panels:
     R- learner mice. Top bracket: whisker versus auditory with the cohorts pooled (paired Wilcoxon over mice; planner
     2026-11-12).'
   cell:
-    x_mm: 110.0
+    x_mm: 114.0
     y_mm: 0.0
     w_mm: 21.0
     h_mm: 40.0
@@ -190,9 +190,9 @@ panels:
     {cluster_text}.
     n = {n.R+.mice} R+ and {n.R-.mice} R- mice.'
   cell:
-    x_mm: 134.0
+    x_mm: 138.0
     y_mm: 0.0
-    w_mm: 49.0
+    w_mm: 45.0
     h_mm: 40.0
 - id: e
   key: ex_rplus_learner
@@ -250,8 +250,9 @@ panels:
   cell:
     x_mm: 0.0
     y_mm: 90.0
-    w_mm: 128.0
-    h_mm: 76.0
+    w_mm: 118.0
+    h_mm: 82.0
+    margins_mm: [7.5, 10.0, 3.0, 0.5]  # room for the binning note; same as H so rows align
 - id: h
   key: perf_session
   title: Performance across the session
@@ -267,10 +268,11 @@ panels:
     differ (cluster-based permutation test on Welch t, 1,000 permutations of cohort labels, cluster P < 0.05; clusters in
     the generation note). n = {n.learner.R+.mice} R+ and {n.learner.R-.mice} R- learner mice.
   cell:
-    x_mm: 132.0
+    x_mm: 121.0
     y_mm: 90.0
-    w_mm: 51.0
-    h_mm: 44.0
+    w_mm: 62.0
+    h_mm: 82.0
+    margins_mm: [7.5, 10.0, 3.0, 0.5]  # same as G so rows align (user 2026-11-16)
 - id: i
   key: rt_learning
   title: Reaction time and learning
@@ -322,19 +324,20 @@ panels:
     Welch {stats_rho.whisker_trial.rplus_vs_rminus.welch_p:p}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 0.0
-    y_mm: 172.0
-    w_mm: 46.0
-    h_mm: 40.0
+    y_mm: 178.0
+    w_mm: 42.0
+    h_mm: 44.0
+    margins_mm: [7.5, 6.0, 9.5, 0.5]  # stats text above the axes (user 2026-11-16)
 - id: j
   key: glm_schematic
   title: Behavioural GLM schematic
   data: Fig1_glm_schematic.csv
   status: filled
   cell:
-    x_mm: 49.0
-    y_mm: 172.0
-    w_mm: 27.0
-    h_mm: 40.0
+    x_mm: 45.0
+    y_mm: 178.0
+    w_mm: 40.0
+    h_mm: 44.0
   caption: 'Behavioural GLM: on each whisker trial of whisker day 0, a logistic regression predicts the lick from recent
     licking (licks on the previous 1-3 whisker trials), spontaneous lick rate, time since the last reward, cumulative
     reward fraction and pre-stimulus jaw, nose and whisker speed and pupil area. Example design matrix of the session in m
@@ -352,10 +355,10 @@ panels:
     10 cross-validation repeats (each repeat: 5 contiguous test blocks with shifted boundaries; band, range over
     repeats; cohort colour), and the observed lick rate (grey, 10-trial running mean).'
   cell:
-    x_mm: 79.0
-    y_mm: 172.0
-    w_mm: 34.0
-    h_mm: 40.0
+    x_mm: 88.0
+    y_mm: 178.0
+    w_mm: 32.0
+    h_mm: 44.0
 - id: l
   key: glm_fit
   title: GLM balanced accuracy
@@ -373,10 +376,10 @@ panels:
     {vs_baseline.R+.delta_auc_vs_baseline.wilcoxon_p:p}) and {vs_baseline.R-.delta_auc_vs_baseline.mean:+.3f} (R-,
     {vs_baseline.R-.delta_auc_vs_baseline.wilcoxon_p:p}).'
   cell:
-    x_mm: 116.0
-    y_mm: 172.0
-    w_mm: 16.0
-    h_mm: 40.0
+    x_mm: 123.0
+    y_mm: 178.0
+    w_mm: 14.0
+    h_mm: 44.0
 - id: m
   key: glm_weights_auc
   title: GLM weights and predictor importance (removed log-likelihood)
@@ -391,7 +394,7 @@ panels:
     over mice. Filled markers, different from zero within the cohort (Wilcoxon signed-rank, P < 0.05); asterisks, R+ versus
     R- (Mann-Whitney, P < 0.05; Welch tests in the generation note). n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
-    x_mm: 135.0
-    y_mm: 172.0
-    w_mm: 48.0
-    h_mm: 40.0
+    x_mm: 140.0
+    y_mm: 178.0
+    w_mm: 43.0
+    h_mm: 44.0
