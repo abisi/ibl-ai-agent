@@ -23,6 +23,19 @@ Added 2026-10-11: tongue out = P(tongue_likelihood >= LIK), not baseline-subtrac
   likelihood >= LIK); pupil area (pupil_likelihood >= LIK) as % change from the trial's [-0.5, 0) s mean; grid extended to +2 s.
 Output: across_days/<ref>/dlc_passive_pre/{traces.parquet, sessions.csv, dlc_passive_pre_<pop>.{png,pdf}}
 Run (haas): PRELICK_REF=sl PRELICK_UNITS=stable python .../113_dlc_passive_pre.py [--n-proc 20] [--replot] [--pop learners]
+v2 (2026-11-12, PRELICK_DLC=v2, dlc_version.py; user: "ALL analyses should use what is in NWB_ks4"): load_series -> load_series_v2,
+  every series from ephys_utilities dlc_helpers (NAS checkout first on PYTHONPATH, with NWB_reader for data_utils): load_dlc (mm,
+  converter jaw / nose reference fix) + clean_series default cleaning (no likelihood masking, gaps <= 50 ms interpolated; pupil with
+  the pupil QC frame states), each series on its own camera's timestamps; cameras listed in data_utils.VIDEO_EXCLUDED_SESSIONS dropped.
+    jaw opening        clean jaw_distance (mm, NWB conversion; no setup calibration); "jaw distance raw" = the same trace (mm)
+    whisker velocity   dh.derivative of clean whisker_angle (top camera, deg/s, NaN across missing frames); |.| = whisker speed
+    nose movement      |dh.derivative| of clean nose_angle (side camera, deg/s)
+    tongue out         dh.tongue_presence (tongue_likelihood > 0.6; v1: >= 0.5)
+    pupil area         clean_series pupil_area (mm^2, QC states blink / squint / failed NaN); trials kept only where
+                       dh.pupil_trial_ok over the event window (grid -0.5 .. +2.0 s: no blink / squint frame; sessions without QC: none)
+  Output: across_days/<ref>/dlc_passive_pre_v2/ (same files).
+Run v2 (haas): PYTHONPATH=/mnt/lsens-analysis/Axel_Bisi/Github/ephys_utilities:/mnt/lsens-analysis/Axel_Bisi/NWB_reader PRELICK_DLC=v2
+  PRELICK_REF=sl PRELICK_UNITS=stable python .../113_dlc_passive_pre.py
 """
 import argparse
 import importlib
@@ -39,7 +52,8 @@ sys.path.insert(0, str(HERE.parents[2] / "scripts"))
 import ssl_dlc_calibration as cal  # noqa: E402  pixel -> mm per setup and camera (skills/ssl-dlc-units)
 m105 = importlib.import_module("105_trial_rates")
 m51 = m105.m51
-OUT = m51.OUTROOT / "dlc_passive_pre"
+import dlc_version as dv  # noqa: E402  PRELICK_DLC switch (v1 default / v2 dlc_helpers)
+OUT = m51.OUTROOT / f"dlc_passive_pre{dv.DSUF}"
 GROUPS = [("R+", "learning"), ("R+", "expert"), ("R-", "learning"), ("R-", "expert")]
 LIK, GRID_DT, MAX_GAP, MIN_TR = 0.5, 0.005, 0.05, 3
 GRID = np.round(np.arange(-0.5, 2.0 + 1e-9, GRID_DT), 4)          # 2026-10-11: to +2 s for the pupil
@@ -73,8 +87,57 @@ def to_grid(t, v, events, base=BASE, grid=None):
     return out - np.nanmean(out[:, b], 1, keepdims=True)
 
 
+def load_series_v2(sid):
+    """v2 (PRELICK_DLC=v2): DLC series of a session from ephys_utilities dlc_helpers (see header); same return as load_series"""
+    from pynwb import NWBHDF5IO
+    dh, du = dv.dlc_helpers()
+    f = str(m51.NWB / f"{sid}.nwb")
+    try:
+        with NWBHDF5IO(f, "r", load_namespaces=True) as io:
+            tr = io.read().trials.to_dataframe()
+        excl = du.VIDEO_EXCLUDED_SESSIONS.get(sid, ((), ""))[0]
+        views = {k: v for k, v in dh.load_dlc(f).items() if k not in excl}
+    except Exception as e:  # noqa: BLE001
+        return dict(session_id=sid, error=repr(e)[:150]), None, {}
+    side, top = views.get("side"), views.get("top")
+    info = dict(session_id=sid, dlc="v2", video_excluded="/".join(excl),
+                dt_whisker=float(np.median(np.diff(top.timestamps))) if top is not None else np.nan,
+                dt_jaw=float(np.median(np.diff(side.timestamps))) if side is not None else np.nan,
+                flag_whisker="ok" if top is not None and "whisker_angle" in top.data else "missing",
+                flag_jaw="ok" if side is not None and "jaw_distance" in side.data else "missing",
+                frames_vs_timestamps_side=f"{side.n_frames_raw}/{side.n_timestamps_raw}" if side is not None else "",
+                frames_vs_timestamps_top=f"{top.n_frames_raw}/{top.n_timestamps_raw}" if top is not None else "",
+                fixed_reference="/".join((side.fixed_reference if side is not None else []) + (top.fixed_reference if top is not None else [])))
+    try:
+        info["setup"] = cal.setup_of(sid)                                  # informational only (v2 uses the NWB conversion)
+    except Exception:  # noqa: BLE001
+        info["setup"] = np.nan
+    series = {}
+    if top is not None and "whisker_angle" in top.data:
+        a, _ = dh.clean_series(top, "whisker_angle")
+        vel = dh.derivative(a, top.timestamps, "velocity")
+        series["whisker velocity"] = (top.timestamps, vel); series["|whisker velocity|"] = (top.timestamps, np.abs(vel))
+    if side is not None:
+        ts = side.timestamps
+        if "jaw_distance" in side.data:
+            j, _ = dh.clean_series(side, "jaw_distance")                   # mm
+            series["jaw distance raw"] = (ts, j); series["jaw opening"] = (ts, j)
+            lo_, hi_ = np.nanpercentile(j, [5, 95]); series["jaw opening (norm.)"] = (ts, j / max(hi_ - lo_, 1e-9))
+        if "tongue_likelihood" in side.likelihood:
+            series["tongue out"] = (ts, dh.tongue_presence(side))
+        if "nose_angle" in side.data:
+            a, _ = dh.clean_series(side, "nose_angle")
+            series["nose movement"] = (ts, np.abs(dh.derivative(a, ts, "velocity")))
+        if "pupil_area" in side.data:
+            p, _ = dh.clean_series(side, "pupil_area")                     # mm^2, pupil QC frame states applied
+            series["pupil area"] = (ts, p)
+    return info, tr, series
+
+
 def load_series(sid):
     """DLC series of a session (also used by 116): returns info, trials table, {measure: (timestamps, values)}; trials None on error"""
+    if dv.DLC == "v2":
+        return load_series_v2(sid)
     from pynwb import NWBHDF5IO
     try:
         with NWBHDF5IO(str(m51.NWB / f"{sid}.nwb"), "r", load_namespaces=True) as io:
@@ -173,6 +236,8 @@ def session(args):
                 R = to_grid(t, v, ev, None); b0 = np.nanmean(R[:, (GRID >= BASE_PUPIL[0]) & (GRID < BASE_PUPIL[1])], 1, keepdims=True)
                 G = 100 * G / np.where(b0 > 0, b0, np.nan)
             okt = np.isfinite(G).mean(1) > 0.5
+            if k == "pupil area" and dv.DLC == "v2":                       # v2: pupil QC per trial over the event window
+                okt &= dv.dlc_helpers()[0].pupil_trial_ok(sid, ev, window=(float(GRID[0]), float(GRID[-1])))
             if okt.sum() >= MIN_TR:
                 rows.append(dict(session_id=sid, stim=lab, measure=k, n_trials=int(okt.sum()), trace=np.nanmean(G[okt], 0).tolist()))
     info["n_pre_whisker"] = int((pre.trial_type == "whisker_trial").sum()); info["n_pre_auditory"] = int((pre.trial_type == "auditory_trial").sum())

@@ -11,6 +11,7 @@ usage: python run_missing_drift_tests.py [--mice MH020 ...] [--dry-run] [--n-wor
 import argparse
 import os
 import pathlib
+import re
 import time
 import sys
 
@@ -26,6 +27,9 @@ DATA = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/data")
 SHEET = pathlib.Path("/mnt/share_internal/Axel_Bisi_Share/dataset_info/joint_mouse_reference_weight.xlsx")
 
 
+SESSION_NWB_RE = re.compile(r"^[A-Za-z]+\d+_\d{8}_\d{6}\.nwb$")  # session files only, never *_backup_*.nwb
+
+
 def result_path(mouse, session_day):
     return RES / mouse / session_day / "single_neuron_motion_shift_test" / f"{mouse}_{session_day}_motion_shift_test_results.csv"
 
@@ -33,7 +37,7 @@ def result_path(mouse, session_day):
 def main(a):
     X = pd.read_excel(SHEET)
     mice = a.mice or sorted(X[(X.exclude == 0) & (X.exclude_ephys == 0) & X.reward_group.isin(["R+", "R-"])].mouse_id)
-    nwbs = sorted(str(NWB_DIR / n) for n in os.listdir(NWB_DIR) if n.split("_")[0] in mice)
+    nwbs = sorted(str(NWB_DIR / n) for n in os.listdir(NWB_DIR) if n.split("_")[0] in mice and SESSION_NWB_RE.match(n))
     trial_table, unit_table, _ = data_utils.combine_ephys_nwb(nwbs, day_to_analyze="all", max_workers=a.n_workers)
     unit_table["session_day"] = unit_table["behaviour"].astype(str) + "_" + unit_table["day"].astype(int).astype(str)
     keys = unit_table[["mouse_id", "session_id", "session_day"]].drop_duplicates()

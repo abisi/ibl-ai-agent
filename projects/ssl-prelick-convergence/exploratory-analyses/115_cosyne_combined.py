@@ -10,6 +10,8 @@ cohort and R+ vs R- per stage, Mann-Whitney (Welch in the csv), cohort x stage b
      the lick (116)
 Output: across_days/<ref>/publication/learners/COSYNE_combined.{png,pdf,svg} + COSYNE_combined_stats.csv
 Run (haas): PRELICK_REF=sl PRELICK_UNITS=stable python .../115_cosyne_combined.py
+v2 (2026-11-12): PRELICK_DLC=v2 -> panel i from across_days/sl_stable_jaw2/harmonised (087 v2), panel o from prelick_kinematics_v2 (116 v2);
+  output across_days/sl_stable/publication_v2/learners/ (publication/ untouched).
 """
 import importlib
 import pathlib
@@ -25,8 +27,9 @@ m62, m61, m51 = m88.m62, m88.m61, m88.m51
 m114 = importlib.import_module("114_ccgp_cue_sessions_equalised")
 COH, CL, GROUPS = m88.COH, m88.CL, m88.GROUPS
 HM = pathlib.Path.home() / "code/ibl-ai-agent/projects/ssl-hitmiss-axis-passive/exploratory-analyses"
-JAW = m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}_jaw"
-OUT = m51.OUTROOT / "publication" / "learners"
+import dlc_version as dv  # noqa: E402  v2 (PRELICK_DLC=v2): panel i from sl_stable_jaw2, panel o from prelick_kinematics_v2, OUT publication_v2
+JAW = m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}{dv.JAW_SFX['pre']}"
+OUT = m51.OUTROOT / f"publication{dv.DSUF}" / "learners"
 GREY = "0.55"
 
 
@@ -42,7 +45,7 @@ def load():
     d["cc"] = A[A.area == "Whole brain"]
     T = m61.learner_filter(pd.read_parquet(m51.OUTROOT / "ccgp_pub2" / "timecourse.parquet")); T["ex"] = T.CCGP - T.CCGP_null; d["tc"] = T
     d["eq"] = m61.learner_filter(pd.read_parquet(m114.OUT / f"sessions{m114.SFX}.parquet"))
-    K = m61.learner_filter(pd.read_csv(m51.OUTROOT / "prelick_kinematics" / "windows.csv"))
+    K = m61.learner_filter(pd.read_csv(m51.OUTROOT / f"prelick_kinematics{dv.DSUF}" / "windows.csv"))
     K = K.pivot_table(index=["session_id", "mouse_id", "cohort", "stage", "measure"], columns="cls", values="win").reset_index()
     d["kin"] = K[K.measure == "jaw opening"].assign(WH_AH=lambda q: q.WH - q.AH)
     return d

@@ -14,6 +14,8 @@ Jaw: 113 load_series "jaw opening" (mm re. the session's resting jaw) at the sam
 Statistics: 062 group_stats (MWU + Welch, mouse-level cohort x stage permutation), unit = session, learners rule.
 Output: <OUTROOT>/jaw_control/{sessions.csv, stats_<pop>.csv, jaw_control_<pop>.{png,pdf,svg}}
 Run (haas): PRELICK_REF=sl PRELICK_UNITS=stable PRELICK_SELECT=all python .../126_jaw_control.py [--n-proc 20] [--replot]
+v2 (2026-11-12): PRELICK_DLC=v2 -> jaw opening from 113 load_series_v2 (dlc_helpers clean jaw_distance in mm, no likelihood mask, minus
+  the session median), output jaw_control_v2/. Neural events, neurons and rates unchanged.
 """
 import argparse
 import importlib
@@ -35,7 +37,7 @@ m81 = importlib.import_module("081_single_unit_classes")
 m113 = importlib.import_module("113_dlc_passive_pre")
 m116 = importlib.import_module("116_prelick_kinematics")
 m127 = importlib.import_module("127_unified_single_neuron")
-OUT = m51.OUTROOT / "jaw_control"
+OUT = m51.OUTROOT / f"jaw_control{m113.dv.DSUF}"                # v2 (PRELICK_DLC=v2): jaw_control_v2, dlc_helpers jaw (113)
 WIN = (-0.1, 0.0)
 JAW_BIN, N_DRAW, MIN_UNITS = 0.2, 200, 3
 N_WH, N_AH, N_SL = m127.N_WH, m127.N_AH, m127.N_SL

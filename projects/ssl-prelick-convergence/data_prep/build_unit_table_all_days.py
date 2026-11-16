@@ -19,9 +19,11 @@ import json
 import os
 import pathlib
 import pickle
+import re
 import sys
 import time
 
+import h5py
 import numpy as np
 import pandas as pd
 
@@ -49,12 +51,15 @@ def atomic_pickle(obj, path):
     os.replace(tmp, path)
 
 
+SESSION_NWB_RE = re.compile(r"^[A-Za-z]+\d+_\d{8}_\d{6}\.nwb$")  # session files only, never *_backup_*.nwb
+
+
 def main():
     t0 = time.time()
     X = pd.read_excel(INFO_PATH / "joint_mouse_reference_weight.xlsx").rename(columns={"mouse_name": "mouse_id"})
     X = X.drop_duplicates("mouse_id").set_index("mouse_id")
     sel = X[(X.exclude == 0) & (X.exclude_ephys == 0) & X.reward_group.isin(["R+", "R-"])]
-    nwb_names = os.listdir(NWB_DIR)
+    nwb_names = [n for n in os.listdir(NWB_DIR) if SESSION_NWB_RE.match(n)]
     subject_ids = [m for m in sel.index if m not in EXCLUDED_MICE and any(n.startswith(m + "_") for n in nwb_names)]
     nwb_list = sorted(str(NWB_DIR / n) for n in nwb_names if n.split("_")[0] in subject_ids)
     print(f"{len(subject_ids)} subjects, {len(nwb_list)} NWB files", flush=True)
@@ -76,7 +81,17 @@ def main():
     unit_table["cluster_id"] = unit_table["cluster_id"].astype(str); dredge["cluster_id"] = dredge["cluster_id"].astype(str)
     unit_table = unit_table.merge(dredge, on=KEYS, how="left", validate="one_to_one")
     no_drift = sorted(unit_table.groupby("session_id").drift_abs_r.apply(lambda s: s.isna().all()).pipe(lambda s: s[s].index))
-    unit_table = unit_metrics_utils.compute_presence_coverage_metrics(unit_table)
+    # time without recording (joined sessions, BehavioralEpochs 'recording_gap', e.g. AB155_20250208_175103) is removed
+    # before presence / coverage (ephys_utilities >= 393fa7d: run with PYTHONPATH=<NAS ephys_utilities checkout>)
+    gaps = {}
+    for f in nwb_files:
+        with h5py.File(f, "r") as h:
+            k = "processing/behavior/BehavioralEpochs/recording_gap/timestamps"
+            if k in h:
+                ts = h[k][()]
+                gaps[pathlib.Path(f).stem] = list(zip(ts[0::2], ts[1::2]))
+    print(f"recording gaps excluded from presence / coverage: {gaps}", flush=True)
+    unit_table = unit_metrics_utils.compute_presence_coverage_metrics(unit_table, exclude_intervals=gaps)
     unit_table = unit_metrics_utils.classify_units_quality(unit_table, label_col="quality_label")
     # rule 2: mouse-level cohort from the sheet (encoded like the session field: 1 = R+, 0 = R-)
     sess = unit_table.groupby(["mouse_id", "session_id", "day"]).reward_group.first().reset_index()

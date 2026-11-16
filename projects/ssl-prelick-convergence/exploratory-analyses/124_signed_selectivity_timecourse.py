@@ -10,6 +10,8 @@ permutation (N_PERM); bins with p < 0.05 marked.
 Also: the median jaw-onset lead per cohort x stage (118 events) drawn as the expected jaw-opening time.
 Output: <OUTROOT>/single_neuron_signed/timecourse_<pop>.{png,pdf,svg}, timecourse_<pop>.csv
 Run (haas): PRELICK_REF=sl PRELICK_UNITS=stable python .../124_signed_selectivity_timecourse.py [--pop learners|all]
+v2 (2026-11-12): PRELICK_DLC=v2 -> jaw lead lines from across_days/sl_stable_jaw2/jaw_onsets/events.csv (118 v2, dlc_helpers onsets);
+  outputs timecourse_<pop>_v2.{png,pdf,svg,csv} (selectivity data unchanged, 095).
 """
 import argparse
 import importlib
@@ -27,6 +29,7 @@ m51, m81 = m95.m51, m95.m81
 m61 = importlib.import_module("061_roc_prelick_learners")
 m62 = importlib.import_module("062_pub_convergence_figures")
 OUT = m51.OUTROOT / "single_neuron_signed"
+import dlc_version as dv  # noqa: E402  v2 (PRELICK_DLC=v2): jaw lead from the 118 v2 events (_jaw2), outputs timecourse_<pop>_v2
 N_PERM = 2000
 COH = {"R+": "#00B400", "R-": "#C800C8"}
 PAIRS = [("WS", "s_WS (WH vs SL)"), ("WA", "s_WA (WH vs AH)"), ("AS", "s_AS (AH vs SL)")]
@@ -54,7 +57,7 @@ def main(a):
     D = D[D.nclass.isin(m81.CLASSES) & (D.nclass != "sensory") & D.cohort.isin(["R+", "R-"])]
     if a.pop == "learners":
         D = m61.learner_filter(D)
-    E = pd.read_csv(m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}_jaw" / "jaw_onsets" / "events.csv").dropna(subset=["lead"])
+    E = pd.read_csv(m51.HOME / "across_days" / f"{m51.REF}{m51.USUF}{dv.JAW_SFX['pre']}" / "jaw_onsets" / "events.csv").dropna(subset=["lead"])
     meta = D.drop_duplicates("session_id")[["session_id", "cohort", "stage"]]
     lead = E.merge(meta, on="session_id").groupby(["cohort", "stage", "session_id"]).lead.median().groupby(["cohort", "stage"]).median() * 1e3
     rng = np.random.default_rng(1)
@@ -98,8 +101,8 @@ def main(a):
                  "coloured squares: day 0 vs expert p < 0.05 (MWU); black: cohort × stage p < 0.05; vertical lines: median jaw-opening onset",
                  fontsize=5.6, y=0.995)
     for ext in ["png", "pdf", "svg"]:
-        fig.savefig(OUT / f"timecourse_{a.pop}.{ext}", dpi=300)
-    R = pd.DataFrame(rows); R.to_csv(OUT / f"timecourse_{a.pop}.csv", index=False)
+        fig.savefig(OUT / f"timecourse_{a.pop}{dv.DSUF}.{ext}", dpi=300)
+    R = pd.DataFrame(rows); R.to_csv(OUT / f"timecourse_{a.pop}{dv.DSUF}.csv", index=False)
     print("median jaw lead (ms)\n", lead.round(0).to_string())
     for pair in ["WS", "WA"]:
         for c in ["R+", "R-"]:

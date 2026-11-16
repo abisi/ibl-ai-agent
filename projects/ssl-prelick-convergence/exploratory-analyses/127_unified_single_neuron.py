@@ -203,6 +203,9 @@ def meta_all():
     ref = X.reward_group.where(X.reward_group.isin(["R+", "R-"]) & ~flag("exclude") & ~flag("exclude_ephys"))
     ss["cohort"] = ss.mouse_id.map(ref); ss["sheet_group"] = ss.mouse_id.map(X.reward_group)
     ss["stage"] = np.where(ss.day.astype(int) == 0, "learning", "expert")
+    # dataset rule 2: day-0 sessions of mice with recording != 1 are excluded (AB105_20240314, user 2026-11-06)
+    rec = ss.mouse_id.map(X.recording).fillna(0).astype(float) if "recording" in X else 1.0
+    ss.loc[(ss.stage == "learning") & (rec != 1), "cohort"] = np.nan
     return ss
 
 

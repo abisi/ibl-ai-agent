@@ -54,7 +54,14 @@ def mouse_cohort(U, out):
     bad = S[S.status != "ok"]
     if len(bad):
         print("[053] cohort check (sheet wins):\n" + bad.to_string(index=False), flush=True)
-    return U.mouse_id.map(ref)
+    cohort = U.mouse_id.map(ref)
+    # dataset rule 2 (ssl_dataset_inclusion.md): day-0 sessions of mice with recording != 1 are excluded (e.g. AB105, user
+    # 2026-11-06: excluded from ephys analyses); expert sessions are kept whatever `recording` says
+    rec = U.mouse_id.map(X.recording).fillna(0).astype(float) if "recording" in X else pd.Series(1.0, index=U.index)
+    drop = (U.stage == "learning") & (rec != 1)
+    if drop.any():
+        print(f"[053] day-0 sessions excluded (recording != 1): {sorted(U.loc[drop, 'session_id'].unique())}", flush=True)
+    return cohort.where(~drop)
 
 
 def stable_relabel(W):

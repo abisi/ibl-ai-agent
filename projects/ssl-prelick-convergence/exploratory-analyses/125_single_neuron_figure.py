@@ -17,6 +17,8 @@ Examples: 123 units (all events), non-sensory, reward-lick (s_AS > 0, p < 0.05),
 (session_id,electrode_group,cluster_id).
 Output: <OUTROOT>/single_neuron_signed/fig_single_neuron_<pop>.{png,pdf,svg}, _examples.csv, _stats.csv, _areas.csv
 Run (haas): PRELICK_REF=sl PRELICK_UNITS=stable python .../125_single_neuron_figure.py [--pop learners]
+v2 (2026-11-12): PRELICK_DLC=v2 ... 125_single_neuron_figure.py --jaw-only -> fig_jaw_control_<pop>_v2 from prelick_kinematics_v2 (116 v2)
+  and jaw_control_v2 (126 v2); the single-neuron figure itself is not redrawn.
 """
 import argparse
 import importlib
@@ -36,6 +38,7 @@ m61 = importlib.import_module("061_roc_prelick_learners")
 m62 = importlib.import_module("062_pub_convergence_figures")
 st26 = importlib.import_module("026_roc_rates_all_sessions")
 OUT = m51.OUTROOT / "single_neuron_signed"
+import dlc_version as dv  # noqa: E402  v2 (PRELICK_DLC=v2): --jaw-only, inputs prelick_kinematics_v2 / jaw_control_v2, fig_jaw_control_<pop>_v2
 COH = {"R+": "#00B400", "R-": "#C800C8"}
 DAY0 = {"R+": "#6BB36B", "R-": "#BB6BBB"}            # same hue, desaturated (40 % colour + 60 % grey)
 CL = {"AH": "#2c2cdb", "WH": "#f7b519", "FA": "#262626"}
@@ -353,13 +356,24 @@ def jaw_figure(plt, T, J, rng, pop):
     for ax, l in [(axc[0], "a"), (axs[0], "b"), (axs[2], "c")]:
         fig.text(ax.get_position().x0 - 0.04, 0.86, l, fontsize=9, weight="bold", va="top")
     for ext in ["png", "pdf", "svg"]:
-        fig.savefig(OUT / f"fig_jaw_control_{pop}.{ext}", dpi=300)
-    pd.DataFrame(m62.STATS).to_csv(OUT / f"fig_jaw_control_{pop}_stats.csv", index=False)
+        fig.savefig(OUT / f"fig_jaw_control_{pop}{dv.DSUF}.{ext}", dpi=300)
+    pd.DataFrame(m62.STATS).to_csv(OUT / f"fig_jaw_control_{pop}{dv.DSUF}_stats.csv", index=False)
     plt.close(fig)
 
 
 def main(a):
     plt = m62.setup()
+    assert a.jaw_only or dv.DLC == "v1", "PRELICK_DLC=v2 only with --jaw-only (the other panels do not use DLC; never overwrite them)"
+    if a.jaw_only:
+        m116 = importlib.import_module("116_prelick_kinematics")
+        T = pd.read_parquet(m116.OUT / "traces.parquet"); T = T[T.cohort.isin(["R+", "R-"])]
+        J = pd.read_csv(m51.OUTROOT / f"jaw_control{dv.DSUF}" / "sessions.csv"); J = J[J.cohort.isin(["R+", "R-"])]
+        if a.pop == "learners":
+            T, J = m61.learner_filter(T), m61.learner_filter(J)
+        jaw_figure(plt, T, J, np.random.default_rng(1), a.pop)
+        print(pd.DataFrame(m62.STATS)[[c for c in ["panel", "mean_R+ learning", "mean_R+ expert", "mean_R− learning", "mean_R− expert", "interaction_p_perm",
+                                                   "R+ L vs E p_MWU", "R+ L vs E p_Welch", "learning R+ vs R- p_MWU"] if c in pd.DataFrame(m62.STATS)]].round(4).to_string())
+        print("ALL DONE (jaw only)", OUT); return
     U = pd.read_parquet(OUT / "units.parquet")
     U = U[U.cohort.isin(["R+", "R-"])]
     if a.pop == "learners":
@@ -457,4 +471,5 @@ def main(a):
 if __name__ == "__main__":
     p = argparse.ArgumentParser(); p.add_argument("--pop", default="learners", choices=["learners", "all"])
     p.add_argument("--ex0", default=""); p.add_argument("--ex1", default="")
+    p.add_argument("--jaw-only", action="store_true", help="only the jaw-control figure (fig_jaw_control_<pop>[_v2]); required with PRELICK_DLC=v2")
     main(p.parse_args())

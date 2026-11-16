@@ -17,6 +17,9 @@ Figure: rows = measures; columns 1-4 = R+ day 0, R+ expert, R- day 0, R- expert 
 cohort x stage by mouse permutation); WH - SL in the csv.
 Output: across_days/<ref>/prelick_kinematics/{traces.parquet, windows.csv, stats_<pop>.csv, prelick_kinematics_<pop>.{png,pdf,svg}}
 Run (haas): PRELICK_REF=sl PRELICK_UNITS=stable python .../116_prelick_kinematics.py [--n-proc 20] [--replot]
+v2 (2026-11-12): PRELICK_DLC=v2 -> 113 load_series_v2 (ephys_utilities dlc_helpers on the NWB_ks4 files: jaw_distance in mm from the
+  NWB conversion, no likelihood masking; tongue out = tongue_likelihood > 0.6; whisker / nose speed from dh.derivative), output
+  prelick_kinematics_v2/. Jaw opening still relative to the session median (resting jaw). Run with the PYTHONPATH of 113 v2.
 """
 import argparse
 import importlib
@@ -31,7 +34,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 m113 = importlib.import_module("113_dlc_passive_pre")
 m105, m51 = m113.m105, m113.m51
-OUT = m51.OUTROOT / "prelick_kinematics"
+OUT = m51.OUTROOT / f"prelick_kinematics{m113.dv.DSUF}"     # v2 (PRELICK_DLC=v2): prelick_kinematics_v2, dlc_helpers series (113)
 GRID = np.round(np.arange(-0.5, 0.2 + 1e-9, 0.005), 4)
 WIN = (-0.1, 0.0)
 MEAS = [("jaw opening", "jaw opening (mm)"), ("tongue out", "P(tongue out)"), ("|whisker velocity|", "whisker speed (°/s)"),
