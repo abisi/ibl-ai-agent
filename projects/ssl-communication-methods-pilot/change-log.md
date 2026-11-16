@@ -1,0 +1,55 @@
+# Change log
+
+- **2026-11-05: project created and the overnight pilot run.**
+  - **Synthetic validation (001).**
+    - Ensemble Granger recovers coupling strength and direction: A→B rises from 0.017 to 0.069 with coupling, and net TRGC is positive only with coupling.
+    - PCA→CCA detects coupling moderately: 0.12 against a 0.02 null at coupling 1.
+    - RRR is the least sensitive at 10-ms bins and about 10 Hz rates: 0.004 against 0.
+    - The first CCA implementation pooled held-out projections across folds, whose signs are arbitrary. It was fixed to average the per-fold correlations.
+    - RRR and CCA samples were changed from one count per trial to trial × 10-ms-bin rows, with folds still split by trial.
+  - **Pilot run (002).** 16 sessions (8 R+, 8 R- learners), 2 draws each, 4-15 min per session on haas, no errors.
+  - **Aggregation (003).**
+    - The summary table's s.e.m. was first computed over rows, not mice. It now uses mouse-level s.e.m. and gives n per condition.
+    - Whisker hits in R- mice: only 3 of 8 mice have at least 30 hit trials, so that condition is underpowered.
+  - **Results (exploratory).**
+    - All three methods show communication above the trial-shuffle null in every pair and condition. It is strongest after the stimulus on hit trials.
+    - The within-area ceiling is about twice the between-area value.
+    - Regressing out jaw and whisker movement barely changes RRR or CCA.
+    - Firing rates are similar between cohorts.
+    - 4 R+ vs R- clusters reach p < 0.05 out of about 72 time-resolved tests, which is at chance level. They are scattered: 3 on auditory hits and 1 in the pre-stimulus period. There is no consistent cohort difference.
+    - Methods agree only partly (Spearman over pairs × conditions × windows): RRR-CCA 0.48, RRR-Granger 0.29, CCA-Granger 0.17.
+- **2026-11-06: method benchmark, coverage and the full-dataset run (user: "proceed autonomously, benchmark methods, include CCA, pCCA").**
+  - **New in `comm_lib`:**
+    - lagged RRR, and lagged RRR conditioned on the target's past and the rest of the recording;
+    - pCCA through the vendored `partial_CCA` 0.1.0, cross-validated here;
+    - a lagged CCA scan, conditional Granger, and a gain-corrected residual option.
+  - **005 benchmark:** 7 ground-truth scenarios × coupling × bin size, 30 simulated sessions per cell, 40 shuffles.
+    - Lagged RRR gives the best power and direction.
+    - The conditioned lagged RRR is the robustness control: it removes recorded common input and most shared gain.
+    - Gain correction was dropped.
+    - Every method is fooled by unrecorded common input.
+  - **006 coverage:**
+    - 89 day-0 sessions; 84 have a jaw-onset table.
+    - R- whisker licks with at least 15 trials: 28 sessions (41 in R+).
+    - Frontal pairs have 5–7 sessions per cohort.
+  - **Pre-registration:** the hypothesis test v2 in `question.md`.
+  - **007 full run launched on haas; 008 stats script written.**
+  - **haas:** the root disk was full (72 MB free); cleared the user's own pip cache (5.6 GB).
+- **2026-11-09: 007 finished (56 sessions, no errors; the 57th "done" line in the log is the AB127 quick test, excluded by 008); 008 run for learners (49 sessions) and all mice (56).**
+  - No pre-registered prediction (P1-P3b) survives FDR in either set; only a few uncorrected p < 0.05. The P2 hits are R+ > R-, opposite to the prediction.
+  - The thalamus → SSp-w positive control is weak: positive in R+ only in the pre window (learners: A_hit p = 0.039, W_nolick p = 0.047; all mice: W_nolick p = 0.012), never after the stimulus.
+  - 009 summary figures (dataset, selection funnel, pipeline, benchmark, forest plot, positive control) in `summary_figures/`.
+  - Caveats found while making them: at 15 trials per draw the 005 benchmark gives lagged RRR only ~17% power at coupling 0.5, so the test is underpowered; the early window reaches 250 ms, past the median jaw onset (~190-205 ms); 006 and 007 count units with different firing-rate definitions.
+- **2026-11-09: time-resolved RRR across all v3 area groups (010, 011; Wu & Pillow 2025).**
+  - The run covers 82 day-0 sessions on haas.
+  - A quick test on AB127 shows held-out R² above the shuffle null after the stimulus on whisker licks (about 0.02-0.04 against 0).
+  - **Run results.** 82 sessions ran without errors. The learners analysis has 62 sessions (R+ 30, R- 32) across 10 area groups. 96 cells (condition × ordered pair) had at least 3 sessions per cohort.
+  - **Both cohorts.** Held-out R² and CF rise after the stimulus on whisker licks and auditory hits. Excess R² is small (about 0.01-0.04) and the rank is about 1.5.
+  - **Cohort differences.** Only 3 cohort clusters have p < 0.05, none survive BH, and no epoch test survives BH. This is at chance level.
+  - **Pair-level differences.** The largest R+ vs R- differences (e.g. Mot-Fr → Str-Pal, MB → HPC, TH → HPC) are present before the stimulus, and many pairs have only 3-4 sessions in a cohort. They most likely reflect which sessions and recording sites each cohort has, not task-related communication.
+  - **Whisker-lick minus auditory-hit interaction.** Str-Pal → Mot-Fr late: p = 0.013 Mann-Whitney, 0.026 Welch, q = 0.36. Not significant after correction.
+  - **Fix.** The matrix colormap was inverted in the first render; corrected so that green means R+ > R-.
+- **2026-11-10: v3 method comparison + seven-area analysis + report (016, 017, report/).**
+  - 016 run on all 87 day-0 sessions, seven area groups (comm_v3_seven) and all v3 groups (comm_v3_all): RRR, CCA, partial CCA, partial RRR (residualised on top 5 PCs of the rest), unique ΔR², same draws. 014/015 rerun for the seven groups (cd_coupling_seven). Stats via 013/015 (COMM_RUN / CD_RUN), figures via 017 (report_figures/fig_communication_comm_v3_{seven,all}_{learners,all_mice}).
+  - Learners (seven groups, R+ 33 / R− 35): RRR/ceiling rise on whisker and auditory hits equal in both cohorts; partial methods leave ~10 % of the rise and 0/40 pairs with a significant rise; method agreement with RRR ρ 0.22–0.62. Only multi-method pair-level difference: MB ↔ Frontal, WL−WN late, R+ > R− (CCA/ceiling, pCCA q < 0.05; RRR uncorrected). Hit−miss CD coupling rise R+ > R− (p 0.014) gone after partialling the rest; pre-lick coupling vs gain larger in R− (p < 0.001).
+  - Report: report/build_report.py + render.sh (report_lib), first build -> combined_results_ks4/ssl-communication-methods-pilot/report/ (pdf, md, html; 1 main figure, 1 supplementary, 3 tables). Earlier stages (002–013) superseded, kept in their folders.

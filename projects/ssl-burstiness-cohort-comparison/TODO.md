@@ -1,0 +1,18 @@
+# TODO
+
+- [X] Plan approved (2026-08-26); project scaffolding created.
+- [X] `000_burst_lib.py`: burst-labeling function (ISI<=10ms run, tail>15ms), continuous burstiness, burst index (response/baseline), dead-zone excision. Sanity-tested against hand-crafted synthetic spike trains (all edge cases pass: ambiguous 10-15ms tail correctly rejected, end-of-recording burst correctly accepted).
+- [X] `001_small_subset_load.py`: loaded 3 learning (AB080/AB082/AB085) + 3 expert (MH001/MH019/MH021, MH019 fully excluded by mouse filters) known-ephys sessions via `combine_ephys_nwb`/`classify_units_quality`/`process_allen_labels(split_merge_areas=True)`, mouse filters applied (exclude/exclude_ephys/R+proba), reference-sheet `reward_group`/`learning_category` merged. 4366 units total.
+- [X] `002_intermediate_report.py` + `artifacts/intermediate_report.html`: burst-detection validation figures + example burst-coding neurons + sanity scatter. Two real bugs found and fixed during this checkpoint (see report's own "Issues found and fixed" section): (1) `cluster_id` not session-unique in this Path B unit table (fixed via `unit_uid` composite key), (2) degenerate `burst_index`=+-1.0 at very low spike counts (fixed with a >=15-spikes-per-window floor for example selection; still present, unflagged, in the full unfiltered population -- open item for the full-scale run).
+- [X] **CONSULT USER**: user approved ("Ok yes. Go.") without specifying low-count handling; locked a default (see change-log) and proceeded.
+- [X] `003_full_scale_compute.py`: full population, both arms (learning 129,127 units / expert 44,678 units), with tqdm progress bar (added per user request). Vectorized `000_burst_lib.py`'s per-trial loops (verified equivalent to the loop version before running at scale).
+- [X] `004_statistics.py` + `permanova.py` (local copy): 24-combination statistics matrix. Found and fixed a real performance bug in the reused `permanova.py` (see change-log) -- reduced runtime from an estimated ~4h to a few minutes. 6/24 combinations PERMANOVA-significant; 0 areas survive BH-FDR post-hoc in any of them.
+- [X] `005_motion_control.py`: no significant burstiness-vs-motion/licking correlation in any arm/tier (all p>0.05); learning/good showed a non-significant trend (rho=-0.22, p=0.077) with orofacial motion.
+- [X] `006_report.py` -> `report.html`: full write-up with distributions, statistics summary, motion control.
+- [X] Distribution/proportion battery (009), per-area distribution plots (011), other-analyses survey, full-population temporal dynamics (013/014) + unit-level validation gallery (012) + intermediate report (015).
+- [X] Post-first-hit re-analysis (016-022): first-hit detection (cohort-corrected), full scalar metrics + statistics (no BH-FDR) + movement correlation (direct answer: no) + temporal dynamics, all restricted to post-hit data. Two bugs found/fixed (compressed-dataset context normalization gap; pandas/scipy map-with-None dtype issue). Both established findings (expert burst_index_whisker; learning burst_index_auditory) replicate cleanly. Final report: `artifacts/posthit_report.html`.
+- [ ] Full-scale load: both day-stages, mouse filters, both population scopes, both quality tiers.
+- [ ] Statistics matrix (24 combinations): global test + PERMANOVA + gated post-hoc.
+- [ ] Motion/licking control: check `ssl_behavior`/`events.parquet` for DLC keypoints / piezo lick events; compute correlation.
+- [ ] `report.html`: full write-up with all figures, statistics summary table, exploratory framing.
+- [ ] Privacy checklist before anything leaves local environment.

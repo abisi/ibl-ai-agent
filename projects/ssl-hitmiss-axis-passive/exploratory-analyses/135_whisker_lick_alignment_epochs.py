@@ -71,6 +71,10 @@ TAG = TAG + ("_harm" if HARM else "")
 # (no division by the unit SD; the class means are still differenced, so centring does not matter); suffix _raw.
 RAW = bool(os.environ.get("SSL_135_RAW"))
 TAG = TAG + ("_raw" if RAW else "")
+# 2026-11-11 (user: "use the fine area labels if possible"): SSL_135_AREA=area_acronym_custom runs the per-area rows on the fine
+# custom acronyms instead of area_group (whole brain unchanged); outputs carry the suffix _fine
+AREA_COL = os.environ.get("SSL_135_AREA", "area_group")
+TAG = TAG + ("_fine" if AREA_COL != "area_group" else "")
 OUT_PATH = OUT / f"135_alignment_epochs{TAG}{STAGE_SFX}.parquet"
 SET_IDS = {}
 
@@ -203,7 +207,7 @@ def process(args):
     spikes = T.load_session_unit_spikes(root, sid)
     base = dict(session_id=sid, mouse_id=subject, reward_group=rg)
     sl = labels[labels.session_id == sid]
-    areas = [("whole_brain", "All units")] + [("area_group", a) for a in sorted(sl["area_group"].dropna().unique())]
+    areas = [("whole_brain", "All units")] + [(AREA_COL, a) for a in sorted(sl[AREA_COL].dropna().unique())]
     rows = []
     for area_col, area in areas:
         if UNITSET == "tracked":                  # shared Part III tracked stable units (tracked_units.py / 137b), taken as is

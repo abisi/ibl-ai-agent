@@ -23,3 +23,8 @@
       ROC definitions confirmed by user (gated = choice & hit_vs_spont & !whisker_sensory & !spont_licks_vs_cr;
       sensory = passive_pre|passive_post|active; modality = any of 3 wh_vs_aud epochs; either direction).
 - [~] matrix_summary for qc_good__* variants (running); qc_good_mua__* chained after EDA (~/tmp/chain_matrix_summary_20260926.sh)
+- [ ] REMINDER (user 2026-11-12): clean up the rastermap clustering analyses (45 exploratory scripts, many superseded variants
+      and _stopped / _test folders in combined_results_ks4/rastermap_variants; population_matrix_summary.py duplicated here and
+      in unit_spikes_analysis/rastermap_psth). Remind at the next rastermap / Figure 2 work.
+- [~] 045_metacluster_description.py (2026-11-12): Figure 2 metacluster description prototype, N_TOP largest metaclusters,
+      variant qc_good__learncat_good_moderate__grid10_nodes__lickfix -> _publication_layout_preview/.

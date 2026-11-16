@@ -55,6 +55,13 @@ def main():
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
     sess = sess[(sess.day_stage == TU.STAGE) & sess.reward_group.isin(["R+", "R-"])]
     S = S[S.session_id.isin(sess.session_id) & S.stable]
+    # passive pre / post selection with ephys_utilities data_utils.keep_passive_data (mice with passive pre AND post data,
+    # passive-excluded probes such as AB155_20250208_175103 imec4; user 2026-11-09: use my utils only). NAS checkout:
+    # the passive exclusions there may not be pushed yet.
+    from axel_bisi_paths import axel_bisi_root
+    sys.path.insert(0, str(axel_bisi_root() / "Github" / "ephys_utilities"))
+    from ephys_utilities.helpers.data_utils import keep_passive_data
+    S = keep_passive_data(S)
     args = [(sid, g.cluster_id.to_numpy()) for sid, g in S.groupby("session_id")]
     print(f"[137b] {len(args)} sessions", flush=True)
     keep = {}

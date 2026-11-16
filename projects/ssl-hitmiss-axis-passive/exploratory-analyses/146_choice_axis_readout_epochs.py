@@ -66,7 +66,10 @@ PILOT = [s for s in os.environ.get("SSL_146_SESSIONS", "").split(",") if s]
 # 2026-10-05: SSL_STAGE=expert runs the same analysis on expert sessions (control); outputs carry the suffix _expert
 STAGE = os.environ.get("SSL_STAGE", "learning")
 STAGE_SFX = "" if STAGE == "learning" else f"_{STAGE}"
-OUT_PATH = OUT / ("146_choice_axis_readout_pilot.parquet" if PILOT else f"146_choice_axis_readout{STAGE_SFX}.parquet")
+# 2026-11-11 (user: fine area labels): SSL_146_AREA=area_acronym_custom groups units by the fine custom acronyms (label table)
+AREA_COL = os.environ.get("SSL_146_AREA", "area_group")
+AREA_SFX = "" if AREA_COL == "area_group" else "_fine"
+OUT_PATH = OUT / ("146_choice_axis_readout_pilot.parquet" if PILOT else f"146_choice_axis_readout{AREA_SFX}{STAGE_SFX}.parquet")
 
 
 def _init():
@@ -350,6 +353,9 @@ def main():
     import ssl_timeresolved_decoding as T
     # 2026-10-05: the shared Part III tracked units (tracked_units.py / 137b; "same stable units throughout")
     S = importlib.import_module("tracked_units").load_table()
+    if AREA_COL != "area_group":
+        L = pd.read_parquet(T.AREA_LABELS_PATH, columns=["session_id", "cluster_id", AREA_COL])
+        S = S.drop(columns=[AREA_COL], errors="ignore").merge(L, on=["session_id", "cluster_id"], how="left")
     root = resolve_dataset_dir("ssl_ephys")
     sess = T.hitmiss_session_list(pd.read_parquet(root / "metadata" / "sessions.parquet"))
     sess = sess[(sess.day_stage == STAGE) & sess.reward_group.isin(["R+", "R-"])]
@@ -365,7 +371,7 @@ def main():
         for u in UNIT_SETS:
             su = s[s[u]]
             sets[(u, "whole_brain")] = su.cluster_id.to_numpy()
-            for ag, g in su.groupby("area_group"):
+            for ag, g in su.groupby(AREA_COL):
                 if len(g) >= MIN_UNITS:
                     sets[(u, ag)] = g.cluster_id.to_numpy()
         args.append((r.session_id, r.subject_id, r.reward_group, sets))
