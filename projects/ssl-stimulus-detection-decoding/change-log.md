@@ -24,3 +24,23 @@
   corrected accuracy above task in passive (median +0.011, p = 0.007; midbrain +0.04, pallidum +0.065): candidate cause =
   fixed 3-s passive ITI (stimulus windows end at a predictable stimulus, shams 0.8 s earlier; time since previous stimulus
   ~2.85 vs ~2.05 s).
+- 2026-10-20 06:31 All runs done (`~/log/cDet.log`: N = 200 for both levels and 4 conditions, N sweep); the figure watcher finished
+  (`~/log/cDetFig.log`; the 006 / 009 errors of 10-16 were fixed in ea05277, later runs clean).
+- 2026-10-23 User: 100 iterations x 10 shifts are the final repetitions for this analysis (no 500 x 20 run; 005 / 007 not needed).
+- 2026-10-23 010 figures (user): OLS line of each measure on log10 projection with 95 % CI (solid only if p < 0.05), Pearson r
+  on log density + Spearman rho in each panel title, unreliable onsets drawn open (not tested); area-group labels in the
+  area's colour; fine areas: legend of the group colours. Tests unchanged.
+- 2026-10-23 010 (user): Liu et al. do not mask their injection sites, so at the fine-area level SSp-bfd units take the wS2
+  value only and SSs units the wS1 value only (as the Allen leave-own-source-out); area groups keep the grouped wS1 + wS2 value
+  (`liu_ipsi_grouped` saved too). Injection sites ringed in every panel (Ss-whisker / SSp-bfd / SSs; Auditory / AUD; Liu
+  figures: whisker sites); grouped injection sizes under each figure (Allen: whisker 89 exp., 27 lines, median 0.092 mm^3;
+  auditory 31 exp., 20 lines, median 0.085 mm^3; Liu: 37 x 25 nl, 6 lines). Liu vs Allen whisker input across areas:
+  fine rho = 0.52 (p = 0.001), groups rho = 0.47 (p = 0.07); main disagreements DMS / VS / MO-ALM (Liu: one CP / frontal value)
+  and RT / GPe / VT / SSp-oro (Allen high).
+- 2026-10-23 First report (report/build_report.py + render.sh; skills/project-report): passive, task, comparison, with the
+  whisker and auditory targets side by side; onset vs early information; presence vs identity onsets (identity project N = 200
+  finals); anatomy (Allen + Liu, specificity control). 7 main + 9 supplementary figures, 4 + 4 tables, 3 equations, claims
+  registry, frozen statistics (report/_snapshots/2026-10-23/), summary.md. Not included (in the result folders): summary
+  figures, per-N curves, area rankings, the other conditions' N effect. Matched accuracy (003) pending (~/cDetMatched.sh);
+  the report says so and adds Figure 6 / Table 5 when matched_accuracy_check.csv exists. Published to the private reports repo.
+- 2026-10-24 Matched-accuracy runs (003) finished; report rebuilt with Figure 6 / Table 5, onsets at the matched N added to Table 5 and summarised in the text (computed: onset range narrower at matched accuracy in 5 of 6 target x reference comparisons, up to 12 ms left vs 26 ms at N = 100; Midbrain earliest in 5 of 6). Matched control removed from the open questions. Published (reports repo bea67d0).

@@ -46,6 +46,9 @@ TESTED = {"whisker": "dens_whisker_incl", "auditory": "dens_auditory_incl", "liu
 MIN_MAPPED = 0.5                       # Liu value used only if >= 50 % of the area's units fall in a Liu target structure
 MATCH = {"whisker": "whisker", "auditory": "auditory", "liu": "whisker"}                  # target each source should predict
 MODALITY_SOURCES = {"whisker": ["SSp-bfd", "SSs"], "auditory": ["AUDp", "AUD-sec"]}
+# injection sites marked in every plot (user 2026-10-23): area groups = the grouped site, fine areas = the single sites
+INJ_SITES = {"whisker": {"Somatosensory-whisker", "SSp-bfd", "SSs"}, "auditory": {"Auditory areas", "AUD", "AUDp", "AUD-sec"}}
+LIU_OWN = {"SSp-bfd": "liu_s2_ipsi", "SSs": "liu_s1_ipsi"}   # fine areas: a Liu injection site takes the other site's value
 N_MAIN = 200
 TARGETS, EPOCHS = ("whisker", "auditory"), ("active", "passive")
 MEASURES = {"early": "Early accuracy 5-50 ms", "peak": "Peak accuracy", "onset": "Onset (ms)"}
@@ -75,16 +78,23 @@ def anatomy():
         U[f"dens_{mod}_incl"] = np.nanmean(D, 1)
     for k, v in liu_units(U, ml).items():
         U[k] = v
+    # Liu et al. do not mask the injection site, so SSp-bfd / SSs targets hold their own injection (user 2026-10-23): for fine
+    # areas, units in SSp-bfd take the wS2 value only and units in SSs the wS1 value only (as the Allen leave-own-source-out);
+    # area groups keep the grouped wS1 + wS2 value (Ss-whisker = the grouped injection site)
+    U["liu_ipsi_fine"] = U.liu_ipsi
+    for t, c in LIU_OWN.items():
+        U.loc[U.liu_target == t, "liu_ipsi_fine"] = U.loc[U.liu_target == t, c]
     rows = []
     for level, col in (("area_group", "area_group"), ("area_acronym_custom", "area_acronym_custom")):
         for a, g in U[U[col].isin(AR.LEVELS[level])].groupby(col):
             rows.append(dict(level=level, area=a, n_units=len(g), **{f"dens_{s}": g[f"dens_{s}"].mean() for s in SOURCES},
                              **{f"dens_{m}_incl": g[f"dens_{m}_incl"].mean() for m in MODALITY_SOURCES},
                              **{f"zone_{s}": g[f"zone_{s}"].mean() for s in SOURCES},
-                             liu_ipsi=g.liu_ipsi.mean(), liu_s1_ipsi=g.liu_s1_ipsi.mean(), liu_s2_ipsi=g.liu_s2_ipsi.mean(),
+                             liu_ipsi=g["liu_ipsi" if level == "area_group" else "liu_ipsi_fine"].mean(),
+                             liu_ipsi_grouped=g.liu_ipsi.mean(), liu_s1_ipsi=g.liu_s1_ipsi.mean(), liu_s2_ipsi=g.liu_s2_ipsi.mean(),
                              liu_mapped=g.liu_ipsi.notna().mean()))
     A = pd.DataFrame(rows)
-    A.loc[A.liu_mapped < MIN_MAPPED, ["liu_ipsi", "liu_s1_ipsi", "liu_s2_ipsi"]] = np.nan     # area mostly outside Liu's targets
+    A.loc[A.liu_mapped < MIN_MAPPED, ["liu_ipsi", "liu_ipsi_grouped", "liu_s1_ipsi", "liu_s2_ipsi"]] = np.nan     # area mostly outside Liu's targets
     return A
 
 
@@ -162,36 +172,88 @@ def tests(A, D):
     return pd.DataFrame(rows), M
 
 
+# Liu et al. 2024 (Methods / Results): 25 nl AAV per injection, one depth per Cre line, 37 injections (18 SSp-bfd, 19 SSs)
+LIU_INJ = "Liu et al. wS1 + wS2: 37 injections (18 SSp-bfd, 19 SSs) of 25 nl, 6 Cre lines; values = axon voxels per labelled cell"
+
+
+def injection_text(src):
+    """grouped injection sizes (user 2026-10-23: always the grouped version): Allen per modality = all experiments of its
+    sources (injection_volume from the Allen API, mm^3); Liu = both sites"""
+    if src == "liu":
+        return LIU_INJ
+    E = pd.read_csv(ZONES.parent / "projection_experiments.csv")
+    E["mod"] = E.source.map({s: m for m, ss in MODALITY_SOURCES.items() for s in ss})
+    out = []
+    for m, g in E.groupby("mod", sort=False):
+        v = g.injection_volume.astype(float)
+        out.append(f"{m} ({' + '.join(MODALITY_SOURCES[m])}): {len(g)} experiments, {g.line.nunique()} lines, injection volume "
+                   f"median {v.median():.3f} mm$^3$ (IQR {v.quantile(.25):.3f}-{v.quantile(.75):.3f})")
+    return "Allen injections, " + "; ".join(out)
+
+
 XNAME = {"allen": "projection density from the stimulus' cortex\nat recorded units (Allen)",
-         "liu": "wS1 + wS2 ipsi projection\n(Liu et al. 2024)"}
+         "liu": "wS1 + wS2 ipsi projection\n(Liu et al. 2024)",
+         "liu_fine": "wS1 + wS2 ipsi projection (Liu et al. 2024;\nSSp-bfd: wS2 only, SSs: wS1 only)"}
 
 
 def figure(plt, M, T, level, col, src):
     """rows: target x epoch; columns: measures; x: Allen density of the target's own cortex (src "allen") or Liu wS1 + wS2
-    ipsi projection for both targets (src "liu"; auditory rows = specificity control)"""
-    fig, axs = plt.subplots(len(TARGETS) * len(EPOCHS), len(MEASURES), figsize=(S.W_IN, 7.0), squeeze=False)
+    ipsi projection for both targets (src "liu"; auditory rows = specificity control).
+    Per panel (user 2026-10-23): areas coloured as everywhere (area groups exact palette, fine areas shades of their group),
+    OLS line of the decoding measure on log10 projection with its 95 % CI (solid only if Pearson p < 0.05; the line is the
+    Pearson r on log density, Spearman rho given too), points excluded from the test drawn open (unreliable onsets);
+    area groups: labels in the area's colour; fine areas: legend of the group colours."""
+    from matplotlib.lines import Line2D
+    from matplotlib.ticker import FuncFormatter, MultipleLocator
+    par, pal = AR.allen_parent()
+    fig, axs = plt.subplots(len(TARGETS) * len(EPOCHS), len(MEASURES), figsize=(S.W_IN, 8.2), squeeze=False)
+    key_of = lambda t: t if src == "allen" else "liu"
+    shown = set()
     for i, (t, e) in enumerate([(t, e) for t in TARGETS for e in EPOCHS]):
         g = M[(M.target == t) & (M.epoch == e) & (M.level == level)]
-        key = t if src == "allen" else "liu"
+        key = key_of(t)
         for j, mname in enumerate(MEASURES):
             ax = axs[i, j]
-            x, y = g[TESTED[key]], g[mname]
-            ax.scatter(x, y, s=10, c=[col.get(a, "0.5") for a in g.area], lw=0)
-            for a, xx, yy in zip(g.area, x, y):
-                if np.isfinite(xx) and np.isfinite(yy) and xx > 0 and level == "area_group":
-                    ax.text(xx, yy, " " + S.SHORT.get(a, a), fontsize=3.6, va="center")
-            ax.set_xscale("log")
+            x, y = g[TESTED[key]].to_numpy(float), g[mname].to_numpy(float)
+            ok = np.isfinite(x) & np.isfinite(y) & (x > 0)
+            used = ok.copy()
+            if mname == "onset" and "onset_flag" in g:                  # same points as tests()
+                used &= ~g.onset_flag.fillna(True).to_numpy(bool)
+            lx = np.log10(np.where(ok, x, np.nan))
+            c = np.array([col.get(a, "0.5") for a in g.area], object)
+            shown.update(g.area[ok])
+            st = S.corr_panel(ax, lx[used], y[used], colors=c[used], sizes=np.full(used.sum(), 12))
+            inj = ok & g.area.isin(INJ_SITES[t if src == "allen" else "whisker"]).to_numpy()
+            ax.scatter(lx[inj], y[inj], s=42, facecolors="none", edgecolors="k", lw=0.6, zorder=4)
+            drop = ok & ~used
+            if drop.any():
+                ax.scatter(lx[drop], y[drop], s=12, facecolors="none", edgecolors=c[drop].tolist(), lw=0.6, zorder=3)
+            if level == "area_group":
+                S.label_points(ax, lx[ok], y[ok], [S.short(a) for a in g.area[ok]], c[ok].tolist(), fontsize=3.8)
+            ax.xaxis.set_major_locator(MultipleLocator(1))
+            ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"$10^{{{v:.0f}}}$"))
             if mname == "onset":
                 ax.invert_yaxis()
-            r = T[(T.target == t) & (T.epoch == e) & (T.level == level) & (T.source == key) & (T.measure == mname)]
-            if len(r):
-                ax.set_title(f"rho = {r.spearman_rho.iloc[0]:+.2f}, p = {r.spearman_p.iloc[0]:.3f} (n = {r.n_areas.iloc[0]})", fontsize=4.8)
+            if st["n"] >= 4:
+                ax.set_title(f"r = {st['r']:+.2f}, {S.fmt_p(st['p'])}   rho = {st['rho']:+.2f}, {S.fmt_p(st['p_rho'])}"
+                             f"   (n = {st['n']})", fontsize=4.8)
             ax.set_ylabel((f"{t} vs no stim., {e}\n" if j == 0 else "") + MEASURES[mname], fontsize=5)
-            ax.set_xlabel(XNAME[src], fontsize=4.6)
+            ax.set_xlabel(XNAME["liu_fine" if src == "liu" and level != "area_group" else src], fontsize=4.6)
     what = "Allen projection density from the stimulus' own cortex" if src == "allen" else "wS1 + wS2 ipsilateral projections (Liu et al. 2024)"
-    fig.suptitle(f"Stimulus-presence decoding vs {what}, {level} (N = {N_MAIN}; source areas included; onset axis inverted)",
-                 fontsize=6.5, x=0.02, ha="left", weight="bold")
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.suptitle(f"Stimulus-presence decoding vs {what}, {level} (N = {N_MAIN}; source areas included; onset axis inverted;"
+                 f" open = unreliable onset, not tested)", fontsize=6.5, x=0.02, ha="left", weight="bold")
+    ring = Line2D([], [], ls="", marker="o", ms=6, mfc="none", mec="k", mew=0.6, label="injection site")
+    if level != "area_group":
+        groups = [gr for gr in AR.COARSE if any(par.get(a) == gr for a in shown)]
+        hs = [Line2D([], [], ls="", marker="o", ms=4, mfc=pal[gr], mec="none", label=S.short(gr)) for gr in groups] + [ring]
+        fig.legend(handles=hs, loc="lower center", bbox_to_anchor=(0.5, 0.02), ncol=7, fontsize=5, frameon=False,
+                   title="area group (fine areas in shades of their group's colour)", title_fontsize=5.2)
+        bottom = 0.085
+    else:
+        fig.legend(handles=[ring], loc="lower center", bbox_to_anchor=(0.5, 0.01), fontsize=5, frameon=False)
+        bottom = 0.03
+    fig.text(0.5, 0.0, injection_text(src), ha="center", va="bottom", fontsize=4.8)
+    fig.tight_layout(rect=(0, bottom, 1, 0.97))
     S.save(fig, OUTA / "figures", f"anatomy_{src}_vs_decoding_{level}")
     plt.close(fig)
 
