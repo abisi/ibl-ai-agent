@@ -38,7 +38,9 @@ Canonical record of dataset-level decisions for all SSL analyses (created 2026-1
 
 ## Known metadata errors and decisions (keep this list current)
 Per-session NWB conversion exceptions (camera runs, DLC timestamps, json overrides, skipped probes, epochs) are listed
-in `nwb_session_exceptions.md`.
+in `nwb_session_exceptions.md`. Sessions whose side / top video is unusable are in `ephys_utilities` `data_utils.
+VIDEO_EXCLUDED_SESSIONS` (applied by `keep_video_mice` / `dlc_helpers`); current table and the 2026-11-16 dataset-wide
+DLC alignment audit in `nwb_session_exceptions.md` ("Dataset-wide DLC alignment audit").
 
 | item | issue | decision |
 |---|---|---|

@@ -16,7 +16,8 @@ code they change. Raw files (session_config.json, results.csv, videos, probe she
 | `camera_from_log_sessions` (camera timestamps from the behaviour log, mapped to imec through the trial TTLs) | `utils/ephys_converter_misc.py` (`extract_ephys_timestamps`) | MH038_20250524 (NIDQ camera channels only 56,558 pulses; log 711,761 = DLC frames) |
 | `session_config_corrected.json` (raw data folder, preferred by the converter) | `/data/<mouse>/Training/<session>/` | MH037_20250524 / 25, MH038_20250524 / 25, MH039_20250525: `camera_flag` 0 -> 1 (videos and DLC valid: frames = camera pulses +-2); NWBs rebuilt with DLC 2026-11-02 |
 | `end_aligned_dlc_sessions` (last DLC frame <-> last camera timestamp; the camera pulsed before the first saved frame) | `converters/DLC_to_nwb.py` | MH013_20250218 (side 882, top 868 leading timestamps dropped), MH036_20250517 (side 510, top 515); rebuilt 2026-11-03, verified with 006 (NWB pairing = best offset - 3..8 frames in every third). AB153_20250209 top (47), AB127_20240823 top (video 2542 frames longer than the pulses: first 2542 frames dropped), AB153_20250209 side (47); rebuilt 2026-11-03 (after: AB127 top offset 6/7/6, AB153 side 5/6/4). AB153 top added 2026-11-03 (user) and rebuilt; after: the same metrics peak at 13-18, as in MH009. Evidence: 007 top metrics vs licks (37 licks) peak 43-49 frames later than the same metrics in control MH009 (whisker_angle, whisker_base_y, whisker_tip_y, top_particle_y, top_nose_base_y / tip_y), i.e. end-aligned (+47); whisker stimuli (38) inconclusive. Backups: <session>_backup_20261103.nwb (AB153 also _1126, side-only intermediate) |
-| `piecewise_dlc_sessions` (reconverted 2026-11-03; lick-locked tongue latency per third after: MH013 -13/+23/+23 ms, MH017 -24/-18/+1, MH004 -17/-21/-33, AB116 (from 2,175 s) -31/-12/-12) (frames dropped during the video: per camera, (first DLC frame, offset pulse - frame) segments) | `converters/DLC_to_nwb.py` | MH013_20250219 (side 7 steps 0 -> 206 frames, top 0 -> 214), MH017_20250302 (side 38 -> 130, top 38 -> 127, 3 steps only), MH004_20241206 (one drop at frame 509,751 / 2,549 s: side +55, top +95), AB116_20240726 (end-aligned, DLC NaN before frame 434,963 / 2,175 s: continuous drops, not recoverable; clause `dlc_unusable_before`); ssl-dlc-alignment-debug 008 (lick-locked tongue, side lead 5 frames; top on the side step times). Not corrected: AB092_20231205 / AB095_20231212 (in register wherever there is licking; the earlier drift came from late windows without licks), AB085_20231005 (user: SSD full, the NIDQ stopped logging camera pulses before the video ended; start-aligned as stored, frames after the last pulse have no timestamp) |
+| `piecewise_dlc_sessions` (frames dropped in chunks during the video: per camera, (first DLC frame, offset pulse - frame) segments; the pulses have no gaps, the video records no per-frame time, so steps are inferred from the data) | `converters/DLC_to_nwb.py` | **Side re-fitted 2026-11-16** (ssl-dlc-alignment-debug 010, all piezo licks; the 008 fits of 2026-11-03 missed the final step; steps sum to pulses - frames): MH013_20250219 side 8 steps 0 -> +684 (final step at frame 1,112,830), MH017_20250302 side 8 steps +4 -> +552 (final step at frame 453,065), AB092_20231205 side (new) one 813-frame drop at frame 654,713; reconverted and swapped 2026-11-16 (backups `NWB_ks4_backup_20261116/`, `swap_log.tsv`); jaw-lick consistency 96 / 94 / 91 %. Their **top cameras are excluded** (`VIDEO_EXCLUDED_SESSIONS`; top clauses of MH013 / MH017 unchanged and incomplete). **Top step from the top vs side nose-tip lag** (014 / 015, 2026-11-16): AB094_20231211 top +16 at frame 118,750 (617.7 s), AB087_20231017 top +18 at frame 752,038 (3,782.4 s); swapped, top vs side lag 0 after. Unchanged from 2026-11-03 (008): MH004_20241206 (one drop at frame 509,751: side +55, top +95; side verified 2026-11-16). AB116_20240726: end-aligned, DLC NaN before frame 434,963 / 2,175 s (continuous drops, not recoverable; clause `dlc_unusable_before`). Not corrected: AB085_20231005 (user: SSD full, the NIDQ stopped logging camera pulses before the video ended; start-aligned, slow side drift 0 -> ~+25 frames accepted by the user 2026-11-16), AB095_20231212 top (constant ~+13 frames, excluded) |
+| `behaviour_type` override (session_config.json value) | `utils/behavior_converter_misc.py` | AB131_20240904 (`behaviour_type` set to `auditory`) |
 | `TOP_VIDEO_NAMED_SIDE_SESSIONS` | `utils/ephys_converter_misc.py` | MH020_20250306, MH021_20250309 / 0311, MH022_20250309 / 0311, MH023_20250316 / 0318, MH025_20250421, MH026_20250425, MH027_20250422, MH028_20250501, MH030_20250501 |
 
 ## Camera / DLC rules (converter, 2026-11-02)
@@ -40,8 +41,8 @@ code they change. Raw files (session_config.json, results.csv, videos, probe she
   sessions, 040, and by full test reconversions, 044). Frame counts are unchanged except where the old DLC did not match
   the video (MH064 0116 +1, MH070 0121 -3, MH017 0302 top +5: the new rows = video frames).
 - `tongue_dlc_licks` / `jaw_dlc_licks` are stored in video time (frame index / frame rate), not session time; the offset
-  is the time of the first camera timestamp of the session (e.g. 275.2 s in MH067_20260120). No downstream code found
-  (NWB_converter, Axel_Bisi/Github, ibl-ai-agent) that adds it: add `timestamps[0]` of the side-view series before use.
+  is the time of the first camera timestamp of the session (e.g. 275.2 s in MH067_20260120). Use
+  `ephys_utilities.helpers.dlc_helpers.get_dlc_lick_times(nwb_file)`, which puts them on the session clock.
 
 ## DLC frame -> camera pulse checks (2026-11-02)
 Per-session verdicts: `combined_results_ks4/ssl-dlc-alignment-debug/tables/session_verdicts.csv`; offset curves
@@ -74,8 +75,8 @@ video, decodes to the end): rerun side DLC on the 14-03-31 file. The NWB links a
 | MH065_20260114_154021 | video (671,385 frames) matches neither pulse run (891,327 + 431,279) |
 | MH020_20250304_161732 (top), MH006_20250123_131233 | DLC / video length != pulses, no run matches |
 | AB155_20250208_175103 | resolved 2026-11-06: the video spans both runs; joined DLC + camera on / off pulses removed per part (frames = DLC rows), see "AB155 day-0 merge" |
-| single-run sessions with tens to thousands of missing frames (AB092, AB095, MH013 0218, MH036 0517, MH009 0206, AB151, ...) | location of the missing frames unknown; table `combined_results_ks4/ssl-dlc-alignment-debug/tables/camera_run_scan.csv` |
-| MH028_20250503_112316 | both DLC files named `side`; the top-camera video was probably tracked with the side model |
+| single-run sessions with tens to thousands of missing frames (AB092, AB095, MH013 0218, MH036 0517, MH009 0206, AB151, ...) | resolved 2026-11-16 by the dataset audit (014): fixed by clauses (MH013 0218 / MH036 0517 end-aligned; AB092 side piecewise), top excluded (AB092, AB095), or in register with the extra pulses / frames at the end (MH009 0206, AB151); see "Dataset-wide DLC alignment audit" |
+| MH028_20250503_112316 | both DLC files named `side`; the top-camera video was probably tracked with the side model. Top still excluded (2026-11-16: top vs side lag flat at 0, but whisker base confident in only 20 % of frames) |
 
 ## Top camera rotated 180 deg (setup 2; clause `top_rotated_180_sessions` in `converters/DLC_to_nwb.py`, confirmed by the user on video frames 2026-11-03)
 Top view nose up / spout from the top (setup 1: nose down), identified from DLC (top_nose_tip_y - top_nose_base_y) and
@@ -93,6 +94,9 @@ Top DLC failed (check 2026-11-09 on the shuffle5 best-540 top filtered.h5): MH00
 0422, MH027_20250422 have 0% frames with both nose likelihoods >= 0.6 (median nose_tip 0.15-0.46, nose_base
 0.08-0.54, whisker_tip 0.01-0.58), so the check returns "undetermined" and the keypoints stay unrotated. Their top
 kinematics in the NWB are not usable; they are NOT in ephys_utilities VIDEO_EXCLUDED_SESSIONS (pending user decision).
+**Resolved 2026-11-16:** with the merged-model DLC (NWBs reconverted 2026-11-11) these 5 sessions track well (top nose
+98-100 %, whisker base 74-99 %, particle 78-98 % of frames >= 0.6) and the converter check rotated them: every NWB_ks4
+top camera is upright (median top nose_tip_y - nose_base_y +45..+107 px over 261 sessions, 014). No exclusion needed.
 Check of the NWB_ks4 files (2026-11-09; converted 2026-11-03 with the session list, MH007 0203 on 2026-11-04): the 10
 well-tracked upside-down sessions are upright in the NWB (median top nose_tip_y - nose_base_y +49..+60 px over
 confident frames, as in setup 1 sessions); the current data-based check gives the same rotation for them, so no
@@ -236,9 +240,53 @@ copied (byte-identical) into Axel_Bisi/data/<mouse>/<session>/Video, where the c
 reruns not recorded in the file names (user: same keypoints, fine). All 18 NWBs reconverted 2026-11-04 (previous NWBs
 kept as *_backup_20261104*.nwb); pupil QC to be rerun on them (QC frames are matched to the NWB keypoints).
 No top reruns for the upside-down setup-2 sessions (user, 2026-11-09): the converter orientation check (section "Top
-camera rotated 180 deg") rotates top keypoints when needed; the 5 sessions with failed top DLC keep their old files.
+camera rotated 180 deg") rotates top keypoints when needed; the 5 sessions with failed top DLC keep their old files
+(superseded: all DLC re-inferred with the merged model on 2026-11-11; the 5 now track well, see that section).
 - camera_flag corrected 0 -> 1 (user, 2026-11-04) for MH018_20250301_190738 and AB105_20240315_124421 (both day +1,
   behaviour only): cameras were triggered normally (log_continuous cam1 / cam2: 228,836 / 433,428 pulses from 3.0 s =
   video frames = DLC rows). Edited in lsens-data `{Recording,Training}/<session>/session_config.json` (originals kept as
   `session_config_backup_20261104.json`) and in the converter yaml (Axel_Bisi/data, backup `*_backup_20261104.yaml`);
   NWBs reconverted (frames = pulses, side lick offset 5 / 3 frames), pupil QC pass (99.3 / 98.5% valid).
+
+## Dataset-wide DLC alignment audit (2026-11-16, ssl-dlc-alignment-debug 010-015)
+Supersedes the drift verdicts of 005 / 008 (`tables/session_verdicts.csv` is kept as history; its AB095 top "drift"
+and AB154 top "partial DLC" rows are out of date). Audit 014 on all 952 NWB_ks4 files (263 with DLC), on the stored
+timestamps: side residual lag vs piezo licks over the session (aligned = flat at +3..+9 frames, tongue before contact),
+per-trial jaw opening - first lick, top vs side residual lag from nose-tip speed seen by both cameras (aligned = flat at
+0), frames vs timestamps, gaps, coverage, top orientation. Outputs `combined_results_ks4/ssl-dlc-alignment-debug/audit_014/`.
+- Cause of the drifts: the camera pulse trains are complete and regular; the recording software dropped video frames
+  (chunks; nothing in the AVI / VLC-converted MP4 records where), so the converter's frame i <-> pulse i pairing shifts
+  after each drop. Distinct from the start-offset sessions (pulses before the video: end-alignment is exact there).
+- Side cameras: all aligned except those excluded or fixed above. Two lag bands ~28 frames apart (one lick cycle at
+  ~7 Hz, e.g. AB126 0824, AB129 0829, AB152 0129, MH064 0116, MH013 0218, AB118 0730) are aliasing of rhythmic licking,
+  not drift; AB122 0806, MH034 0514, MH062 0110, MH038 0524 checked on per-trial jaw-lick timing: constant.
+- Top cameras: fixed by a top step (AB094 1211, AB087 1017, see `piecewise_dlc_sessions`); excluded: MH013 0219, MH017
+  0302, AB092 1205, AB095 1212 (2026-11-16). The top camera has no stimulus-locked marker on the MH rig (012); the AB
+  2023 rig shows a stimulus-locked artefact on whisker and auditory trials (not a whisker deflection).
+- All 261 top cameras upright. AB102 0309 / 0310, AB104 0313 / 0314, AB105 0314 / 0315, AB107 0318: 100 Hz cameras.
+- Ignored (user 2026-11-16): auditory pre-training NWBs with DLC data but no DLC timestamps (AB116 0718 / 0719, AB117
+  0717 / 0718 / 0719): not used.
+- AB096 0221 (two sessions; not part of the SSL dataset): top vs side unreliable (few accepted windows); not checked further.
+
+### Video exclusions (`ephys_utilities.helpers.data_utils.VIDEO_EXCLUDED_SESSIONS`, state 2026-11-16)
+| session | side | top | reason |
+|---|:-:|:-:|---|
+| AB077_20230531 | x | x | no DLC in the NWB |
+| AB080_20230622 | x | x | no DLC in the NWB |
+| AB082_20230630 | | x | top camera never saved |
+| AB105_20240314 | | x | no top DLC in the NWB |
+| AB135_20241111 | x | x | no DLC in the NWB |
+| MH019_20250306 | x | x | no DLC in the NWB |
+| MH064_20260117 | x | | side camera never saved |
+| MH065_20260115 | x | x | no DLC in the NWB |
+| MH064_20260114 | x | x | video 72,191 frames longer than pulses; pairing breaks in the last third |
+| MH065_20260114 | x | x | video matches neither camera pulse run |
+| MH006_20250123 | x | x | DLC / video length != pulses, no run matches |
+| MH020_20250304 | | x | top DLC / video length != pulses |
+| MH028_20250503 | | x | top video probably tracked with the side model |
+| MH017_20250302 | | x | top frames dropped in chunks; top clause misses the final ~+420 step (2026-11-16) |
+| MH013_20250219 | | x | top frames dropped in chunks; top clause misses the final ~+470 step (2026-11-16) |
+| AB092_20231205 | | x | top 8,115 frames short (VLC-converted video); misaligned after ~1/3 of the session (2026-11-16) |
+| AB095_20231212 | | x | top ~+13 frames early throughout (2026-11-16) |
+Partial (converter): AB116_20240726 both cameras NaN before frame 434,963 (2,175 s).
+The four 2026-11-16 entries are committed in ephys_utilities (ba758f1) but not yet pushed to LSENS-BMI-EPFL/ephys_utilities.
