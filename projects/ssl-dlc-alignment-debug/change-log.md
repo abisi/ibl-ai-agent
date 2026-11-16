@@ -16,3 +16,4 @@
   register (stimulus-locked whisker-speed line constant over the session; the 005 drift verdict was a lick-correlation
   artefact); (5) lick-based top re-fits are unreliable (AB116, AB095), and tying the top start offset to the side is
   wrong when the cameras start differently (MH028, AB116); the stimulus-locked whisker response is the usable top check.
+- 2026-11-16: 011_top_stimulus_fit.py (prototype): top offset per whisker trial from the stimulus-locked whisker-speed response (template matched over D). Works on MH017 / MH013 (staircase incl. the final step the top clauses also miss: ~+545 / ~+690); with large surpluses (AB092, AB095, AB116) the unconstrained search picks random matches -> needs a monotone (non-decreasing D) path fit. AB085 top flat at 0 (in register). Side clauses of MH013 0219 / MH017 0302 / AB092 1205 updated in NWB_converter DLC_to_nwb.py from the 010 re-fit; test reconversion in NWB_ks4_dlc_test_20261116.
