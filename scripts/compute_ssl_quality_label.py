@@ -50,6 +50,19 @@ def _worker_init():
         os.environ[var] = "1"
 
 
+EXCLUDED_EPOCHS = ("recording_gap",)  # no-recording epochs (joined sessions, e.g. AB155_20250208_175103)
+
+
+def remove_excluded_time(spikes: np.ndarray, intervals) -> np.ndarray:
+    """Drop spikes inside each excluded interval and close the gap (later times move back by its length), as
+    unit_metrics_utils._remove_excluded_time (presence / coverage computed with exclude_intervals)."""
+    s = np.asarray(spikes, dtype=float)
+    for start, stop in sorted(intervals, reverse=True):
+        s = s[(s < start) | (s >= stop)]
+        s = np.where(s >= stop, s - (stop - start), s)
+    return s
+
+
 def presence_and_coverage_for_session(unit_spikes: dict, cluster_ids: list, bin_size: float = 60.0) -> pd.DataFrame:
     """`unit_metrics_utils.compute_presence_coverage_metrics`'s formulas,
     applied directly to this session's own spike-shard dict (equivalent
@@ -94,6 +107,11 @@ def process_one_session(args: tuple) -> list[dict]:
     except Exception as e:  # noqa: BLE001
         return [dict(session_id=session_id, cluster_id=cid, presence_ratio=None, coverage_ratio=None,
                       error=repr(e)) for cid in cluster_ids]
+    epochs = pd.read_parquet(dataset_root / "metadata" / "epochs.parquet")
+    gaps = epochs[(epochs.session_id == session_id) & epochs.epoch_name.isin(EXCLUDED_EPOCHS)]
+    if len(gaps):
+        intervals = list(zip(gaps.start_time, gaps.stop_time))
+        unit_spikes = {cid: remove_excluded_time(s, intervals) for cid, s in unit_spikes.items()}
     pc = presence_and_coverage_for_session(unit_spikes, cluster_ids)
     pc["session_id"] = session_id
     pc["error"] = None

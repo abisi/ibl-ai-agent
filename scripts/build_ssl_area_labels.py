@@ -56,7 +56,13 @@ def main() -> None:
         "ccf_atlas_acronym", "ccf_atlas_parent_acronym", "area_acronym_custom", "area_group",
         "bc_label", "ks_label", "firing_rate",
     ]
-    labeled[keep_cols].to_parquet(OUT_PATH, index=False)
+    # quality columns (compute_ssl_quality_label.py, run first): quality_label, presence_ratio, coverage_ratio, read by
+    # 137_stable_units and the decoding sweeps (this merge was done outside the script up to 2026-09-11)
+    quality = pd.read_parquet(DERIVED_DIR / "unit_quality_labels.parquet")
+    out = labeled[keep_cols].merge(quality[["session_id", "cluster_id", "quality_label", "presence_ratio", "coverage_ratio"]],
+                                   on=["session_id", "cluster_id"], how="left", validate="one_to_one")
+    assert out["quality_label"].notna().all(), "units without a quality label: rerun compute_ssl_quality_label.py"
+    out.to_parquet(OUT_PATH, index=False)
     print(f"\nWrote {len(labeled)} rows to {OUT_PATH}")
 
 

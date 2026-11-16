@@ -1,14 +1,19 @@
 """Run brain_wide_analysis plot_group_neural_data(plots=['data_summary']) -> plot_unit_quality_by_area (total / stable /
-good units per area group, stable count annotated per group) for two populations:
+good units per area group, stable count annotated per group) and plot_summary_area_overview (mice / recordings / units
+per area, R+ / R- mirrored; units as stable, quality_label breakdown or quality_label good) for three populations:
 
   day0_learners                 day-0 sessions of learners (sheet learning_category good / moderate, recording == 1)
-  all_days_no_day0_nonlearners  all sessions day >= 0; day-0 sessions only of learners (non-learners keep expert days)
+  all_days_no_day0_nonlearners  learners: all sessions day >= 0; day-0 sessions only of learners (non-learners keep
+                                expert days)
+  all_mice                      all sessions day >= 0 of every included mouse
 
 Mice: reference sheet (share_internal dataset_info) exclude == 0, exclude_ephys == 0, reward_group R+ / R-;
 `recording` gates day 0 only. Outputs: combined_results_ks4/data_summary/unit_quality_area_group/
-unit_quality_by_area_{log,linear}_<population>.{pdf,png,svg} and unit_quality_by_area_counts_<population>.csv.
+unit_quality_by_area_{vertical,horizontal}_{log,linear}_<population>.{pdf,png,svg},
+unit_quality_by_area_counts_<population>.csv; data_summary/<area level>/summary_overview_{stable,quality_breakdown,good}_*.
 
-Usage (haas, brain_wide_analysis env, NAS repos first on PYTHONPATH): python 001_unit_quality_by_area.py <population>
+Usage (haas, brain_wide_analysis env, NAS repos first on PYTHONPATH):
+  python 001_unit_quality_by_area.py <population> [plots, default data_summary; area_count_grid = the grid alone]
 """
 import os
 import sys
@@ -37,7 +42,8 @@ SHEET = Path('/mnt/share_internal/Axel_Bisi_Share/dataset_info/joint_mouse_refer
 LEARNER = ('good', 'moderate')
 
 
-def main(population):
+def main(population, plots=("data_summary",)):
+    plots = list(plots)
     sheet = pd.read_excel(SHEET).rename(columns={'mouse_name': 'mouse_id'})
     sheet = sheet[(sheet['exclude'] == 0) & (sheet['exclude_ephys'] == 0) & sheet['reward_group'].isin(['R+', 'R-'])]
     day0_ok = set(sheet.loc[(sheet['recording'] == 1) & sheet['learning_category'].isin(LEARNER), 'mouse_id'])
@@ -56,15 +62,17 @@ def main(population):
     elif population == 'all_days_no_day0_nonlearners':
         sel = sel[(sel['day'] > 0) | sel['mouse_id'].isin(day0_ok)]
         day_to_analyze = 'all'
+    elif population == 'all_mice':
+        day_to_analyze = 'all'
     else:
         raise ValueError(population)
     print(f'{population}: {len(sel)} NWB files, {sel.mouse_id.nunique()} mice '
           f'(day 0: {(sel.day == 0).sum()}, day > 0: {(sel.day > 0).sum()}); NWBs without units are dropped later')
 
-    plot_group_neural_data(sel['nwb'].tolist(), plots=['data_summary'], info_path=str(SHEET),
+    plot_group_neural_data(sel['nwb'].tolist(), plots=plots, info_path=str(SHEET),
                            output_path=str(OUTPUT_PATH), proc_data_path=str(PROC_DATA_PATH),
                            day_to_analyze=day_to_analyze, fname_suffix=f'_{population}')
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(sys.argv[1], *([sys.argv[2].split(",")] if len(sys.argv) > 2 else []))

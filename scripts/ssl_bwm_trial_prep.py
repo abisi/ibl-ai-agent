@@ -7,6 +7,7 @@ same, already-checked logic instead of re-deriving it.
 
 from __future__ import annotations
 
+import sys
 import re
 from pathlib import Path
 
@@ -19,6 +20,16 @@ REF_PATH = Path("reports/ssl_analysis/derived/mouse_reference.parquet")
 
 _DAY_RE = re.compile(r"whisker(?:_on_\d+_opto|_off_\d+_opto)?_([+-]?\d+)")
 
+
+
+def _data_utils():
+    """ephys_utilities data_utils from the NAS checkout (axel_bisi_paths)."""
+    from axel_bisi_paths import axel_bisi_root
+    path = str(axel_bisi_root() / "Github" / "ephys_utilities")
+    if path not in sys.path:
+        sys.path.insert(0, path)
+    from ephys_utilities.helpers import data_utils
+    return data_utils
 
 def session_training_day(session_description: str) -> int | None:
     """Parse the whisker-training day index (the `N` in a `whisker_N`
@@ -107,8 +118,10 @@ def prep_session(dataset_root: Path, session_id: str, sessions_tbl: pd.DataFrame
     trials = trials[(resolve_context(trials) == "active").to_numpy()].reset_index(drop=True)
     # perf == 6 = excluded trials -- user rule 2026-10-01: always drop them in active-bound analyses (313 active trials in
     # 26 ssl_ephys sessions; results computed before 2026-10-01 included them).
-    if "perf" in trials:
-        trials = trials[trials["perf"] != 6].reset_index(drop=True)
+    # 2026-11-09 (user: use my utils only): then ephys_utilities data_utils.keep_active_trials (context != passive,
+    # perf != 6, early_lick == 0); the ITI context rule above stays (keep_active_trials alone would keep the passive
+    # trials of the day-0 sessions whose context label is "nan"). Adds the early_lick drop (8 trials in ssl_ephys).
+    trials = _data_utils().keep_active_trials(trials).reset_index(drop=True)
 
     # Auditory-only warm-up block (Axel Bisi, the experimenter, 2026-09-14):
     # many whisker-training sessions begin with a block of auditory-only

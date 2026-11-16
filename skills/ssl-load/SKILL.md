@@ -30,4 +30,9 @@ description: Use this skill when loading Axel Bisi's single-session-learning (SS
 - Never silently pool `ssl_ephys` and `ssl_ks2_ephys` units for the same session — they come from different spike-sorting runs with different unit counts/QC columns for the same physical recording.
 - Do not treat `epochs.parquet` boundaries as authoritative for passive_pre/active/passive_post splits without cross-checking the trial-level `context` column; some sessions have overlapping epoch windows.
 - State explicitly whether `reward_group`/cohort came from session metadata (`wh_reward`) or from the external `joint_mouse_reference_weight.xlsx` reference sheet — they are different sources with different semantics (see `ssl-analyze/references/ssl_task_semantics.md`).
+- NWB_ks4 is the single source of truth (user 2026-11-11). Every intermediate built from it (datasets, derived tables,
+  project tables, figure caches) is checked against it: `python scripts/ssl_nwb_freshness.py` reports every known layer;
+  new caches store `fingerprint()` in their json sidecar and call `warn_if_stale()` on load (as
+  `projects/ssl-paper-figures/common.load_cache`). Run the report before a rebuild, a figure snapshot or a confirmatory
+  analysis, and say which sessions are stale; rebuild template: `projects/ssl-table-rebuild-20261106/`.
 - Reject any new or edited script that hardcodes `M:\...` (or `/mnt/lsens-analysis\...`) for a path under Axel Bisi's share instead of resolving it via `scripts/axel_bisi_paths.py` — see `references/ssl_external_repo_paths.md`.

@@ -1,7 +1,8 @@
 """Per-unit coverage-ratio computation for the SSL KS4 analysis, restricted to
 sessions that have both ephys and passive_pre/passive_post epochs.
 
-coverage_ratio = (last_spike_time - first_spike_time) / session_duration_s
+coverage_ratio = (last_spike_time - first_spike_time) / session_duration_s, both without the recording_gap epoch
+(joined sessions)
 
 Also records, per unit, whether it has >=1 spike inside passive_pre and
 inside passive_post directly, as a literal cross-check of the "fires in both
@@ -81,8 +82,14 @@ def main() -> None:
         agg["session_id"] = session_id
 
         duration_s = float(usable.loc[usable["session_id"] == session_id, "duration_s"].iloc[0])
+        span = agg["last_spike_time"] - agg["first_spike_time"]
+        gap = bounds.get("recording_gap")  # no-recording epoch of joined sessions (e.g. AB155_20250208_175103)
+        if gap is not None:
+            g = gap[1] - gap[0]
+            duration_s -= g
+            span = span - g * ((agg["first_spike_time"] < gap[0]) & (agg["last_spike_time"] >= gap[1]))
         agg["session_duration_s"] = duration_s
-        agg["coverage_ratio"] = (agg["last_spike_time"] - agg["first_spike_time"]) / duration_s
+        agg["coverage_ratio"] = span / duration_s
 
         all_rows.append(agg.reset_index(drop=True))
         n_spikes_total = int(df.shape[0])

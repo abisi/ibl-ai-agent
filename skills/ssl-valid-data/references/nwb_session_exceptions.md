@@ -9,7 +9,8 @@ code they change. Raw files (session_config.json, results.csv, videos, probe she
 
 | clause | file | sessions |
 |---|---|---|
-| `SESSION_JSON_OVERRIDES` (session_config.json values) | `make_yaml_config.py` | MH068_20260125, MH069_20260125 (`ephys_session` 1); AB079_20230620, MH067_20260118 (`ephys_session` 0, behaviour-only whisker_0; MH067 also `camera_flag` 0); AB100_20240304 / 0305 / 0306_100728, AB111_20240421 / 0422 (`camera_flag` 0, videos not on the NAS) |
+| `SESSION_JSON_OVERRIDES` (session_config.json values) | `make_yaml_config.py` | MH068_20260125, MH069_20260125 (`ephys_session` 1); AB079_20230620, MH067_20260118 (`ephys_session` 0, behaviour-only whisker_0; MH067 also `camera_flag` 0); AB135_20241111, AB137_20241116 (`ephys_session` 0 from 2026-11-11: whisker_0 with sheet `exclude_ephys` = 1 and the processed Ephys folder removed; yaml `ephys_metadata` removed, backups `config_<session>_backup_20261111.yaml`; behaviour + DLC NWBs); AB100_20240304 / 0305 / 0306_100728, AB111_20240421 / 0422 (`camera_flag` 0, videos not on the NAS) |
+| Edited results.csv (Excel re-save) | `utils/server_paths.get_behavior_results_file` | MH028_20250501 (results.csv edited 2026-11-03 to relabel trials 82-104 passive -> active; the re-save is latin-1, `;`-separated, `wh_stim_amp` 3.2 -> '03.févr'; the clause writes a cleaned temporary copy; NWB_ks4 swapped 2026-11-12) |
 | `skip_probes` | `converters/ephys_to_nwb_test.py` | MH064_20260117 imec2 (no probe sheet row; user: ignore). MH069_20260125 imec0: aligned 2026-11-03 (channel_locations.json / prev_alignments.json moved to Myriam_Hamon/.../MH069_g0_imec0/ibl_format), clause removed, reconverted: 25 units (imec3 invalid recording) |
 | `CAMERA_LAST_PULSE_RUN_SESSIONS` | `utils/ephys_converter_misc.py` | AB086_20231015, MH027_20250424, MH030_20250503, MH064_20260115, MH064_20260116, MH067_20260120, MH067_20260121 |
 | `camera_from_log_sessions` (camera timestamps from the behaviour log, mapped to imec through the trial TTLs) | `utils/ephys_converter_misc.py` (`extract_ephys_timestamps`) | MH038_20250524 (NIDQ camera channels only 56,558 pulses; log 711,761 = DLC frames) |
@@ -32,6 +33,12 @@ code they change. Raw files (session_config.json, results.csv, videos, probe she
 - Frames vs camera timestamps: a difference of less than 1 s of frames (200 frames at 200 Hz) is accepted (frames paired
   from the first timestamp; e.g. AB086 top camera, 7 frames); larger differences are printed as a warning by
   `DLC_to_nwb.py` and need a camera-run check.
+- Re-inferred DLC (2026-11-11): the merged model (CSPNeXt-M shuffle 6 snapshot-330, all 533 camera-sessions,
+  `projects/ssl-dlc-kuma` 032-036) is stored next to the old files in each `Video` folder as `*_filtered_new.h5`
+  (043); `utils/server_paths.get_dlc_file_path` uses the `_new` file per camera when present (AB / MH only), the old
+  `*filtered.h5` otherwise. Every exception clause applies unchanged (checked on the camera timestamps of 20 exception
+  sessions, 040, and by full test reconversions, 044). Frame counts are unchanged except where the old DLC did not match
+  the video (MH064 0116 +1, MH070 0121 -3, MH017 0302 top +5: the new rows = video frames).
 - `tongue_dlc_licks` / `jaw_dlc_licks` are stored in video time (frame index / frame rate), not session time; the offset
   is the time of the first camera timestamp of the session (e.g. 275.2 s in MH067_20260120). No downstream code found
   (NWB_converter, Axel_Bisi/Github, ibl-ai-agent) that adds it: add `timestamps[0]` of the side-view series before use.

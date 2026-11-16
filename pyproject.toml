@@ -23,6 +23,7 @@ dependencies = [
   "boto3>=1.34",
   "pynwb>=4.1.0",
   "tensortools>=0.4",
+  "tables>=3.10.1",
 ]
 
 [project.optional-dependencies]

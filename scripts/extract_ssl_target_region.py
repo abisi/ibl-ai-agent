@@ -10,6 +10,7 @@ electrode_group.location is a stringified Python dict (e.g. "{'hemisphere':
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -61,9 +62,12 @@ def extract_one(path: Path) -> tuple[list[dict], str | None]:
         return [], f"{type(exc).__name__}: {exc}"
 
 
+SESSION_NWB_RE = re.compile(r"^[A-Za-z]+\d+_\d{8}_\d{6}\.nwb$")  # session files only, never *_backup_*.nwb
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    paths = sorted(NWB_ROOT.glob("*.nwb"))
+    paths = sorted(p for p in NWB_ROOT.glob("*.nwb") if SESSION_NWB_RE.match(p.name))
     all_rows: list[dict] = []
     errors: list[dict] = []
     n = len(paths)
