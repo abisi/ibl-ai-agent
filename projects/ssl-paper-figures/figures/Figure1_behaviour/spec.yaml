@@ -181,9 +181,9 @@ panels:
   calls:
   - shared_movement_peth.load (ephys_utilities dlc_helpers; stimulus-aligned, lick trials)
   - compute.cluster_test (R+ vs R- per signal and trial type)
-  caption: 'Evoked movement: movements after the stimulus on whisker and auditory lick trials of whisker day 0 (DeepLabCut,
-    mice with dual-view video): whisker speed (-50 to 100 ms) and jaw opening (jaw distance, -100 to 500 ms; pupil dropped,
-    planner 2026-11-12), each trial minus its pre-stimulus mean, mean over
+  caption: 'Evoked movement: movements after the stimulus on whisker and auditory hit trials of whisker day 0 (DeepLabCut,
+    mice with dual-view video): whisker speed (left) and jaw opening (right), top 0 to 0.5 s (shaded, first 100 ms),
+    bottom zoom on the first 100 ms, each trial minus its pre-stimulus mean, mean over
     trials per session and over sessions per mouse; mean ± s.e.m. over learner mice (whisker trials, cohort colours;
     auditory trials, blue, lighter for R-). Bars, R+ versus R- clusters (cluster-based permutation test of cohort labels on
     Welch t, 1,000 permutations, cluster P < 0.05; P above each bar) on whisker trials (black) and auditory trials (blue):
