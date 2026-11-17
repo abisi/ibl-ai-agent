@@ -605,7 +605,8 @@ def _delta_axis(a, d, alabel):
     a.axhline(0, color="0.6", lw=0.4, ls=":")
     a.set_xlim(0, 1)
     a.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
-    a.set_ylim(-0.25, 0.75)
+    a.set_ylim(-0.05, 0.45)  # user 2026-11-17
+    a.set_yticks([0, 0.2, 0.4])
     a.set_xlabel(f"Session time from {alabel} (norm.)", labelpad=1, fontsize=FS_LABEL)
     a.set_ylabel("Δ P(lick) (W − FA)", labelpad=1, fontsize=FS_LABEL)
     a.tick_params(labelsize=FS_TICK)
