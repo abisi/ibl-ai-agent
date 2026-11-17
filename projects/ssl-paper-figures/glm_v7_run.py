@@ -14,6 +14,8 @@ time order, gap 3 trials, 10 repeats with shifted block boundaries):
     with contiguous blocks this is the fair baseline, as pseudo-R2 is for the lick head), plus the usual pooled R2 and
     the correlation of observed and predicted RT. Baseline: linear regression on the causal mean RT of the previous 5
     hits. Importance: drop-and-refit change in r2_vs_train per glm_v5 predictor group.
+Third head (user 2026-11-17): jaw-opening onset of the same hits (jaw_tables), files <mouse>_<session>_jaw_*, jaw_summary.csv;
+`--heads jaw` fits it alone on the cached design matrices.
 Outputs: Figures/_cache/glm_v7/ = glm_v6 files + per session <mouse>_<session>_rt_{metrics.csv, coefficients.csv,
 nested.csv, predictions.parquet}; c_curves.csv, alpha_curves.csv, c_choice.csv, alpha_choice.csv,
 all_sessions_summary.csv (lick), rt_summary.csv (RT), config.json; design matrices in _design/ (npz, reused by stage C).
@@ -123,6 +125,11 @@ def stage_a(mouse, cohort, nwb, src, rt_table):
     np.savez(DESIGN / f"{Path(nwb).stem}.npz", X=X, y=y, t=t, names=np.array(names, dtype=object))
     _patch()
     lick = v6.c_curve(mouse, cohort, nwb, src) if len(np.unique(y)) == 2 else None
+    return lick, alpha_rows(mouse, cohort, nwb, X, y, t, rt_table)
+
+
+def alpha_rows(mouse, cohort, nwb, X, y, t, rt_table):
+    """Stage A of a regression head: held-out scores per ridge alpha (3 repeats)."""
     rt = rt_for_trials(t, rt_table) if rt_table is not None else np.full(len(y), np.nan)
     valid = (y == 1) & np.isfinite(rt)
     rows = []
@@ -133,10 +140,17 @@ def stage_a(mouse, cohort, nwb, src, rt_table):
                 ok = np.isfinite(P)
                 rows.append({"mouse_id": mouse, "session_id": Path(nwb).stem, "cohort": cohort, "repeat": rep,
                              "alpha": a, **rt_scores(rt[ok], P[ok], REF[ok])})
-    return lick, (pd.DataFrame(rows) if rows else None)
+    return pd.DataFrame(rows) if rows else None
 
 
-def rt_fit(mouse, cohort, nwb, alpha, rt_table):
+def cached_alpha_rows(mouse, cohort, nwb, table):
+    _patch()
+    loaded = v5.load_session(None, nwb)
+    return None if loaded is None or table is None else alpha_rows(mouse, cohort, nwb, *loaded[:3], table)
+
+
+def rt_fit(mouse, cohort, nwb, alpha, rt_table, prefix="rt"):
+    """Regression head (RT, or jaw onset with prefix "jaw": same code, values in ms from the stimulus)."""
     _patch()
     loaded = v5.load_session(None, nwb)
     if loaded is None or rt_table is None:
@@ -185,7 +199,7 @@ def rt_fit(mouse, cohort, nwb, alpha, rt_table):
     metrics["delta_rt_r2_vs_baseline"] = metrics["rt_r2_vs_train"] - metrics["baseline_rt_r2_vs_train"]
     metrics["delta_rt_mae_ms_vs_baseline"] = metrics["baseline_rt_mae_ms"] - metrics["rt_mae_ms"]  # > 0: GLM better
     metrics["delta_rt_rmse_ms_vs_baseline"] = metrics["baseline_rt_rmse_ms"] - metrics["rt_rmse_ms"]
-    stem = OUT / mouse / f"{mouse}_{session}_rt_"
+    stem = OUT / mouse / f"{mouse}_{session}_{prefix}_"
     stem.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame([metrics]).to_csv(f"{stem}metrics.csv", index=False)
     pd.concat(coef_rows).groupby("feature", sort=False)[["coefficient_ms_per_sd"]].mean().reset_index().to_csv(
@@ -224,10 +238,54 @@ def rt_tables():
     return out
 
 
+def jaw_tables(rts):
+    """User 2026-11-17: jaw-opening onset of the hits (behaviour_analysis dlc_jaw_onset_times.pkl per mouse,
+    jaw_dlc_onset in s from the stimulus; dlc_helpers jaw_onset_times, regenerated 2026-11-12), in ms. Same hits as the
+    RT head (valid RT 0-1 s, no early lick) and onset 0-1 s after the stimulus (pre-stimulus onsets left out)."""
+    from common import axel_bisi_root
+    out = {}
+    for f in sorted((axel_bisi_root() / "combined_results_ks4").glob("*/dlc_jaw_onset_times.pkl")):
+        d = pd.read_pickle(f)
+        d = d[(d.day == 0) & (d.behavior == "whisker") & (d.trial_type == "whisker_trial") & (d.context != "passive")]
+        for sid, g in d.groupby("session_id"):
+            if sid not in rts:
+                continue
+            g = g.sort_values("start_time")
+            st = g.start_time.to_numpy(float)
+            jaw = g.jaw_dlc_onset.to_numpy(float) * 1000
+            ok = np.isfinite(rt_for_trials(st, rts[sid])) & (jaw >= 0) & (jaw <= 1000)
+            out[sid] = (st, np.where(ok, jaw, np.nan))
+    return out
+
+
+def jaw_head(jobs, rts, par):
+    """Third head on the cached design matrices (glm_v7 stage A must have run)."""
+    jaws = jaw_tables(rts)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cur = [r for r in par(delayed(cached_alpha_rows)(*j, jaws.get(Path(j[2]).stem)) for j in jobs) if r is not None]
+    cur = pd.concat(cur, ignore_index=True)
+    cur.to_csv(OUT / "alpha_curves_jaw.csv", index=False)
+    choice, mean = loso(cur, "alpha", "rt_r2_vs_train")
+    pd.Series(choice, name="alpha_star").rename_axis("session_id").reset_index().to_csv(OUT / "alpha_choice_jaw.csv",
+                                                                                        index=False)
+    print("jaw alpha*:", pd.Series(choice).value_counts().to_dict(), "| R2 by alpha:", mean.round(4).to_dict())
+    keep = [j for j in jobs if Path(j[2]).stem in choice]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rows = par(delayed(rt_fit)(*j, choice[Path(j[2]).stem], jaws.get(Path(j[2]).stem), "jaw") for j in keep)
+    df = pd.DataFrame([r for r in rows if r])
+    df.to_csv(OUT / "jaw_summary.csv", index=False)
+    print(df.groupby("cohort")[["n_hits_rt", "rt_mean_ms", "rt_sd_ms", "rt_r2_vs_train", "rt_corr", "rt_mae_ms",
+                                "train_mean_mae_ms", "rt_mae_gain_ms", "rt_rmse_gain_ms",
+                                "delta_rt_mae_ms_vs_baseline"]].mean().round(4).T.to_string())
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-jobs", type=int, default=100)  # haas default (skill ssl-analyze 9b)
     ap.add_argument("--mice", nargs="*")
+    ap.add_argument("--heads", default="lick,rt,jaw", help="jaw alone reuses the cached design matrices")
     a = ap.parse_args()
     ref = shared_behaviour.mouse_reference()
     ref = ref[ref.learning_category.isin(["good", "moderate"])]
@@ -238,6 +296,8 @@ def main():
     jobs = [(r.mouse_id, r.cohort, str(f)) for r in ref.itertuples() for f in session_nwbs(r.mouse_id)]
     OUT.mkdir(parents=True, exist_ok=True)
     par = Parallel(n_jobs=a.n_jobs, verbose=1)
+    if a.heads == "jaw":
+        return jaw_head(jobs, rts, par)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         res = par(delayed(stage_a)(*j, src, rts.get(Path(j[2]).stem)) for j in jobs)
@@ -288,6 +348,8 @@ def main():
     print(rt.groupby("cohort")[["n_hits_rt", "rt_r2_vs_train", "rt_r2", "rt_corr", "baseline_rt_r2_vs_train",
                                 "delta_rt_r2_vs_baseline", "rt_mae_ms", "train_mean_mae_ms", "rt_mae_gain_ms",
                                 "rt_rmse_gain_ms", "delta_rt_mae_ms_vs_baseline"]].mean().round(4).T.to_string())
+    if "jaw" in a.heads.split(","):
+        jaw_head(jobs, rts, par)
 
 
 if __name__ == "__main__":
