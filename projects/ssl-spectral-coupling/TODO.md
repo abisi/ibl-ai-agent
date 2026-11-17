@@ -4,13 +4,17 @@ Results: `combined_results_ks4/ssl-spectral-coupling/` (NAS). Code: this folder.
 User asked for an autonomous overnight run (2026-11-17): no checkpoints during the night; consult in the morning
 before any confirmatory follow-up.
 
-- [ ] 000 project docs (question.md, TODO.md, change-log.md) with pre-registered tests
-- [ ] spec_lib.py: loading (pilot v2 loader + warm-up cut), 5-ms tensors, multitaper spectra, MSC / imag coherency /
+- [X] 000 project docs (question.md, TODO.md, change-log.md) with pre-registered tests
+- [X] spec_lib.py: loading (pilot v2 loader + warm-up cut), 5-ms tensors, multitaper spectra, MSC / imag coherency /
       canonical coherence / partial coherence / PSI / spectral Granger, shuffle null
-- [ ] 001 simulation validation (known coupling frequency and direction, common input, null)
-- [ ] 002 spike run, quick test on one session (timing, sanity), then all day-0 sessions on haas
-- [ ] 003 stats + figures (H1-H3, learners + all mice, area group + acronym levels)
-- [ ] 004 AP-band feasibility: clock alignment, channel mapping, read speed, envelope check on one session
-- [ ] 005 AP-band run (subset or all sessions, time permitting) + stats via 003
-- [ ] report (project-report skill) + summary for the user
-- [ ] Consult user: interpretation of "ap band", windows, whether to add lick-aligned execution windows
+- [X] 001 simulation validation -> simulation/001_simulation.{csv,png,pdf}
+- [X] 002 spike run: quick test AB127, then 89 day-0 sessions (45 workers, ~40 min, no errors)
+      -> spikes/sessions/*_{bands,spectra}.parquet, _meta.json, spikes/sessions_included.csv, spikes/config.json
+- [X] 003 stats + figures (learners + all mice, area group + acronym) -> spikes/stats/<pop>/*.csv,
+      spikes/figures/<pop>/fig1-5
+- [X] 004 AP-band check on AB127 (clock, artefact latency, envelope vs spikes) -> ap/check/004_*.{txt,png}
+- [ ] 005 AP envelope caches (ap/cache) -> 002 --source ap -> 003 --source ap (chain ~/ssl_spectral_ap_chain.sh on
+      haas, logs/005_*, 002_ap.log, 003_ap.log, done flag logs/ap_chain_done)
+- [X] report v1 (spikes only): report/build_report.py, render.sh -> report/report.{pdf,md,html}
+- [ ] report v2 with AP results; publish to the private reports repo (ask first)
+- [ ] Consult user: interpretation of "ap band" (envelope, not LFP), windows, lick-aligned execution, LFP coherence

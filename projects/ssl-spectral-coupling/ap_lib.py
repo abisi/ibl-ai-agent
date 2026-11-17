@@ -57,8 +57,19 @@ def probe_dirs(session_id):
 def clock_fit(probe_dir, p, whisker_starts_nwb):
     s = np.loadtxt(next(probe_dir.glob(f"whisker_stim_times_to_imec{p}.txt")))
     w = np.sort(whisker_starts_nwb)
-    if len(s) != len(w):
-        raise RuntimeError(f"imec{p}: {len(s)} stim times vs {len(w)} NWB whisker trials")
+    s = np.sort(s)
+    # offset = mode of all pairwise differences (1-ms bins, within +-60 s), then nearest-neighbour matching around it;
+    # handles unequal counts (extra / missing stimuli) and clocks offset by seconds
+    dif = (s[None, :] - w[:, None]).ravel()
+    dif = dif[np.abs(dif) < 60]
+    h, e = np.histogram(dif, bins=np.arange(-60, 60.0005, 0.001))
+    off = e[np.argmax(h)] + 0.0005
+    j = np.clip(np.searchsorted(s, w + off), 1, len(s) - 1)
+    j = np.where(np.abs(s[j - 1] - w - off) < np.abs(s[j] - w - off), j - 1, j)
+    ok = np.abs(s[j] - w - off) < 0.01
+    if ok.sum() < 0.9 * min(len(s), len(w)):
+        raise RuntimeError(f"imec{p}: only {ok.sum()} of {len(w)} NWB whisker trials matched a stimulus time")
+    w, s = w[ok], s[j[ok]]
     A = np.column_stack([w, np.ones(len(w))])
     c = np.linalg.lstsq(A, s, rcond=None)[0]
     resid = float(np.abs(s - A @ c).max())
