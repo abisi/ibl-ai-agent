@@ -686,16 +686,15 @@ ALIGNED_MIN_MICE = 8  # per cohort and trial index, for the cluster test
 ALIGNMENTS = {"first_whisker_trial": "1st W trial", "first_whisker_hit": "1st W hit"}  # top row first (user 2026-11-16)
 
 
-def compute_aligned_licks(ctx):
-    """User 2026-11-16 (replaces the 5-trial-bin first_hit_licks panel): whisker | auditory | false alarm, single trials
-    (no binning), two alignments stacked: the first whisker trial (top) and the first whisker hit (bottom). Learners,
-    untrimmed whisker day 0 (auditory warm-up kept, so auditory and no-stimulus trials exist before the alignment),
-    early-lick trials dropped. Each trial type stays on its own trials: index 0 = the first trial of the type at or after
-    the alignment trial (auditory and false alarm: trials after the first whisker trial / hit), negative indices = the
-    trials of the type before it. Data (kind 'data'): the lick outcome (0 / 1) of every trial; curve (kind 'curve'): the
-    exact learning curve of that trial type at the same trials (learning_curve_exact on the untrimmed session; whisker
-    curve from index 0 only). Cluster-based permutation test R+ vs R- on the per-mouse data from index 0 (Welch t,
-    cohort-label permutations, indices with >= ALIGNED_MIN_MICE mice per cohort); cluster P on the bars."""
+ALIGN_BIN_EDGES = np.r_[-10, -5, 0, 1, np.arange(6, 32, 5)]  # bins -10..-6, -5..-1, 0 alone, 1-5, 6-10, ..., 26-30
+
+
+def _aligned_lick_trials(ctx):
+    """Per-trial lick outcomes of learners on the untrimmed whisker day 0 (auditory warm-up kept, early licks dropped),
+    each trial type on its own trials: index 0 = the first trial of the type at or after the alignment trial (first
+    whisker trial or first whisker hit), negative = trials of the type before it; window ALIGNED_WINDOW. Cached in ctx."""
+    if "aligned_lick_trials" in ctx:
+        return ctx["aligned_lick_trials"]
     lo, hi = ALIGNED_WINDOW
     learners = set(day0_table(ctx["table"], learners_only=True).mouse_id)
     d0 = shared_behaviour.load_untrimmed_day0()
@@ -717,26 +716,66 @@ def compute_aligned_licks(ctx):
                 y = np.asarray(out[tt]["outcomes"], float)
                 rel = np.arange(len(y)) - int(np.sum(np.asarray(out[tt]["start_time"]) < t_ref))
                 keep = (rel >= lo) & (rel <= hi)
-                common = {**base, "alignment": align, "trial_type": tt, "trial_from_alignment": rel[keep]}
-                rows.append(pd.DataFrame({**common, "kind": "data", "p_lick": y[keep]}))  # data only (user 2026-11-16)
-    df = pd.concat(rows, ignore_index=True)
-    # user 2026-11-16: per-trial permutation test (reward-group labels shuffled), trial resolution, from trial 0
-    x, tests, n = "trial_from_alignment", [], {}
-    for (align, tt), g in df.groupby(["alignment", "trial_type"]):
-        t = perm_test_per_x(g[g[x] >= 0], x, "p_lick", min_mice=ALIGNED_MIN_MICE)
-        tests.append(t.assign(alignment=align, trial_type=tt, kind="perm_test"))
-        n[f"{align} {tt}"] = n_by_cohort(g)
-    tests = pd.concat(tests, ignore_index=True)
-    sig = {f"{a} {t}": [int(v) for v in g[g.p < 0.05][x]] for (a, t), g in tests.groupby(["alignment", "trial_type"])}
-    text = {k: _ranges_text(v) for k, v in sig.items()}
-    return pd.concat([df, tests], ignore_index=True), {
-        "n": n_by_cohort(df), "n_by_group": n, "sig_trials": sig, "sig_trials_text": text,
-        "params": {"window_trials": list(ALIGNED_WINDOW), "min_mice_per_cohort": ALIGNED_MIN_MICE,
-                   "session": "untrimmed whisker day 0, early licks dropped",
-                   "test": "per-trial permutation test, R+ minus R- mean, reward-group labels shuffled across mice, "
-                           "5,000 permutations, from trial 0, uncorrected over trials",
-                   "display": "mean over mice of the per-mouse lick fraction in bins of 5 trials (0-4, 5-9, ...; "
-                              "-10 to -6, -5 to -1 before)"}}
+                rows.append(pd.DataFrame({**base, "alignment": align, "trial_type": tt, "kind": "data",
+                                          "trial_from_alignment": rel[keep], "p_lick": y[keep]}))
+    ctx["aligned_lick_trials"] = pd.concat(rows, ignore_index=True)
+    return ctx["aligned_lick_trials"]
+
+
+def compute_aligned(ctx, align):
+    """User 2026-11-17: one panel per alignment (G, first whisker trial; H, first whisker hit). Whisker, false alarm and
+    auditory P(lick): per-mouse lick fraction in bins (-10..-6, -5..-1, 0 alone, 1-5, ..., 26-30 trials of the type),
+    mean +- s.e.m. over mice, dots connected (kind 'bin'); R+ vs R- cluster-based permutation test over the bins from
+    bin 0 (Welch t per bin, cohort labels permuted across mice, 1,000 permutations, bins with >= ALIGNED_MIN_MICE mice
+    per cohort; cluster_id / cluster_p / cluster_sig). Delta P(lick) (whisker minus chance curve, compute_perf_session,
+    learners, same alignment; kind 'delta') as curves with its own cluster test (normalised session time)."""
+    data = _aligned_lick_trials(ctx)
+    data = data[data.alignment == align]
+    lo_e, hi_e = ALIGN_BIN_EDGES[:-1], ALIGN_BIN_EDGES[1:] - 1  # first and last trial of each bin
+    idx = np.searchsorted(ALIGN_BIN_EDGES, data.trial_from_alignment, side="right") - 1
+    data = data[(idx >= 0) & (idx < len(lo_e))].assign(bin=idx[(idx >= 0) & (idx < len(lo_e))])
+    bins = (data.groupby(["mouse_id", "session_id", "cohort", "alignment", "trial_type", "bin"])
+            .agg(p_lick=("p_lick", "mean"), n_trials=("p_lick", "size")).reset_index())
+    bins["bin_start"], bins["bin_end"] = lo_e[bins.bin], hi_e[bins.bin]
+    bins["bin_centre"] = (bins.bin_start + bins.bin_end) / 2
+    bins["kind"], bins["cluster_sig"], bins["cluster_p"], bins["cluster_id"] = "bin", False, np.nan, np.nan
+    clusters, n = {}, {}
+    for tt, g in bins.groupby("trial_type"):
+        post = g[g.bin_start >= 0]
+        enough = post.groupby(["bin_centre", "cohort"]).mouse_id.nunique().unstack().reindex(columns=COHORTS).fillna(0).min(1)
+        post = post[post.bin_centre.isin(enough[enough >= ALIGNED_MIN_MICE].index)]
+        clusters[tt] = cluster_test(post, "bin_centre", "p_lick")
+        bins.loc[post.index, "cluster_sig"] = mark_clusters(post, "bin_centre", clusters[tt])
+        bins.loc[post.index, "cluster_p"] = cluster_p(post, "bin_centre", clusters[tt])
+        for k, c in enumerate(clusters[tt]):
+            if c["p"] < 0.05:
+                bins.loc[post.index[post.bin_centre.between(c["start"], c["end"]).to_numpy()], "cluster_id"] = k
+        n[tt] = n_by_cohort(g)
+    if "perf_session" not in ctx:
+        ctx["perf_session"] = compute_perf_session(ctx)
+    perf, perf_info = ctx["perf_session"]
+    delta = perf[(perf.group == "learner") & (perf.alignment == align)].assign(kind="delta")
+    sig = {tt: [c for c in cl if c["p"] < 0.05] for tt, cl in clusters.items()}
+    text = {tt: "; ".join(f"trials {int(np.floor(c['start'] - (2 if c['start'] > 0 else 0)))}-"
+                          f"{int(np.ceil(c['end'] + (2 if c['end'] > 0 else 0)))}, P = {c['p']:.3g}" for c in v) or "none"
+            for tt, v in sig.items()}
+    key = f"learner {align}"
+    return pd.concat([bins, delta], ignore_index=True), {
+        "n": n_by_cohort(bins), "n_by_trial_type": n, "clusters": clusters, "sig_clusters_text": text,
+        "delta": {"n": perf_info["n"].get(key), "clusters": perf_info["clusters"].get(key),
+                  "session_end": perf_info["session_end"]},
+        "params": {"window_trials": list(ALIGNED_WINDOW), "bin_edges": [int(v) for v in ALIGN_BIN_EDGES],
+                   "min_mice_per_cohort": ALIGNED_MIN_MICE, "session": "untrimmed whisker day 0, early licks dropped",
+                   "test": "cluster-based permutation test over bins from bin 0, Welch t, cohort labels permuted across "
+                           "mice, 1,000 permutations, cluster P < 0.05"}}
+
+
+def compute_aligned_trial(ctx):
+    return compute_aligned(ctx, "first_whisker_trial")
+
+
+def compute_aligned_hit(ctx):
+    return compute_aligned(ctx, "first_whisker_hit")
 
 
 FIRST_HIT_SUBPANELS = {"whisker": "whisker_trial", "auditory": "auditory_trial", "false_alarm": "no_stim_trial"}
@@ -1097,7 +1136,8 @@ def _glm_dir():
     from common import CACHE_DIR
     # user 2026-11-09: glm_v5 (5 outer blocks, drop-and-refit delta LL) with one penalty per session chosen on the other
     # sessions (leave-one-session-out) and a recent-licking baseline model (glm_v6_run.py)
-    return CACHE_DIR / "glm_v6"
+    # user 2026-11-17: glm_v7 lick head (= glm_v6 refitted on the reconverted NWBs, pupil QC; glm_v7_run.py)
+    return CACHE_DIR / "glm_v7"
 
 
 GLM_ORDER = ["cumulative_reward_fraction", "time_since_reward", "whisker_speed_pre", "nose_speed_pre", "pupil_area_pre",

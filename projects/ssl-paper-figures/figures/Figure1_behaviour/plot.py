@@ -537,100 +537,77 @@ def plot_first_hit_licks(ax, df):
                  loc=loc, fontsize=4.5, frameon=False, handlelength=1, borderaxespad=0.2)
 
 
-ALIGN_ROWS = [("first_whisker_trial", "1st W trial"), ("first_whisker_hit", "1st W hit")]  # top, bottom (user 2026-11-16)
 ALIGN_COLS = [("whisker_trial", "Whisker"), ("no_stim_trial", "False alarm"), ("auditory_trial", "Auditory")]  # FA before A
-ALIGN_BIN_EDGES = np.r_[-10, -5, 0, 1, np.arange(6, 32, 5)]  # bins -10..-6, -5..-1, 0, 1-5, 6-10, ..., 26-30
-ROW_GAP_MM, COL_GAP_MM = 11.0, 8.0  # shared by G and H so their rows line up (user 2026-11-16)
 
 
-def _square_grid(ax, nrows, ncols, square=True):
-    """nrows x ncols axes inside ax, top-aligned, gaps in mm; square cells (user 2026-11-16) or, square=False, full width
-    with the row height of a square grid of the same box height (H next to G)."""
+def _aligned_axes(ax, n_sq=3, gap_mm=7.0, wide_gap_mm=11.0):
+    """n_sq square axes (P(lick) per trial type), then one wider axis filling the rest (Delta P(lick))."""
     ax.axis("off")
     pos, fig = ax.get_position(), ax.figure
     W, H = pos.width * fig.get_figwidth() * 25.4, pos.height * fig.get_figheight() * 25.4
-    side_h = (H - (nrows - 1) * ROW_GAP_MM) / nrows
-    side = min(side_h, (W - (ncols - 1) * COL_GAP_MM) / ncols) if square else side_h
-    w = side if square else (W - (ncols - 1) * COL_GAP_MM) / ncols
-    return [[ax.inset_axes([c * (w + COL_GAP_MM) / W, 1 - (r * (side + ROW_GAP_MM) + side) / H, w / W, side / H])
-             for c in range(ncols)] for r in range(nrows)]
+    out = [ax.inset_axes([k * (H + gap_mm) / W, 0, H / W, 1]) for k in range(n_sq)]
+    x0 = n_sq * H + (n_sq - 1) * gap_mm + wide_gap_mm
+    out.append(ax.inset_axes([x0 / W, 0, 1 - x0 / W, 1]))
+    return out
 
 
-def _perm_marks(a, t, y=1.0):
-    """Per-trial permutation test (kind 'perm_test' rows): a tick over every trial with p < 0.05, grey to black by p."""
-    t = t[t.p < 0.05]
-    for r in t.itertuples():
-        a.plot([r.trial_from_alignment - 0.45, r.trial_from_alignment + 0.45], [y, y], transform=a.get_xaxis_transform(),
-               color=p_shade(r.p), lw=1.2, solid_capstyle="butt", clip_on=False)
+def _bin_cluster_bars(a, d, y=1.0):
+    """One bar per significant bin cluster (cluster_id), spanning its bins' trials, grey to black by P, P above."""
+    for _, c in d.dropna(subset=["cluster_id"]).groupby("cluster_id"):
+        p = c.cluster_p.min()
+        x0, x1 = c.bin_start.min() - 0.5, c.bin_end.max() + 0.5
+        a.plot([x0, x1], [y, y], transform=a.get_xaxis_transform(), color=p_shade(p), lw=1.2, solid_capstyle="butt",
+               clip_on=False)
+        _p_label(a, (x0 + x1) / 2, y + 0.01, p, color=p_shade(p))
 
 
-def plot_aligned_licks(ax, df):
-    """User 2026-11-16: data only. Rows: aligned to the first whisker trial (top) and to the first whisker hit (bottom);
-    columns: whisker, false alarm, auditory, each on its own trials (0 = first trial of the type at or after the alignment
-    trial). Dots: per-mouse lick fraction in bins (-10..-6, -5..-1, 0 alone, 1-5, 6-10, ...), mean +- s.e.m. over mice;
-    the horizontal bar of each dot spans its bin. Ticks above: trials where R+ and R- differ (permutation test of the
-    reward-group labels at single-trial resolution, p < 0.05, grey to black by p)."""
-    grid = _square_grid(ax, 2, 3)
-    x = "trial_from_alignment"
-    data, tests = df[df.kind == "data"], df[df.kind == "perm_test"]
-    lo_e, hi_e = ALIGN_BIN_EDGES[:-1], ALIGN_BIN_EDGES[1:]
-    for r, (align, alabel) in enumerate(ALIGN_ROWS):
-        for c, (tt, title) in enumerate(ALIGN_COLS):
-            a = grid[r][c]
-            d = data[(data.alignment == align) & (data.trial_type == tt)]
-            d = d.assign(bin=np.searchsorted(ALIGN_BIN_EDGES, d[x], side="right") - 1)
-            d = d[(d.bin >= 0) & (d.bin < len(lo_e))]
-            for k, cohort in enumerate(COHORTS):
-                g = d[d.cohort == cohort].groupby(["mouse_id", "bin"]).p_lick.mean().groupby("bin")
-                m, e = g.mean(), g.sem()
-                b0, b1 = lo_e[m.index], hi_e[m.index] - 1  # first and last trial of the bin
-                xc = (b0 + b1) / 2
-                a.errorbar(xc + (k - 0.5) * 0.5, m, e, xerr=[(b1 - b0) / 2, (b1 - b0) / 2], color=group_color(tt, cohort),
-                           marker="o", ms=1.6, lw=0, elinewidth=0.5, capsize=0, zorder=3)
-            a.axvline(-0.5, color="0.6", lw=0.4, ls=":")
-            _perm_marks(a, tests[(tests.alignment == align) & (tests.trial_type == tt)])
-            a.set_xlim(-10.5, 30.5)
-            a.set_xticks([-10, 0, 10, 20, 30])
-            a.set_ylim(-0.03, 1.03)
-            a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
-            a.tick_params(labelsize=4.5)
-            a.set_xlabel(f"Trials from {alabel}", labelpad=1, fontsize=4.5)
-            a.set_ylabel("P(lick)", labelpad=1, fontsize=5)
-            if r == 0:
-                a.set_title(title, fontsize=5.5, pad=5)
-    # how the binning and the stats work (user 2026-11-16: on the figure)
-    grid[1][0].text(0.0, -0.3, "Dots: 5-trial bins (bar = bin span; trial 0 alone). Ticks: single-trial permutation "
-                    "test R+ vs R−, p < 0.05 (black p < 0.001, dark grey p < 0.01, grey p < 0.05).",
-                    transform=grid[1][0].transAxes, ha="left", va="top", fontsize=3.8, color="0.25")
-
-
-def plot_perf_session(ax, df):
-    """Learners. Top: session time normalised from the first whisker trial (planner 2026-11-09); bottom (user
-    2026-11-16): the same normalisation, 0 = the first whisker hit. Rows aligned with G (_square_grid)."""
-    rows = _square_grid(ax, 2, 1, square=False)
-    d0 = df[df.group == "learner"]
-    lo, hi = np.inf, -np.inf
-    for r, (align, alabel) in enumerate(ALIGN_ROWS):
-        a = rows[r][0]
-        d = d0[d0.alignment == align] if "alignment" in d0 else d0
-        for cohort in COHORTS:
-            _mean_band(a, d[d.cohort == cohort].dropna(subset=["performance"]), "session_time_norm", "performance",
-                       COLORS[cohort])
-        _sig_bar(a, d, "session_time_norm", y=1.0)
-        a.axhline(0, color="0.6", lw=0.4, ls=":")
-        a.axvline(0, color="0.6", lw=0.4, ls=":")
-        a.set_xlim(d.session_time_norm.min(), d.session_time_norm.max())
-        a.set_xticks([0, 0.4, 0.8], ["0", "0.4", "0.8"])
-        a.set_xlabel(f"Session time from {alabel} (norm.)", labelpad=1, fontsize=4.5)
-        a.set_ylabel("Δ P(lick) (W − FA)", labelpad=1, fontsize=5)
+def _plot_aligned(ax, df, alabel):
+    """User 2026-11-17: one panel per alignment. Whisker, false alarm, auditory P(lick) (kind 'bin'): per-mouse lick
+    fraction per bin (-10..-6, -5..-1, 0 alone, 1-5, ...), mean +- s.e.m. over mice, dots connected; bars, R+ vs R- bin
+    clusters (cluster permutation test), grey to black by P. Right: Delta P(lick) (whisker minus chance curve), curves,
+    mean +- s.e.m. over mice, cluster bars as before."""
+    axes = _aligned_axes(ax)
+    bins, delta = df[df.kind == "bin"], df[df.kind == "delta"]
+    for a, (tt, title) in zip(axes, ALIGN_COLS):
+        d = bins[bins.trial_type == tt]
+        for k, cohort in enumerate(COHORTS):
+            g = d[d.cohort == cohort].groupby("bin_centre").p_lick
+            m, e = g.mean(), g.sem()
+            a.errorbar(m.index + (k - 0.5) * 0.5, m, e, color=group_color(tt, cohort), marker="o", ms=1.6, lw=0.6,
+                       elinewidth=0.5, capsize=0, zorder=3)
+        a.axvline(-0.5, color="0.6", lw=0.4, ls=":")
+        _bin_cluster_bars(a, d)
+        a.set_xlim(-10.5, 30.5)
+        a.set_xticks([-10, 0, 10, 20, 30])
+        a.set_ylim(-0.03, 1.03)
+        a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
         a.tick_params(labelsize=4.5)
-        y0, y1 = a.get_ylim()
-        lo, hi = min(lo, y0), max(hi, y1)
-    for row in rows:
-        row[0].set_ylim(lo, hi)
-    n = {c: d0[d0.cohort == c].mouse_id.nunique() for c in COHORTS}
-    rows[0][0].set_title(f"Learners, R+ n = {n['R+']}, R− n = {n['R-']}", fontsize=5, pad=10)
-    _legend(rows[0][0], _cohort_entries(), loc="lower right")
+        a.set_xlabel(f"Trials from {alabel}", labelpad=1, fontsize=4.5)
+        a.set_ylabel("P(lick)", labelpad=1, fontsize=5)
+        a.set_title(title, fontsize=5.5, pad=7)
+    a = axes[-1]
+    dd = delta.dropna(subset=["performance"])
+    for cohort in COHORTS:
+        _mean_band(a, dd[dd.cohort == cohort], "session_time_norm", "performance", COLORS[cohort])
+    _sig_bar(a, dd, "session_time_norm", y=1.0)
+    a.axhline(0, color="0.6", lw=0.4, ls=":")
+    a.axvline(0, color="0.6", lw=0.4, ls=":")
+    a.set_xlim(dd.session_time_norm.min(), dd.session_time_norm.max())
+    a.set_xticks([0, 0.4, 0.8], ["0", "0.4", "0.8"])
+    a.set_ylim(-0.25, 0.75)  # same range in G and H
+    a.set_xlabel(f"Session time from {alabel} (norm.)", labelpad=1, fontsize=4.5)
+    a.set_ylabel("Δ P(lick) (W − FA)", labelpad=1, fontsize=5)
+    a.tick_params(labelsize=4.5)
+    n = {c: bins[bins.cohort == c].mouse_id.nunique() for c in COHORTS}
+    a.set_title(f"Learners, R+ n = {n['R+']}, R− n = {n['R-']}", fontsize=5, pad=7)
+
+
+def plot_aligned_trial(ax, df):
+    _plot_aligned(ax, df, "1st W trial")
+
+
+def plot_aligned_hit(ax, df):
+    _plot_aligned(ax, df, "1st W hit")
 
 
 HITMISS_LABELS = {"whisker_speed": ("Whisker speed", "Δ deg/s"), "jaw_opening": ("Jaw opening", "Δ mm"),
