@@ -237,7 +237,7 @@ def plot_days(ax, df):
     in cohort colours and auditory / false alarm in grey, day 0 shaded; mean +- s.e.m. over mice. Right (planner
     2026-11-12): day-0 lick probability per trial type as bars (as panel c); brackets, W vs FA within each cohort (paired
     Wilcoxon, cohort colour) and R+ W vs R- W (Mann-Whitney, black)."""
-    ax, right = _split(ax, 2, gap=0.3)
+    ax, right = _split(ax, 2, gap=0.2)  # user 2026-11-17: closer
     x = np.arange(len(DAYS))
     for tt in TRIAL_TYPES:
         for k, cohort in enumerate(COHORTS):
@@ -556,30 +556,19 @@ def _row_axes(ax, n, gap_mm=7.0, square=True):
     return [ax.inset_axes([x0[k] / W, 0, w / W, 1]) for k in range(n)]
 
 
-def _bin_test_bars(a, t, y=1.0):
-    """Bins where R+ and R- differ (Mann-Whitney, BH within the subplot, q < 0.05): contiguous significant bins merged
-    into one bar spanning their trials, grey to black by the largest q of the run, q above."""
-    t = t[t.mannwhitney_q_bh < 0.05].sort_values("bin_start")
-    runs = []
-    for r in t.itertuples():
-        if runs and r.bin_start == runs[-1]["end"] + 1:
-            runs[-1].update(end=r.bin_end, q=max(runs[-1]["q"], r.mannwhitney_q_bh))
-        else:
-            runs.append({"start": r.bin_start, "end": r.bin_end, "q": r.mannwhitney_q_bh})
-    for r in runs:
-        x0, x1 = r["start"] - 0.5, r["end"] + 0.5
-        a.plot([x0, x1], [y, y], transform=a.get_xaxis_transform(), color=p_shade(r["q"]), lw=1.2,
-               solid_capstyle="butt", clip_on=False)
-        a.text((x0 + x1) / 2, y + 0.01, f"q ≤ {r['q']:.2g}" if r["q"] >= 0.001 else "q < 0.001",
-               transform=a.get_xaxis_transform(), ha="center", va="bottom", fontsize=FS_NOTE, color=p_shade(r["q"]),
-               clip_on=False)
+def _bin_test_stars(a, t, y=1.0):
+    """User 2026-11-17: one test per bin (R+ vs R-, Mann-Whitney; Benjamini-Hochberg within the subplot): stars above
+    every bin with q < 0.05, nothing elsewhere."""
+    for r in t[t.mannwhitney_q_bh < 0.05].itertuples():
+        a.text(r.bin_centre, y, stars(r.mannwhitney_q_bh), transform=a.get_xaxis_transform(), ha="center",
+               va="bottom", fontsize=FS_NOTE, clip_on=False)
 
 
 def _plot_aligned(ax, df, alabel):
     """User 2026-11-17: whisker, false alarm, auditory P(lick) (kind 'bin'): per-mouse lick fraction per bin (-10..-6,
     -5..-1, 0 alone, 1-5, ...), mean +- s.e.m. over mice, dots connected; bars, bins where R+ and R- differ
     (Mann-Whitney per bin, Benjamini-Hochberg within the subplot)."""
-    axes = _row_axes(ax, 3)
+    axes = _row_axes(ax, 3, gap_mm=6.0)  # squares, same size as H and J
     bins, tests = df[df.kind == "bin"], df[df.kind == "bin_test"]
     for a, (tt, title) in zip(axes, ALIGN_COLS):
         d = bins[bins.trial_type == tt]
@@ -589,7 +578,7 @@ def _plot_aligned(ax, df, alabel):
             a.errorbar(m.index + (k - 0.5) * 0.5, m, e, color=group_color(tt, cohort), marker="o", ms=1.6, lw=0.6,
                        elinewidth=0.5, capsize=0, zorder=3)
         a.axvline(-0.5, color="0.6", lw=0.4, ls=":")
-        _bin_test_bars(a, tests[tests.trial_type == tt])
+        _bin_test_stars(a, tests[tests.trial_type == tt])
         a.set_xlim(-10.5, 30.5)
         a.set_xticks([-10, 0, 10, 20, 30])
         a.set_ylim(-0.03, 1.03)
@@ -622,18 +611,11 @@ def _delta_axis(a, d, alabel):
     a.tick_params(labelsize=FS_TICK)
 
 
-def plot_perf_trial(ax, df):
-    """User 2026-11-17 (own letter): Delta P(lick) from the first whisker trial (0) to the session end (1)."""
-    a = _row_axes(ax, 1, square=False)[0]
-    _delta_axis(a, df, "1st W trial")
-    n = {c: df[df.cohort == c].mouse_id.nunique() for c in COHORTS}
-    a.set_title(f"Learners, R+ n = {n['R+']}, R− n = {n['R-']}", fontsize=FS_TITLE, pad=7)
-
-
-def plot_perf_hit(ax, df):
-    """User 2026-11-17: from the first whisker hit (0) to the session end (1): learning curves of whisker, false-alarm
-    (chance) and auditory trials, one axis per cohort, then Delta P(lick) with both cohorts overlaid."""
-    axes = _row_axes(ax, 3, gap_mm=[2.5, 9.0], square=False)
+def _plot_perf_three(ax, df, alabel):
+    """User 2026-11-17: from the alignment (0) to the session end (1): learning curves of whisker, false-alarm (chance)
+    and auditory trials, one square axis per cohort, then Delta P(lick) with both cohorts overlaid (all squares of the
+    same size as G and I)."""
+    axes = _row_axes(ax, 3, gap_mm=[2.5, 9.0])
     curves = [("p_whisker", "whisker_trial", "Whisker"), ("p_chance", "no_stim_trial", "False alarm"),
               ("p_auditory", "auditory_trial", "Auditory")]
     for a, cohort in zip(axes[:2], COHORTS):
@@ -644,7 +626,7 @@ def plot_perf_hit(ax, df):
         a.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
         a.set_ylim(0, 1)
         a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
-        if cohort == "R+":  # R- shares the y axis (user 2026-11-17: no label overlap)
+        if cohort == "R+":  # R- shares the y axis
             a.set_ylabel("P(lick), learning curve", labelpad=1, fontsize=FS_LABEL)
         else:
             a.set_yticklabels([])
@@ -652,10 +634,18 @@ def plot_perf_hit(ax, df):
                     color=COLORS[cohort])
         a.tick_params(labelsize=FS_TICK)
     _legend(axes[1], [(lab, group_color(tt, "R-")) for _, tt, lab in curves], loc="center right",
-            bbox_to_anchor=(1, 0.62))
-    _delta_axis(axes[2], df, "1st W hit")
+            bbox_to_anchor=(1, 0.7))
+    _delta_axis(axes[2], df, alabel)
     axes[2].set_xlabel("")
-    axes[1].set_xlabel("Session time from 1st W hit (0) to session end (1)", labelpad=1, fontsize=FS_LABEL)
+    axes[1].set_xlabel(f"Session time from {alabel} (0) to session end (1)", labelpad=1, fontsize=FS_LABEL)
+
+
+def plot_perf_trial(ax, df):
+    _plot_perf_three(ax, df, "1st W trial")
+
+
+def plot_perf_hit(ax, df):
+    _plot_perf_three(ax, df, "1st W hit")
 
 
 HITMISS_LABELS = {"whisker_speed": ("Whisker speed", "Δ deg/s"), "jaw_opening": ("Jaw opening", "Δ mm"),
@@ -717,14 +707,14 @@ def plot_movement_course(ax, df):
         lo, hi = a.get_ylim()
         ticks = mpl.ticker.MaxNLocator(3).tick_values(lo, hi)
         a.set_yticks(ticks[(ticks >= lo) & (ticks <= hi)])
-        a.set_ylim(lo - 0.6 * (hi - lo), hi + 0.15 * (hi - lo))  # bars above; room below the traces for the inset
+        a.set_ylim(lo - 1.0 * (hi - lo), hi + 0.15 * (hi - lo))  # bars above; room below the traces for the inset
         xmax = window[sig][1]
         a.set_xticks([0, xmax], ["0", f"{xmax:g}"])
         a.set_ylabel(f"{label} ({unit})", labelpad=0.5, fontsize=FS_LABEL)  # planner 2026-11-12: y label = the quantity
         a.tick_params(axis="y", labelsize=FS_TICK, pad=1)
         a.set_xlabel("Time (s)", labelpad=0)
         # user 2026-11-16: inset, bottom right, zoom on the first 100 ms
-        z = a.inset_axes([0.5, 0.05, 0.47, 0.27])
+        z = a.inset_axes([0.6, 0.13, 0.33, 0.33])  # user 2026-11-17: clear of the x axis, larger
         dz = d[d.time_s.between(0, 0.1)]
         for tt in ("whisker_trial", "auditory_trial"):
             for c in COHORTS:
@@ -734,12 +724,15 @@ def plot_movement_course(ax, df):
         z.set_xlim(0, 0.1)
         z.set_xticks([0, 0.1], ["0", "0.1"])
         z.yaxis.set_major_locator(mpl.ticker.MaxNLocator(2))
+        z.yaxis.tick_right()  # user 2026-11-17: left of the inset free for the legend
+        z.spines["left"].set_visible(False)
+        z.spines["right"].set_visible(True)
         z.tick_params(labelsize=FS_TICK, length=1.2, pad=0.5, width=0.3)
         for side in z.spines.values():
             side.set_linewidth(0.3)
         z.patch.set_alpha(0.0)
-    _legend(axes[1], [(f"{TT_SHORT[tt]} {c}", color) for tt in ("whisker_trial", "auditory_trial")
-                      for c, color in _cohort_entries(tt)], loc="upper left", bbox_to_anchor=(0, 0.88))
+    _legend(axes[0], [(f"{TT_SHORT[tt]} {c}", color) for tt in ("whisker_trial", "auditory_trial")
+                      for c, color in _cohort_entries(tt)], loc="lower left", bbox_to_anchor=(-0.04, -0.02))  # left of the inset
     ax.set_title("Evoked movement, hits", fontsize=FS_TITLE, pad=6)  # user 2026-11-16: hit trials only (lick, no early lick)
 
 
@@ -1006,11 +999,10 @@ def plot_glm_example(ax, df):
     ax.scatter(x[lick], np.full(lick.sum(), 1.06), s=2, marker="|", lw=0.4, color=color)
     ax.scatter(x[~lick], np.full((~lick).sum(), -0.06), s=2, marker="|", lw=0.4, color="0.6")
     if "curve_p_mean" in df:
-        ax.fill_between(x, df.curve_p_low, df.curve_p_high, color=light(color, 0.8), lw=0)
         ax.plot(x, df.curve_p_mean, color=color, lw=0.8, label="Whisker curve")
     if "predicted_min" in df:  # spread over the 10 cross-validation repeats
         ax.fill_between(x, df.predicted_min, df.predicted_max, color="0.85", lw=0)  # opaque (EPS export)
-    ax.plot(x, df.predicted_p_lick, color="k", lw=0.6, label="GLM")
+    ax.plot(x, df.predicted_p_lick, color="k", lw=0.4, label="GLM")  # thinner (user 2026-11-17)
     ax.set_ylim(-0.1, 1.1)
     ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
     ax.set_xlabel("Whisker trial", labelpad=1)
