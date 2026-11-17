@@ -121,7 +121,8 @@ def process_one_session(args: tuple) -> list[dict]:
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from ibl_ai_agent.data_locations import resolve_dataset_dir
-    sys.path.insert(0, r"M:\analysis\Axel_Bisi\Github\ephys_utilities\ephys_utilities\neural_utils")
+    from axel_bisi_paths import axel_bisi_root  # M:\ on Windows, /mnt/lsens-analysis on haas
+    sys.path.insert(0, str(axel_bisi_root() / "Github" / "ephys_utilities" / "ephys_utilities" / "neural_utils"))
     import unit_metrics_utils
 
     dataset_root = resolve_dataset_dir("ssl_ephys")

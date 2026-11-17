@@ -13,10 +13,15 @@ import ast
 import re
 from pathlib import Path
 
+import sys
+
 import pandas as pd
 from pynwb import NWBHDF5IO
 
-NWB_ROOT = Path(r"M:\analysis\Axel_Bisi\NWB_ks4")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from axel_bisi_paths import axel_bisi_root  # noqa: E402  (M:\ on Windows, /mnt/lsens-analysis on haas)
+
+NWB_ROOT = axel_bisi_root() / "NWB_ks4"
 OUT_DIR = Path("reports/ssl_analysis/derived")
 OUT_PATH = OUT_DIR / "electrode_group_target_region.parquet"
 ERRORS_PATH = OUT_DIR / "target_region_extraction_errors.parquet"

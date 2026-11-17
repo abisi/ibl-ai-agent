@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 
-XLSX_PATH = Path(r"M:\share_internal\Axel_Bisi_Share\dataset_info\joint_mouse_reference_weight.xlsx")
+_SHARE = Path(r"M:\share_internal") if Path(r"M:\share_internal").exists() else Path("/mnt/share_internal")  # haas mount
+XLSX_PATH = _SHARE / "Axel_Bisi_Share" / "dataset_info" / "joint_mouse_reference_weight.xlsx"  # the only valid sheet
 SUBJECTS_PATH = Path("reports/datasets/ssl_ephys/1.0.0/metadata/subjects.parquet")
 OUT_DIR = Path("reports/ssl_analysis/derived")
 OUT_PATH = OUT_DIR / "mouse_reference.parquet"

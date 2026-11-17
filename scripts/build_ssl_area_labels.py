@@ -14,7 +14,9 @@ from pathlib import Path
 
 import pandas as pd
 
-sys.path.insert(0, r"M:\analysis\Axel_Bisi\Github\ephys_utilities\ephys_utilities\allen_utils")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from axel_bisi_paths import axel_bisi_root  # noqa: E402  (M:\ on Windows, /mnt/lsens-analysis on haas)
+sys.path.insert(0, str(axel_bisi_root() / "Github" / "ephys_utilities" / "ephys_utilities" / "allen_utils"))
 import allen_utils  # noqa: E402
 
 DATASET_DIR = Path("reports/datasets/ssl_ephys/1.0.0")

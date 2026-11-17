@@ -61,7 +61,9 @@ def main() -> None:
     # passive pre / post analyses: ephys_utilities data_utils.keep_passive_data = mice with passive pre AND post data
     # (keep_passive_mice) and the session x probe exclusions of keep_passive_units (e.g. AB155_20250208_175103 imec4);
     # reminder: always select passive data there. keep_passive_units alone (up to 2026-11-09) kept AB144 / MH013.
-    sys.path.insert(0, r"M:\analysis\Axel_Bisi\Github\ephys_utilities")
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from axel_bisi_paths import axel_bisi_root  # M:\ on Windows, /mnt/lsens-analysis on haas
+    sys.path.insert(0, str(axel_bisi_root() / "Github" / "ephys_utilities"))
     from ephys_utilities.helpers.data_utils import keep_passive_data
     n0 = len(final)
     final = keep_passive_data(final.assign(electrode_group=final["probe_name"])).drop(columns="electrode_group")
