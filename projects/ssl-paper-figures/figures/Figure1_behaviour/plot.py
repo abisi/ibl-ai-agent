@@ -204,7 +204,7 @@ def _legend(ax, entries, loc="upper right", marker=None, **kw):
         style = dict(marker=marker, ms=2, lw=0) if marker else dict(lw=0.8)
         handles.append(mpl.lines.Line2D([], [], color=color, label=label, **{**style, **extra}))
     ax.legend(handles=handles, loc=loc, fontsize=kw.pop("fontsize", FS_NOTE), frameon=False, handlelength=1 if not marker else 0.8,
-              handletextpad=0.3, borderaxespad=0.2, labelspacing=0.2, **kw)
+              handletextpad=0.3, borderaxespad=kw.pop("borderaxespad", 0.2), labelspacing=0.2, **kw)
 
 
 def _cohort_entries(tt="whisker_trial"):
@@ -683,12 +683,80 @@ def plot_movement_hitmiss(ax, df):
     ax.set_title(f"{label}, whisker trials", fontsize=FS_TITLE, pad=13)
 
 
+def _band_envelope(a, d, x="time_s", value="value", group=("trial_type", "cohort")):
+    """Mean +- s.e.m. bands of every curve drawn from d, as (x, lo, hi) arrays in data units."""
+    out = []
+    for _, g in d.groupby(list(group)):
+        gg = g.groupby(x)[value]
+        m, s = gg.mean(), gg.sem().fillna(0)
+        out.append((m.index.values, (m - s).values, (m + s).values))
+    return out
+
+
+def _occupancy(a, bands, n=120, pad=0.025, top=0.87):
+    """Boolean n x n grid over the axes (row 0 = bottom): cells covered by any curve band (dilated by pad) or above
+    `top` (significance bars)."""
+    from scipy import ndimage
+    x0, x1 = a.get_xlim()
+    y0, y1 = a.get_ylim()
+    c = (np.arange(n) + 0.5) / n
+    occ = np.zeros((n, n), bool)
+    for bx, bl, bh in bands:
+        fx = (bx - x0) / (x1 - x0)
+        lo = np.interp(c, fx, (bl - y0) / (y1 - y0), left=np.nan, right=np.nan)
+        hi = np.interp(c, fx, (bh - y0) / (y1 - y0), left=np.nan, right=np.nan)
+        occ |= (c[:, None] >= lo[None, :]) & (c[:, None] <= hi[None, :])
+    occ[c > top, :] = True
+    k = int(np.ceil(pad * n))
+    return ndimage.binary_dilation(occ, iterations=k) if k else occ
+
+
+def _free_boxes(occ, w, h, step=0.02):
+    """(clearance, x, y) for every w x h box (axes fraction, lower-left corner) that covers no occupied cell;
+    clearance = smallest distance (axes fraction) from the box to an occupied cell."""
+    from scipy import ndimage
+    n = occ.shape[0]
+    S = np.pad(occ.cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+    dist = ndimage.distance_transform_edt(~occ) / n
+    out = []
+    for x in np.arange(0, 1 - w + 1e-9, step):
+        for y in np.arange(0, 1 - h + 1e-9, step):
+            i0, i1 = int(np.floor(y * n)), int(np.ceil((y + h) * n))
+            j0, j1 = int(np.floor(x * n)), int(np.ceil((x + w) * n))
+            if S[i1, j1] - S[i0, j1] - S[i1, j0] + S[i0, j0] == 0:
+                ring = np.r_[dist[i0, j0:j1], dist[i1 - 1, j0:j1], dist[i0:i1, j0], dist[i0:i1, j1 - 1]]
+                out.append((ring.min(), x, y))
+    return out
+
+
+def _place_boxes(a, bands, footprints, grows, hi, top=0.87):
+    """Smallest headroom g (ylim = 0..hi(1+g)) at which all footprints [(w, h), ...] fit without overlapping the
+    curves or each other; each placed in turn where it keeps most clearance. Returns (g, [(x, y), ...]) or None."""
+    n = 120
+    for g in grows:
+        a.set_ylim(0, hi * (1 + g))
+        occ = _occupancy(a, bands, n=n, top=top)
+        spots = []
+        for w, h in footprints:
+            free = _free_boxes(occ, w, h)
+            if not free:
+                break
+            _, x, y = max(free)
+            spots.append((x, y))
+            occ = occ.copy()
+            occ[int(np.floor(y * n)):int(np.ceil((y + h) * n)), int(np.floor(x * n)):int(np.ceil((x + w) * n))] = True
+        else:
+            return g, spots
+    return None
+
+
 def plot_movement_course(ax, df):
     """Lick trials (planner 2026-11-11): whisker speed, jaw opening, pupil area minus each trial's pre-stimulus mean;
     whisker and auditory on the same axes, both cohorts (group_color), mean +- s.e.m. over mice. Bars, R+ vs R-
     clusters: whisker trials (black, top), auditory trials (auditory blue, below)."""
     axes = _split(ax, 2, gap=0.3)  # planner 2026-11-12: pupil dropped, whisker speed and jaw opening only
     window = {"whisker_speed": (0.0, 0.5), "jaw_opening": (0.0, 0.5), "pupil_area": (-1.0, 2.0)}  # user 2026-11-16: 0-0.5 s
+    panels, has_bars = [], {a: False for a in axes}
     for a, (sig, label, unit) in zip(axes, SIGNALS[:2]):
         d = df[(df.signal == sig) & df.time_s.between(*window[sig])]
         for tt in ("whisker_trial", "auditory_trial"):
@@ -701,20 +769,31 @@ def plot_movement_course(ax, df):
             on = d[(d.trial_type == tt) & d.cluster_sig.astype(bool)]
             if len(on):
                 _shaded_bars(a, on, "time_s", y, step, label=f"{TT_SHORT[tt]} ", lw=1)
+                has_bars[a] = True
         a.axvline(0, color="0.6", lw=0.4, ls=":")
         if len(d):
             a.set_xlim(d.time_s.min(), d.time_s.max())
-        lo, hi = a.get_ylim()
-        ticks = mpl.ticker.MaxNLocator(3).tick_values(lo, hi)
-        a.set_yticks(ticks[(ticks >= lo) & (ticks <= hi)])
-        a.set_ylim(lo - 1.0 * (hi - lo), hi + 0.15 * (hi - lo))  # bars above; room below the traces for the inset
+        hi = a.get_ylim()[1]
+        ticks = mpl.ticker.MaxNLocator(3).tick_values(0, hi)
+        a.set_yticks(ticks[(ticks >= 0) & (ticks <= hi)])
         xmax = window[sig][1]
         a.set_xticks([0, xmax], ["0", f"{xmax:g}"])
         a.set_ylabel(f"{label} ({unit})", labelpad=0.5, fontsize=FS_LABEL)  # planner 2026-11-12: y label = the quantity
         a.tick_params(axis="y", labelsize=FS_TICK, pad=1)
         a.set_xlabel("Time (s)", labelpad=0)
-        # user 2026-11-16: inset, bottom right, zoom on the first 100 ms
-        z = a.inset_axes([0.6, 0.13, 0.33, 0.33])  # user 2026-11-17: clear of the x axis, larger
+        panels.append((a, d, hi, _band_envelope(a, d)))
+    # user 2026-11-17: y axis from 0; the zoom inset goes where the traces leave most room (no overlap), headroom
+    # above the traces grown only as much as needed; legend as one row under the title.
+    w_in, h_in = 0.34, 0.32
+    pad_l, pad_b, pad_r, pad_t = 0.05, 0.08, 0.0, 0.0  # x tick labels below; y tick labels on the right, above the traces
+    grows = np.round(np.arange(0.0, 2.01, 0.05), 2)
+    for a, d, hi, bands in panels:
+        top = 0.87 if has_bars[a] else 0.97  # keep clear of the significance bars when there are any
+        fit = _place_boxes(a, bands, [(w_in + pad_l + pad_r + 0.2, h_in + pad_b + pad_t)], grows, hi, top=top)
+        g, spots = fit or (grows[-1], [(0.5, 0.5)])
+        a.set_ylim(0, hi * (1 + g))
+        box = spots[0]
+        z = a.inset_axes([box[0] + pad_l, box[1] + pad_b, w_in, h_in])  # user 2026-11-16: zoom on the first 100 ms
         dz = d[d.time_s.between(0, 0.1)]
         for tt in ("whisker_trial", "auditory_trial"):
             for c in COHORTS:
@@ -724,16 +803,16 @@ def plot_movement_course(ax, df):
         z.set_xlim(0, 0.1)
         z.set_xticks([0, 0.1], ["0", "0.1"])
         z.yaxis.set_major_locator(mpl.ticker.MaxNLocator(2))
-        z.yaxis.tick_right()  # user 2026-11-17: left of the inset free for the legend
+        z.yaxis.tick_right()  # clear of the main y tick labels
         z.spines["left"].set_visible(False)
         z.spines["right"].set_visible(True)
         z.tick_params(labelsize=FS_TICK, length=1.2, pad=0.5, width=0.3)
         for side in z.spines.values():
             side.set_linewidth(0.3)
         z.patch.set_alpha(0.0)
-    _legend(axes[0], [(f"{TT_SHORT[tt]} {c}", color) for tt in ("whisker_trial", "auditory_trial")
-                      for c, color in _cohort_entries(tt)], loc="lower left", bbox_to_anchor=(-0.04, -0.02))  # left of the inset
-    ax.set_title("Evoked movement, hits", fontsize=FS_TITLE, pad=6)  # user 2026-11-16: hit trials only (lick, no early lick)
+    entries = [(f"{TT_SHORT[tt]} {c}", color) for tt in ("whisker_trial", "auditory_trial") for c, color in _cohort_entries(tt)]
+    _legend(ax, entries, loc="lower center", bbox_to_anchor=(0.5, 1.06), ncol=4, columnspacing=0.8, borderaxespad=0)
+    ax.set_title("Evoked movement, hits", fontsize=FS_TITLE, pad=17)  # user 2026-11-16: hit trials only (lick, no early lick)
 
 
 def plot_cumulative_fa(ax, df):
