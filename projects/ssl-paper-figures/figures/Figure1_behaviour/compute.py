@@ -576,35 +576,42 @@ def compute_learners(ctx):
                 "sheet_vs_high_state_agreement": agree}
 
 
-PERF_SESSION_END = 0.85  # fraction of normalised session time shown (planner 2026-11-11)
+SESSION_KEEP = 0.85  # user 2026-11-17: the last 15% of each session (time from first to last whisker trial) is cut;
+# the last kept trial is the session end (normalised session time 1)
+
+
+def session_end_time(whisker_times):
+    """End of the kept session: first whisker trial + SESSION_KEEP x (last - first whisker trial)."""
+    tw = np.sort(np.asarray(whisker_times, float))
+    return tw[0] + SESSION_KEEP * (tw[-1] - tw[0])
 
 
 def compute_perf_session(ctx):
-    """Learners and non-learners (planner 2026-11-06: learners left, non-learners right): performance (whisker - chance
-    curve) against session time normalised from the first to the last whisker trial; cluster-based permutation test
-    R+ vs R- within each group."""
-    grid = np.round(np.arange(0, PERF_SESSION_END + 1e-9, 0.02), 3)  # planner 2026-11-11: last 15 % of session time cut
-    grid_hit = np.round(np.arange(-0.2, PERF_SESSION_END + 1e-9, 0.02), 3)  # first-hit alignment (user 2026-11-16)
+    """User 2026-11-17: whisker day 0 cut at session_end_time (last 15% of the session dropped), learning curves refitted
+    on the cut session. Performance (whisker minus chance curve) and the whisker, chance (no-stimulus) and auditory curves
+    on whisker trials, against normalised session time: first whisker trial (0) to session end (1), and first whisker
+    hit (0) to session end (1). Cluster-based permutation test R+ vs R- of the performance within each group."""
+    grid = np.round(np.arange(0, 1 + 1e-9, 0.02), 3)
     rows = []
     for sid, st in day0_table(ctx["table"]).groupby("session_id"):
         st = st[st.early_lick == 0].sort_values("start_time")
-        curves, _, _ = session_curves(st, ctx)
+        st = st[st.start_time <= session_end_time(st[st.trial_type == "whisker_trial"].start_time)]
+        curves, _, _ = session_curves(st, None)  # not cached: the cut session differs from E, F
         tw = st[st.trial_type == "whisker_trial"].start_time.to_numpy()
-        span = tw[-1] - tw[0]
-        x = (tw - tw[0]) / span
-        perf_w = (curves.p_mean - curves.p_chance).to_numpy()
+        vals = {"performance": (curves.p_mean - curves.p_chance).to_numpy(), "p_whisker": curves.p_mean.to_numpy(),
+                "p_chance": curves.p_chance.to_numpy(), "p_auditory": np.asarray(curves.p_auditory, float)}
         learner = bool(LEARNER.get(st.learning_category.iloc[0], False))
         base = {"mouse_id": st.mouse_id.iloc[0], "session_id": sid, "cohort": st.cohort.iloc[0],
                 "group": "learner" if learner else "non-learner"}
-        rows.append(pd.DataFrame({**base, "alignment": "first_whisker_trial", "session_time_norm": np.round(grid, 3),
-                                  "performance": np.interp(grid, x, perf_w)}))
-        # user 2026-11-16: same, 0 = first whisker hit (same normalisation: the whisker period of the session)
+        x = (tw - tw[0]) / (tw[-1] - tw[0])
+        rows.append(pd.DataFrame({**base, "alignment": "first_whisker_trial", "session_time_norm": grid,
+                                  **{k: np.interp(grid, x, v) for k, v in vals.items()}}))
         hits = np.flatnonzero(curves.lick.to_numpy() == 1)
-        if len(hits):
-            xh = (tw - tw[hits[0]]) / span
-            inside = (grid_hit >= xh[0]) & (grid_hit <= xh[-1])
-            rows.append(pd.DataFrame({**base, "alignment": "first_whisker_hit", "session_time_norm": np.round(grid_hit, 3),
-                                      "performance": np.where(inside, np.interp(grid_hit, xh, perf_w), np.nan)}))
+        if len(hits) and hits[0] < len(tw) - 1:  # from the first whisker hit (0) to the session end (1)
+            k = hits[0]
+            xh = (tw[k:] - tw[k]) / (tw[-1] - tw[k])
+            rows.append(pd.DataFrame({**base, "alignment": "first_whisker_hit", "session_time_norm": grid,
+                                      **{kk: np.interp(grid, xh, v[k:]) for kk, v in vals.items()}}))
     df = pd.concat(rows, ignore_index=True)
     df["cluster_sig"] = False
     clusters, n = {}, {}
@@ -617,7 +624,26 @@ def compute_perf_session(ctx):
         df.loc[d.index, "cluster_sig"] = mark_clusters(d, "session_time_norm", clusters[key])
         df.loc[d.index, "cluster_p"] = cluster_p(d, "session_time_norm", clusters[key])
         n[key] = n_by_cohort(d)
-    return df, {"n": n, "clusters": clusters, "session_end": PERF_SESSION_END}
+    return df, {"n": n, "clusters": clusters, "session_keep": SESSION_KEEP}
+
+
+def _perf(ctx, align):
+    if "perf_session" not in ctx:
+        ctx["perf_session"] = compute_perf_session(ctx)
+    df, info = ctx["perf_session"]
+    key = f"learner {align}"
+    d = df[(df.group == "learner") & (df.alignment == align)]
+    sig = [c for c in info["clusters"][key] if c["p"] < 0.05]
+    return d, {"n": info["n"][key], "clusters": info["clusters"][key], "session_keep": SESSION_KEEP,
+               "sig_clusters_text": "; ".join(f"{c['start']:.2f}-{c['end']:.2f}, P = {c['p']:.3g}" for c in sig) or "none"}
+
+
+def compute_perf_trial(ctx):
+    return _perf(ctx, "first_whisker_trial")
+
+
+def compute_perf_hit(ctx):
+    return _perf(ctx, "first_whisker_hit")
 
 
 def compute_movement_peth(ctx):
@@ -702,6 +728,7 @@ def _aligned_lick_trials(ctx):
     rows = []
     for sid, st in d0.groupby("session_id"):
         st = st.sort_values("start_time")
+        st = st[st.start_time <= session_end_time(st[st.trial_type == "whisker_trial"].start_time)]  # user 2026-11-17
         out = lce.session_learning_curves_exact(st, sigma=CURVE_PARAMS["sigma"], conf_int=CURVE_PARAMS["conf_int"])
         if "whisker_trial" not in out or not (np.asarray(out["whisker_trial"]["outcomes"]) == 1).any():
             continue
@@ -723,51 +750,49 @@ def _aligned_lick_trials(ctx):
 
 
 def compute_aligned(ctx, align):
-    """User 2026-11-17: one panel per alignment (G, first whisker trial; H, first whisker hit). Whisker, false alarm and
-    auditory P(lick): per-mouse lick fraction in bins (-10..-6, -5..-1, 0 alone, 1-5, ..., 26-30 trials of the type),
-    mean +- s.e.m. over mice, dots connected (kind 'bin'); R+ vs R- cluster-based permutation test over the bins from
-    bin 0 (Welch t per bin, cohort labels permuted across mice, 1,000 permutations, bins with >= ALIGNED_MIN_MICE mice
-    per cohort; cluster_id / cluster_p / cluster_sig). Delta P(lick) (whisker minus chance curve, compute_perf_session,
-    learners, same alignment; kind 'delta') as curves with its own cluster test (normalised session time)."""
+    """User 2026-11-17: whisker, false alarm and auditory P(lick) around one alignment (G, first whisker trial; I, first
+    whisker hit): per-mouse lick fraction in bins (-10..-6, -5..-1, 0 alone, 1-5, ..., 26-30 trials of the type), mean
+    +- s.e.m. over mice, dots connected (kind 'bin'). Sessions cut at session_end_time. R+ vs R- per bin (Mann-Whitney U
+    and Welch t, bins with >= ALIGNED_MIN_MICE mice per cohort), Benjamini-Hochberg over the bins of each subplot
+    (trial type); significance = Mann-Whitney q < 0.05 (Welch q saved)."""
+    from statsmodels.stats.multitest import multipletests
     data = _aligned_lick_trials(ctx)
     data = data[data.alignment == align]
     lo_e, hi_e = ALIGN_BIN_EDGES[:-1], ALIGN_BIN_EDGES[1:] - 1  # first and last trial of each bin
     idx = np.searchsorted(ALIGN_BIN_EDGES, data.trial_from_alignment, side="right") - 1
-    data = data[(idx >= 0) & (idx < len(lo_e))].assign(bin=idx[(idx >= 0) & (idx < len(lo_e))])
+    ok = (idx >= 0) & (idx < len(lo_e))
+    data = data[ok].assign(bin=idx[ok])
     bins = (data.groupby(["mouse_id", "session_id", "cohort", "alignment", "trial_type", "bin"])
             .agg(p_lick=("p_lick", "mean"), n_trials=("p_lick", "size")).reset_index())
     bins["bin_start"], bins["bin_end"] = lo_e[bins.bin], hi_e[bins.bin]
     bins["bin_centre"] = (bins.bin_start + bins.bin_end) / 2
-    bins["kind"], bins["cluster_sig"], bins["cluster_p"], bins["cluster_id"] = "bin", False, np.nan, np.nan
-    clusters, n = {}, {}
+    bins["kind"] = "bin"
+    tests, n = [], {}
     for tt, g in bins.groupby("trial_type"):
-        post = g[g.bin_start >= 0]
-        enough = post.groupby(["bin_centre", "cohort"]).mouse_id.nunique().unstack().reindex(columns=COHORTS).fillna(0).min(1)
-        post = post[post.bin_centre.isin(enough[enough >= ALIGNED_MIN_MICE].index)]
-        clusters[tt] = cluster_test(post, "bin_centre", "p_lick")
-        bins.loc[post.index, "cluster_sig"] = mark_clusters(post, "bin_centre", clusters[tt])
-        bins.loc[post.index, "cluster_p"] = cluster_p(post, "bin_centre", clusters[tt])
-        for k, c in enumerate(clusters[tt]):
-            if c["p"] < 0.05:
-                bins.loc[post.index[post.bin_centre.between(c["start"], c["end"]).to_numpy()], "cluster_id"] = k
+        rows = []
+        for (b0, b1, bc), gb in g.groupby(["bin_start", "bin_end", "bin_centre"]):
+            a_, b_ = gb[gb.cohort == "R+"].p_lick, gb[gb.cohort == "R-"].p_lick
+            if min(len(a_), len(b_)) < ALIGNED_MIN_MICE or np.ptp(np.r_[a_, b_]) == 0:
+                continue
+            rows.append({"trial_type": tt, "bin_start": b0, "bin_end": b1, "bin_centre": bc, **two_group_tests(a_, b_)})
+        t = pd.DataFrame(rows)
+        if len(t):
+            t["mannwhitney_q_bh"] = multipletests(t.mannwhitney_p, method="fdr_bh")[1]
+            t["welch_q_bh"] = multipletests(t.welch_p.fillna(1), method="fdr_bh")[1]
+            tests.append(t)
         n[tt] = n_by_cohort(g)
-    if "perf_session" not in ctx:
-        ctx["perf_session"] = compute_perf_session(ctx)
-    perf, perf_info = ctx["perf_session"]
-    delta = perf[(perf.group == "learner") & (perf.alignment == align)].assign(kind="delta")
-    sig = {tt: [c for c in cl if c["p"] < 0.05] for tt, cl in clusters.items()}
-    text = {tt: "; ".join(f"trials {int(np.floor(c['start'] - (2 if c['start'] > 0 else 0)))}-"
-                          f"{int(np.ceil(c['end'] + (2 if c['end'] > 0 else 0)))}, P = {c['p']:.3g}" for c in v) or "none"
-            for tt, v in sig.items()}
-    key = f"learner {align}"
-    return pd.concat([bins, delta], ignore_index=True), {
-        "n": n_by_cohort(bins), "n_by_trial_type": n, "clusters": clusters, "sig_clusters_text": text,
-        "delta": {"n": perf_info["n"].get(key), "clusters": perf_info["clusters"].get(key),
-                  "session_end": perf_info["session_end"]},
+    tests = pd.concat(tests, ignore_index=True).assign(kind="bin_test", alignment=align)
+    sig = tests[tests.mannwhitney_q_bh < 0.05]
+    text = {tt: (", ".join(f"{int(r.bin_start)}" + (f"-{int(r.bin_end)}" if r.bin_end > r.bin_start else "")
+                           + f" (q = {r.mannwhitney_q_bh:.2g})" for r in sig[sig.trial_type == tt].itertuples()) or "none")
+            for tt in TRIAL_TYPES}
+    return pd.concat([bins, tests], ignore_index=True), {
+        "n": n_by_cohort(bins), "n_by_trial_type": n, "sig_bins_text": text,
+        "bin_tests": tests.to_dict(orient="records"),
         "params": {"window_trials": list(ALIGNED_WINDOW), "bin_edges": [int(v) for v in ALIGN_BIN_EDGES],
-                   "min_mice_per_cohort": ALIGNED_MIN_MICE, "session": "untrimmed whisker day 0, early licks dropped",
-                   "test": "cluster-based permutation test over bins from bin 0, Welch t, cohort labels permuted across "
-                           "mice, 1,000 permutations, cluster P < 0.05"}}
+                   "min_mice_per_cohort": ALIGNED_MIN_MICE, "session_keep": SESSION_KEEP,
+                   "session": "untrimmed whisker day 0 cut at session_end_time, early licks dropped",
+                   "test": "per bin Mann-Whitney U and Welch t, R+ vs R-, Benjamini-Hochberg within each subplot"}}
 
 
 def compute_aligned_trial(ctx):
