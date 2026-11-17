@@ -51,6 +51,7 @@ TRIAL_EDGES = np.r_[-10, -5, 0, 1, np.arange(6, 32, 5)]
 TIME_BIN = {"minute": 2.0, "norm": 0.05}
 CURVE_GRID = {"minute": np.round(np.arange(-10, 30.01, 0.25), 3), "norm": np.round(np.arange(-0.3, 0.851, 0.01), 3)}
 ROWS = ["single trials", "binned", "learning curves"]
+YLABEL = {"dp": "Δ P(lick)", "dprime": "d′"}  # P(lick) otherwise (user 2026-11-17: y labels)
 
 
 def color(tt, cohort):
@@ -164,11 +165,16 @@ def build_table():
 
 def page(pdf, df, align, xaxis):
     fig, axes = plt.subplots(3, 5, figsize=(183 * MM, 120 * MM))
-    fig.subplots_adjust(left=0.07, right=0.99, top=0.88, bottom=0.08, wspace=0.45, hspace=0.55)
+    fig.subplots_adjust(left=0.1, right=0.99, top=0.88, bottom=0.08, wspace=0.45, hspace=0.55)
     xlabel, xr = XAXES[xaxis]
     for r, rep in enumerate(ROWS):
         for c, (m, mlabel) in enumerate(MEASURES):
             a = axes[r][c]
+            if r == 0:
+                a.set_title(mlabel, fontsize=5.5)
+            if c == 0:
+                a.text(-0.55, 0.5, rep.capitalize(), transform=a.transAxes, rotation=90, ha="center", va="center",
+                       fontsize=6, fontweight="bold")
             d = df[(df.alignment == align) & (df.xaxis == xaxis) & (df.rep == rep) & (df.measure == m)]
             if not len(d):
                 a.text(0.5, 0.5, "n/a\n(needs bins)" if rep == "single trials" else "n/a", ha="center", va="center",
@@ -196,10 +202,7 @@ def page(pdf, df, align, xaxis):
             if m in TT:
                 a.set_ylim(-0.03, 1.03)
             a.tick_params(labelsize=4.5)
-            if r == 0:
-                a.set_title(mlabel, fontsize=5.5)
-            if c == 0:
-                a.set_ylabel(rep, fontsize=5.5)
+            a.set_ylabel(YLABEL.get(m, "P(lick)"), fontsize=5, labelpad=1)
             if r == 2:
                 a.set_xlabel(xlabel.format(ALIGN[align]), fontsize=4.8)
     n = df[df.alignment == align].groupby("cohort").mouse_id.nunique()
@@ -226,9 +229,14 @@ def cover(pdf):
 def main():
     set_nature_rc()
     OUT.mkdir(exist_ok=True)
-    df = build_table()
     stem = OUT / f"aligned_variants_{datetime.date.today()}"
-    df.to_parquet(f"{stem}_table.parquet")
+    if "--replot" in sys.argv:  # plot only, from the last saved table
+        table = sorted(OUT.glob("aligned_variants_*_table.parquet"))[-1]
+        df = pd.read_parquet(table)
+        print("replot from", table)
+    else:
+        df = build_table()
+        df.to_parquet(f"{stem}_table.parquet")
     with PdfPages(f"{stem}.pdf") as pdf:
         cover(pdf)
         for align in ALIGN:
