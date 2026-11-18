@@ -1,19 +1,17 @@
-"""Report of ssl-spectral-coupling (skills/project-report, report_lib). First version 2026-11-18 (overnight run).
-Spectral (multitaper) coupling between area groups / area acronyms, R+ vs R- learners, from binned spikes of stable units
-(002 source "spikes") and from the AP-band multi-unit envelope (005 + 002 --source ap).
+"""Report of ssl-spectral-coupling (skills/project-report, report_lib). Version 3, 2026-11-18: exploratory, mouse level,
+uncorrected (user decisions 2026-11-18). Replaces v1/v2 (pre-registered BH tests, AP-band envelope; git history).
+Inputs: v2_stim / v2_jaw stats + figures (007), v2_jaw_prep (008), simulation (001).
 Run (haas, repo root): ~/code/unit_spikes_analysis/.venv/bin/python projects/ssl-spectral-coupling/report/build_report.py
 Render locally: bash projects/ssl-spectral-coupling/report/render.sh
 """
 from __future__ import annotations
 
-import json
 import sys
 from datetime import date
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 HERE = Path(__file__).resolve().parent
 PROJ = HERE.parent
@@ -27,447 +25,341 @@ OUT = RES / "report"
 R = Report(banned=())
 num, pv, ref, figure, table, eq, claim = R.num, R.pv, R.ref, R.figure, R.table, R.eq, R.claim
 R.register([
-    ("eq-msc", "Eq. (1)"), ("eq-cancoh", "Eq. (2)"), ("eq-pcoh", "Eq. (3)"), ("eq-psi", "Eq. (4)"), ("eq-gc", "Eq. (5)"),
-    ("eq-excess", "Eq. (6)"),
-    ("tbl-measures", "Table 1"), ("fig-sim", "Figure 1"), ("fig-spectra", "Figure 2"), ("tbl-omnibus", "Table 2"),
-    ("fig-pairs", "Figure 3"), ("fig-pvals", "Figure 4"), ("tbl-bh", "Table 3"), ("fig-tr", "Figure 5"),
-    ("fig-ap", "Figure 6"), ("fig-ap-tr", "Figure 7"), ("tbl-n", "Table S1"), ("fig-allmice", "Figure S1"), ("fig-acronym", "Figure S2"),
-    ("fig-ap-check", "Figure S3"), ("fig-confounds", "Figure S4"), ("tbl-registry", "Table S2"),
+    ("eq-msc", "Eq. (1)"), ("eq-corr", "Eq. (2)"), ("eq-excess", "Eq. (3)"),
+    ("fig-sim", "Figure 1"), ("fig-spectra", "Figure 2"), ("fig-tr-between", "Figure 3"), ("fig-tr-within", "Figure 4"),
+    ("fig-within-areas", "Figure 5"), ("fig-jaw-between", "Figure 6"), ("fig-prep", "Figure 7"),
+    ("tbl-rates", "Table 1"), ("tbl-omni", "Table 2"), ("tbl-prep-areas", "Table 3"),
+    ("fig-jaw-within", "Figure S1"), ("fig-pairs", "Figure S2"), ("fig-allmice", "Figure S3"),
+    ("tbl-latency", "Table S1"), ("tbl-registry", "Table S2"),
 ])
 
-HAS_AP = (RES / "ap" / "stats" / "learners" / "omnibus_tests.csv").exists()
+# ------------------------------------------------------------------------------------------------ frozen inputs
+TAG = date.today().isoformat()
 FILES = {}
-for src in ("spikes",) + (("ap",) if HAS_AP else ()):
-    for pop in ("learners", "all"):
-        for f in ("omnibus_tests", "omnibus_sessions", "pair_tests", "omnibus_tests_whisker_minus_auditory",
-                  "spectra_clusters", "time_resolved_clusters", "confound_tests"):
-            FILES[f"{src}_{pop}_{f}"] = RES / src / "stats" / pop / f"{f}.csv"
+for al in ("stim", "jaw"):
+    for pop in ("all", "learners"):
+        for f in ("pair_tests", "within_tests", "omnibus_tests", "time_resolved_tests"):
+            FILES[f"{al}_{pop}_{f}"] = RES / f"v2_{al}" / "stats" / pop / f"{f}.csv"
+for pop in ("all", "learners"):
+    for f in ("omnibus", "pairs", "areas"):
+        FILES[f"prep_{pop}_{f}"] = RES / "v2_jaw_prep" / "stats" / pop / f"{f}.csv"
+FILES["latency"] = RES / "v2_jaw_prep" / "stats" / "jaw_latency_tests.csv"
 FILES["sim"] = RES / "simulation" / "001_simulation.csv"
-# one snapshot tag per source: report_lib names copies <grandparent>_<parent>__<file>, identical for spikes/ and ap/
 FROZEN = {}
-for src in ("spikes", "ap", "simulation"):
-    keys = [k for k in FILES if k.startswith(src) or (src == "simulation" and k == "sim")]
-    if keys:
-        FROZEN.update(zip(keys, Report.snapshot([FILES[k] for k in keys], OUT, tag=f"{date.today().isoformat()}_{src}")))
-T = {k: pd.read_csv(v, keep_default_na=(k != "sim")) for k, v in FROZEN.items()}  # scenario "null" is not NaN
-PRIMARY = [("quiet", "ALL"), ("early", "W_lick"), ("early", "W_nolick"), ("execution", "W_lick")]
-BANDNAME = {"theta": "θ 3–8 Hz", "alpha": "α 8–13 Hz", "beta": "β 13–30 Hz", "gamma_low": "low γ 30–60 Hz",
-            "gamma_high": "high γ 60–100 Hz"}
+for grp in ("stim", "jaw", "prep", "latency", "sim"):  # one tag per group: report_lib names copies by 2 parent folders
+    keys = [k for k in FILES if k.split("_")[0] == grp]
+    FROZEN.update(zip(keys, Report.snapshot([FILES[k] for k in keys], OUT, tag=f"{TAG}_v3_{grp}")))
+T = {k: pd.read_csv(v, keep_default_na=(k != "sim")) for k, v in FROZEN.items()}
+FIG = {al: RES / f"v2_{al}" / "figures" for al in ("stim", "jaw")}
 
 
 def fmt_p(p):
     return "< 0.001" if p < 0.001 else f"{p:.3f}"
 
 
-def omni(src, pop, w, c, m, b, value="raw"):
-    d = T[f"{src}_{pop}_omnibus_tests"]
-    d = d[(d.level == "group") & (d.window == w) & (d.condition == c) & (d.measure == m) & (d.band == b) & (d.value == value)]
-    assert len(d) == 1, (src, pop, w, c, m, b, len(d))
-    return d.iloc[0]
+def rate(t):
+    v = t[t.p_mw.notna()]
+    return len(v), int(v.both_p05.sum()), float(v.both_p05.mean()), int((v.both_p05 & (v["diff"] > 0)).sum())
 
 
-def pair_summary(src, pop):
-    t = T[f"{src}_{pop}_pair_tests"]
-    both = (t.p_mw < 0.05) & (t.p_welch < 0.05)
-    bhq = (t.q_mw < 0.05) & (t.q_welch < 0.05)
-    prim = t.apply(lambda r: (r.window, r.condition) in PRIMARY, axis=1)
-    return dict(n=len(t), frac_both=both.mean(), n_bh=int(bhq.sum()), n_prim=int(prim.sum()),
-                frac_prim=both[prim].mean(), n_bh_prim=int((bhq & prim).sum()), bh_rows=t[bhq])
-
-
-def within_zero(src, pop, w, c, m, b):
-    o = T[f"{src}_{pop}_omnibus_sessions"]
-    o = o[(o.level == "group") & (o.window == w) & (o.condition == c) & (o.measure == m) & (o.band == b)]
-    return {coh: (g.raw.mean(), stats.wilcoxon(g.raw).pvalue, len(g)) for coh, g in o.groupby("cohort")}
-
-
-def mde(src, pop, w, c, m, b):
-    """minimal detectable R+ - R- difference (80 % power, two-sided alpha 0.05, t approximation) relative to the mean."""
-    o = T[f"{src}_{pop}_omnibus_sessions"]
-    o = o[(o.level == "group") & (o.window == w) & (o.condition == c) & (o.measure == m) & (o.band == b)]
-    a, z = o[o.cohort == "R+"].raw, o[o.cohort == "R-"].raw
-    sd = np.sqrt(((len(a) - 1) * a.var() + (len(z) - 1) * z.var()) / (len(a) + len(z) - 2))
-    d = 2.8 * np.sqrt(1 / len(a) + 1 / len(z))
-    diff, se = a.mean() - z.mean(), np.sqrt(a.var() / len(a) + z.var() / len(z))
-    return d * sd, d * sd / o.raw.mean(), diff, diff - 1.96 * se, diff + 1.96 * se, o.raw.mean()
+def row(t, **kw):
+    x = t
+    for k, v in kw.items():
+        x = x[x[k] == v]
+    assert len(x) == 1, (kw, len(x))
+    return x.iloc[0]
 
 
 # ------------------------------------------------------------------------------------------------ numbers
-S = {pop: pair_summary("spikes", pop) for pop in ("learners", "all")}
-sess = T["spikes_all_omnibus_sessions"][["session_id", "cohort"]].drop_duplicates()
-sessL = T["spikes_learners_omnibus_sessions"][["session_id", "cohort"]].drop_duplicates()
-nL = sessL.cohort.value_counts()
-nA = sess.cohort.value_counts()
-wz = within_zero("spikes", "learners", "quiet", "ALL", "msc", "beta")
-md_q = mde("spikes", "learners", "quiet", "ALL", "msc", "beta")
-md_e = mde("spikes", "learners", "early", "W_lick", "msc", "gamma_low")
-md_x = mde("spikes", "learners", "execution", "W_lick", "msc", "beta")
+mice = {}
+for pop in ("all", "learners"):
+    o = T[f"stim_{pop}_omnibus_tests"]
+    q = o[(o.scope == "between") & (o.level == "group") & (o.window == "quiet") & (o.condition == "ALL") &
+          (o.measure == "corr50")].iloc[0]
+    mice[pop] = (int(q.n_Rplus), int(q.n_Rminus))
+
+rate_rows = []
+for al, lab in (("stim", "stimulus-aligned"), ("jaw", "jaw-aligned")):
+    for pop in ("learners", "all"):
+        for f, scope in (("pair_tests", "between-area pairs"), ("within_tests", "within areas"),
+                         ("omnibus_tests", "omnibus (mean per mouse)")):
+            n, k, fr, kp = rate(T[f"{al}_{pop}_{f}"])
+            rate_rows.append({"alignment": lab, "population": pop, "family": scope, "tests": n,
+                              "both p < 0.05": k, "fraction": f"{fr:.3f}", "of which R+ > R−": kp})
+rates = pd.DataFrame(rate_rows)
+rL = {(r["alignment"], r["family"]): r for r in rate_rows if r["population"] == "learners"}
+pair_frac = float(rL[("stimulus-aligned", "between-area pairs")]["fraction"])
+within_frac = float(rL[("stimulus-aligned", "within areas")]["fraction"])
+within_k = rL[("stimulus-aligned", "within areas")]["both p < 0.05"]
+within_kp = rL[("stimulus-aligned", "within areas")]["of which R+ > R−"]
+
+oL = T["stim_learners_omnibus_tests"]
+w_gl = row(oL, scope="within", level="acronym", window="quiet", condition="ALL", measure="msc", band="gamma_low")
+w_nl = row(oL, scope="within", level="group", window="quiet", condition="W_nolick", measure="corr50", band="all")
+
+# jaw-aligned time course: consecutive pre-movement windows with R- > R+ in corr50 (group, between, W_lick)
+tj = T["jaw_learners_time_resolved_tests"]
+tj = tj[(tj.level == "group") & (~tj.within) & (tj.condition == "W_lick") & (tj.measure == "corr50")].sort_values("t")
+pre = tj[(tj.t < 0) & tj.both_p05 & (tj["diff"] < 0)]
+pre_lo, pre_hi, pre_n = float(pre.t.min()), float(pre.t.max()), int(len(pre))
+pre_pmax = float(pre[["p_mw", "p_welch"]].max(axis=1).max())
+tjA = T["jaw_all_time_resolved_tests"]
+tjA = tjA[(tjA.level == "group") & (~tjA.within) & (tjA.condition == "W_lick") & (tjA.measure == "corr50")]
+preA_n = int((tjA[(tjA.t < 0)].both_p05 & (tjA[(tjA.t < 0)]["diff"] < 0)).sum())
+
+# prep window (008)
+po = T["prep_learners_omnibus"]
+pw = row(po, level="group", condition="W_lick", measure="corr50", band="all")
+pa_ = row(po, level="group", condition="A_hit", measure="corr50", band="all")
+pf = row(po, level="group", condition="NS_fa", measure="corr50", band="all")
+pwc = row(po, level="acronym", condition="W_lick", measure="corr50", band="all")
+poA = T["prep_all_omnibus"]
+pwA = row(poA, level="group", condition="W_lick", measure="corr50", band="all")
+ar = T["prep_learners_areas"]
+ar_tab = ar[(ar.condition == "W_lick") & (ar.measure == "corr50") & ar.p_mw.notna()].copy()
+ar_tab = ar_tab.sort_values(["level", "p_welch"])
+ar_sig = ar_tab[ar_tab.both_p05]
+prep_tab = pd.concat([ar_tab[ar_tab.level == lv].head(8) for lv in ("group", "acronym")])
+prep_tab = pd.DataFrame({"level": prep_tab.level, "area": prep_tab.area,
+                         "n (R+/R−)": [f"{int(a)}/{int(b)}" for a, b in zip(prep_tab.n_Rplus, prep_tab.n_Rminus)],
+                         "R+": prep_tab.mean_Rplus.map("{:.3f}".format), "R−": prep_tab.mean_Rminus.map("{:.3f}".format),
+                         "p MW": prep_tab.p_mw.map(fmt_p), "p Welch": prep_tab.p_welch.map(fmt_p)})
+n_ar_sig = len(ar_sig)
+n_ar_sig_m = int((ar_sig["diff"] < 0).sum())
+ar_g = ar_tab[ar_tab.level == "group"]
+n_g, n_g_neg = len(ar_g), int((ar_g["diff"] < 0).sum())
+ar_sig_names = ", ".join(f"{a} ({lv})" for a, lv in zip(ar_sig.area, ar_sig.level))
+
+lat = T["latency"]
+lw = row(lat, population="learners", trial_type="whisker_trial")
+lat_tab = pd.DataFrame({"population": lat.population, "trial type": lat.trial_type.str.replace("_trial", ""),
+                        "n mice (R+/R−)": [f"{int(a)}/{int(b)}" for a, b in zip(lat.n_Rplus, lat.n_Rminus)],
+                        "R+ (s)": lat.mean_Rplus.map("{:.3f}".format), "R− (s)": lat.mean_Rminus.map("{:.3f}".format),
+                        "p MW": lat.p_mw.map(fmt_p), "p Welch": lat.p_welch.map(fmt_p)})
+
+# omnibus table: main cells, group level, msc beta + corr50, between and within (learners)
+MAIN = [("quiet", "ALL"), ("early", "W_lick"), ("early", "W_nolick"), ("execution", "W_lick"), ("early", "A_hit"),
+        ("execution", "A_hit")]
+orows = []
+for scope in ("between", "within"):
+    for w, c in MAIN:
+        for m, b in (("msc", "beta"), ("msc", "gamma_low"), ("corr50", "all")):
+            r = row(oL, scope=scope, level="group", window=w, condition=c, measure=m, band=b)
+            orows.append({"scope": scope, "window": w, "condition": c, "measure": m if b == "all" else f"{m} {b}",
+                          "n (R+/R−)": f"{int(r.n_Rplus)}/{int(r.n_Rminus)}", "R+": f"{r.mean_Rplus:.4f}",
+                          "R−": f"{r.mean_Rminus:.4f}", "p MW": fmt_p(r.p_mw), "p Welch": fmt_p(r.p_welch),
+                          "flag": "*" if r.both_p05 else ""})
+omni_tab = pd.DataFrame(orows)
+n_omni_flag = int((omni_tab["flag"] == "*").sum())
+
 sim = T["sim"]
-sim_s = sim.groupby(["scenario", "measure"]).agg(excess=("excess", "mean"), det=("z", lambda z: np.mean(z > 2))).reset_index()
+sim_s = sim.groupby(["scenario", "measure"]).agg(det=("z", lambda z: np.mean(z > 2))).reset_index()
+det_ff = float(sim_s[(sim_s.scenario == "ff") & (sim_s.measure == "msc")].det.iloc[0])
+det_null = float(sim_s[(sim_s.scenario == "null") & (sim_s.measure == "msc")].det.iloc[0])
 
-
-def simv(sc, m, col="det"):
-    return float(sim_s[(sim_s.scenario == sc) & (sim_s.measure == m)][col].iloc[0])
-
-
-gcd = sim[sim.measure.isin(["gc_ab", "gc_ba"])].pivot_table(index=["scenario", "sim"], columns="measure", values="excess")
-gc_ff = float(((gcd.gc_ab - gcd.gc_ba) > 0).loc["ff"].mean())
-psi_ff = float((sim[(sim.scenario == "ff") & (sim.measure == "psi")].value > 0).mean())
-
-# omnibus primary table (learners, spikes)
-rows = []
-for w, c in PRIMARY:
-    for b in (["theta", "alpha", "beta", "gamma_low", "gamma_high"] if w == "quiet" else ["beta", "gamma_low", "gamma_high"]):
-        for m in ("msc", "cancoh", "pcoh"):
-            r = omni("spikes", "learners", w, c, m, b)
-            rows.append({"window": w, "condition": c, "band": BANDNAME[b], "measure": m,
-                         "R+ mean": f"{r.mean_Rplus:.4f}", "R− mean": f"{r.mean_Rminus:.4f}",
-                         "n (R+/R−)": f"{int(r.n_Rplus)}/{int(r.n_Rminus)}", "p MW": fmt_p(r.p_mw),
-                         "p Welch": fmt_p(r.p_welch)})
-omni_tab = pd.DataFrame(rows)
-omni_tab["q (BH, all rows)"] = [fmt_p(q) for q in
-                                __import__("statsmodels.stats.multitest", fromlist=["x"]).multipletests(
-                                    [float(p.replace("< ", "")) for p in omni_tab["p MW"]], method="fdr_bh")[1]]
-n_omni = len(omni_tab)
-n_omni_p05 = int((pd.to_numeric(omni_tab["p MW"].str.replace("< ", ""), errors="coerce") < 0.05).sum())
-
-bh = S["learners"]["bh_rows"][["level", "window", "condition", "measure", "band", "pair", "diff", "p_mw", "p_welch",
-                               "q_mw", "q_welch", "n_Rplus", "n_Rminus"]].copy()
-for c in ("p_mw", "p_welch", "q_mw", "q_welch"):
-    bh[c] = bh[c].map(fmt_p)
-bh["diff"] = bh["diff"].map(lambda v: f"{v:+.4f}")
-
-spec_cl = T["spikes_learners_spectra_clusters"]
-tr_cl = T["spikes_learners_time_resolved_clusters"]
-n_spec_sig = int((spec_cl.p < 0.05).sum()) if len(spec_cl) else 0
-n_tr_sig = int((tr_cl.p < 0.05).sum()) if len(tr_cl) else 0
-cA = T["spikes_all_spectra_clusters"]
-tA = T["spikes_all_time_resolved_clusters"]
-n_sig_all = int((cA.p < 0.05).sum() if len(cA) else 0) + int((tA.p < 0.05).sum() if len(tA) else 0)
-
-# sample sizes from per-session meta
-metas = [json.load(open(p)) for p in (RES / "spikes" / "sessions").glob("*_meta.json") if "_quick" not in p.name]
-nrows = []
-for lv, k, nu in (("area group", "n_units_group", 15), ("area acronym", "n_units_acronym", 8)):
-    cnt = {}
-    for m in metas:
-        for a, n in m.get(k, {}).items():
-            if n >= nu:
-                cnt.setdefault(a, {"R+": 0, "R-": 0, "R+ L": 0, "R- L": 0})
-                cnt[a][m["cohort"]] += 1
-                if m["learner"]:
-                    cnt[a][m["cohort"] + " L"] += 1
-    for a, c in sorted(cnt.items()):
-        if lv == "area group" or (c["R+ L"] >= 3 and c["R- L"] >= 3):
-            nrows.append({"level": lv, "area": a, "sessions R+ (learners)": c["R+ L"], "sessions R− (learners)": c["R- L"],
-                          "sessions R+ (all)": c["R+"], "sessions R− (all)": c["R-"]})
-ntab = pd.DataFrame(nrows)
-n_acr = int((ntab.level == "area acronym").sum())
-units_tot = int(sum(sum(v for v in m.get("n_units_group", {}).values()) for m in metas))
-
-if HAS_AP:
-    SA = {pop: pair_summary("ap", pop) for pop in ("learners", "all")}
-    apq = omni("ap", "learners", "quiet", "ALL", "msc", "beta")
-    ap_sess = T["ap_learners_omnibus_sessions"][["session_id", "cohort"]].drop_duplicates().cohort.value_counts()
-    ap_cl = T["ap_learners_spectra_clusters"]
-    ap_cl_sig = int((ap_cl.p < 0.05).sum()) if len(ap_cl) else 0
-    ap_ew = omni("ap", "learners", "early", "W_lick", "pcoh", "beta")
-    ap_ewA = omni("ap", "learners", "early", "A_hit", "pcoh", "beta")
-    wa = T["ap_all_omnibus_tests_whisker_minus_auditory"]
-    ap_wa = wa[(wa.level == "group") & (wa.window == "early") & (wa.condition == "W_lick-A_hit") & (wa.measure == "pcoh")
-               & (wa.band == "beta") & (wa.value == "raw")].iloc[0]
-    ap_ex = omni("ap", "learners", "execution", "W_lick", "msc", "gamma_low")
-    ap_exA = omni("ap", "learners", "execution", "A_hit", "msc", "gamma_low")
-    ap_tr = T["ap_learners_time_resolved_clusters"]
-    ap_tr = ap_tr[ap_tr.p < 0.05]
-    ap_trA = T["ap_all_time_resolved_clusters"]
-    ap_trA = ap_trA[ap_trA.p < 0.05]
-    oA = T["ap_learners_omnibus_tests"]
-    oA = oA[(oA.level == "group") & oA.apply(lambda r: (r.window, r.condition) in PRIMARY, axis=1)]
-    ap_np = int(((oA.p_mw < 0.05) & (oA.p_welch < 0.05)).sum())
-ap_check = (RES / "ap" / "check" / "004_AB127_20240821_103757.txt").read_text()
+L, A = mice["learners"], mice["all"]
 
 # ------------------------------------------------------------------------------------------------ text
-EQ_MSC = r"C_{AB}(f) = \frac{\langle X_A(f)\,X_B^{*}(f)\rangle}{\sqrt{\langle |X_A(f)|^2\rangle \langle |X_B(f)|^2\rangle}}, \qquad \mathrm{MSC}_{AB}(f) = |C_{AB}(f)|^2"
-EQ_CAN = r"\rho^2_{AB}(f) = \lambda_{\max}\!\left(S_{AA}^{-1}(f)\, S_{AB}(f)\, S_{BB}^{-1}(f)\, S_{BA}(f)\right)"
-EQ_PC = r"G(f) = S_{[A,B,Z]}(f)^{-1}, \qquad \mathrm{pcoh}_{AB\mid Z}(f) = \frac{|G_{AB}(f)|^2}{G_{AA}(f)\,G_{BB}(f)}"
-EQ_PSI = r"\Psi_{AB} = \operatorname{Im}\sum_{f \in \text{band}} C_{AB}^{*}(f)\, C_{AB}(f + \delta f)"
-EQ_GC = r"I_{A\to B}(f) = \ln \frac{S_{BB}(f)}{S_{BB}(f) - \left(\Sigma_{AA} - \Sigma_{AB}^2/\Sigma_{BB}\right) |H_{BA}(f)|^2}"
+EQ_MSC = r"\mathrm{MSC}_{AB}(f) = \frac{|\langle X_A(f)\,X_B^{*}(f)\rangle|^2}{\langle |X_A(f)|^2\rangle \langle |X_B(f)|^2\rangle}"
+EQ_CORR = r"r_{AB} = \operatorname{corr}_{\text{trials} \times \text{50-ms bins}}\!\left(\textstyle\sum_{10\ \text{bins}} a,\ \sum_{10\ \text{bins}} b\right)"
 EQ_EX = r"\Delta m = m_{\text{observed}} - \frac{1}{N_{\text{sh}}}\sum_{k=1}^{N_{\text{sh}}} m_{\text{shuffle } k}"
 
-L = nL.get("R+", 0), nL.get("R-", 0)
-A = nA.get("R+", 0), nA.get("R-", 0)
 md = f"""---
-title: "Spectral coupling between brain areas in R+ and R− mice on the first whisker day"
-subtitle: "ssl-spectral-coupling — overnight run, {date.today().isoformat()}"
-date: "{date.today().isoformat()}"
+title: "Coupling between and within brain areas in R+ and R− mice on the first whisker day"
+subtitle: "ssl-spectral-coupling, exploratory (uncorrected), {TAG}"
+date: "{TAG}"
 ---
 
-**Data.** NWB_ks4 (Kilosort 4), stable good + mua units (137_stable_units), whisker day 0; {num('n_sess_all', int(sum(A)))} sessions
-(R+ {num('n_all_p', int(A[0]))}, R− {num('n_all_m', int(A[1]))}), learners {num('n_l_p', int(L[0]))} R+ / {num('n_l_m', int(L[1]))} R−;
-cohort, learner status and exclusions from the reference sheet. AP band: artefact-corrected CatGT binaries.
-{"" if HAS_AP else "**AP-band results are not yet available in this build (run in progress).**"}
+**Data.** NWB_ks4 (Kilosort 4), stable good + mua units, whisker day 0; learners {num('n_l_p', L[0])} R+ /
+{num('n_l_m', L[1])} R− mice (all mice {num('n_a_p', A[0])} / {num('n_a_m', A[1])}); cohort, learner status and
+exclusions from the reference sheet. **Exploratory:** p values are uncorrected (user decision); a result is flagged
+when Mann-Whitney and Welch both give p < 0.05. Unit of analysis: mouse.
 
 # Abstract
 
-We asked whether R+ and R− mice differ in the frequency-resolved coupling between brain areas in the quiet window before
-the stimulus, in the early sensory window and in the execution window of whisker trials. For every pair of
-simultaneously recorded area groups (and area acronyms) we computed, on trial-to-trial fluctuations of stable units in
-5-ms bins, the coherence, canonical coherence, partial coherence given the rest of the recording, imaginary coherency,
-phase-slope index and spectral Granger causality, each as excess over a trial-shuffle null. Simulations confirmed that
-the measures recover a known coupling and its direction. Coupling was present in both cohorts in every window, strongest
-below about 20 Hz and rising at stimulus onset. Neither cohort differed from the other: of
-{num('n_pair_tests_l', S['learners']['n'])} pair-level tests in learners, {num('n_bh_l', S['learners']['n_bh'])} survived
-correction, none of them in a pre-registered cell; in all mice {num('n_bh_a', S['all']['n_bh'])} survived; the fraction of
-pairs with p < 0.05 in both tests was at chance. The hypothesis of a cohort difference in inter-areal spectral coupling
-is not supported at the sensitivity of this dataset.{(" The AP-band multi-unit envelope gave the same pair-level answer; its only "
-"cohort differences were uncorrected (early β partial coherence R− > R+ on whisker licks) or most likely due to reward "
-"consumption (higher R+ coherence after 0.3 s on rewarded whisker licks only).") if HAS_AP else ""}
+We asked whether R+ and R− mice differ in how strongly brain areas co-fluctuate on the first whisker day, between areas
+and within an area, before the stimulus, after it and around the first jaw movement. Coupling was measured on
+trial-to-trial fluctuations of stable units as coherence (5-ms bins, multitaper) and as the correlation of 50-ms spike
+counts, each as excess over a trial shuffle. Coupling is present in both cohorts. Stimulus-aligned between-area tests
+are flagged at about the rate expected by chance. Two leads stand out. First, within areas, R+ mice tend to be more
+coupled than R− mice in the quiet period. Second, on whisker licks aligned to the jaw onset, R− mice show stronger
+between-area 50-ms correlation in the half second before the movement, a time course not explained by a cohort
+difference in reaction time. Both are uncorrected and need confirmation.
 
 **Key results**
 
-1. {claim('c-sim', 'The spectral measures recover a known 30-Hz coupling and its direction in simulated Poisson populations', 'Figure 1', f'detection {simv("ff", "msc"):.0%}, direction GC {gc_ff:.0%}, PSI {psi_ff:.0%}', '30 simulations')}
+1. {claim('c-sim', 'Coherence with a trial-shuffle null detects a known coupling in simulated populations', 'Figure 1', f'detection {det_ff:.0%} (coupled), {det_null:.0%} (independent)', '30 simulations')}
    ({ref('fig-sim')}).
-2. {claim('c-present', 'Cross-area coupling exceeds the shuffle null in both cohorts', 'Figure 2', f'quiet β MSC Wilcoxon p R+ {fmt_p(wz["R+"][1])}, R− {fmt_p(wz["R-"][1])}', f'{L[0]}/{L[1]} sessions')}:
-   quiet-window β coherence excess R+ {num('wz_p', wz['R+'][0], '{:.4f}')} (Wilcoxon p {pv('wz_pp', wz['R+'][1])}),
-   R− {num('wz_m', wz['R-'][0], '{:.4f}')} (p {pv('wz_mp', wz['R-'][1])}) ({ref('fig-spectra')}).
-3. {claim('c-null', 'No R+ vs R- difference in coupling in the quiet, early or execution window (pre-registered cells)', 'Figure 2, 3, 4; Table 2, 3', f'{S["learners"]["n_bh_prim"]} BH-significant pairs in primary cells; {n_omni_p05}/{n_omni} omnibus p < 0.05', f'{L[0]}/{L[1]} sessions', 'n.s.')}
-   ({ref('tbl-omnibus')}, {ref('fig-pairs')}, {ref('fig-pvals')}).
-4. {claim('c-bh', 'The few BH-surviving pairs are in control conditions and do not replicate in all mice', 'Table 3', f'{S["learners"]["n_bh"]} of {S["learners"]["n"]} (learners), {S["all"]["n_bh"]} (all mice)', '', 'fragile')}
-   ({ref('tbl-bh')}).
-5. {claim('c-tr', 'Coherence rises at stimulus onset in both cohorts; no time cluster differs between cohorts in the whisker conditions', 'Figure 5', f'{n_tr_sig} time cluster(s) p < 0.05 (learners), all in control conditions', '', 'n.s.')}
-   ({ref('fig-tr')}).
-6. Every claim, its statistic and status is listed in {ref('tbl-registry')}.
-7. AP band: {("no BH-significant pair in a primary cell; two exploratory, uncorrected signals: early β partial coherence R− > R+ on whisker licks, and higher R+ coherence after 0.3 s on whisker licks, most likely reward-consumption licking (" + ref('fig-ap') + ", " + ref('fig-ap-tr') + ")") if HAS_AP else "pending (" + ref('fig-ap') + " placeholder)"}.
+2. {claim('c-present', 'Between- and within-area coupling exceed the shuffle null in both cohorts', 'Figure 2, 3, 4', 'mean excess > 0 in nearly all windows and bands', f'{L[0]}/{L[1]} mice')}
+   ({ref('fig-spectra')}).
+3. {claim('c-between-stim', 'Stimulus-aligned between-area tests are flagged at about chance rate', 'Table 1, Figure 3', f'{pair_frac:.1%} of pair tests both p < 0.05', f'{L[0]}/{L[1]} mice', 'n.s.')}
+   ({ref('tbl-rates')}, {ref('fig-tr-between')}).
+4. {claim('c-within', 'Within-area coupling tends to be higher in R+ in the quiet period', 'Table 1, 2, Figure 4, 5', f'{within_kp} of {within_k} flagged within-area tests R+ > R−; acronym quiet low-γ coherence p {fmt_p(w_gl.p_mw)} / {fmt_p(w_gl.p_welch)}', f'{L[0]}/{L[1]} mice', 'fragile', 'exploratory, uncorrected')}
+   ({ref('fig-tr-within')}, {ref('fig-within-areas')}).
+5. {claim('c-jaw', 'On whisker licks, R- has higher between-area 50-ms correlation before the jaw onset', 'Figure 6, 7', f'{pre_n} windows ({pre_lo:+.2f} to {pre_hi:+.2f} s) both p < 0.05; prep window p {fmt_p(pw.p_mw)} / {fmt_p(pw.p_welch)}', f'{int(pw.n_Rplus)}/{int(pw.n_Rminus)} mice', 'fragile', 'exploratory, uncorrected')}
+   ({ref('fig-jaw-between')}, {ref('fig-prep')}).
+6. {claim('c-latency', 'Jaw-onset latency does not differ between cohorts', 'Table S1', f'whisker licks {lw.mean_Rplus:.3f} vs {lw.mean_Rminus:.3f} s, p {fmt_p(lw.p_mw)} / {fmt_p(lw.p_welch)}', f'{int(lw.n_Rplus)}/{int(lw.n_Rminus)} mice', 'n.s.')}
+   ({ref('tbl-latency')}).
+7. Every claim with its statistic is listed in {ref('tbl-registry')}.
 
 # Introduction
 
 The communication pilot (ssl-communication-methods-pilot) found no consistent R+ vs R− difference in time-domain
-communication measures (reduced-rank regression, CCA, partial CCA, Granger). Coupling between areas can, however, be
-confined to a frequency band (for example β or γ synchrony) and be invisible to broadband measures. Here we repeat the
-same design with the frequency-domain counterpart of each measure ({ref('tbl-measures')}), on binned spikes and on the
-AP-band multi-unit envelope of the same channels.
-
-The hypothesis (user, 2026-11-17) is that R+ and R− differ in the coupling between area groups and area acronyms in the
-quiet window (H1), the early sensory window (H2) or the execution window (H3). Since whisker licks are rewarded in R+
-and not in R−, a difference specific to whisker trials, absent on auditory hits (Go in both cohorts), would point to
-the learned contingency rather than to which areas or sites each cohort happened to have.
+communication between areas. Coupling may instead be confined to a frequency band, to one area, or to the period around
+the movement. Here we measure coupling in the frequency domain (coherence) and in 50-ms spike counts, between and within
+areas, aligned to the stimulus and to the first jaw movement. The hypothesis (user, 2026-11-17) is that R+ and R− differ
+in this coupling in the quiet window or the response window (early sensory or execution). An earlier version of this
+report tested pre-registered cells with BH correction and found no surviving difference; this version is exploratory.
 
 # Methods
 
-**Data and inclusion.** Whisker day-0 sessions with ephys, mice with `exclude == 0`, `exclude_ephys == 0`,
-`recording == 1`, cohort R+ or R− from the reference sheet; learners = `learning_category` good or moderate (primary
-population), all mice as sensitivity. Units: stable good + mua units (coverage ≥ 0.9, presence ≥ 0.5, drift test
-passed; sessions without a drift file use all good + mua units), firing rate ≥ 1 Hz, areas from `area_acronym_custom`
-grouped into `area_group_coarse_v3` ({num('units_tot', units_tot)} units). Trials: active context (per-trial rule),
-perf ≠ 6, no early lick, auditory warm-up block cut (one trial kept before the first whisker trial), end-of-session
-disengagement trimmed (rule A1). Conditions: W_lick, W_nolick, A_hit, NS_cr, and ALL (every included trial, quiet
-window only). Sample sizes per area are in {ref('tbl-n')}.
+**Data and inclusion.** Whisker day-0 sessions with ephys; mice with `exclude == 0`, `exclude_ephys == 0`,
+`recording == 1`, cohort R+ or R− from the reference sheet; learners = `learning_category` good or moderate; AB068 and
+AB077 excluded. Units: stable good + mua (137_stable_units), firing rate ≥ 1 Hz, areas `area_acronym_custom` and coarse
+groups. Trials: active context, `perf != 6`, `early_lick == 0`, auditory warm-up cut to one trial before the first
+whisker trial, disengaged tail trimmed (rule A1). Conditions: whisker lick (W_lick), whisker no lick (W_nolick),
+auditory hit (A_hit), no-stimulus correct rejection (NS_cr) and false alarm (NS_fa).
 
-**Signals.** Spike counts in 5-ms bins from −1.2 to +1.0 s around trial start; for each draw the condition mean was
-removed per unit and bin and each unit divided by its SD plus a soft constant (Poisson SD of a 2-Hz unit in one bin).
-Per area and draw, 15 random units (area group; 8 for area acronyms); the area signal is the mean of the unit residuals
-("sum" signal) and the top 3 principal components. The rest of the recording, Z, is the top 3 PCs of up to 200 random
-units outside both areas. Trials per draw: 40 (ALL) or 15 (each event condition, which needs ≥ 15 trials); 3 draws
-(area groups) or 2 (acronyms).
+**Signals.** Spike counts in 5-ms bins; per unit the condition mean is removed in each bin, leaving trial-to-trial
+fluctuations, which are soft-normalised. An area's signal is the mean of 15 random units (area group) or 8 (area
+acronym); three random draws (groups) or two (acronyms). *Within-area* coupling uses two disjoint random halves of the
+same area (areas with at least 30 or 16 units). 15 trials are drawn per condition (40 for all trials in the quiet
+window).
 
-**AP-band envelope.** For each probe, the artefact-corrected AP binary was read in chunks around every selected trial
-(up to 25 trials per condition), re-referenced to the median over the 384 channels, band-passed 300–3000 Hz
-(Butterworth order 3, zero-phase), rectified and averaged in the same 5-ms bins, on the peak channels of the stable
-units (each channel labelled by the majority area of its units). The probe clock was mapped to NWB time by a linear fit
-of the whisker stimulus times (residual < 0.1 ms). On AB127 the stimulus artefact of the uncorrected binary peaked
-0.7–0.8 ms after the predicted time on all three probes, and each channel's envelope correlated with the spike count
-of its units (validation in {ref('fig-ap-check')}). Channels then replace units in the same pipeline (no soft
-constant); the quiet window ends at −10 ms and the early window starts at +10 ms, away from the artefact-correction
-interval.
+**Measures.** Coherence ({ref('eq-msc')}), multitaper with DPSS tapers on the 5-ms signals, averaged over trials and
+tapers and over bands (θ 3–8, α 8–13, β 13–30, low γ 30–60, high γ 60–100 Hz; θ and α only in windows ≥ 0.5 s):
 
-**Windows and spectra.** Quiet −1.0 to 0 s (multitaper NW = 3, ±3 Hz), early 5–155 ms (NW = 1.5, ±10 Hz),
-execution 0.2–0.5 s (NW = 3, ±10 Hz), and 200-ms windows every 50 ms from −0.9 to +0.8 s (NW = 2). Each trial's
-window mean was removed and the DPSS-tapered FFT $X(f)$ taken (zero-padded); cross-spectra $S_{{AB}}(f)$ are averaged over
-trials and tapers. Bands: θ 3–8, α 8–13 (quiet only), β 13–30, low γ 30–60, high γ 60–100 Hz.
-
-**Measures.** The coherency and magnitude-squared coherence of the sum signals are
 {eq('eq-msc', EQ_MSC)}
-where $X_A$, $X_B$ are the tapered Fourier coefficients and the average runs over trials and tapers. The first canonical
-coherence of the PC sets is
-{eq('eq-cancoh', EQ_CAN)}
-with $S_{{AA}}$, $S_{{BB}}$ the 3 × 3 cross-spectral matrices of each area's PCs (Brillinger 1981); it is the spectral
-counterpart of CCA. The partial coherence of the sum signals given the rest is
-{eq('eq-pcoh', EQ_PC)}
-where $S_{{[A,B,Z]}}$ is the joint cross-spectral matrix of the two sum signals and the 3 rest PCs. The imaginary part of
-$C_{{AB}}$ ({ref('eq-msc')}) is insensitive to zero-lag common input. Direction is given by the phase-slope index (Nolte et
-al. 2008),
-{eq('eq-psi', EQ_PSI)}
-which is positive when $A$ leads, and by spectral Granger causality (Geweke 1982),
-{eq('eq-gc', EQ_GC)}
-from a bivariate VAR of order 4 (20 ms) fitted on all trials of the draw, with residual covariance $\\Sigma$, transfer
-function $H(f)$ and spectral matrix $S(f) = H\\Sigma H^{{*}}$; the direction index is $I_{{A\\to B}} - I_{{B\\to A}}$.
 
-**Null and excess.** The source area's trials were permuted (20 shuffles for epochs, 10 for 200-ms windows), keeping
-every spectrum and PSTH and breaking trial-matched coupling. Every quantity is reported as
+The 50-ms correlation ({ref('eq-corr')}) sums the same signals into 50-ms bins and correlates the two areas over all
+trials and bins of the window (time-domain coupling):
+
+{eq('eq-corr', EQ_CORR)}
+
+Both are reported as excess over a null in which the trials of one area are shuffled ({ref('eq-excess')}; 20
+shuffles per window, 10 in time-resolved windows):
+
 {eq('eq-excess', EQ_EX)}
-which also removes the positive bias of coherence at finite trial numbers; the excess is averaged over draws.
 
-**Statistics.** Unit of analysis: the session (one per mouse at day 0). Per pair, window, condition, band and measure,
-R+ vs R- Mann-Whitney U and Welch t tests on $\\Delta m$ ({ref('eq-excess')}), both reported, pairs needing ≥ 3 sessions per
-cohort; Benjamini-Hochberg over pairs within each cell, a pair counted only if both tests pass. Omnibus: per session the
-mean $\\Delta m$ over its pairs (raw, and pair-centred, i.e. each pair's across-session mean removed first, so that cohorts
-are not compared on which pairs they have). Frequency- and time-cluster permutation tests on the omnibus spectra and
-time courses (Welch t, |t| > 2, cluster mass, 500 cohort-label permutations). Whisker − auditory contrasts per session.
-The tests H1–H3 were written down before any real-data result (question.md, 2026-11-17).
+**Windows.** Stimulus-aligned: quiet −1 to 0 s, early 5–155 ms, execution 0.2–0.5 s, and 200-ms windows every 50 ms.
+Jaw-aligned (lick trials only; onset from the DLC jaw-onset table, onsets 0–1 s after the stimulus): pre −0.3 to 0 s,
+post 0 to 0.3 s, 200-ms windows every 50 ms, and a follow-up window −0.7 to −0.2 s chosen after seeing the time course.
+
+**Statistics.** Per mouse, the excess is averaged over draws and sessions; R+ vs R− by Mann-Whitney and Welch, both
+reported, uncorrected; cohorts need at least 3 mice. *Omnibus*: per mouse the mean over its area pairs (or areas); *pair*
+and *area* tests use the mice that have the pair or area. Learners are the main population; all mice the check.
 
 # Results
 
-## The measures recover known coupling (simulation)
+## Coupling is present in both cohorts
 
-In simulated populations (15 Poisson units per area, 40 trials, 1-s windows, 30 simulations per scenario), a lagged
-30-Hz drive from A to B was detected by coherence in {num('sim_ff_msc', 100 * simv('ff', 'msc'), '{:.0f}')} % of
-simulations and its direction recovered by spectral Granger in {num('sim_ff_gc', 100 * gc_ff, '{:.0f}')} % and by the
-phase-slope index in {num('sim_ff_psi', 100 * psi_ff, '{:.0f}')} % ({ref('fig-sim')}). Zero-lag common input produced
-coherence without direction, and partial coherence removed {num('sim_pc', 100 * (1 - simv('common_rec', 'pcoh', 'excess') / simv('common_rec', 'msc', 'excess')), '{:.0f}')} %
-of the coupling when the common drive was recorded in the rest. The false-positive rate of the null scenario was
-{num('sim_fp', 100 * simv('null', 'msc'), '{:.0f}')} % for coherence (z > 2).
+Coherence and the 50-ms correlation exceed the shuffle null in nearly all windows and bands, between and within areas, and rise at the
+stimulus and before the jaw movement ({ref('fig-spectra')}, {ref('fig-tr-between')}, {ref('fig-tr-within')}).
+Within-area coupling is several times stronger than between-area coupling.
 
-## Coupling is present in both cohorts and does not differ between them
+## Stimulus-aligned: no consistent between-area difference
 
-Cross-area coupling exceeded the shuffle null in both cohorts and in every window, with most of the excess below about
-20 Hz ({ref('fig-spectra')}). Canonical coherence ({ref('eq-cancoh')}) and partial coherence given the rest
-({ref('eq-pcoh')}) behaved like coherence. The R+ and R− spectra overlapped in the quiet, early and execution windows, for whisker
-licks, whisker no-licks and auditory hits. Across the omnibus tests of the pre-registered cells ({ref('tbl-omnibus')}),
-{num('n_omni_p05', n_omni_p05)} of {num('n_omni', n_omni)} had a Mann-Whitney p < 0.05, about what chance predicts.
-The only frequency cluster with p < 0.05 ({num('n_spec_sig', n_spec_sig)} in learners) was in auditory hits, the control
-condition.
+Of the stimulus-aligned between-area pair tests in learners, {pair_frac:.1%} had both p < 0.05 ({ref('tbl-rates')}),
+about the rate expected by chance for two correlated tests; where flagged, R− was more often the higher cohort.
+In the main cells, {n_omni_flag} of {len(omni_tab)} omnibus tests were flagged ({ref('tbl-omni')}).
+Over time, R− tends to have higher β coherence after the stimulus on whisker no-licks and around auditory hits, at
+scattered windows ({ref('fig-tr-between')}); per pair, flagged cells are isolated ({ref('fig-pairs')}).
 
-The null is informative at the level of these effect sizes. For quiet-window β coherence the R+ − R− difference was
-{num('mq_d', md_q[2], '{:+.4f}')} (95 % CI {num('mq_lo', md_q[3], '{:+.4f}')} to {num('mq_hi', md_q[4], '{:+.4f}')}),
-while the smallest difference detectable with 80 % power is {num('mq_mde', md_q[0], '{:.4f}')}, i.e.
-{num('mq_rel', 100 * md_q[1], '{:.0f}')} % of the mean coupling. In the execution window (W_lick, β) the detectable
-difference was {num('mx_rel', 100 * md_x[1], '{:.0f}')} % of the mean, and in the early window (W_lick, low γ)
-{num('me_rel', 100 * md_e[1], '{:.0f}')} %: cohort differences smaller than about the size of the coupling itself cannot be excluded.
+## Within areas: R+ tends to be more coupled in the quiet period
 
-## No pair of areas differs
+{within_frac:.1%} of within-area tests were flagged, {within_kp} of {within_k} with R+ > R− ({ref('tbl-rates')}). The
+clearest cells are low-γ coherence within area acronyms in the quiet window (all trials; R+ {w_gl.mean_Rplus:.4f} vs R−
+{w_gl.mean_Rminus:.4f}, p {fmt_p(w_gl.p_mw)} / {fmt_p(w_gl.p_welch)}) and the 50-ms correlation within area groups on
+whisker no-lick trials, higher in R+ throughout the trial including before the stimulus (quiet window
+{w_nl.mean_Rplus:.3f} vs {w_nl.mean_Rminus:.3f}, p {fmt_p(w_nl.p_mw)} / {fmt_p(w_nl.p_welch)}; {ref('fig-tr-within')}).
+A difference present before the stimulus points to brain state rather than to the stimulus response: whisker no-licks
+are misses in R+ (often in less engaged moments) but mostly correct withholding in R−. Per area group the differences go both
+ways (SSp-orofacial and auditory areas lean R−, SSp-w and PPC R+; few cells flagged; {ref('fig-within-areas')}), so the
+R+ lean rests on the acronym level and on the share of flagged tests, and is the weaker of the two leads. After 0.4 s on whisker licks, within-area β
+coherence is higher in R+, when R+ mice are consuming the reward and R− mice are not.
 
-At the pair level ({ref('fig-pairs')}), {num('frac_both_l', 100 * S['learners']['frac_both'], '{:.1f}')} % of the
-{num('n_tests_l', S['learners']['n'])} learner tests had p < 0.05 in both tests (chance about 2.5–5 %), and the p-value
-distributions were flat for every measure, level and window ({ref('fig-pvals')}). {num('n_bh_l2', S['learners']['n_bh'])}
-tests survived BH correction ({ref('tbl-bh')}), none in a pre-registered cell; they were in control conditions (no-stimulus
-correct rejections, auditory hits), involved mostly the hippocampus–thalamus pair, which only few sessions record, and
-did not survive in all mice ({num('n_bh_a2', S['all']['n_bh'])} BH-significant tests). The area-acronym level
-({num('n_acr', n_acr)} acronyms with ≥ 3 sessions per cohort) gave the same result ({ref('fig-acronym')}). Directed
-measures (phase-slope index, {ref('eq-psi')}; Granger direction index, {ref('eq-gc')}) showed no cohort difference either.
+## Jaw-aligned: R− has stronger between-area correlation before the movement
 
-## Time course
+Aligned to the jaw onset, whisker licks show higher between-area 50-ms correlation in R− from {pre_lo:+.2f} to
+{pre_hi:+.2f} s ({pre_n} windows with both p < 0.05, each p ≤ {pre_pmax:.3f}; {preA_n} such windows in all mice), the
+cohorts converging at the onset ({ref('fig-jaw-between')}; all mice {ref('fig-allmice')}). Within areas, the jaw-aligned time courses do not show this difference ({ref('fig-jaw-within')}). With a median stimulus-to-jaw latency of about 0.2 s this
+period lies mostly before the stimulus. It is not a shift of the stimulus response in time: jaw-onset latency does not
+differ between cohorts ({ref('tbl-latency')}). Auditory hits and false alarms trend in the same direction without
+reaching p < 0.05 in both tests.
 
-Coherence rose at stimulus onset in both cohorts, most clearly in the β band on whisker licks and auditory hits
-({ref('fig-tr')}). R− sessions tended to show slightly higher β and low-γ coherence after the stimulus in several
-conditions, including auditory hits, but no time cluster in a whisker condition reached p < 0.05; the
-{num('n_tr_sig', n_tr_sig)} significant cluster(s) were in the no-stimulus condition. Whisker − auditory contrasts,
-which test whisker specificity, gave only isolated uncorrected p values near 0.01–0.02 out of 36 contrasts per population
-(partial coherence low γ, canonical coherence high γ; omnibus_tests_whisker_minus_auditory.csv).
-
-## AP-band envelope
-
-{(f"The AP-band envelope ({int(ap_sess.get('R+', 0))}/{int(ap_sess.get('R-', 0))} learner sessions) agreed with spikes on the "
-  f"quiet window and at the pair level: {SA['learners']['n_bh']} of {SA['learners']['n']} pair tests survived BH in learners "
-  f"({SA['all']['n_bh']} in all mice, none in a primary cell), {100 * SA['learners']['frac_both']:.1f} % had p < 0.05 in both tests, and quiet β "
-  f"coherence was {apq.mean_Rplus:.4f} (R+) vs {apq.mean_Rminus:.4f} (R−; Mann-Whitney p {fmt_p(apq.p_mw)}, Welch p "
-  f"{fmt_p(apq.p_welch)}) ({ref('fig-ap')}). It differed from spikes in two uncorrected, exploratory signals:\n\n"
-  f"- *Early window, whisker licks: partial coherence higher in R−.* β partial coherence {ap_ew.mean_Rplus:.4f} (R+) vs "
-  f"{ap_ew.mean_Rminus:.4f} (R−; p {fmt_p(ap_ew.p_mw)} / {fmt_p(ap_ew.p_welch)}); on auditory hits {ap_ewA.mean_Rplus:.4f} vs "
-  f"{ap_ewA.mean_Rminus:.4f} (p {fmt_p(ap_ewA.p_mw)} / {fmt_p(ap_ewA.p_welch)}). The whisker − auditory contrast reached p "
-  f"{fmt_p(ap_wa.p_mw)} / {fmt_p(ap_wa.p_welch)} in all mice only. Across the {len(oA)} primary-cell omnibus tests, {ap_np} had p < 0.05 "
-  f"in both tests (about {0.05 * len(oA):.0f} expected by chance if the tests were independent), so this does not survive correction; the "
-  f"direction (R− > R+) matches the descriptive trend in the spike data.\n"
-  f"- *After the first lick on whisker licks: coherence higher in R+.* Low-γ coherence in the execution window {ap_ex.mean_Rplus:.4f} (R+) vs "
-  f"{ap_ex.mean_Rminus:.4f} (R−; p {fmt_p(ap_ex.p_mw)} / {fmt_p(ap_ex.p_welch)}), auditory hits {ap_exA.mean_Rplus:.4f} vs {ap_exA.mean_Rminus:.4f}; "
-  f"time clusters on whisker licks from {ap_tr.t_lo.min() if len(ap_tr) else float('nan'):.2f} to {ap_tr.t_hi.max() if len(ap_tr) else float('nan'):.2f} s "
-  f"({len(ap_tr)} cluster(s) in learners, min p {fmt_p(ap_tr.p.min()) if len(ap_tr) else 'n/a'}; {len(ap_trA)} in all mice), none on auditory hits "
-  f"({ref('fig-ap-tr')}). R+ mice are rewarded on whisker licks and R− mice are not, so from about 0.3 s R+ mice are consuming reward "
-  f"(sustained licking) and R− mice usually stop. The AP envelope, unlike sorted spikes, also carries lick-related muscle and movement "
-  f"signal that the common-average reference does not fully remove. This difference is most likely reward consumption, not a learned "
-  f"change in inter-areal communication; it is absent on auditory hits, where both cohorts are rewarded, and the whisker − auditory "
-  f"contrast in the execution window was not significant.")
- if HAS_AP else f"Pending: the AP-band run was still in progress at this build ({ref('fig-ap')} is the validation placeholder)."}
-
-Confound checks (firing rate and sum-signal power per area group by cohort) are in {ref('fig-confounds')}; all-mice
-spectra in {ref('fig-allmice')}.
+In the follow-up window −0.7 to −0.2 s, averaged over area-group pairs, the effect was R+ {pw.mean_Rplus:.3f} vs R−
+{pw.mean_Rminus:.3f} on whisker licks (p {fmt_p(pw.p_mw)} / {fmt_p(pw.p_welch)}; all mice p {fmt_p(pwA.p_mw)} /
+{fmt_p(pwA.p_welch)}), {pa_.mean_Rplus:.3f} vs {pa_.mean_Rminus:.3f} on auditory hits (p {fmt_p(pa_.p_mw)} /
+{fmt_p(pa_.p_welch)}) and {pf.mean_Rplus:.3f} vs {pf.mean_Rminus:.3f} on false alarms (p {fmt_p(pf.p_mw)} /
+{fmt_p(pf.p_welch)}); over acronym pairs p {fmt_p(pwc.p_mw)} / {fmt_p(pwc.p_welch)} ({ref('fig-prep')}). This window was
+chosen from the same data, so it confirms nothing by itself; it serves to locate the effect. The effect is broad
+rather than carried by one pathway: {n_g_neg} of {n_g} area groups had R− > R+ when averaging the pairs that include
+them, and {n_ar_sig} areas were flagged ({ar_sig_names}; {n_ar_sig_m} with R− > R+; {ref('tbl-prep-areas')}). Over
+acronym pairs (8 units per area, fewer mice per pair) the mean difference is in the same direction but not flagged,
+consistent with a widespread, low-amplitude shared fluctuation rather than a specific inter-areal channel.
 
 # Discussion
 
-Frequency-resolved coupling between area groups does not separate R+ from R− mice on the first whisker day, in line
-with the time-domain measures of the communication pilot. Coupling itself is robust: it is above the shuffle null in
-both cohorts, concentrated at low frequencies and modulated by the stimulus, so the absence of a cohort effect is not a
-failure to measure coupling.
-
-Three limits apply. First, the sensitivity: a cohort difference smaller than the coupling itself would be missed with
-about 30 sessions per cohort, and each pair is recorded in only part of the sessions. Second, spiking spectra above
-about 30 Hz are dominated by the spiking noise floor at these rates, so γ coupling is measured with little power; the
-AP-band envelope adds unsorted spikes of the same channels but no field potentials (the AP band is high-passed at
-300 Hz). Third, which areas and sites each cohort has differs, which the pair-centred omnibus and the within-pair tests
-address but cannot remove for pairs recorded in few sessions.
+Coupling between areas does not separate R+ from R− after the stimulus. Two exploratory leads remain, and both concern
+the period before the stimulus or movement rather than the stimulus response: within areas R+ tends to be more coupled
+in the quiet period, and between areas R− is more coupled in the half second before a whisker-triggered lick. Shared
+slow fluctuations across areas (arousal, movement) inflate between-area correlation; R− mice may enter whisker trials
+they respond to in a more globally synchronised state. Both leads should be tested on held-out data or with the window
+fixed in advance, and against pre-stimulus movement and pupil measures.
 
 # Caveats and limitations
 
-- One session per mouse; exploratory with pre-specified tests, no held-out confirmation set.
-- Short windows (150–300 ms) resolve only ≥ 10 Hz; θ and α are tested in the quiet window only.
-- The execution window contains licking; AP-band envelopes may carry lick-related artefacts not removed by the
-  per-probe median reference (condition means are removed, trial-to-trial lick variability is not).
-- Trial-shuffle nulls do not remove shared slow state (arousal) that varies within the window; partial coherence on
-  the rest addresses recorded common input only.
+- Uncorrected p values over many tests: about 2–3 % of tests are flagged by chance; isolated flags carry no weight.
+- The −0.7 to −0.2 s jaw window was chosen after seeing the data.
+- Trial-shuffle nulls keep shared slow state that varies within a window; the 50-ms correlation is most sensitive to it.
+- Spiking coherence above about 30 Hz is close to the spiking noise floor at these rates.
+- Each pair or acronym is recorded in only part of the mice; per-pair tests have small n.
 
 # Next steps
 
-- Lick-aligned execution windows (corrected first lick) for W_lick and A_hit.
-- LFP-band coherence from the `.lf.bin` files (field potentials; not covered by the AP band).
-- Pool trials across conditions per cohort to raise power for the quiet-window test.
+- Pre-stimulus movement (DLC jaw, whisker, nose) and pupil per cohort in the same trials; regress them out of the area
+  signals and retest the jaw-aligned effect.
+- Fix the windows (quiet within-area; −0.7 to −0.2 s jaw) and test on expert days (held out).
+- If the effect survives: directed measures (Granger, phase slope) on the flagged pairs.
 
 # Figures
 
-{figure('fig-sim', RES / 'simulation' / '001_simulation.png', 'Simulation of the measures (001). Excess over a 20-shuffle null in the 24–36 Hz band, 30 simulated sessions per scenario (box: median and quartiles), 15 Poisson units per area, 40 trials of 1 s, multitaper NW = 3: independent areas (null), A drives B with a 10-ms lag (A→B), unrecorded zero-lag common input (common) and common input also recorded in 30 rest units (common recorded). Measures as Eq. (1)–(5).', '001_simulation_validation.py')}
+{figure('fig-sim', RES / 'simulation' / '001_simulation.png', 'Simulation of the measures (001): excess over a 20-shuffle null in the 24–36 Hz band, 30 simulated sessions per scenario, 15 Poisson units per area, 40 trials of 1 s: independent areas (null), A drives B (A→B), unrecorded and recorded common input. Coherence is the measure used in this report.', '001_simulation_validation.py')}
 
-{figure('fig-spectra', RES / 'spikes' / 'figures' / 'learners' / 'fig1_omnibus_spectra.png', f'Coupling spectra between area groups, learners (R+ green, n = {L[0]}; R− magenta, n = {L[1]} sessions; fewer where a condition has < 15 trials). Rows: coherence (Eq. (1)), canonical coherence (Eq. (2)), partial coherence given the rest (Eq. (3)), as excess over the trial shuffle (Eq. (6)); per session the mean over its area-group pairs, then mean ± s.e.m. over sessions. Columns: quiet window (all trials), early (5–155 ms) and execution (0.2–0.5 s) windows for whisker licks, whisker no-licks and auditory hits. Black bar: frequency cluster with permutation p < 0.05 (Welch t, |t| > 2, 500 permutations).', '002_run_spikes.py, 003_stats_figures.py')}
+{figure('fig-spectra', FIG['stim'] / 'learners' / 'e1_msc_spectra.png', 'Coherence spectra, learners, stimulus-aligned: excess over the trial shuffle (Eq. (3)) between area groups (top, mean over pairs per mouse) and within area groups (bottom, two disjoint unit halves), mean ± s.e.m. over mice (R+ green, R− magenta) for the main cells. Markers: * Mann-Whitney and Welch p < 0.05, o one test (uncorrected).', '002_run_spikes.py --align stim, 007_exploratory_stats.py')}
 
-{table('tbl-omnibus', omni_tab, 'Omnibus R+ vs R− tests in the pre-registered cells, learners, binned spikes, area groups: per session the mean excess (Eq. (6)) over its pairs; Mann-Whitney and Welch; BH over all rows of the table.')}
+{figure('fig-tr-between', FIG['stim'] / 'learners' / 'e2_time_resolved_between.png', 'Time-resolved between-area coupling, learners, stimulus-aligned: coherence in β, low γ and high γ and the 50-ms correlation (rows), per condition (columns), 200-ms windows every 50 ms; per mouse the mean over area-group pairs, mean ± s.e.m. over mice. Markers as Figure 2.', '007_exploratory_stats.py')}
 
-{figure('fig-pairs', RES / 'spikes' / 'figures' / 'learners' / 'fig2_pairs_group_msc.png', 'R+ minus R− excess coherence (Eq. (1), Eq. (6)) per pair of area groups, learners, for each window × condition (rows) and band (columns); green = R+ higher. * Mann-Whitney and Welch p < 0.05; ** both BH q < 0.05 over pairs. Empty cells: pair recorded in < 3 sessions of a cohort.', '003_stats_figures.py')}
+{figure('fig-tr-within', FIG['stim'] / 'learners' / 'e2_time_resolved_within.png', 'As Figure 3 for within-area coupling (two disjoint halves of each area group).', '007_exploratory_stats.py')}
 
-{figure('fig-pvals', RES / 'spikes' / 'figures' / 'learners' / 'fig3_pvalue_distributions.png', 'Distributions of pair-level Mann-Whitney p values (R+ vs R−, learners) for each level (rows) and measure (columns), pre-registered cells in colour; a flat density at 1 means no effect. Legend: percentage of pairs with p < 0.05. The peak at p = 1 at the acronym level comes from ties at small n.', '003_stats_figures.py')}
+{figure('fig-within-areas', FIG['stim'] / 'learners' / 'e3_within_areas.png', 'Within-area coupling per area group, R+ − R− difference of the mouse means, learners, stimulus-aligned, main cells (columns), β and low-γ coherence and 50-ms correlation (rows). Solid bars and *: both tests p < 0.05.', '007_exploratory_stats.py')}
 
-{table('tbl-bh', bh, 'All pair-level tests surviving BH (both Mann-Whitney and Welch q < 0.05), learners, binned spikes. diff = R+ − R− excess.')}
+{figure('fig-jaw-between', FIG['jaw'] / 'learners' / 'e2_time_resolved_between.png', 'As Figure 3, aligned to the jaw onset (DLC), lick trials: whisker licks, auditory hits, false alarms.', '002_run_spikes.py --align jaw, 007_exploratory_stats.py')}
 
-{figure('fig-tr', RES / 'spikes' / 'figures' / 'learners' / 'fig4_time_resolved_msc.png', 'Time-resolved excess coherence between area groups (200-ms windows every 50 ms, NW = 2), mean over pairs per session, mean ± s.e.m. over sessions, learners, per band (rows) and condition (columns). Dashed line: stimulus. Black bar: time cluster with permutation p < 0.05.', '003_stats_figures.py')}
+{figure('fig-prep', RES / 'v2_jaw_prep' / 'figures' / 'learners' / 'e5_prep_breakdown.png', 'Pre-movement window −0.7 to −0.2 s before the jaw onset, learners. Top: per mouse the mean over its between-area pairs (dots; bar = mean) for each lick condition, 50-ms correlation and β coherence, area groups and acronyms; numbers = p Mann-Whitney / Welch. Middle: per area (mean over the pairs that include it), Welch t of R+ vs R− on whisker licks, 50-ms correlation; n = mice R+/R−. Bottom: the most extreme pairs. * both p < 0.05.', '002_run_spikes.py --align jaw --windows prep, 008_prep_breakdown.py')}
 
-{figure('fig-ap', RES / ('ap/figures/learners/fig1_omnibus_spectra.png' if HAS_AP else 'ap/check/004_AB127_20240821_103757.png'), ('AP-band envelope coupling spectra, as Figure 2 with channels (peak channels of stable units) in place of units; quiet window ends at −10 ms, early window starts at +10 ms.' if HAS_AP else 'Placeholder (AP run in progress): AP envelope validation on AB127, see Figure S3.'), '005_build_ap_envelopes.py, 002_run_spikes.py --source ap')}
-{figure('fig-ap-tr', RES / 'ap/figures/learners/fig4_time_resolved_msc.png', 'AP-band envelope, time-resolved coherence (200-ms windows, 50-ms step) per condition and band, learners; shaded = cluster p < 0.05.', '003_stats_figures.py --source ap') if HAS_AP else ''}
+{table('tbl-rates', rates, 'Fraction of R+ vs R− tests with both Mann-Whitney and Welch p < 0.05 (uncorrected), over all windows, conditions, bands and measures (coherence, 50-ms correlation), per family.')}
+
+{table('tbl-omni', omni_tab, 'Omnibus R+ vs R− tests in the main cells, learners, area groups, stimulus-aligned: per mouse the mean excess (Eq. (3)) over its pairs (between) or areas (within). * both p < 0.05 (uncorrected).')}
+
+{table('tbl-prep-areas', prep_tab, 'Per-area participation in the pre-movement window (−0.7 to −0.2 s before the jaw onset), whisker licks, 50-ms correlation, learners: per mouse the mean excess over the between-area pairs that include the area; the 8 lowest Welch p per level. Uncorrected.')}
 
 # Supplementary
 
-{table('tbl-n', ntab, 'Sessions per area with at least 15 (area group) or 8 (area acronym) stable units ≥ 1 Hz, per cohort; acronyms listed only with ≥ 3 learner sessions per cohort.')}
+{figure('fig-jaw-within', FIG['jaw'] / 'learners' / 'e2_time_resolved_within.png', 'As Figure 6 for within-area coupling.', '007_exploratory_stats.py', kind='supplementary')}
 
-{figure('fig-allmice', RES / 'spikes' / 'figures' / 'all' / 'fig1_omnibus_spectra.png', f'As Figure 2 for all mice (R+ {A[0]}, R− {A[1]} sessions). {n_sig_all} frequency or time cluster(s) with p < 0.05.', '003_stats_figures.py', kind='supplementary')}
+{figure('fig-pairs', FIG['stim'] / 'learners' / 'e4_pairs.png', 'Between-area pairs, stimulus-aligned, learners: Welch t of R+ vs R− per pair of area groups (green R+ higher) for β and low-γ coherence and the 50-ms correlation (rows) in the main cells (columns). * both p < 0.05.', '007_exploratory_stats.py', kind='supplementary')}
 
-{figure('fig-acronym', RES / 'spikes' / 'figures' / 'learners' / 'fig2_pairs_acronym_msc.png', 'As Figure 3 for area acronyms (8 units per acronym, 2 draws).', '003_stats_figures.py', kind='supplementary')}
+{figure('fig-allmice', FIG['jaw'] / 'all' / 'e2_time_resolved_between.png', 'As Figure 6 for all mice.', '007_exploratory_stats.py', kind='supplementary')}
 
-{figure('fig-ap-check', RES / 'ap' / 'check' / '004_AB127_20240821_103757.png', 'AP-band envelope validation on AB127 day 0 (004): mean envelope on whisker trials per area group (left) and spike PSTH of the stable units (right), z-scored to baseline. ' + ' '.join(ap_check.splitlines()[1:4]).replace('_', ' '), '004_ap_check.py', kind='supplementary')}
-
-{figure('fig-confounds', RES / 'spikes' / 'figures' / 'learners' / 'fig5_confounds.png', 'Firing rate (left) and sum-signal power 30–60 Hz (right) per area group in the quiet window, mean ± s.e.m. over sessions per cohort, learners.', '003_stats_figures.py', kind='supplementary')}
+{table('tbl-latency', lat_tab, 'Jaw-onset latency from the stimulus (median per mouse of onsets 0–1 s on lick trials), mean over mice per cohort.')}
 
 {R.registry_table('tbl-registry')}
 """
 
-measures = pd.DataFrame([
-    ["noise correlation / RRR", "coherence (MSC), Eq. (1)", "linear coupling per frequency"],
-    ["CCA", "canonical coherence, Eq. (2)", "best coupling over population combinations"],
-    ["partial CCA / partial RRR", "partial coherence given rest, Eq. (3)", "coupling not explained by the rest"],
-    ["—", "imaginary coherency", "lagged coupling only"],
-    ["lagged-RRR direction index", "phase-slope index, Eq. (4)", "which area leads"],
-    ["Granger", "spectral Granger, Eq. (5)", "directed coupling per frequency"],
-], columns=["pilot (time domain)", "here (frequency domain)", "captures"])
-md = md.replace("# Methods\n", "# Methods\n\n" + table("tbl-measures", measures,
-                "Frequency-domain counterpart of each measure of the communication pilot (ssl-communication-methods-pilot).") + "\n", 1)
-summary = (f"# ssl-spectral-coupling — summary\n\nNo R+ vs R− difference in spectral coupling between areas on whisker day 0 "
-           f"(quiet, early, execution windows; area groups and acronyms; spikes{' and AP envelope' if HAS_AP else ''}). "
-           f"Coupling is present in both cohorts. {S['learners']['n_bh']} of {S['learners']['n']} learner pair tests survive BH, none in a "
-           f"pre-registered cell.\n")
+summary = (f"# ssl-spectral-coupling — summary (v3, exploratory)\n\nCoupling between and within areas, R+ vs R−, whisker "
+           f"day 0, mouse level, uncorrected. Stimulus-aligned between-area tests flagged at chance rate. Leads: "
+           f"within-area coupling higher in R+ in the quiet period; between-area 50-ms correlation higher in R− "
+           f"before the jaw onset on whisker licks (not a latency difference). Both need confirmation.\n")
 R.write(OUT, md, summary=summary)
-print("written", OUT, "HAS_AP", HAS_AP)
+print("written", OUT)

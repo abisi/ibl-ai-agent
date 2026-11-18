@@ -25,3 +25,7 @@
 - **2026-11-18 09:40: v2 runs done.** stim 89/89 sessions; jaw 86/89 (no dlc_jaw_onset_times.pkl for AB080, AB082,
   MH026). 007 run for both alignments (all mice + learners). Jaw-onset latency does not differ by cohort (checked,
   mouse level), so jaw-aligned differences are not a reaction-time shift.
+- **2026-11-18 11:00: prep-window breakdown and report v3.** 002 --windows (follow-up runs restricted to named windows,
+  outputs v2_<align>_<windows>); jaw "prep" window -0.7 to -0.2 s (post hoc) -> v2_jaw_prep; 008_prep_breakdown.py
+  (omnibus / per area / per pair, jaw latency tests). Report rewritten as v3 (exploratory, uncorrected, mouse level; v1/v2
+  BH + AP-envelope content removed; snapshots tagged <date>_v3_<group>).
