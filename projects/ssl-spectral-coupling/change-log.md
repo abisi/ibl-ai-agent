@@ -10,3 +10,12 @@
   single AP binary and is skipped. AP epochs shifted 10 ms away from t = 0 (artefact-correction dip in the 0-5 ms bin).
   ap_lib.select_trials returned index labels instead of positions (fixed before any cache was used).
 - **2026-11-18 00:15: report v1** (spikes only; AP section marked pending): build_report.py, render.sh.
+- **2026-11-18 01:40: AP clock drift fix.** AB138 imec1 drifts > 10 ms against the NWB clock over the session, so a
+  fixed-offset match failed (153 of 182). clock_fit now refines the matching twice with the linear fit (residual
+  0.05 ms on all 4 probes). AB138 rebuilt and added to the AP run (~/ssl_spectral_ap_chain2.sh; 003 --source ap rerun).
+  AP source: 88 of 89 sessions (AB155 has no single AP binary).
+- **2026-11-18 03:30: AP results and report v2.** AP run 88 sessions; 003 --source ap (learners + all). Report v2 adds
+  the AP section, a key result and Figure 7 (AP time-resolved coherence). Bug fixed before use: report_lib snapshot
+  names copies from the last two folders only, so ap/stats/<pop>/x.csv and spikes/stats/<pop>/x.csv collided and the
+  first v2 build read spike tables for AP. Now one snapshot tag per source (<date>_spikes, _ap, _simulation); the
+  collided 2026-11-18 snapshot folder was deleted.

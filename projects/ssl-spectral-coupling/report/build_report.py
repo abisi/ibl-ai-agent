@@ -31,7 +31,7 @@ R.register([
     ("eq-excess", "Eq. (6)"),
     ("tbl-measures", "Table 1"), ("fig-sim", "Figure 1"), ("fig-spectra", "Figure 2"), ("tbl-omnibus", "Table 2"),
     ("fig-pairs", "Figure 3"), ("fig-pvals", "Figure 4"), ("tbl-bh", "Table 3"), ("fig-tr", "Figure 5"),
-    ("fig-ap", "Figure 6"), ("tbl-n", "Table S1"), ("fig-allmice", "Figure S1"), ("fig-acronym", "Figure S2"),
+    ("fig-ap", "Figure 6"), ("fig-ap-tr", "Figure 7"), ("tbl-n", "Table S1"), ("fig-allmice", "Figure S1"), ("fig-acronym", "Figure S2"),
     ("fig-ap-check", "Figure S3"), ("fig-confounds", "Figure S4"), ("tbl-registry", "Table S2"),
 ])
 
@@ -43,7 +43,12 @@ for src in ("spikes",) + (("ap",) if HAS_AP else ()):
                   "spectra_clusters", "time_resolved_clusters", "confound_tests"):
             FILES[f"{src}_{pop}_{f}"] = RES / src / "stats" / pop / f"{f}.csv"
 FILES["sim"] = RES / "simulation" / "001_simulation.csv"
-FROZEN = dict(zip(FILES, Report.snapshot(list(FILES.values()), OUT, tag=date.today().isoformat())))
+# one snapshot tag per source: report_lib names copies <grandparent>_<parent>__<file>, identical for spikes/ and ap/
+FROZEN = {}
+for src in ("spikes", "ap", "simulation"):
+    keys = [k for k in FILES if k.startswith(src) or (src == "simulation" and k == "sim")]
+    if keys:
+        FROZEN.update(zip(keys, Report.snapshot([FILES[k] for k in keys], OUT, tag=f"{date.today().isoformat()}_{src}")))
 T = {k: pd.read_csv(v, keep_default_na=(k != "sim")) for k, v in FROZEN.items()}  # scenario "null" is not NaN
 PRIMARY = [("quiet", "ALL"), ("early", "W_lick"), ("early", "W_nolick"), ("execution", "W_lick")]
 BANDNAME = {"theta": "θ 3–8 Hz", "alpha": "α 8–13 Hz", "beta": "β 13–30 Hz", "gamma_low": "low γ 30–60 Hz",
@@ -166,6 +171,20 @@ if HAS_AP:
     ap_sess = T["ap_learners_omnibus_sessions"][["session_id", "cohort"]].drop_duplicates().cohort.value_counts()
     ap_cl = T["ap_learners_spectra_clusters"]
     ap_cl_sig = int((ap_cl.p < 0.05).sum()) if len(ap_cl) else 0
+    ap_ew = omni("ap", "learners", "early", "W_lick", "pcoh", "beta")
+    ap_ewA = omni("ap", "learners", "early", "A_hit", "pcoh", "beta")
+    wa = T["ap_all_omnibus_tests_whisker_minus_auditory"]
+    ap_wa = wa[(wa.level == "group") & (wa.window == "early") & (wa.condition == "W_lick-A_hit") & (wa.measure == "pcoh")
+               & (wa.band == "beta") & (wa.value == "raw")].iloc[0]
+    ap_ex = omni("ap", "learners", "execution", "W_lick", "msc", "gamma_low")
+    ap_exA = omni("ap", "learners", "execution", "A_hit", "msc", "gamma_low")
+    ap_tr = T["ap_learners_time_resolved_clusters"]
+    ap_tr = ap_tr[ap_tr.p < 0.05]
+    ap_trA = T["ap_all_time_resolved_clusters"]
+    ap_trA = ap_trA[ap_trA.p < 0.05]
+    oA = T["ap_learners_omnibus_tests"]
+    oA = oA[(oA.level == "group") & oA.apply(lambda r: (r.window, r.condition) in PRIMARY, axis=1)]
+    ap_np = int(((oA.p_mw < 0.05) & (oA.p_welch < 0.05)).sum())
 ap_check = (RES / "ap" / "check" / "004_AB127_20240821_103757.txt").read_text()
 
 # ------------------------------------------------------------------------------------------------ text
@@ -201,7 +220,9 @@ below about 20 Hz and rising at stimulus onset. Neither cohort differed from the
 {num('n_pair_tests_l', S['learners']['n'])} pair-level tests in learners, {num('n_bh_l', S['learners']['n_bh'])} survived
 correction, none of them in a pre-registered cell; in all mice {num('n_bh_a', S['all']['n_bh'])} survived; the fraction of
 pairs with p < 0.05 in both tests was at chance. The hypothesis of a cohort difference in inter-areal spectral coupling
-is not supported at the sensitivity of this dataset.
+is not supported at the sensitivity of this dataset.{(" The AP-band multi-unit envelope gave the same pair-level answer; its only "
+"cohort differences were uncorrected (early β partial coherence R− > R+ on whisker licks) or most likely due to reward "
+"consumption (higher R+ coherence after 0.3 s on rewarded whisker licks only).") if HAS_AP else ""}
 
 **Key results**
 
@@ -217,7 +238,7 @@ is not supported at the sensitivity of this dataset.
 5. {claim('c-tr', 'Coherence rises at stimulus onset in both cohorts; no time cluster differs between cohorts in the whisker conditions', 'Figure 5', f'{n_tr_sig} time cluster(s) p < 0.05 (learners), all in control conditions', '', 'n.s.')}
    ({ref('fig-tr')}).
 6. Every claim, its statistic and status is listed in {ref('tbl-registry')}.
-7. AP band: {"see " + ref('fig-ap') if HAS_AP else "pending (" + ref('fig-ap') + " placeholder)"}.
+7. AP band: {("no BH-significant pair in a primary cell; two exploratory, uncorrected signals: early β partial coherence R− > R+ on whisker licks, and higher R+ coherence after 0.3 s on whisker licks, most likely reward-consumption licking (" + ref('fig-ap') + ", " + ref('fig-ap-tr') + ")") if HAS_AP else "pending (" + ref('fig-ap') + " placeholder)"}.
 
 # Introduction
 
@@ -346,10 +367,26 @@ which test whisker specificity, gave only isolated uncorrected p values near 0.0
 
 ## AP-band envelope
 
-{(f"The AP-band envelope gave the same answer ({ref('fig-ap')}): {SA['learners']['n_bh']} of {SA['learners']['n']} pair tests survived BH in learners "
-  f"({SA['all']['n_bh']} in all mice), {100 * SA['learners']['frac_both']:.1f} % had p < 0.05 in both tests, and quiet β coherence was "
-  f"{apq.mean_Rplus:.4f} (R+) vs {apq.mean_Rminus:.4f} (R−; Mann-Whitney p {fmt_p(apq.p_mw)}, Welch p {fmt_p(apq.p_welch)}; "
-  f"{int(ap_sess.get('R+', 0))}/{int(ap_sess.get('R-', 0))} sessions). {ap_cl_sig} frequency cluster(s) had p < 0.05.")
+{(f"The AP-band envelope ({int(ap_sess.get('R+', 0))}/{int(ap_sess.get('R-', 0))} learner sessions) agreed with spikes on the "
+  f"quiet window and at the pair level: {SA['learners']['n_bh']} of {SA['learners']['n']} pair tests survived BH in learners "
+  f"({SA['all']['n_bh']} in all mice, none in a primary cell), {100 * SA['learners']['frac_both']:.1f} % had p < 0.05 in both tests, and quiet β "
+  f"coherence was {apq.mean_Rplus:.4f} (R+) vs {apq.mean_Rminus:.4f} (R−; Mann-Whitney p {fmt_p(apq.p_mw)}, Welch p "
+  f"{fmt_p(apq.p_welch)}) ({ref('fig-ap')}). It differed from spikes in two uncorrected, exploratory signals:\n\n"
+  f"- *Early window, whisker licks: partial coherence higher in R−.* β partial coherence {ap_ew.mean_Rplus:.4f} (R+) vs "
+  f"{ap_ew.mean_Rminus:.4f} (R−; p {fmt_p(ap_ew.p_mw)} / {fmt_p(ap_ew.p_welch)}); on auditory hits {ap_ewA.mean_Rplus:.4f} vs "
+  f"{ap_ewA.mean_Rminus:.4f} (p {fmt_p(ap_ewA.p_mw)} / {fmt_p(ap_ewA.p_welch)}). The whisker − auditory contrast reached p "
+  f"{fmt_p(ap_wa.p_mw)} / {fmt_p(ap_wa.p_welch)} in all mice only. Across the {len(oA)} primary-cell omnibus tests, {ap_np} had p < 0.05 "
+  f"in both tests (about {0.05 * len(oA):.0f} expected by chance if the tests were independent), so this does not survive correction; the "
+  f"direction (R− > R+) matches the descriptive trend in the spike data.\n"
+  f"- *After the first lick on whisker licks: coherence higher in R+.* Low-γ coherence in the execution window {ap_ex.mean_Rplus:.4f} (R+) vs "
+  f"{ap_ex.mean_Rminus:.4f} (R−; p {fmt_p(ap_ex.p_mw)} / {fmt_p(ap_ex.p_welch)}), auditory hits {ap_exA.mean_Rplus:.4f} vs {ap_exA.mean_Rminus:.4f}; "
+  f"time clusters on whisker licks from {ap_tr.t_lo.min() if len(ap_tr) else float('nan'):.2f} to {ap_tr.t_hi.max() if len(ap_tr) else float('nan'):.2f} s "
+  f"({len(ap_tr)} cluster(s) in learners, min p {fmt_p(ap_tr.p.min()) if len(ap_tr) else 'n/a'}; {len(ap_trA)} in all mice), none on auditory hits "
+  f"({ref('fig-ap-tr')}). R+ mice are rewarded on whisker licks and R− mice are not, so from about 0.3 s R+ mice are consuming reward "
+  f"(sustained licking) and R− mice usually stop. The AP envelope, unlike sorted spikes, also carries lick-related muscle and movement "
+  f"signal that the common-average reference does not fully remove. This difference is most likely reward consumption, not a learned "
+  f"change in inter-areal communication; it is absent on auditory hits, where both cohorts are rewarded, and the whisker − auditory "
+  f"contrast in the execution window was not significant.")
  if HAS_AP else f"Pending: the AP-band run was still in progress at this build ({ref('fig-ap')} is the validation placeholder)."}
 
 Confound checks (firing rate and sum-signal power per area group by cohort) are in {ref('fig-confounds')}; all-mice
@@ -401,6 +438,7 @@ address but cannot remove for pairs recorded in few sessions.
 {figure('fig-tr', RES / 'spikes' / 'figures' / 'learners' / 'fig4_time_resolved_msc.png', 'Time-resolved excess coherence between area groups (200-ms windows every 50 ms, NW = 2), mean over pairs per session, mean ± s.e.m. over sessions, learners, per band (rows) and condition (columns). Dashed line: stimulus. Black bar: time cluster with permutation p < 0.05.', '003_stats_figures.py')}
 
 {figure('fig-ap', RES / ('ap/figures/learners/fig1_omnibus_spectra.png' if HAS_AP else 'ap/check/004_AB127_20240821_103757.png'), ('AP-band envelope coupling spectra, as Figure 2 with channels (peak channels of stable units) in place of units; quiet window ends at −10 ms, early window starts at +10 ms.' if HAS_AP else 'Placeholder (AP run in progress): AP envelope validation on AB127, see Figure S3.'), '005_build_ap_envelopes.py, 002_run_spikes.py --source ap')}
+{figure('fig-ap-tr', RES / 'ap/figures/learners/fig4_time_resolved_msc.png', 'AP-band envelope, time-resolved coherence (200-ms windows, 50-ms step) per condition and band, learners; shaded = cluster p < 0.05.', '003_stats_figures.py --source ap') if HAS_AP else ''}
 
 # Supplementary
 

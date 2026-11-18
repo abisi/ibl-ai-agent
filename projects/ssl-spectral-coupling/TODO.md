@@ -13,8 +13,10 @@ before any confirmatory follow-up.
 - [X] 003 stats + figures (learners + all mice, area group + acronym) -> spikes/stats/<pop>/*.csv,
       spikes/figures/<pop>/fig1-5
 - [X] 004 AP-band check on AB127 (clock, artefact latency, envelope vs spikes) -> ap/check/004_*.{txt,png}
-- [ ] 005 AP envelope caches (ap/cache) -> 002 --source ap -> 003 --source ap (chain ~/ssl_spectral_ap_chain.sh on
+- [X] 005 AP envelope caches (88/89; AB138 added by ~/ssl_spectral_ap_chain2.sh, done flag logs/ap_chain2_done) (ap/cache) -> 002 --source ap -> 003 --source ap (chain ~/ssl_spectral_ap_chain.sh on
       haas, logs/005_*, 002_ap.log, 003_ap.log, done flag logs/ap_chain_done)
 - [X] report v1 (spikes only): report/build_report.py, render.sh -> report/report.{pdf,md,html}
-- [ ] report v2 with AP results; publish to the private reports repo (ask first)
+- [X] report v2 with AP results (report/report.{pdf,md,html})
+- [ ] publish to the private reports repo (ask first); push commits to the fork (ask first)
 - [ ] Consult user: interpretation of "ap band" (envelope, not LFP), windows, lick-aligned execution, LFP coherence
+- [ ] Optional follow-ups (ask): lick-aligned execution windows / lick-rate matching for the AP execution effect; LFP (.lf.bin) coherence; pooled-trial pseudo-sessions for power

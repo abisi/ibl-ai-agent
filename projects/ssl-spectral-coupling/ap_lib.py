@@ -64,9 +64,16 @@ def clock_fit(probe_dir, p, whisker_starts_nwb):
     dif = dif[np.abs(dif) < 60]
     h, e = np.histogram(dif, bins=np.arange(-60, 60.0005, 0.001))
     off = e[np.argmax(h)] + 0.0005
-    j = np.clip(np.searchsorted(s, w + off), 1, len(s) - 1)
-    j = np.where(np.abs(s[j - 1] - w - off) < np.abs(s[j] - w - off), j - 1, j)
-    ok = np.abs(s[j] - w - off) < 0.01
+    # nearest-neighbour matching, refined twice with the linear fit (clock drift can exceed 10 ms over a session)
+    c = np.array([1.0, off])
+    for _ in range(3):
+        pred = c[0] * w + c[1]
+        j = np.clip(np.searchsorted(s, pred), 1, len(s) - 1)
+        j = np.where(np.abs(s[j - 1] - pred) < np.abs(s[j] - pred), j - 1, j)
+        ok = np.abs(s[j] - pred) < 0.01
+        if ok.sum() < 10:
+            break
+        c = np.linalg.lstsq(np.column_stack([w[ok], np.ones(ok.sum())]), s[j[ok]], rcond=None)[0]
     if ok.sum() < 0.9 * min(len(s), len(w)):
         raise RuntimeError(f"imec{p}: only {ok.sum()} of {len(w)} NWB whisker trials matched a stimulus time")
     w, s = w[ok], s[j[ok]]
