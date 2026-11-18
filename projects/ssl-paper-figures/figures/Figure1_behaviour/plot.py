@@ -391,16 +391,27 @@ def plot_rt_change(ax, df, xlabel, fit=None, display_bin=5, mice=None):
                 _p_label(ax, (s0 + s1) / 2, y + 0.005, d[d.hit_bin_centre.between(s0, s1)][pcol].min(), color)
     # (cohort-coloured bars kept here: they code which cohort differs from 0, not only p)
     ax.set_xlim(0, df.hit_bin_centre.max() + 1)
-    if mice is not None and "last_minus_first_ms" in mice:  # user 2026-11-16: stats written out above the axes
+    if mice is not None and "last_minus_first_ms" in mice:  # user 2026-11-18: stats on the plot, not written above
+        # last versus first bin of 5 hits per mouse: coloured stars right of each cohort's last bin (Wilcoxon vs 0),
+        # bracket joining the two last bins (R+ vs R- Mann-Whitney)
         v = {c: mice[mice.cohort == c].last_minus_first_ms.dropna() for c in COHORTS}
-        fmt = lambda p: f"p = {p:.2g}" if p >= 0.001 else "p < 0.001"
-        lines = [(f"{c.replace('-', '−')}: {v[c].mean():+.0f} ms, {fmt(stats.wilcoxon(v[c]).pvalue)}", group_color(tt, c))
-                 for c in COHORTS]
-        lines.append((f"R+ vs R−: {fmt(stats.mannwhitneyu(v['R+'], v['R-']).pvalue)}", "k"))
-        for k, (txt, color) in enumerate([("Last vs first 5 hits", "k")] + lines):
-            ax.text(0.0, 1.02 + 0.06 * (len(lines) - k), txt, transform=ax.transAxes, ha="left", va="bottom",
-                    fontsize=FS_NOTE if k == 0 else 4, color=color)
-        ax.set_xlim(0, shown.x.max() + 2)
+        last = {}
+        for k, c in enumerate(COHORTS):
+            g = shown[shown.cohort == c].groupby("x").value
+            m, e = g.mean(), g.sem()
+            last[c] = (m.index.max() + (k - 0.5) * 0.8, m.iloc[-1], e.iloc[-1])
+        hi_c = max(last, key=lambda c: last[c][1])
+        for c, (x, y, e) in last.items():  # above the upper cohort's error bar, below the lower one's
+            p = stats.wilcoxon(v[c]).pvalue
+            up = c == hi_c
+            ax.text(x, y + e if up else y - e, stars(p) if p < 0.05 else "n.s.", ha="center",
+                    va="bottom" if up else "top", fontsize=FS_NOTE, color=group_color(tt, c))
+        y0, y1 = sorted(y for _, y, _ in last.values())
+        xb = max(x for x, _, _ in last.values()) + 2.5
+        ax.plot([xb - 0.8, xb, xb, xb - 0.8], [y0, y0, y1, y1], color="k", lw=0.5)
+        p = stats.mannwhitneyu(v["R+"], v["R-"]).pvalue
+        ax.text(xb + 0.5, (y0 + y1) / 2, stars(p) if p < 0.05 else "n.s.", ha="left", va="center", fontsize=FS_NOTE)
+        ax.set_xlim(0, xb + 3)
     ax.set_xticks([1, 10, 20, 30])
     ax.set_xlabel(xlabel, labelpad=1)
     ax.set_ylabel("Δ RT from first 5 hits (ms)", labelpad=1)
@@ -426,7 +437,7 @@ def plot_rt_learning(ax, df):
     Stars: last versus first bin (planner 2026-11-11; the slope sub-axis was dropped). Right: Spearman rho (reaction
     time vs whisker curve) per licked trial type, mean +- s.e.m. over mice; grey dot +- s.d., the cohort mean under the
     linear-shift null (planner / user 2026-11-11); stars, Wilcoxon of rho minus each mouse's shift-null median vs 0."""
-    left, right = _split(ax, 2, gap=0.45)  # user 2026-11-17: more space between the two
+    left, right = _split(ax, 2, gap=0.38)  # user 2026-11-18: slightly closer
     plot_rt_change(left, df[df.kind == "bin"], "Whisker hit", None, mice=df[df.kind == "mouse"])  # no trend lines (user 2026-11-16)
     rho, null = df[df.kind == "rho"], df[df.kind == "rho_null"]
     for i, tt in enumerate(TRIAL_TYPES):
@@ -452,7 +463,7 @@ def plot_rt_learning(ax, df):
     right.set_ylim(lo, hi + 0.15 * (hi - lo))  # room for the legend
     right.set_ylabel("ρ(RT, W curve)", labelpad=1)
     right.set_xlabel("Licked trial type", labelpad=1)
-    _legend(right, [("Linear-shift null", "0.55", dict(marker="o", ms=2, lw=0, mfc="white", mew=0.5))],
+    _legend(right, [("Shift null", "0.55", dict(marker="o", ms=2, lw=0, mfc="white", mew=0.5))],
             loc="upper right")  # user 2026-11-16: open grey circles explained top right
 
 
@@ -636,7 +647,9 @@ def _plot_perf_three(ax, df, alabel):
         a.tick_params(labelsize=FS_TICK)
     _legend(axes[1], [(lab, group_color(tt, "R-")) for _, tt, lab in curves], loc="center right",
             bbox_to_anchor=(1, 0.7))
+    _legend(axes[0], [(lab, group_color(tt, "R+")) for _, tt, lab in curves], loc="lower left")  # user 2026-11-18
     _delta_axis(axes[2], df, alabel)
+    _legend(axes[2], [(c.replace("-", "−"), COLORS[c]) for c in COHORTS], loc="upper left")  # user 2026-11-18
     axes[2].set_xlabel("")
     axes[1].set_xlabel(f"Session time from {alabel} (0) to session end (1)", labelpad=1, fontsize=FS_LABEL)
 
@@ -691,7 +704,7 @@ def plot_movement_course(ax, df):
     (whisker trials top, auditory below), grey to black by p."""
     ax.axis("off")
     gap, w = 0.3, 0.35
-    rows = {"full": (0.56, 0.44), "zoom": (0.0, 0.38)}  # (bottom, height) in panel fraction
+    rows = {"full": (0.5, 0.34), "zoom": (0.0, 0.34)}  # (bottom, height) in panel fraction; legend row above
     windows = {"full": (0.0, 0.5), "zoom": (0.0, 0.1)}
     for k, (sig, label, unit) in enumerate(SIGNALS[:2]):
         ds = df[df.signal == sig]
@@ -699,8 +712,6 @@ def plot_movement_course(ax, df):
             a = ax.inset_axes([k * (w + gap), y0, w, h])
             lo_t, hi_t = windows[row]
             d = ds[ds.time_s.between(lo_t, hi_t)]
-            if row == "full":
-                a.axvspan(*windows["zoom"], color="0.92", lw=0, zorder=0)
             for tt in ("whisker_trial", "auditory_trial"):
                 for c in COHORTS:
                     dd = d[(d.trial_type == tt) & (d.cohort == c)]
@@ -725,8 +736,8 @@ def plot_movement_course(ax, df):
                 a.set_ylabel(f"{label} ({unit})", labelpad=0.5, fontsize=FS_LABEL)
                 a.yaxis.set_label_coords(-0.5, (0.5 - y0) / h)  # one label centred on the column
     entries = [(f"{TT_SHORT[tt]} {c}", color) for tt in ("whisker_trial", "auditory_trial") for c, color in _cohort_entries(tt)]
-    _legend(ax, entries, loc="lower center", bbox_to_anchor=(0.5, 1.1), ncol=4, columnspacing=0.8, borderaxespad=0)
-    ax.set_title("Evoked movement, hits", fontsize=FS_TITLE, pad=19)
+    _legend(ax, entries, loc="lower center", bbox_to_anchor=(0.5, 0.9), ncol=4, columnspacing=0.8, borderaxespad=0)
+    ax.set_title("Evoked movement, hits", fontsize=FS_TITLE, pad=6)  # same height as the other panel titles
 
 
 def plot_cumulative_fa(ax, df):
@@ -996,14 +1007,14 @@ def plot_glm_example(ax, df):
     if "predicted_min" in df:  # spread over the 10 cross-validation repeats
         ax.fill_between(x, df.predicted_min, df.predicted_max, color="0.85", lw=0)  # opaque (EPS export)
     ax.plot(x, df.predicted_p_lick, color="k", lw=0.4, label="GLM")  # thinner (user 2026-11-17)
-    ax.set_ylim(-0.1, 1.1)
+    ax.set_ylim(-0.1, 1.28)  # room for the legend inside the axes (user 2026-11-18)
     ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
     ax.set_xlabel("Whisker trial", labelpad=1)
     ax.set_ylabel("P(lick)", labelpad=1)
     ax.set_title(f"{df.mouse_id.iloc[0]}, bal. acc. {df.test_balanced_accuracy.iloc[0]:.2f}", fontsize=FS_TITLE,
-                 pad=12)  # room for the legend between the rasters and the title (narrower panel, 2026-11-16)
-    ax.legend(loc="lower right", bbox_to_anchor=(1, 1.04), ncol=2, fontsize=FS_NOTE, frameon=False, handlelength=1,
-              borderaxespad=0)
+                 pad=6)
+    ax.legend(loc="upper center", ncol=2, fontsize=FS_NOTE, frameon=False, handlelength=1, borderaxespad=0.1,
+              columnspacing=0.8)  # inside the axes, above the lick raster (user 2026-11-18)
 
 
 def plot_glm_fit(ax, df):
