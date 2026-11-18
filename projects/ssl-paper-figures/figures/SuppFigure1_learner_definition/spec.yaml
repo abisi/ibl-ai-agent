@@ -1,0 +1,222 @@
+# Supplementary Figure 1 (learner definition) -- learners versus non-learners within each cohort (user 2026-11-18).
+# Learner = reference-sheet learning_category good or moderate, non-learner = bad, in both cohorts. The session
+# quantifications of Figure 1 and Supplementary Figure 1 (behaviour) on every mouse, learners (solid) versus
+# non-learners (dashed / open) within each cohort. R- has only 2 non-learners: shown, never tested.
+figure: SuppFigure1_learner_definition
+figure_legend:
+- {label: R+, color: '#00B400'}
+- {label: R−, color: '#C800C8'}
+number: S1b
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 11.5
+  pad_left_mm: 8
+caption:
+  title: 'Learner definition: learners and non-learners of each cohort compared on the session measures of Fig. 1 and
+    Supplementary Fig. 1.'
+  footer: Learners, mice whose reference-sheet learning category is good or moderate; non-learners, category bad (both
+    cohorts). Every mouse with a whisker day-0 session is included. Trials with perf = 6 and passive trials are excluded;
+    on whisker day 0 the auditory warm-up block is removed except its last trial; early-lick trials are excluded.
+    Learners solid lines and filled markers, non-learners dashed lines and open markers; R+, green; R-, magenta;
+    auditory, blue; no stimulus, black (R+) and grey (R-). Data are mean ± s.e.m. over mice. Learners versus
+    non-learners are compared within each cohort (two-sided Mann-Whitney U tests and Welch's t-tests, both reported,
+    uncorrected; cluster-based permutation tests along time), only with at least 3 mice per group (5 per time point for
+    clusters); R- has 2 non-learners and is not tested.
+shared:
+  behaviour_table:
+    code: shared_behaviour.load
+    calls:
+    - behaviour_analysis/behavior_analysis_utils.build_standard_behavior_table
+    - behaviour_analysis/behavior_analysis_utils.reindex_whisker_days
+    params:
+      nwb_dir: NWB_ks4
+      auditory_days: all
+      trials: perf != 6, not passive, day-0 warm-up cut, no whisker trials on auditory days
+panels:
+- id: a
+  key: learners
+  title: Learners per cohort
+  data: FigS1L_learners.csv
+  status: filled
+  caption: 'Fraction of mice per reference-sheet learning category (good, moderate: learners; bad: non-learners) among
+    mice with a whisker day-0 session; numbers in bars, mice; above, learners/mice. Learner fraction R+ versus R-,
+    Fisher''s exact test {stats.fisher_p:p}.'
+  cell:
+    x_mm: 0.0
+    y_mm: 0.0
+    w_mm: 18.0
+    h_mm: 34.0
+- id: b
+  key: ex_rplus_nonlearner
+  title: Example R+ non-learner
+  data: FigS1L_ex_rplus_nonlearner.csv
+  status: filled
+  params:
+    example: AB151
+  caption: 'Whisker day 0 of an example R+ non-learner ({mouse_id}; {n_whisker_trials} whisker trials), as Fig. 1E:
+    exact learning curves of whisker (cohort colour; shading, 80% posterior interval), no-stimulus (black) and auditory
+    trials (blue); ticks, whisker trials with (top) and without a lick (bottom).'
+  cell:
+    x_mm: 41.0
+    y_mm: 0.0
+    w_mm: 66.0
+    h_mm: 34.0
+- id: c
+  key: ex_rminus_nonlearner
+  title: Example R- non-learner
+  data: FigS1L_ex_rminus_nonlearner.csv
+  status: filled
+  params:
+    example: MH064
+  caption: As b for an R- non-learner ({mouse_id}; {n_whisker_trials} whisker trials).
+  cell:
+    x_mm: 115.0
+    y_mm: 0.0
+    w_mm: 68.0
+    h_mm: 34.0
+- id: d
+  key: day0_closeup
+  title: Day-0 lick probability per mouse
+  data: FigS1L_day0_closeup.csv
+  status: filled
+  caption: 'Lick probability on whisker (W), auditory (A) and no-stimulus trials (FA) of whisker day 0, one dot per
+    mouse; learners (filled) next to non-learners (open) of each cohort; black-edged marker, mean ± s.e.m. Asterisks,
+    Mann-Whitney learners versus non-learners (R+). R+: whisker Mann-Whitney {stats.R+ whisker_trial.mannwhitney_p:p},
+    Welch {stats.R+ whisker_trial.welch_p:p}; auditory {stats.R+ auditory_trial.mannwhitney_p:p}, Welch
+    {stats.R+ auditory_trial.welch_p:p}; false alarms {stats.R+ no_stim_trial.mannwhitney_p:p}, Welch
+    {stats.R+ no_stim_trial.welch_p:p}. n = {n.R+.learners} learners and {n.R+.non_learners} non-learners (R+),
+    {n.R-.learners} and {n.R-.non_learners} (R-).'
+  cell:
+    x_mm: 0.0
+    y_mm: 45.0
+    w_mm: 50.0
+    h_mm: 34.0
+- id: e
+  key: days
+  title: Lick probability and d' on each day
+  data: FigS1L_days.csv
+  status: filled
+  caption: 'Left and middle, lick probability on whisker, auditory and no-stimulus trials on auditory days -2 and -1 and
+    whisker days 0 to 3 (shaded, day 0), R+ (left) and R- (middle), learners solid, non-learners dashed. Right, d''
+    between whisker and no-stimulus trials on each whisker day (log-linear rate correction). Stars, Mann-Whitney learners
+    versus non-learners (R+, P < 0.05). R+ d'' day 0, Mann-Whitney {stats.R+ dprime whisker_trial 0.mannwhitney_p:p},
+    Welch {stats.R+ dprime whisker_trial 0.welch_p:p}; day 1 {stats.R+ dprime whisker_trial 1.mannwhitney_p:p}, Welch
+    {stats.R+ dprime whisker_trial 1.welch_p:p}; day 2 {stats.R+ dprime whisker_trial 2.mannwhitney_p:p}, Welch
+    {stats.R+ dprime whisker_trial 2.welch_p:p}. Every test and the mice per day in the source data.'
+  cell:
+    x_mm: 58.0
+    y_mm: 45.0
+    w_mm: 125.0
+    h_mm: 34.0
+- id: f
+  key: perf_trial
+  title: Learning curves and Delta P(lick) from the first whisker trial
+  data: FigS1L_perf_trial.csv
+  status: filled
+  caption: 'As Fig. 1H for learners (solid) and non-learners (dashed): whisker, false-alarm (chance) and auditory learning
+    curves of R+ and R- mice against session time from the first whisker trial (0) to the session end (1; last 15% of
+    the session cut, curves refitted), and Delta P(lick) (whisker minus chance curve). Bars, learners versus
+    non-learners (cluster-based permutation test, Welch t, 1,000 permutations, cluster P < 0.05): R+
+    {sig_clusters_text.R+}; R- {sig_clusters_text.R-}. n = {n.R+.learners} learners and {n.R+.non_learners}
+    non-learners (R+), {n.R-.learners} and {n.R-.non_learners} (R-).'
+  cell:
+    x_mm: 0.0
+    y_mm: 90.0
+    w_mm: 122.0
+    h_mm: 34.0
+- id: g
+  key: cumulative_fa
+  title: False alarms on day -1 and day 0
+  data: FigS1L_cumulative_fa.csv
+  status: filled
+  params:
+    n_trials: 30
+  caption: 'Cumulative false alarms after the anchor on whisker day 0 (left; per whisker trial after the first licked
+    whisker trial) and auditory day -1 (right; per no-stimulus trial after the matched auditory-reward count), as
+    Supplementary Fig. 1C. At {n_trials} trials, R+ learners versus non-learners: day 0 Mann-Whitney
+    {stats.R+ 0.mannwhitney_p:p}, Welch {stats.R+ 0.welch_p:p}; day -1 Mann-Whitney {stats.R+ -1.mannwhitney_p:p}, Welch
+    {stats.R+ -1.welch_p:p}.'
+  cell:
+    x_mm: 132.0
+    y_mm: 90.0
+    w_mm: 51.0
+    h_mm: 34.0
+- id: h
+  key: perf_hit
+  title: Learning curves and Delta P(lick) from the first whisker hit
+  data: FigS1L_perf_hit.csv
+  status: filled
+  caption: 'As f from the first whisker hit (0) to the session end (1), as Fig. 1J. Clusters: R+ {sig_clusters_text.R+};
+    R- {sig_clusters_text.R-}. n = {n.R+.learners} learners and {n.R+.non_learners} non-learners (R+), {n.R-.learners}
+    and {n.R-.non_learners} (R-).'
+  cell:
+    x_mm: 0.0
+    y_mm: 135.0
+    w_mm: 122.0
+    h_mm: 34.0
+- id: i
+  key: rt
+  title: Reaction times on day 0
+  data: FigS1L_rt.csv
+  status: filled
+  caption: 'Median reaction time per mouse of whisker (W) and auditory hits (A) on whisker day 0. R+ learners versus
+    non-learners: whisker Mann-Whitney {stats.R+ whisker_trial.mannwhitney_p:p}, Welch {stats.R+ whisker_trial.welch_p:p};
+    auditory Mann-Whitney {stats.R+ auditory_trial.mannwhitney_p:p}, Welch {stats.R+ auditory_trial.welch_p:p}.'
+  cell:
+    x_mm: 132.0
+    y_mm: 135.0
+    w_mm: 51.0
+    h_mm: 34.0
+- id: j
+  key: dprime_norm
+  title: d' across normalised session time
+  data: FigS1L_dprime_norm.csv
+  status: filled
+  caption: 'd'' between the whisker and chance learning curves (clipped to 0.01-0.99) against session time normalised
+    from the first whisker trial (left) or the first whisker hit (right) to the session end, as Supplementary Fig. 1E.
+    R+ learners versus non-learners clusters: from the first whisker trial {sig_clusters_text.R+_first_whisker_trial};
+    from the first whisker hit {sig_clusters_text.R+_first_whisker_hit}.'
+  cell:
+    x_mm: 0.0
+    y_mm: 180.0
+    w_mm: 88.0
+    h_mm: 34.0
+- id: k
+  key: dprime_abs
+  title: d' across absolute session time
+  data: FigS1L_dprime_abs.csv
+  status: filled
+  caption: 'As j against minutes from the alignment, as Supplementary Fig. 1F, shown while at least 5 mice per group
+    remain (R+). Clusters: from the first whisker trial {sig_clusters_text.R+_first_whisker_trial}; from the first whisker
+    hit {sig_clusters_text.R+_first_whisker_hit}.'
+  cell:
+    x_mm: 95.0
+    y_mm: 180.0
+    w_mm: 88.0
+    h_mm: 34.0
+- id: l
+  key: pretraining
+  title: Auditory pretraining
+  data: FigS1L_pretraining.csv
+  status: filled
+  caption: 'Auditory pretraining trials per mouse (all auditory days before whisker day 0). R+ learners versus
+    non-learners, Mann-Whitney {stats.R+.mannwhitney_p:p}, Welch {stats.R+.welch_p:p}.'
+  cell:
+    x_mm: 0.0
+    y_mm: 225.0
+    w_mm: 40.0
+    h_mm: 34.0
+- id: m
+  key: first_lick
+  title: Whisker trials before the first lick
+  data: FigS1L_first_lick.csv
+  status: filled
+  caption: 'Whisker trials before the first licked whisker trial of whisker day 0 per mouse (early-lick trials
+    excluded). R+ learners versus non-learners, Mann-Whitney {stats.R+.mannwhitney_p:p}, Welch {stats.R+.welch_p:p}.'
+  cell:
+    x_mm: 50.0
+    y_mm: 225.0
+    w_mm: 40.0
+    h_mm: 34.0
