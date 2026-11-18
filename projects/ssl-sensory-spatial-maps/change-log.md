@@ -10,3 +10,4 @@
 - 2026-11-18: 013_zeta_pilot.py: ZETA-test (zetapy 4.2, installed in ~/zeta_lib on haas) pilot on one session
   (MH069_20260122_111455), no-lick trials only: active whisker misses, passive whisker, passive auditory; all good + mua
   units; window 0-200 ms; IFR peak time; compared with the 001 ROC flag. Outputs in _sensory_spatial_maps/zeta_pilot/.
+- 2026-11-18: 014_zeta_all.py: ZETA test on no-lick trials, all sessions (W_miss; passive whisker / auditory pre, post, pooled), all ROC-table units; excited = ZETA p < 0.01 + upward PSTH deviation (z >= 3); IFR-peak categories fast / slow / late; method figure, category PSTHs per area group, ZETA vs matched-context ROC. Outputs in _sensory_spatial_maps/zeta_all/.
