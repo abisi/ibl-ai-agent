@@ -194,6 +194,178 @@ def compute_rates_correlation(ctx):
     return w, {"n": fig1.n_by_cohort(w), "stats": stats}
 
 
+# ---------------------------------------------------------------- user 2026-11-18: reorganised Supp. Fig. 1
+
+def _learner_mice(ctx):
+    return set(fig1.day0_table(ctx["table"], learners_only=True).mouse_id)
+
+
+def compute_cumulative_fa(ctx):
+    """Day -1 versus day 0 false alarms (user 2026-11-18): cumulative false alarms after the anchor (Figure 1 compute
+    _anchors: day 0 from the first whisker lick, day -1 from the matched auditory-reward count), learners."""
+    n = PANELS["cumulative_fa"]["params"]["n_trials"]
+    fig1.PANELS["cumulative_fa"] = {"params": {"n_trials": n}}
+    df, _ = fig1.compute_cumulative_fa(ctx)
+    df = df[df.mouse_id.isin(_learner_mice(ctx))].reset_index(drop=True)
+    last = df[df.trial_after_anchor == n]
+    tests = {f"day{d}": two_group_tests(last[(last.day == d) & (last.cohort == "R+")].cumulative_fa,
+                                       last[(last.day == d) & (last.cohort == "R-")].cumulative_fa) for d in (0, -1)}
+    paired = {}
+    for c in ("R+", "R-"):  # day 0 minus day -1 within mouse (mice with both days)
+        w = last[last.cohort == c].pivot_table(index="mouse_id", columns="day", values="cumulative_fa").dropna()
+        paired[c] = {"n": int(len(w)), "mean_diff": float((w[0] - w[-1]).mean()) if len(w) else np.nan,
+                     "wilcoxon_p": float(stats_mod.wilcoxon(w[0], w[-1]).pvalue) if len(w) > 5 else np.nan}
+    return df, {"n": {f"day{d}": fig1.n_by_cohort(df[df.day == d]) for d in (0, -1)}, "stats": tests,
+                "day0_vs_daym1": paired, "n_trials": n}
+
+
+def _rate(k, n):
+    """Lick rate with the log-linear correction (k + 0.5) / (n + 1), for d'."""
+    return (k + 0.5) / (n + 1)
+
+
+def compute_days_expert(ctx):
+    """User 2026-11-18: every day separately, learners, early licks dropped. Lick probability per trial type on auditory
+    days -2, -1 and whisker days 0..3 (session mean, then mouse mean); d' on whisker days, z(whisker hit rate) -
+    z(false-alarm rate) per session with the log-linear correction, then mouse mean. R+ vs R- per day."""
+    t = learners(ctx["table"])
+    t = t[t.day.isin([-2, -1, 0, 1, 2, 3]) & (t.early_lick == 0) & t.trial_type.isin(TRIAL_TYPES)]
+    g = t.groupby(["mouse_id", "cohort", "day", "session_id", "trial_type"]).lick_flag.agg(["sum", "count", "mean"])
+    p = g["mean"].groupby(["mouse_id", "cohort", "day", "trial_type"]).mean().rename("value").reset_index()
+    p["measure"] = "p_lick"
+    w = g.unstack("trial_type")
+    w = w[w.index.get_level_values("day") >= 0].dropna(subset=[("count", "whisker_trial"), ("count", "no_stim_trial")])
+    z = stats_mod.norm.ppf
+    dp = (z(_rate(w[("sum", "whisker_trial")], w[("count", "whisker_trial")]))
+          - z(_rate(w[("sum", "no_stim_trial")], w[("count", "no_stim_trial")])))
+    dp = pd.Series(np.asarray(dp), index=w.index).groupby(["mouse_id", "cohort", "day"]).mean().rename("value").reset_index()
+    dp["measure"], dp["trial_type"] = "dprime", "whisker_trial"
+    df = pd.concat([p, dp], ignore_index=True)
+    tests = {}
+    for (m, tt, day), d in df.groupby(["measure", "trial_type", "day"]):
+        a, b = d[d.cohort == "R+"].value, d[d.cohort == "R-"].value
+        if len(a) > 2 and len(b) > 2:
+            tests[f"{m} {tt} day{day}"] = two_group_tests(a, b)
+    n = {c: {int(day): int(df[(df.cohort == c) & (df.day == day)].mouse_id.nunique()) for day in sorted(df.day.unique())}
+         for c in ("R+", "R-")}
+    dprime = {k.split()[-1]: v for k, v in tests.items() if k.startswith("dprime")}
+    return df, {"n": n, "stats": tests, "dprime_by_day": dprime}
+
+
+DPRIME_CLIP = (0.01, 0.99)
+
+
+def _dprime_session(ctx):
+    """User 2026-11-18: d' = z(whisker curve) - z(chance curve) on whisker trials (curves refitted on the cut session as
+    Figure 1 H/J, clipped to DPRIME_CLIP), learners; against normalised session time (alignment 0 to session end 1) and
+    absolute time (min from the alignment, 1-min grid, inside the session only), aligned at the first whisker trial and
+    at the first whisker hit. Cluster-based permutation test R+ vs R- per alignment x time axis (times with >= 8 mice per
+    cohort)."""
+    if "dprime_session" in ctx:
+        return ctx["dprime_session"]
+    z = lambda v: stats_mod.norm.ppf(np.clip(np.asarray(v, float), *DPRIME_CLIP))
+    grid = np.round(np.arange(0, 1 + 1e-9, 0.02), 3)
+    rows = []
+    for sid, st in fig1.day0_table(ctx["table"], learners_only=True).groupby("session_id"):
+        st = st[st.early_lick == 0].sort_values("start_time")
+        st = st[st.start_time <= fig1.session_end_time(st[st.trial_type == "whisker_trial"].start_time)]
+        curves, _, _ = fig1.session_curves(st, None)
+        tw = st[st.trial_type == "whisker_trial"].start_time.to_numpy()
+        dprime = z(curves.p_mean) - z(curves.p_chance)
+        base = {"mouse_id": st.mouse_id.iloc[0], "session_id": sid, "cohort": st.cohort.iloc[0]}
+        hits = np.flatnonzero(curves.lick.to_numpy() == 1)
+        starts = {"first_whisker_trial": 0}
+        if len(hits) and hits[0] < len(tw) - 1:
+            starts["first_whisker_hit"] = hits[0]
+        for align, k in starts.items():
+            t, v = tw[k:], dprime[k:]
+            rows.append(pd.DataFrame({**base, "alignment": align, "axis": "norm", "time": grid,
+                                      "dprime": np.interp(grid, (t - t[0]) / (t[-1] - t[0]), v)}))
+            minutes = np.arange(0, np.floor((t[-1] - t[0]) / 60) + 1)
+            rows.append(pd.DataFrame({**base, "alignment": align, "axis": "abs_min", "time": minutes,
+                                      "dprime": np.interp(minutes, (t - t[0]) / 60, v)}))
+    df = pd.concat(rows, ignore_index=True)
+    df["cluster_sig"], df["cluster_p"], df["in_test"] = False, np.nan, False
+    clusters, n = {}, {}
+    for (axis, align), d in df.groupby(["axis", "alignment"]):
+        enough = d.groupby(["time", "cohort"]).mouse_id.nunique().unstack().reindex(columns=["R+", "R-"]).fillna(0).min(1)
+        d = d[d.time.isin(enough[enough >= 8].index)]
+        key = f"{axis}_{align}"
+        clusters[key] = fig1.cluster_test(d, "time", "dprime")
+        df.loc[d.index, "in_test"] = True
+        df.loc[d.index, "cluster_sig"] = fig1.mark_clusters(d, "time", clusters[key])
+        df.loc[d.index, "cluster_p"] = fig1.cluster_p(d, "time", clusters[key])
+        n[key] = fig1.n_by_cohort(d)
+    text = {k: "; ".join(f"{c['start']:g}-{c['end']:g}, P = {c['p']:.3g}" for c in v if c["p"] < 0.05) or "none"
+            for k, v in clusters.items()}
+    ctx["dprime_session"] = (df, {"n_by_key": n, "clusters": clusters, "sig_clusters_text": text,
+                                  "clip": list(DPRIME_CLIP), "session_keep": fig1.SESSION_KEEP})
+    return ctx["dprime_session"]
+
+
+def compute_dprime_norm(ctx):
+    df, info = _dprime_session(ctx)
+    d = df[df.axis == "norm"].reset_index(drop=True)
+    return d, {**info, "n": fig1.n_by_cohort(d)}
+
+
+def compute_dprime_abs(ctx):
+    df, info = _dprime_session(ctx)
+    d = df[df.axis == "abs_min"].reset_index(drop=True)
+    return d, {**info, "n": fig1.n_by_cohort(d)}
+
+
+EVOKED_WINDOW = {"whisker_speed": (-0.05, 0.5), "jaw_opening": (-0.1, 0.5), "nose_speed": (-0.1, 0.5),
+                 "pupil_area": (-1.0, 3.0)}
+EVOKED_MIN_MICE = 5
+
+
+def _evoked(ctx, signal):
+    """User 2026-11-18: stimulus-aligned `signal` on every trial type x outcome of whisker day 0 (whisker hit / miss,
+    auditory hit / miss, false alarm / correct rejection), both cohorts (shared_movement_peth v10, dlc_helpers; learners
+    with dual-view video, early licks dropped; each trial minus its pre-stimulus mean, mean over trials per session, then
+    over sessions per mouse). Cluster-based permutation test R+ vs R- per trial type x outcome (>= EVOKED_MIN_MICE mice
+    per cohort)."""
+    import shared_movement_peth
+    sessions = set(fig1.day0_table(ctx["table"], learners_only=True).session_id)
+    peth = shared_movement_peth.load()
+    peth = peth[(peth["align"] == "stimulus") & (peth.signal == signal) & peth.session_id.isin(sessions)
+                & peth.time_s.between(*EVOKED_WINDOW[signal])]
+    d = (peth.groupby(["mouse_id", "cohort", "signal", "unit", "trial_type", "lick", "time_s"])
+         .agg(value=("value_delta", "mean"), n_trials=("n_trials", "sum")).reset_index())
+    d["cluster_sig"], d["cluster_p"] = False, np.nan
+    clusters, n = {}, {}
+    for (tt, lick), g in d.groupby(["trial_type", "lick"]):
+        nm = g.groupby("cohort").mouse_id.nunique()
+        key = f"{tt} lick={lick}"
+        n[key] = {c: int(nm.get(c, 0)) for c in ("R+", "R-")}
+        if min(n[key].values()) < EVOKED_MIN_MICE:
+            continue
+        clusters[key] = fig1.cluster_test(g, "time_s", "value")
+        d.loc[g.index, "cluster_sig"] = fig1.mark_clusters(g, "time_s", clusters[key])
+        d.loc[g.index, "cluster_p"] = fig1.cluster_p(g, "time_s", clusters[key])
+    text = "; ".join(f"{k}, {c['start']:.2f} to {c['end']:.2f} s (P = {c['p']:.3f})"
+                     for k, cl in clusters.items() for c in cl if c["p"] < 0.05) or "none"
+    return d, {"n": fig1.n_by_cohort(d), "n_by_condition": n, "clusters": clusters, "cluster_text": text,
+               "window_s": list(EVOKED_WINDOW[signal]), "params": shared_movement_peth.PARAMS}
+
+
+def compute_evoked_whisker_speed(ctx):
+    return _evoked(ctx, "whisker_speed")
+
+
+def compute_evoked_jaw_opening(ctx):
+    return _evoked(ctx, "jaw_opening")
+
+
+def compute_evoked_nose_speed(ctx):
+    return _evoked(ctx, "nose_speed")
+
+
+def compute_evoked_pupil_area(ctx):
+    return _evoked(ctx, "pupil_area")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--panels", nargs="*")

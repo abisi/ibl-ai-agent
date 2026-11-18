@@ -30,13 +30,6 @@ plot_hitmiss_whisker_speed = plot_hitmiss_jaw_opening = fig1.plot_movement_hitmi
 plot_hitmiss_pupil_area = plot_hitmiss_nose_speed = fig1.plot_movement_hitmiss
 
 
-def plot_rt_change_auditory(ax, df):
-    """Auditory-hit version of Figure 1 j left and middle (user 2026-11-10): change curve and per-mouse slopes."""
-    left, right = fig1._split(ax, 2, gap=0.25)
-    fig1.plot_rt_change(left, df[df.kind == "bin"], "Auditory hit", df[df.kind == "fit"])
-    fig1.plot_rt_slopes(right, df[df.kind == "mouse"], tt="auditory_trial")
-
-
 def plot_ex_rplus_nonlearner(ax, df):
     fig1._example(ax, df, "R+ non-learner", first=True)
 
@@ -127,3 +120,136 @@ def plot_day0_closeup(ax, df):
     ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
     ax.set_ylabel("P(lick)", labelpad=1)
     ax.set_xlabel("Trial type", labelpad=1)  # R+ / R- colour key at the figure level (user 2026-11-16)
+
+
+# ---------------------------------------------------------------- user 2026-11-18: reorganised Supp. Fig. 1
+
+def plot_cumulative_fa(ax, df):
+    fig1.plot_cumulative_fa(ax, df)
+    ax.set_title("False alarms, day −1 vs 0", fontsize=fig1.FS_TITLE, pad=6)
+
+
+def plot_days_expert(ax, df):
+    """Left: lick probability per trial type on each day (-2..3), mean +- s.e.m. over mice. Right: d' on whisker days
+    0..3; stars, Mann-Whitney R+ vs R- per day."""
+    from scipy import stats
+    left, right = fig1._split(ax, 2, gap=0.3)
+    p = df[df.measure == "p_lick"]
+    for tt in fig1.TRIAL_TYPES:
+        for k, c in enumerate(fig1.COHORTS):
+            g = p[(p.trial_type == tt) & (p.cohort == c)].groupby("day").value
+            m, e = g.mean(), g.sem()
+            if tt == "whisker_trial":
+                m, e = m[m.index >= 0], e[e.index >= 0]
+            left.errorbar(m.index + (k - 0.5) * 0.15, m, e, color=fig1.group_color(tt, c), marker="o", ms=1.6, lw=0.6,
+                          elinewidth=0.5, capsize=0)
+    left.axvspan(-0.4, 0.4, color="0.92", lw=0, zorder=0)
+    left.set_xticks(range(-2, 4))
+    left.set_ylim(0, 1.02)
+    left.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
+    left.set_xlabel("Day", labelpad=1)
+    left.set_ylabel("P(lick)", labelpad=1)
+    dp = df[df.measure == "dprime"]
+    top = []
+    for k, c in enumerate(fig1.COHORTS):
+        g = dp[dp.cohort == c].groupby("day").value
+        m, e = g.mean(), g.sem()
+        right.errorbar(m.index + (k - 0.5) * 0.15, m, e, color=fig1.COLORS[c], marker="o", ms=1.6, lw=0.6,
+                       elinewidth=0.5, capsize=0)
+        top.append(m + e)
+    right.axhline(0, color="0.6", lw=0.4, ls=":")
+    hi = np.nanmax(np.vstack([t.reindex(range(4)).to_numpy() for t in top]), 0)
+    for day in range(4):
+        a, b = dp[(dp.day == day) & (dp.cohort == "R+")].value, dp[(dp.day == day) & (dp.cohort == "R-")].value
+        if len(a) > 2 and len(b) > 2:
+            pv = stats.mannwhitneyu(a, b).pvalue
+            if pv < 0.05:
+                right.text(day, hi[day] + 0.1, fig1.stars(pv), ha="center", va="bottom", fontsize=fig1.FS_NOTE)
+    right.set_xticks(range(4))
+    right.set_xlim(-0.5, 3.5)
+    right.set_xlabel("Whisker day", labelpad=1)
+    right.set_ylabel("d′ (W vs FA)", labelpad=1)
+    fig1._legend(left, [(fig1.TT_SHORT[tt], fig1.group_color(tt, "R+")) for tt in fig1.TRIAL_TYPES], loc="center left",
+                 bbox_to_anchor=(0, 0.6))  # trial types; cohorts in the figure key (lighter, R-)
+
+
+DPRIME_ALIGN = [("first_whisker_trial", "1st W trial"), ("first_whisker_hit", "1st W hit")]
+
+
+def _plot_dprime(ax, df, xlabel_fmt, norm):
+    axes = fig1._split(ax, 2, gap=0.22)
+    for a, (align, lab) in zip(axes, DPRIME_ALIGN):
+        d = df[(df.alignment == align) & df.in_test.astype(bool)]
+        for c in fig1.COHORTS:
+            fig1._mean_band(a, d[d.cohort == c], "time", "dprime", fig1.COLORS[c], lw=0.7)
+        fig1._sig_bar(a, d, "time", y=1.0)
+        a.axhline(0, color="0.6", lw=0.4, ls=":")
+        if norm:
+            a.set_xlim(0, 1)
+            a.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
+        else:
+            a.set_xlim(0, d.time.max())
+        a.set_xlabel(xlabel_fmt.format(lab), labelpad=1)
+        a.set_ylabel("d′ (W vs FA curve)", labelpad=1)
+    lo = min(a.get_ylim()[0] for a in axes)
+    hi = max(a.get_ylim()[1] for a in axes)
+    for a in axes:
+        a.set_ylim(lo, hi)
+    fig1._legend(axes[0], [(c.replace("-", "−"), fig1.COLORS[c]) for c in fig1.COHORTS], loc="upper left")
+
+
+def plot_dprime_norm(ax, df):
+    _plot_dprime(ax, df, "Session time from {} (norm.)", True)
+
+
+def plot_dprime_abs(ax, df):
+    _plot_dprime(ax, df, "Time from {} (min)", False)
+
+
+def plot_rt_change_auditory(ax, df):  # user 2026-11-18: same layout and timescale as Fig. 1K left
+    fig1.plot_rt_change(ax, df[df.kind == "bin"], "Auditory hit", None, mice=df[df.kind == "mouse"])
+
+
+EVOKED_COLS = [("whisker_trial", "Whisker", ("Hit", "Miss")), ("auditory_trial", "Auditory", ("Hit", "Miss")),
+               ("no_stim_trial", "No stimulus", ("FA", "CR"))]
+
+
+def _plot_evoked(ax, df):
+    """Per trial type: lick (solid) and no-lick (dashed) trials, both cohorts (group_color), mean +- s.e.m. over mice;
+    bars, R+ vs R- clusters (lick top, no lick below), grey to black by P."""
+    axes = fig1._split(ax, 3, gap=0.12)
+    sig = df.signal.iloc[0]
+    label, unit = fig1.HITMISS_LABELS[sig]
+    for k, (a, (tt, title, outcomes)) in enumerate(zip(axes, EVOKED_COLS)):
+        d = df[df.trial_type == tt]
+        for lick, ls in ((1, "-"), (0, "--")):
+            for c in fig1.COHORTS:
+                dd = d[(d.lick == lick) & (d.cohort == c)]
+                if dd.mouse_id.nunique() >= 3:
+                    fig1._mean_band(a, dd.rename(columns={"time_s": "t"}), "t", "value", fig1.group_color(tt, c),
+                                    ls=ls, lw=0.6, fill=0.8)
+        step = float(np.min(np.diff(np.sort(d.time_s.unique()))))
+        for lick, y, name in ((1, 0.98, outcomes[0]), (0, 0.9, outcomes[1])):
+            on = d[(d.lick == lick) & d.cluster_sig.astype(bool)]
+            if len(on):
+                fig1._shaded_bars(a, on, "time_s", y, step, label=f"{name} ", lw=1)
+        a.axvline(0, color="0.6", lw=0.4, ls=":")
+        a.axhline(0, color="0.8", lw=0.3)
+        a.set_xlim(d.time_s.min(), d.time_s.max())
+        lo, hi = a.get_ylim()
+        a.set_ylim(lo, hi + 0.2 * (hi - lo))
+        a.set_title(title, fontsize=fig1.FS_TITLE, pad=7)
+        a.set_xlabel("Time (s)", labelpad=1)
+        if k == 0:
+            a.set_ylabel(f"{label} ({unit})", labelpad=1)
+    ylo = min(a.get_ylim()[0] for a in axes)
+    yhi = max(a.get_ylim()[1] for a in axes)
+    for k, a in enumerate(axes):
+        a.set_ylim(ylo, yhi)
+        if k:
+            a.set_yticklabels([])
+    fig1._legend(axes[2], [("Lick", "0.2"), ("No lick", "0.2", dict(ls="--"))], loc="center left",
+                 bbox_to_anchor=(0, 0.66))  # no-stimulus traces stay low: free space
+
+
+plot_evoked_whisker_speed = plot_evoked_jaw_opening = plot_evoked_nose_speed = plot_evoked_pupil_area = _plot_evoked
