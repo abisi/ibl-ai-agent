@@ -73,3 +73,17 @@ or execution), R+ and R- have different coupling between area group, area acrony
 - Population: learners (sheet learning_category good/moderate) primary, all mice sensitivity. Unit = session (one per
   mouse at day 0). A pair enters a cohort with >= 3 sessions; cohort tests need both cohorts.
 - Results are exploratory/pre-specified; confirmation on a held-out set is not possible with one session per mouse.
+
+## Update 2026-11-18 (user decisions after the overnight run)
+
+- Exploratory: **no multiple-comparison correction** for now; report uncorrected Mann-Whitney + Welch p (flag both < 0.05).
+- "AP" meant **action potentials** (spike counts), not the AP-band envelope. The envelope analysis is dropped.
+  Spike counts are used in 5-ms bins for the spectral (FFT) part and in **50-ms bins** for a time-domain coupling
+  measure (`corr50`: Pearson r of the area sum residuals over trials x 50-ms bins, excess over trial shuffle).
+- Start with **coherence (MSC)**; other spectral measures kept but not the focus.
+- **Mouse-level** analysis (one value per mouse; day 0 has one session per mouse).
+- **Within-area** coupling added (two disjoint unit halves of the same area group / acronym).
+- **Jaw-onset alignment** for lick trials (W_lick, A_hit, NS_fa), onsets from the per-mouse
+  `dlc_jaw_onset_times.pkl` (behaviour_analysis, dlc_helpers); only onsets 0-1 s after the stimulus; windows pre
+  (-0.3, 0) and post (0, 0.3) s around the jaw onset, 200-ms time-resolved windows -0.6 to +0.6 s.
+- Code: 002_run_spikes.py --align stim|jaw (outputs v2_<align>/), 007_exploratory_stats.py.

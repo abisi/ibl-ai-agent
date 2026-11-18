@@ -34,7 +34,7 @@ CONFIG = {
     "version": 1, "source": "spikes", "bin_s": sl.BIN, "edges_s": [float(sl.EDGES[0]), float(sl.EDGES[-1])],
     "epochs": sl.EPOCHS, "time_resolved": sl.TR, "bands": sl.BANDS, "min_rate_hz": 1.0,
     "levels": {"group": {"n_units": 15, "n_draws": 3, "time_resolved": True, "ceiling": True},
-               "acronym": {"n_units": 8, "n_draws": 2, "time_resolved": False, "ceiling": False}},
+               "acronym": {"n_units": 8, "n_draws": 2, "time_resolved": False, "ceiling": True}},
     "conditions": {"ALL": 40, "W_lick": 15, "W_nolick": 15, "A_hit": 15, "NS_cr": 15},
     "n_shuffles_epoch": 20, "n_shuffles_tr": 10, "n_pc": sl.N_PC, "n_rest_pc": sl.N_REST_PC,
     "n_rest_units": sl.N_REST_UNITS, "var_order": sl.VAR_ORDER, "soft_sd": sl.SOFT_SD,
@@ -44,6 +44,35 @@ CONFIG = {
 WITHIN = " (within)"
 # AP envelope: the artefact-corrected binary has a deterministic dip in the 0-5 ms bin; epochs kept 10 ms away from it
 AP_EPOCHS = {"quiet": (-1.0, -0.01, 3.0), "early": (0.01, 0.16, 1.5), "execution": (0.2, 0.5, 3.0)}
+# v2 (user 2026-11-18): jaw-onset alignment of lick trials (DLC jaw onset, behaviour_analysis per-mouse pkl);
+# time-domain coupling in 50-ms bins ("corr50": Pearson r of the area sum residuals over trials x 50-ms bins)
+JAW_EPOCHS = {"pre": (-0.3, 0.0, 1.5), "post": (0.0, 0.3, 1.5)}
+JAW_TR = {"win": 0.2, "step": 0.05, "centers": (-0.6, 0.6), "NW": 2.0}
+JAW_CONDITIONS = {"W_lick": 15, "A_hit": 15, "NS_fa": 10}
+BIN50 = 10  # 5-ms bins per 50-ms bin
+
+
+def jaw_onsets(sid):
+    """{round(start_time, 3): jaw onset (s from trial start)} from the mouse's dlc_jaw_onset_times.pkl."""
+    d = pd.read_pickle(sl.ROOT / "combined_results_ks4" / sid.split("_")[0] / "dlc_jaw_onset_times.pkl")
+    d = d[d.session_id == sid]
+    return dict(zip(d.start_time.round(3), d.jaw_dlc_onset))
+
+
+def corr50(xa, xb, perms):
+    """Pearson r of two [trial, 5-ms bin] signals summed into 50-ms bins (window cut to whole 50-ms bins), per perm."""
+    nb = xa.shape[1] // BIN50
+    if nb < 1:
+        return np.full(len(perms), np.nan)
+    a = xa[:, :nb * BIN50].reshape(len(xa), nb, BIN50).sum(2)
+    b = xb[:, :nb * BIN50].reshape(len(xb), nb, BIN50).sum(2).ravel()
+    b = b - b.mean()
+    out = []
+    for perm in perms:
+        x = a[perm].ravel()
+        x = x - x.mean()
+        out.append(float(x @ b / (np.sqrt((x @ x) * (b @ b)) + 1e-30)))
+    return np.array(out)
 
 
 def session_table():
@@ -61,10 +90,16 @@ def session_table():
 
 
 def run_session(args):
-    sid, cohort, learner, quick, levels, source = args
+    sid, cohort, learner, quick, levels, source, align = args
     t0 = time.time()
-    C = {**CONFIG, "source": source}
+    C = {**CONFIG, "source": source, "align": align}
     units, trials, rule = sl.load_session(sid)
+    if align == "jaw":
+        C["conditions"] = JAW_CONDITIONS
+        on = trials.start_time.round(3).map(jaw_onsets(sid))
+        ok = trials.condition.isin(list(JAW_CONDITIONS)) & (on > 0) & (on < 1.0)  # stimulus-evoked onsets only
+        trials = trials[ok].assign(jaw_onset=on[ok]).reset_index(drop=True)
+        trials["start_time"] = trials.start_time + trials.jaw_onset  # t = 0 is the jaw onset
     if source == "ap":  # channels (peak channels of stable units) play the role of units; envelope in place of counts
         cache = np.load(sl.OUT / "ap" / "cache" / f"{sid}.npz")
         X = cache["E"]
@@ -87,6 +122,10 @@ def run_session(args):
               "acronym": np.where(units.area_group.notna(), units.area_acronym_custom, None).astype(object)}
     cond_all = trials.condition.to_numpy()
     wins = sl.windows()
+    if align == "jaw":
+        wins = {k: (sl.window_idx(a, b), nw) for k, (a, b, nw) in JAW_EPOCHS.items()}
+        for c in np.round(np.arange(JAW_TR["centers"][0], JAW_TR["centers"][1] + 1e-9, JAW_TR["step"]), 3):
+            wins[f"tr_{c:+.2f}"] = (sl.window_idx(c - JAW_TR["win"] / 2, c + JAW_TR["win"] / 2), JAW_TR["NW"])
     if wins_override:
         wins.update({k: (sl.window_idx(a, b), nw) for k, (a, b, nw) in wins_override.items()})
     if quick:
@@ -165,6 +204,9 @@ def run_session(args):
                                     (sl.to_grid(v[0], f), sl.to_grid(np.nanmean(v[1:], 0), f)))
                         for band, v in psi.items():
                             acc[(level, cond, wname, a, b, "psi", band)].append((v[0], v[1:].mean(), v[1:].std()))
+                        sa, sb = sig[a][:, idx, 0].astype(np.float64), sig[b][:, idx, 0].astype(np.float64)
+                        r = corr50(sa, sb, perms)
+                        acc[(level, cond, wname, a, b, "corr50", "all")].append((r[0], np.nanmean(r[1:]), np.nanstd(r[1:])))
             print(sid, level, "draw", draw, f"{time.time() - t0:.0f} s", flush=True)
     rows = [dict(level=k[0], condition=k[1], window=k[2], source=k[3], target=k[4], measure=k[5], band=k[6],
                  value=float(np.nanmean([v[0] for v in vals])), null_mean=float(np.nanmean([v[1] for v in vals])),
@@ -176,7 +218,7 @@ def run_session(args):
             if np.isfinite(o):
                 srows.append(dict(level=k[0], condition=k[1], window=k[2], source=k[3], target=k[4], measure=k[5],
                                   freq=float(fq), value=float(o), null_mean=float(n)))
-    od = sl.OUT / source / "sessions"
+    od = sl.OUT / outdir(source, align) / "sessions"
     od.mkdir(parents=True, exist_ok=True)
     sfx = "_quick" if quick else ""
     for name, rr in (("bands", rows), ("spectra", srows)):
@@ -191,6 +233,10 @@ def run_session(args):
     meta["runtime_s"] = round(time.time() - t0)
     json.dump(meta, open(od / f"{sid}{sfx}_meta.json", "w"), indent=1, default=str)
     return sid, len(rows), len(srows), meta["runtime_s"]
+
+
+def outdir(source, align):
+    return source if align is None else f"v2_{align}"
 
 
 def run_safe(job):
@@ -209,20 +255,23 @@ def main():
     ap.add_argument("--n-proc", type=int, default=40)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--source", choices=["spikes", "ap"], default="spikes")
+    ap.add_argument("--align", choices=["stim", "jaw"], default=None, help="v2 run (outputs in v2_<align>)")
     args = ap.parse_args()
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     s, sheet = session_table()
     if args.sessions:
         s = s[s.session_id.isin(args.sessions)]
-    od = sl.OUT / args.source
+    od = sl.OUT / outdir(args.source, args.align)
     done = {p.name.replace("_meta.json", "") for p in (od / "sessions").glob("*_meta.json")} if not args.quick else set()
     if args.source == "ap":
         s = s[s.session_id.map(lambda x: (sl.OUT / "ap" / "cache" / f"{x}.npz").exists())]
-    jobs = [(r.session_id, r.cohort, bool(r.learner), args.quick, args.levels, args.source) for r in s.itertuples()
+    jobs = [(r.session_id, r.cohort, bool(r.learner), args.quick, args.levels, args.source, args.align) for r in s.itertuples()
             if r.session_id not in done]
     od.mkdir(parents=True, exist_ok=True)
     s.to_csv(od / "sessions_included.csv", index=False)
-    json.dump({**CONFIG, "source": args.source, "ap_epochs": AP_EPOCHS if args.source == "ap" else None,
+    json.dump({**CONFIG, "source": args.source, "align": args.align,
+               "jaw": dict(epochs=JAW_EPOCHS, tr=JAW_TR, conditions=JAW_CONDITIONS, onset_rule="0 < onset < 1 s",
+                           file="combined_results_ks4/<mouse>/dlc_jaw_onset_times.pkl") if args.align == "jaw" else None, "ap_epochs": AP_EPOCHS if args.source == "ap" else None,
                "reference_sheet": sheet}, open(od / "config.json", "w"), indent=1, default=str)
     print(f"{len(jobs)} sessions to run ({len(done)} already done)", flush=True)
     with Pool(min(args.n_proc, max(1, len(jobs)))) as pool:

@@ -18,5 +18,7 @@ before any confirmatory follow-up.
 - [X] report v1 (spikes only): report/build_report.py, render.sh -> report/report.{pdf,md,html}
 - [X] report v2 with AP results (report/report.{pdf,md,html})
 - [ ] publish to the private reports repo (ask first); push commits to the fork (ask first)
-- [ ] Consult user: interpretation of "ap band" (envelope, not LFP), windows, lick-aligned execution, LFP coherence
+- [X] Consult user (2026-11-18): AP = spikes, 50-ms bins for time-domain, MSC first, no MC correction, jaw alignment, mouse level
 - [ ] Optional follow-ups (ask): lick-aligned execution windows / lick-rate matching for the AP execution effect; LFP (.lf.bin) coherence; pooled-trial pseudo-sessions for power
+- [ ] v2 runs (stim + jaw alignment, within-area, corr50) -> 007 exploratory stats (stim, jaw) -> report v3
+      (exploratory, uncorrected, mouse level; AP-envelope section removed)

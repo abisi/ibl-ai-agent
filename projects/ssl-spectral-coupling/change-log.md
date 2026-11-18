@@ -19,3 +19,9 @@
   names copies from the last two folders only, so ap/stats/<pop>/x.csv and spikes/stats/<pop>/x.csv collided and the
   first v2 build read spike tables for AP. Now one snapshot tag per source (<date>_spikes, _ap, _simulation); the
   collided 2026-11-18 snapshot folder was deleted.
+- **2026-11-18 09:00: v2 (user decisions).** No MC correction (exploratory), AP = spikes (envelope dropped), MSC focus,
+  mouse level, within-area at both levels, 50-ms corr50, jaw-onset alignment. 002 gets --align stim|jaw (v2_<align>/);
+  007_exploratory_stats.py. Runs on haas: ~/ssl_spectral_v2_chain.sh (logs 002_v2_stim.log, 002_v2_jaw.log).
+- **2026-11-18 09:40: v2 runs done.** stim 89/89 sessions; jaw 86/89 (no dlc_jaw_onset_times.pkl for AB080, AB082,
+  MH026). 007 run for both alignments (all mice + learners). Jaw-onset latency does not differ by cohort (checked,
+  mouse level), so jaw-aligned differences are not a reaction-time shift.
