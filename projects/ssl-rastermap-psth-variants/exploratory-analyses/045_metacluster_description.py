@@ -23,7 +23,7 @@ Output: <variant folder>/metacluster_description/metacluster_description.{png,pd
 method_dir, order) + _psth_mice.csv (per-mouse PSTH means).
 Run (haas): cd ~/code/unit_spikes_analysis; PYTHONPATH=~/code/NWB_reader:. .venv/bin/python \
   ~/code/ibl-ai-agent/projects/ssl-rastermap-psth-variants/exploratory-analyses/045_metacluster_description.py \
-  [--variant V] [--order 23 18 14 15 12]
+  [--variant V] [--order 23 18 14 15 12] [--name supp_metaclusters]
 """
 import argparse
 import json
@@ -83,6 +83,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--variant", default=VARIANT)
     ap.add_argument("--order", type=int, nargs="+", default=ORDER)
+    ap.add_argument("--name", default="metacluster_description",
+                    help="output stem in metacluster_description/ (e.g. supp_metaclusters for Supp. Fig. 3)")
     a = ap.parse_args()
     md = method_dir(a.variant)
     prov = json.load(open(ROOT / a.variant / "variant_provenance.json"))
@@ -260,7 +262,7 @@ def main():
                  handletextpad=0.3)
     out = ROOT / a.variant / "metacluster_description"
     out.mkdir(exist_ok=True)
-    stem = out / "metacluster_description"
+    stem = out / a.name
     rmu._save(fig, stem, dpi=600)
     tab.to_csv(f"{stem}_table.csv", index=False)
     pd.DataFrame(psth_rows).assign(variant=a.variant).to_csv(f"{stem}_psth_mice.csv", index=False)
