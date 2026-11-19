@@ -1,5 +1,5 @@
 """Build the sensory-maps + stimulus-arrival report (Quarto source) from the result tables (run on haas).
-Writes combined_results_ks4/_sensory_spatial_maps/report/sensory_maps_report.qmd and the list of figures it uses
+Writes combined_results_ks4/ssl-sensory-spatial-maps/report/sensory_maps_report.qmd and the list of figures it uses
 (report_figures.txt); render.sh copies them and renders the PDF locally (Quarto / typst)."""
 import importlib
 import json
@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-SM, AR_ACT, AR_PAS = RES / "_sensory_spatial_maps", RES / "ssl-stimulus-arrival-decoding" / "active", RES / "ssl-stimulus-arrival-decoding" / "passive"
+SM, AR_ACT, AR_PAS = RES / "ssl-sensory-spatial-maps", RES / "ssl-stimulus-arrival-decoding" / "active", RES / "ssl-stimulus-arrival-decoding" / "passive"
 REPO = pathlib.Path.home() / "code" / "ibl-ai-agent" / "projects"
 sys.path.insert(0, str(REPO / "ssl-sensory-spatial-maps" / "exploratory-analyses"))
 OUTD = SM / "report"

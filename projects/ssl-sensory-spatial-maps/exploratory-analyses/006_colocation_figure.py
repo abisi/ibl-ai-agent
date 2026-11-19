@@ -17,7 +17,7 @@ Tests (global, no session pairing; user 2026-10-04):
   (the spatial-shift null was removed, user 2026-10-04);
   95 % CI of each P: same hierarchical bootstrap;
   Holm across sub-regions; control: sub-region vs the rest of the same structure (outside the overlap), same tests.
-Output: combined_results_ks4/_sensory_spatial_maps/colocation_{subregions,tests}.csv, figures/colocation_figure.{png,pdf,svg},
+Output: combined_results_ks4/ssl-sensory-spatial-maps/colocation_{subregions,tests}.csv, figures/colocation_figure.{png,pdf,svg},
 colocation_figure_caption.md
 """
 import importlib

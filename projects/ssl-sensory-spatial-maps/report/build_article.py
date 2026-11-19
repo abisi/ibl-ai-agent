@@ -1,6 +1,6 @@
 """Article-style report of ssl-sensory-spatial-maps (skills/project-report): run on haas.
 
-Reads the result tables of combined_results_ks4/_sensory_spatial_maps (until the folder migration) and writes, into
+Reads the result tables of combined_results_ks4/ssl-sensory-spatial-maps and writes, into
 combined_results_ks4/ssl-sensory-spatial-maps/report/: report.md (single source), numbers.json (every quoted number),
 figures/ (copies, downscaled to <= 2000 px), build.sh (copy of skills/project-report/build.sh). The PDF / HTML are built
 with build.sh where TinyTeX is installed (render_article.sh does it locally).
@@ -16,7 +16,7 @@ import pandas as pd
 from PIL import Image
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-SM = RES / "_sensory_spatial_maps"
+SM = RES / "ssl-sensory-spatial-maps"
 FZ, F70 = SM / "figures_zone90", SM / "figures"
 REP = RES / "ssl-sensory-spatial-maps" / "report"
 REPO = pathlib.Path.home() / "code" / "ibl-ai-agent"
@@ -447,7 +447,7 @@ projection overlap, suggesting that this task-related convergence is not inherit
 - Code: `projects/ssl-sensory-spatial-maps/` (ibl-ai-agent fork): `exploratory-analyses/001_unit_latency.py`,
   `002_projection_zones.py`, `003_spatial_maps.py`, `004_modality_contours.py`, `006_colocation_figure.py`,
   `007_cortical_flatmaps.py`, `008_prelick_convergence_colocation.py`; report: `report/build_article.py`.
-- Results: `combined_results_ks4/_sensory_spatial_maps/` (to be moved to `combined_results_ks4/ssl-sensory-spatial-maps/`):
+- Results: `combined_results_ks4/ssl-sensory-spatial-maps/`:
   `figures_zone90/` (main), `figures/` (70 %), `colocation_tests*.csv`, `projection_*`, `modality_contours*.csv`,
   `unit_latency.parquet`.
 - Frozen statistics before the 2026-10-04 overnight reruns: `combined_results_ks4/_snapshots/2026-10-04_2200/`.

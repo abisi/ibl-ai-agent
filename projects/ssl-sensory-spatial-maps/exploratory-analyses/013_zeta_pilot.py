@@ -12,7 +12,7 @@ ZETA: window 0..MAX_DUR after onset, 100 jitter resamplings; significant p < 0.0
 instantaneous firing rate (IFR) within 5..MAX_DUR ms (zetapy 4.2 returns none); sign from the mean rate
 (window vs. pre-stimulus [-MAX_DUR, 0]).
 Also: 1-ms PSTH (sigma 2 ms) per unit and set, the 001 ROC responsive flag and t_peak (010 units.parquet) for comparison.
-Outputs: _sensory_spatial_maps/zeta_pilot/<session>/{zeta.parquet, psths.npz, zeta_pilot.{png,pdf,svg}}
+Outputs: ssl-sensory-spatial-maps/zeta_pilot/<session>/{zeta.parquet, psths.npz, zeta_pilot.{png,pdf,svg}}
 Run (haas): PYTHONPATH=~/code/NWB_reader:~/zeta_lib ~/code/unit_spikes_analysis/.venv/bin/python 013_zeta_pilot.py \
             [--session MH069_20260122_111455] [--n-proc 60]
 """

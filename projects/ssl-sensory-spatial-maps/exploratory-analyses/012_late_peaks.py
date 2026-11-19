@@ -17,7 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from ephys_utilities.allen_utils import allen_utils as au  # noqa: E402
 
-OUT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/_sensory_spatial_maps/fast_slow_peaks")
+OUT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-sensory-spatial-maps/fast_slow_peaks")
 COL = {"whisker": "#f7b519", "auditory": "#2c2cdb"}
 LATE = (50.0, 95.0)
 

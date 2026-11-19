@@ -16,7 +16,7 @@ Tests (core vs rest; session = unit of analysis): per-session difference (sessio
 outside), Wilcoxon signed-rank and paired t-test; area control = Mantel-Haenszel odds ratio of sig (core vs not) within
 Allen structures (area_acronym_custom with >= MIN_UNITS units on each side) with the CMH test. Benjamini-Hochberg over
 analysis types within each measure. Pooled over cohorts and stages, and per cohort x stage (descriptive).
-Outputs: combined_results_ks4/_sensory_spatial_maps/shared_zone_roc<_UNITS>/ (unit table with KEYS, tests, bins,
+Outputs: combined_results_ks4/ssl-sensory-spatial-maps/shared_zone_roc<_UNITS>/ (unit table with KEYS, tests, bins,
 provenance) and figures (heatmap, forest, per group, dose-response).
 """
 import importlib

@@ -5,7 +5,7 @@ PSTH: recomputed exactly as in 001 (artefact-corrected KS4 spikes seeded per ses
 -100..+200 ms), Gaussian sigma 2 ms. Baseline: the pre-trial rate [-1, -0.015] s (ssl-figure-style rule 2); the 001
 local baseline (-100..-10 ms) is stored too. Stored per unit: raw smoothed PSTH (Hz), pre-trial and local baselines.
 Averaging: mean over units of a class within each session, then mean +- s.e.m. over sessions (sessions with >= 1 unit).
-Outputs: _sensory_spatial_maps/fast_slow_peaks/{psths.npz, psth_units.parquet,
+Outputs: ssl-sensory-spatial-maps/fast_slow_peaks/{psths.npz, psth_units.parquet,
          psths_<modality>_{hz,norm}.{png,pdf,svg}}  (norm = each unit divided by its peak, baseline-subtracted)
 Run (haas): PYTHONPATH=~/code/NWB_reader ~/code/unit_spikes_analysis/.venv/bin/python 011_fast_slow_psths.py [--n-proc 40] [--plot-only]
 """

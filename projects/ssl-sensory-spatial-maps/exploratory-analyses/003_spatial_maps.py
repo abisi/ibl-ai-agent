@@ -24,7 +24,7 @@ AUDd/AUDv; union over the slab, contour lines lightly smoothed); structures hold
 4 density map: sum of the quantity over neurons and number of neurons with a value, each on the 50-um CCF grid and
 smoothed with a 3-D Gaussian (sigma 150 um), divided (= normalised by the recorded-neuron density), averaged over the slab;
 shown where >= 3 neurons fall within the kernel; 5 significant neurons only (latency: responsive neurons).
-Output: combined_results_ks4/_sensory_spatial_maps/figures/<quantity>/<set>_p<k>.{png,pdf,svg} + slab_units.csv
+Output: combined_results_ks4/ssl-sensory-spatial-maps/figures/<quantity>/<set>_p<k>.{png,pdf,svg} + slab_units.csv
 """
 import argparse
 import importlib
@@ -42,7 +42,7 @@ sys.path.insert(0, str(HERE.parents[1] / "ssl-stimulus-arrival-decoding" / "expl
 S = importlib.import_module("_style")
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 ROC = RES / "_roc_stage_analysis"
-OUT = RES / "_sensory_spatial_maps"
+OUT = RES / "ssl-sensory-spatial-maps"
 ZONE_PCT = int(os.environ.get("ZONE_PCT", "70"))      # projection-zone contour level (% of the projection mass)
 ZTAG = "" if ZONE_PCT == 70 else f"_zone{ZONE_PCT}"
 ZONES_NPZ = OUT / f"projection_zones{ZTAG}.npz"

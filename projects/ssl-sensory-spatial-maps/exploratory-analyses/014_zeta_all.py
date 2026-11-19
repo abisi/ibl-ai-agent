@@ -19,7 +19,7 @@ Categories (IFR peak): fast < 20 ms, slow 20-50 ms, late 50-200 ms.
 ROC comparison: the 045 ROC (5-35 ms vs -50..-15 ms, permutation p < .05) on the matched trial set: whisker_passive_pre/
   post <-> W_pas_pre/post, auditory_passive_pre/post <-> A_pas_pre/post; W_miss is compared with whisker_active (all
   active whisker trials, licks included -- not matched).
-Outputs: _sensory_spatial_maps/zeta_all/{sessions/<sid>.parquet + <sid>_psth.npz, zeta_units.parquet,
+Outputs: ssl-sensory-spatial-maps/zeta_all/{sessions/<sid>.parquet + <sid>_psth.npz, zeta_units.parquet,
   figures/*.{png,pdf,svg}, provenance.json}
 Run (haas): PYTHONPATH=~/code/NWB_reader:~/zeta_lib ~/code/unit_spikes_analysis/.venv/bin/python 014_zeta_all.py
             [--n-proc 60] [--sessions a,b] [--plot-only]

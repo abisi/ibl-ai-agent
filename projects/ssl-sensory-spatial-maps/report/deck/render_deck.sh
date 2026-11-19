@@ -2,7 +2,7 @@
 # (../build_deck_assets.py); copy both from the NAS (M:), build the PowerPoint locally (build_deck.py, python-pptx) and copy
 # it to the NAS. PYX = folder with python-pptx if it is not installed.
 cd "$(dirname "$0")"
-NAS=/m/analysis/Axel_Bisi/combined_results_ks4/_sensory_spatial_maps
+NAS=/m/analysis/Axel_Bisi/combined_results_ks4/ssl-sensory-spatial-maps
 ssh haas 'cd ~/code/unit_spikes_analysis && ./.venv/bin/python ~/code/ibl-ai-agent/projects/ssl-sensory-spatial-maps/report/build_report.py && ./.venv/bin/python ~/code/ibl-ai-agent/projects/ssl-sensory-spatial-maps/report/build_deck_assets.py' > /dev/null
 mkdir -p img && cp $NAS/deck/img/*.png img/ && cp $NAS/report/report_numbers.json .
 PYTHONPATH="${PYX:-}" python build_deck.py

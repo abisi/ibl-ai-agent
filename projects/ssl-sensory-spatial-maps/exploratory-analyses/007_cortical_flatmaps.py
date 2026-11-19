@@ -16,7 +16,7 @@ sum of the quantity over neurons and number of neurons with a value on the flat 
 (sigma 150 um), divided (normalised by the recorded-neuron density); shown inside the isocortex where >= 3 neurons fall
 within the kernel; lines: whisker and auditory projection zones (002, ZONE_PCT contour), projected with the same streamlines
 (a flat pixel belongs to a zone when >= half of its streamline lies in it).
-Output: combined_results_ks4/_sensory_spatial_maps/figures<ZTAG>/cortical_flatmaps{,_nozones}.{png,pdf,svg} (_nozones: no zone
+Output: combined_results_ks4/ssl-sensory-spatial-maps/figures<ZTAG>/cortical_flatmaps{,_nozones}.{png,pdf,svg} (_nozones: no zone
 contours; recorded-neuron density instead of the zone panel),
 cortical_flatmaps_caption<ZTAG>.md, flatmap_units<ZTAG>.parquet
 """

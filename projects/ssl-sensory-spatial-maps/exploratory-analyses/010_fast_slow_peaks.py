@@ -2,7 +2,7 @@
 
 User question (2026-11-18): is there evidence for both fast peaks (< 20 ms) and slower peaks (< 100 ms) in sensory
 responses (transients only, i.e. using latency)?
-Input:  _sensory_spatial_maps/unit_latency.parquet (001: responsive = ROC whisker_active / auditory_active significant,
+Input:  ssl-sensory-spatial-maps/unit_latency.parquet (001: responsive = ROC whisker_active / auditory_active significant,
         response window 5-35 ms; 1-ms PSTH, sigma 2 ms, peak searched 5-100 ms, latency = half-time to peak);
         _roc_stage_analysis/units.parquet for area_group, cohort, stage (first row per unit key).
 Units:  excited responses (sign +). Peak reliability: z = peak / noise SD, noise SD = Poisson SD of the smoothed PSTH at
@@ -11,7 +11,7 @@ Units:  excited responses (sign +). Peak reliability: z = peak / noise SD, noise
 Classes: fast t_peak < 20 ms; slow 20 <= t_peak < 95 ms; edge t_peak >= 95 ms (still rising at the search limit).
 Tests:  Hartigan dip test on log10(t_peak) and 1- vs 2-component Gaussian mixture (BIC) on log10(t_peak), all units and
         per area group (>= 100 units); co-occurrence of both classes per session x area group (>= 5 units).
-Outputs: _sensory_spatial_maps/fast_slow_peaks/{units.parquet, area_groups.csv, bimodality.csv, cooccurrence.csv,
+Outputs: ssl-sensory-spatial-maps/fast_slow_peaks/{units.parquet, area_groups.csv, bimodality.csv, cooccurrence.csv,
          fast_slow_peaks.{png,pdf,svg}}
 Run (haas): ~/code/unit_spikes_analysis/.venv/bin/python 010_fast_slow_peaks.py
 """
@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 from ephys_utilities.allen_utils import allen_utils as au  # noqa: E402
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-OUT = RES / "_sensory_spatial_maps" / "fast_slow_peaks"
+OUT = RES / "ssl-sensory-spatial-maps" / "fast_slow_peaks"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 FAST, EDGE, Z_MIN, SIGMA_BINS = 20.0, 95.0, 5.0, 2.0
 COL = {"whisker": "#f7b519", "auditory": "#2c2cdb"}
@@ -38,7 +38,7 @@ MIN_AREA, MIN_CELL = 100, 5
 
 
 def load():
-    L = pd.read_parquet(RES / "_sensory_spatial_maps" / "unit_latency.parquet")
+    L = pd.read_parquet(RES / "ssl-sensory-spatial-maps" / "unit_latency.parquet")
     U = pd.read_parquet(RES / "_roc_stage_analysis" / "units.parquet",
                         columns=KEYS + ["area_group", "area_acronym_custom", "cohort", "stage", "day"])
     U["cluster_id"] = U.cluster_id.astype(str)

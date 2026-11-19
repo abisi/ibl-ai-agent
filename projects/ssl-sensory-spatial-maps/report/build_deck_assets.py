@@ -1,6 +1,6 @@
 """Slide images for the sensory-maps + stimulus-arrival deck (run on haas): panels cut from the publication figures at
 the white gaps between them, plus the link panel (decoding onset vs single-neuron latency per area group).
-Output: combined_results_ks4/_sensory_spatial_maps/deck/img/*.png + manifest.txt"""
+Output: combined_results_ks4/ssl-sensory-spatial-maps/deck/img/*.png + manifest.txt"""
 import importlib
 import pathlib
 import sys
@@ -10,7 +10,7 @@ import pandas as pd
 from PIL import Image
 
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-SM, AA, AP = RES / "_sensory_spatial_maps", RES / "ssl-stimulus-arrival-decoding" / "active", RES / "ssl-stimulus-arrival-decoding" / "passive"
+SM, AA, AP = RES / "ssl-sensory-spatial-maps", RES / "ssl-stimulus-arrival-decoding" / "active", RES / "ssl-stimulus-arrival-decoding" / "passive"
 OUT = SM / "deck" / "img"
 FZ = SM / "figures_zone90"                       # 90 % projection zones = main (user 2026-10-04)
 REPO = pathlib.Path.home() / "code" / "ibl-ai-agent" / "projects"

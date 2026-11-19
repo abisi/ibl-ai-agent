@@ -20,7 +20,7 @@ The first version (top 10 % of candidate voxels, unsmoothed) is kept as mask_<so
 Merged zones (user 2026-10-04): whisker = 70 % contour of the mean of the SSp-bfd and SSs densities (each normalised),
 auditory = same for AUDp and AUDd/AUDv (zone70_whisker / zone70_auditory). Overlap = whisker zone & auditory zone;
 overlap volume per Allen structure (layers merged) -> projection_overlap.csv.
-Output: combined_results_ks4/_sensory_spatial_maps/projection_zones.npz (zone70_<source>, mask_<source>,
+Output: combined_results_ks4/ssl-sensory-spatial-maps/projection_zones.npz (zone70_<source>, mask_<source>,
 density_<source> smoothed; AP x DV x ML, 50 um) + projection_experiments.csv + projection_overlap.csv +
 figures/projection_zones_{coronal,sagittal}.{png,pdf,svg}: 500-um slabs (mean density, union of the zone), rows =
 sources + overlap of the whisker and auditory zones, labels = the 3 structures holding most of each zone in the slab, right
@@ -35,7 +35,7 @@ import urllib.request
 import numpy as np
 import pandas as pd
 
-OUT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/_sensory_spatial_maps")
+OUT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ssl-sensory-spatial-maps")
 RAW = OUT / "allen_projection_density_50um"
 ATLAS = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/Anatomy/allen_mouse_bluebrain_barrels_10um_v1.0")
 SOURCES = {"SSp-bfd": [329], "SSs": [378], "AUDp": [1002], "AUD-sec": [1011, 1018]}

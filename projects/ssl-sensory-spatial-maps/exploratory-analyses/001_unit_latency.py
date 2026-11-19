@@ -13,7 +13,7 @@ selectivity (excited +, inhibited -); the signed response s * r(t) is used.
 Peak: maximum of s * r(t) in 5..100 ms. Half-time to peak (latency): the last upward crossing of half the peak before
 the peak, after stimulus onset (whisker: after +5 ms, the end of the artefact-replaced window; linear interpolation between 1-ms bins). NaN if the peak is not above 0 or if s * r(t)
 stays above half the peak from stimulus onset to the peak (no crossing after onset).
-Output: combined_results_ks4/_sensory_spatial_maps/unit_latency.parquet (keys mouse_id, session_id, electrode_group,
+Output: combined_results_ks4/ssl-sensory-spatial-maps/unit_latency.parquet (keys mouse_id, session_id, electrode_group,
 cluster_id; latency_whisker_ms, latency_auditory_ms, peak_*, t_peak_*, sign_*, n_trials_*) + provenance.
 """
 import argparse
@@ -34,7 +34,7 @@ sys.path.insert(0, str(pathlib.Path.home() / "code" / "unit_spikes_analysis"))
 RES = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 NWB = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/NWB_ks4")
 ROC = RES / "_roc_stage_analysis"
-OUT = RES / "_sensory_spatial_maps"
+OUT = RES / "ssl-sensory-spatial-maps"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 T0, T1, BIN = -0.100, 0.200, 0.001
 BASE = (-1.0, -0.015)

@@ -14,7 +14,7 @@ Per slab x area, positions in the slab plane (lateral distance from the midline,
   positions and its whisker / auditory counts), N_PERM permutations; p = (1 + #null >= observed) / (1 + N_PERM) for the
   centroid distance (one-sided) and two-sided for each axis shift. Holm correction across all slab x area tests is also
   reported over the target tests (uncorrected p shown in the figure).
-Output: combined_results_ks4/_sensory_spatial_maps/modality_contours.csv + figures/modality_contours.{png,pdf,svg}
+Output: combined_results_ks4/ssl-sensory-spatial-maps/modality_contours.csv + figures/modality_contours.{png,pdf,svg}
 """
 import importlib
 import json

@@ -13,7 +13,7 @@ Tests (session = unit of analysis):
   permutation (location labels shuffled among a session's responsive units, N_PERM) of the mean session difference
   (one-sided, location > elsewhere). Per area: area vs every area outside the top 8; Holm across the 8 areas.
   Control for area identity: within each top-8 structure, units inside vs outside the overlap zone (Holm across areas).
-Output: combined_results_ks4/_sensory_spatial_maps/bimodal_convergence.csv (+ _sessions.csv) and
+Output: combined_results_ks4/ssl-sensory-spatial-maps/bimodal_convergence.csv (+ _sessions.csv) and
 figures/bimodal_convergence.{png,pdf,svg}
 """
 import importlib

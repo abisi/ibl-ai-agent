@@ -3,7 +3,7 @@
 Where whisker and auditory stimuli evoke responses across the brain (single-neuron ROC maps, latency, modality
 preference, bimodal neurons), and where whisker- and auditory-cortex projections converge (Allen anterograde tracing).
 Companion project: `ssl-stimulus-arrival-decoding` (when stimulus information arrives, population decoding).
-Question and scope: `question.md`. Results (not in git): `combined_results_ks4/_sensory_spatial_maps/` on the NAS.
+Question and scope: `question.md`. Results (not in git): `combined_results_ks4/ssl-sensory-spatial-maps/` on the NAS.
 
 ## Scripts (`exploratory-analyses/`, run on haas)
 
