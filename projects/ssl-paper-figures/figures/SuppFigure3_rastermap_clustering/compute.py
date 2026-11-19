@@ -17,10 +17,12 @@ import json
 import sys
 from pathlib import Path
 
+import matplotlib.colors
 import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 from scipy.stats import spearmanr
+from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_mutual_info_score, adjusted_rand_score
 
 FIG_DIR = Path(__file__).resolve().parent
@@ -38,6 +40,7 @@ ZETA = RES / "ssl-zeta-responses" / "zeta_long.parquet"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 MIN_NEURONS_MOUSE = 3   # as 045
 N_PERM = 200
+FLOW_EDGE_TRIM = 1     # as run_clustering_new (fig8_flow_umap, edge_trim=1)
 N_PERM_AGREE = 50     # AMI is slow at K = 100
 CUTS = np.round(np.arange(0.05, 0.951, 0.025), 3)
 rng = np.random.default_rng(0)
@@ -73,6 +76,82 @@ def group_means(X, labels, ks):
 
 
 # ---------------------------------------------------------------- panels
+
+def _umap():
+    """neuron UMAP of the run (fitted on the held-out even-trial PSTHs, rastermap_results_cv.npz), random draw order"""
+    b = base()
+    R = b["R"]
+    d = np.load(MD / "rastermap_results_cv.npz", allow_pickle=True)
+    assert np.array_equal(d["unit_ids"], R["unit_ids"])
+    emb = d["umap_embedding"]
+    o = rng.permutation(len(emb))
+    return b, R, emb, o
+
+
+def compute_umap_clusters():
+    b, R, emb, o = _umap()
+    META["umap_clusters"] = dict(n_neurons=int(len(emb)))
+    return pd.DataFrame(dict(u1=emb[o, 0], u2=emb[o, 1], cluster=R["labels"][o],
+                             metacluster=[b["meta"]["families"][k] for k in R["labels"][o]]))
+
+
+def compute_umap_areas():
+    """as 045: major area groups with their allen_utils colours, minor groups pooled in Other"""
+    b, R, emb, o = _umap()
+    major, acol = pms._area_categories(R)
+    acol = dict(acol, Other=pms.OTHER_AREA_COLOR)
+    area = np.where(np.isin(R["area_group_arr"], major), R["area_group_arr"], "Other")
+    META["umap_areas"] = dict(n_groups=len(major), n_neurons=int(len(emb)))
+    return pd.DataFrame(dict(u1=emb[o, 0], u2=emb[o, 1], area_group=area[o],
+                             color=[matplotlib.colors.to_hex(acol[a]) for a in area[o]]))
+
+
+def _flow():
+    """population state per time bin (rows = bins of the held-out even-trial PSTHs, columns = neurons) projected on
+    its first two PCs; as run_clustering_new.fig8_flow_umap (PCA rows): stimulus-aligned conditions (lick-aligned
+    excluded), edge_trim = 1 bin per condition end, activity-weighted rastermap cluster index per bin"""
+    if "flow" in _cache:
+        return _cache["flow"]
+    b = base()
+    R = b["R"]
+    X = R["X"]
+    labels_c, colors_c = list(pms.rmu.COND_LABELS), list(pms.rmu.COND_COLORS)
+    off = np.r_[0, np.cumsum(R["n_bins_list"])]
+    rows, cols = [], []
+    for c, lab in enumerate(labels_c):
+        if "passive" in lab.lower() or "lick" in lab.lower():
+            continue
+        lo, hi = FLOW_EDGE_TRIM, int(R["n_bins_list"][c]) - FLOW_EDGE_TRIM
+        t = np.asarray(R["t_ctrs"][c])[lo:hi]
+        for i, tt in enumerate(t):
+            rows.append(dict(condition=lab, color=colors_c[c], cond_index=c, t=float(tt),
+                             frac=i / max(1, len(t) - 1)))
+        cols.extend(range(off[c] + lo, off[c] + hi))
+    Xb = np.nan_to_num(X[:, cols].T)
+    pca = PCA(n_components=2).fit(Xb)
+    pc = pca.transform(Xb)
+    K = int(R["labels"].max()) + 1
+    cm = np.stack([Xb[:, R["labels"] == k].mean(1) for k in range(K)], 1)
+    w = np.clip(cm, 0, None)
+    ws = w.sum(1)
+    wci = np.where(ws > 0, (w @ np.arange(K)) / np.where(ws > 0, ws, 1), (K - 1) / 2)
+    d = pd.DataFrame(rows).assign(pc1=pc[:, 0], pc2=pc[:, 1], weighted_cluster=wci)
+    _cache["flow"] = (d, pca.explained_variance_ratio_)
+    return _cache["flow"]
+
+
+def compute_pca_flow():
+    d, var = _flow()
+    META["pca_flow"] = dict(pc1_var=float(var[0]), pc2_var=float(var[1]), n_conditions=int(d.condition.nunique()),
+                            edge_trim=FLOW_EDGE_TRIM, n_bins=int(len(d)))
+    return d
+
+
+def compute_pca_flow_clusters():
+    d, var = _flow()
+    META["pca_flow_clusters"] = dict(pc1_var=float(var[0]), pc2_var=float(var[1]))
+    return d
+
 
 def compute_meta_matrix():
     b = base()

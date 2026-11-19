@@ -94,9 +94,9 @@ def _pstr(p):
     return f"p = {p:.3f}" if p < 0.01 else f"p = {p:.2f}"
 
 
-def _stat_text(ax, lines, loc=(0.97, 0.97), ha="right"):
+def _stat_text(ax, lines, loc=(0.97, 0.97), ha="right", fontsize=4.5):
     for k, (txt, c) in enumerate(lines):
-        ax.text(loc[0], loc[1] - k * 0.075, txt, transform=ax.transAxes, ha=ha, va="top", fontsize=4.5, color=c)
+        ax.text(loc[0], loc[1] - k * 0.075, txt, transform=ax.transAxes, ha=ha, va="top", fontsize=fontsize, color=c)
 
 
 def plot_bgmm_contingency(ax, df):
@@ -160,12 +160,12 @@ def plot_latency(ax, df):
         d = df[df.analysis_type == at].sort_values("cluster")
         ax.scatter(d.cluster, d.latency_ms, s=2.5, color=c, lw=0, label=at.split("_")[0].capitalize())
         ax.plot(d.cluster, d.fit, color=c, lw=0.8)
-        lines.append((f"ρ = {d.rho.iloc[0]:.2f}, {_pstr(d.p_perm.iloc[0])}", c))
+        lines.append((f"{at.split('_')[0].capitalize()}: ρ = {d.rho.iloc[0]:.2f}, {_pstr(d.p_perm.iloc[0])}", c))
     ax.set_xlabel("Rastermap cluster")
     ax.set_ylabel("Onset latency (ms)")
     ax.set_xlim(-2, 101)
-    ax.legend(loc="upper right", fontsize=4.5, handlelength=0.6, markerscale=1.5, borderaxespad=0.1)
-    _stat_text(ax, lines, loc=(0.97, 0.80))
+    ax.set_ylim(0, 1.3 * df.latency_ms.max())
+    _stat_text(ax, lines, loc=(0.97, 0.98))
 
 
 def plot_hierarchy(ax, df):
@@ -175,9 +175,84 @@ def plot_hierarchy(ax, df):
         ax.errorbar(d.cluster, d.hierarchy, yerr=d["sem"], fmt="o", ms=1.4, color=c, lw=0.4, elinewidth=0.3,
                     label=f"{g.capitalize()}-dom.")
         ax.plot(d.cluster, d.fit, color=c, lw=0.8)
-        lines.append((f"ρ = {d.rho.iloc[0]:.2f}, {_pstr(d.p_perm.iloc[0])}", c))
+        lines.append((f"{g[0].upper()}-dom. ρ = {d.rho.iloc[0]:.2f}, {_pstr(d.p_perm.iloc[0])}", c))
     ax.set_xlabel("Rastermap cluster")
     ax.set_ylabel("Hierarchy score")
     ax.set_xlim(-2, 101)
-    ax.legend(loc="upper right", fontsize=4.5, handlelength=0.6, borderaxespad=0.1)
-    _stat_text(ax, lines, loc=(0.2, 0.15), ha="left")
+    lo, hi = (df.hierarchy - df["sem"]).min(), (df.hierarchy + df["sem"]).max()
+    ax.set_ylim(lo - 0.05 * (hi - lo), hi + 0.35 * (hi - lo))
+    _stat_text(ax, lines, loc=(1.0, 0.98), fontsize=4)
+
+
+def _embed_axes(ax, xl, yl, df=None):
+    if df is not None:   # a few isolated neurons far from the main cloud would shrink it
+        for lim, v in ((ax.set_xlim, df.u1), (ax.set_ylim, df.u2)):
+            lo, hi = np.percentile(v, [0.1, 99.9])
+            pad = 0.04 * (hi - lo)
+            lim(lo - pad, hi + pad)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlabel(xl, labelpad=2)
+    ax.set_ylabel(yl, labelpad=2)
+
+
+def plot_umap_clusters(ax, df):
+    sc = ax.scatter(df.u1, df.u2, c=df.cluster, cmap="turbo", vmin=0, vmax=99, s=0.15, lw=0, alpha=0.6,
+                    rasterized=True)
+    _embed_axes(ax, "UMAP 1", "UMAP 2", df)
+    cax = ax.inset_axes([0.62, 0.1, 0.32, 0.035])
+    cb = ax.figure.colorbar(sc, cax=cax, orientation="horizontal", ticks=[0, 99])
+    cb.set_ticklabels(["1", "100"])
+    cb.ax.tick_params(labelsize=4.5, length=1.5, pad=1)
+    cb.ax.set_title("Rastermap cluster", fontsize=4.5, pad=1.5)
+    cb.outline.set_linewidth(0.3)
+    cb.solids.set_alpha(1)
+
+
+def plot_umap_areas(ax, df):
+    other = df.area_group == "Other"
+    ax.scatter(df.u1[other], df.u2[other], c=df.color[other], s=0.15, lw=0, alpha=0.4, rasterized=True)
+    ax.scatter(df.u1[~other], df.u2[~other], c=df.color[~other], s=0.15, lw=0, alpha=0.6, rasterized=True)
+    _embed_axes(ax, "UMAP 1", "UMAP 2", df)
+    import matplotlib.patches as mp
+    g = df.groupby("area_group").agg(color=("color", "first"), n=("u1", "size")).sort_values("n", ascending=False)
+    g = g.loc[[a for a in g.index if a != "Other"] + (["Other"] if "Other" in g.index else [])]
+    ax.legend(handles=[mp.Patch(color=c, label=a) for a, c in zip(g.index, g.color)], loc="center left",
+              bbox_to_anchor=(1.01, 0.5), fontsize=4, handlelength=0.7, handleheight=0.7, labelspacing=0.15,
+              handletextpad=0.3, borderaxespad=0, frameon=False)
+
+
+def plot_pca_flow(ax, df):
+    import matplotlib.colors as mc
+    for (c, lab, col), d in df.groupby(["cond_index", "condition", "color"], sort=True):
+        d = d.sort_values("t")
+        base = np.array(mc.to_rgb(col))
+        shade = 0.15 + 0.85 * d.frac.to_numpy()[:, None]
+        ax.plot(d.pc1, d.pc2, color=col, lw=0.5, alpha=0.6, zorder=1)
+        ax.scatter(d.pc1, d.pc2, s=1.5, color=(1 - shade) + base * shade, lw=0, zorder=2)
+        ax.plot([], [], color=col, lw=1.2, label=lab)
+        on = d.iloc[np.argmin(np.abs(d.t.to_numpy()))]
+        ax.plot(on.pc1, on.pc2, marker="o", ms=2, mfc="white", mec=col, mew=0.5, zorder=3)
+    ax.set_xlabel("PC 1")
+    ax.set_ylabel("PC 2")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.legend(loc="upper right", fontsize=4, handlelength=0.8, borderaxespad=0.1, labelspacing=0.2,
+              handletextpad=0.3, frameon=False)
+
+
+def plot_pca_flow_clusters(ax, df):
+    for _, d in df.groupby("cond_index"):
+        d = d.sort_values("t")
+        ax.plot(d.pc1, d.pc2, color="0.75", lw=0.4, zorder=1)
+    sc = ax.scatter(df.pc1, df.pc2, c=df.weighted_cluster, cmap="turbo", vmin=0, vmax=99, s=1.5, lw=0, zorder=2)
+    ax.set_xlabel("PC 1")
+    ax.set_ylabel("PC 2")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    cax = ax.inset_axes([0.62, 0.92, 0.32, 0.035])
+    cb = ax.figure.colorbar(sc, cax=cax, orientation="horizontal", ticks=[0, 99])
+    cb.set_ticklabels(["1", "100"])
+    cb.ax.tick_params(labelsize=4.5, length=1.5, pad=1)
+    cb.set_label("Weighted cluster", fontsize=4.5, labelpad=1)
+    cb.outline.set_linewidth(0.3)
