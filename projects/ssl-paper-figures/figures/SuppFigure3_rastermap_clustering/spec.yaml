@@ -123,7 +123,7 @@ panels:
   title: Cortical hierarchy
   data: FigS3_hierarchy.csv
   status: filled
-  caption: 'Mean hierarchy score (Harris et al., 2019) of each cluster''s cortical neurons ({n_neurons} neurons;
-    clusters with at least 20) against rastermap position; mean ± s.e.m. Spearman rho {rho:.2f}, permutation
+  caption: 'Mean hierarchy score (Harris et al., 2019) of each cluster''s neurons in scored areas (isocortex and
+    thalamus, {n_neurons} neurons; clusters with at least 20) against rastermap position; mean ± s.e.m. Spearman rho {rho:.2f}, permutation
     {p_perm:p} (neurons shuffled across clusters).'
   cell: {x_mm: 155.0, y_mm: 109.0, w_mm: 28.0, h_mm: 52.0, margins_mm: [7.5, 6.5, 6.0, 0.5]}
