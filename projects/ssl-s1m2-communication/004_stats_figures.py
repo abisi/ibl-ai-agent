@@ -20,12 +20,13 @@ from scipy.stats import norm
 
 import s1m2_lib as L
 
-MAPS, FIG = L.OUT / f"maps_v{L.CONFIG['version']}", L.OUT / f"figures_v{L.CONFIG['version']}"
+def _dirs():
+    v = L.CONFIG["version"]
+    return L.OUT / f"maps_v{v}", L.OUT / f"figures_v{v}"
 PAIRS = ["SSp-bfd__wMO", "SSp-bfd__MO-wM1", "SSp-bfd__MO-wM2"]
 COL = {"R+": "#00B400", "R-": "#C800C8"}
 LS = {"learning": "-", "expert": "--"}
 CONDS = ["All", "W_all", "W_hit", "W_miss", "A_hit", "NS_all"]
-RO = L.CONFIG["readout"]
 
 
 def sign_flip_p(df, col, n=10000, seed=0):
@@ -48,6 +49,8 @@ def load():
     """v2 files: one per (session, pair, condition) with total / noise in-sample maps, shuffle maps and CV maps."""
     rows, maps, traces = [], {}, {}
     T = D = None
+    MAPS, _ = _dirs()
+    RO = L.CONFIG["readout"]
     for f in sorted(MAPS.glob("*.npz")):
         if ".tmp" in f.name:
             continue
@@ -282,6 +285,13 @@ def fig_dprime(df, pair="SSp-bfd__wMO", kind="total", cond="All"):
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--profile", default="v3", choices=list(L.PROFILES))
+    ap.add_argument("--stats-only", action="store_true")
+    a = ap.parse_args()
+    L.set_profile(a.profile)
+    _, FIG = _dirs()
     FIG.mkdir(parents=True, exist_ok=True)
     df, maps, traces, T, D = load()
     df.to_parquet(L.OUT / f"readouts_v{L.CONFIG['version']}.parquet")
@@ -293,6 +303,8 @@ def main():
             "FF_signflip_p", "FF_minus_FB_wilcoxon_p", "FF_minus_shuffle_wilcoxon_p", "CV_FF_mean", "CV_FF_wilcoxon_p",
             "peak_delay_ms_median", "mannwhitney_p", "welch_p"]
     print(show[[c for c in cols if c in show]].round(4).to_string())
+    if a.stats_only:
+        return
     fig_paper_maps().savefig(FIG / "00_paper_maps.png", dpi=150)
     for pair in PAIRS:
         for kind in ("total", "noise"):

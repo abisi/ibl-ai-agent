@@ -43,3 +43,13 @@
     n.s.; CV R+ / R- learning p = 0.01 / 0.04; a small delay 0..+15 ms patch at 30-50 ms in R- learning only.
   - Shorter windows are needed to see 5-30 ms: first clean centre = 5 ms + half window (50 ms: +30; 20 ms: +15;
     10 ms: +10).
+- **2026-11-19: artefact check (006) + high-resolution run (profile "hires", maps_v4_hires; v3 kept).**
+  - 006, raw spikes 1-ms bins, 39 sessions: on whisker trials every area (S1, M2, non-whisker areas) shows a dip at
+    0-2 ms and a sharp spike at 3-4 ms; back at baseline by +5 ms in M2 and other areas, S1 sensory rise from +5 ms
+    (peak ~13 ms). No extra S1-M2 zero-lag synchrony after +5 ms. The -10..+5 ms gap covers the artefact (~1 ms margin).
+  - hires: 1-ms bins, 10-ms windows stepped 1 ms (labelled by start), delays -20..+20 ms (1 ms), PCA -> CCA, only cells
+    with both windows clear of the gap; 233 jobs, no failures. 007_hires_figure.py -> replication/hires_total.pdf.
+  - CV CCV, S1 leading 0..15 ms, windows starting 5-15 ms: whisker trials learning R+ +0.046 (p = 0.012), R- +0.062
+    (p = 0.003), expert R+ +0.013 (p = 0.03, n = 6), R- n.s.; whisker misses learning p = 0.014 / 0.013; whisker hits
+    p = 0.15 / 0.11; auditory hits and no-stim (negative control) n.s. in every group. Maps: S1 leads M2 by 0..+7 ms in
+    the first windows at learning. S1-leading minus M2-leading (windows 25-95 ms) n.s. everywhere.

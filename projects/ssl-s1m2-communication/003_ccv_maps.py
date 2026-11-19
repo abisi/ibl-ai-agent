@@ -17,7 +17,8 @@ from joblib import Parallel, delayed
 
 import s1m2_lib as L
 
-MAPS = L.OUT / f"maps_v{L.CONFIG['version']}"
+def maps_dir():
+    return L.OUT / f"maps_v{L.CONFIG['version']}"
 
 
 def run_job(sid, cond, rows, seed=0):
@@ -76,10 +77,10 @@ def run_job(sid, cond, rows, seed=0):
                     hit_rate_A=float(trials[trials.trial_type == "auditory_trial"].lick_flag.mean()),
                     fa_rate=float(trials[trials.trial_type == "no_stim_trial"].lick_flag.mean()),
                     elapsed_s=time.time() - t0)
-        MAPS.mkdir(parents=True, exist_ok=True)
-        f = MAPS / f"{sid}__{r.pair}__{cond}.npz"
+        maps_dir().mkdir(parents=True, exist_ok=True)
+        f = maps_dir() / f"{sid}__{r.pair}__{cond}.npz"
         tmp = f.with_name(f.stem + ".tmp.npz")
-        np.savez_compressed(tmp, times=centres, delays=dsteps * bs, cv_delays=cvsteps * bs, meta=json.dumps(meta),
+        np.savez_compressed(tmp, times=centres, window_starts=centres - wb * bs / 2, delays=dsteps * bs, cv_delays=cvsteps * bs, meta=json.dumps(meta),
                             config=json.dumps(c), s1_units=s1[["electrode_group", "cluster_id"]].astype(str).to_numpy(),
                             m2_units=m2[["electrode_group", "cluster_id"]].astype(str).to_numpy(), **res)
         tmp.replace(f)
@@ -87,7 +88,8 @@ def run_job(sid, cond, rows, seed=0):
     return out
 
 
-def safe(sid, cond, rows):
+def safe(sid, cond, rows, profile="v3"):
+    L.set_profile(profile)  # loky workers import a fresh CONFIG
     try:
         r = run_job(sid, cond, rows)
         print(f"done {sid} {cond} {time.strftime('%H:%M')}", flush=True)
@@ -103,17 +105,20 @@ def main():
     ap.add_argument("--sessions", nargs="*")
     ap.add_argument("--conditions", nargs="*", default=list(L.CONFIG["conditions"]))
     ap.add_argument("--skip-done", action="store_true")
+    ap.add_argument("--profile", default="v3", choices=list(L.PROFILES))
     a = ap.parse_args()
+    L.set_profile(a.profile)
     s = pd.read_csv(L.OUT / "sessions_v2.csv")
     if a.sessions:
         s = s[s.session_id.isin(a.sessions)]
     days = s.groupby("session_id").day.first()
     order = list(days[days == 0].index) + list(days[days > 0].index)  # learning first, expert last
     jobs = [(sid, cond) for sid in order for cond in a.conditions
-            if not (a.skip_done and all((MAPS / f"{sid}__{p}__{cond}.npz").exists()
+            if not (a.skip_done and all((maps_dir() / f"{sid}__{p}__{cond}.npz").exists()
                                         for p in s[s.session_id == sid].pair))]
     print(f"{len(order)} sessions, {len(jobs)} jobs, n_jobs {a.n_jobs}", flush=True)
-    res = Parallel(n_jobs=a.n_jobs, backend="loky")(delayed(safe)(sid, cond, s[s.session_id == sid]) for sid, cond in jobs)
+    res = Parallel(n_jobs=a.n_jobs, backend="loky")(delayed(safe)(sid, cond, s[s.session_id == sid], a.profile)
+                                                    for sid, cond in jobs)
     pd.DataFrame([m for r in res for m in r]).to_csv(L.OUT / f"run_meta_v{L.CONFIG['version']}_{time.strftime('%Y%m%d_%H%M')}.csv",
                                                      index=False)
 

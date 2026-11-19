@@ -79,6 +79,32 @@ CONFIG = {
 }
 
 
+# High-resolution profile (user 2026-11-19: "run at high resolution as separate; keep current results"): 1-ms bins,
+# 10-ms windows stepped every 1 ms, delays -20..+20 ms in 1-ms steps; windows are labelled by their START (first
+# artefact-free window 5-15 ms). Results go to maps_v4_hires / figures_v4_hires; v3 stays untouched.
+PROFILES = {
+    "v3": {},
+    "hires": {
+        "version": "4_hires",
+        "bin_s": 0.001,
+        "window_bins": 10,           # 10 ms
+        "step_s": 0.001,
+        "t_from_s": -0.095, "t_to_s": 0.155,   # window centres -> starts -100..+150 ms
+        "delays_s": [-0.020, 0.020],
+        "cv_delays_s": [-0.015, 0.015],
+        "time_label": "start",
+        "readout": {"ff_delays_s": [0.0, 0.015], "fb_delays_s": [-0.015, 0.0], "baseline_s": [-0.095, -0.015],
+                    "early_s": [0.0, 0.1]},
+    },
+}
+
+
+def set_profile(name):
+    """Switch CONFIG in place (all modules share the dict)."""
+    CONFIG.update(PROFILES[name])
+    CONFIG["profile"] = name
+    return CONFIG
+
 # ---------------------------------------------------------------- canoncorr (MATLAB port)
 
 def _qr_basis(X, tol_scale=None):
@@ -175,7 +201,7 @@ def reference_sheet():
     return ref
 
 
-def load_session(session_id, unit_keys):
+def load_session(session_id, unit_keys, blank=True):
     """Units (spike times, artefact-corrected) for the given (electrode_group, cluster_id) keys and the active trials.
 
     unit_keys: DataFrame with electrode_group, cluster_id, area_acronym_custom."""
@@ -217,7 +243,7 @@ def load_session(session_id, unit_keys):
     lo, hi = CONFIG["artifact_window_s"]
     st_all = np.sort(trials.start_time.to_numpy(float))
 
-    def blank(sp):
+    def blank_fn(sp):
         sp = np.asarray(sp, float)
         i = np.searchsorted(st_all, sp, side="right") - 1
         prev = np.where(i >= 0, st_all[np.clip(i, 0, None)], -np.inf)
@@ -226,7 +252,8 @@ def load_session(session_id, unit_keys):
         bad = ((sp - prev) < hi) | ((nxt - sp) <= -lo)
         return sp[~bad]
 
-    units["spike_times"] = units["spike_times"].apply(blank)
+    if blank:  # False: raw spikes (artefact check, 006)
+        units["spike_times"] = units["spike_times"].apply(blank_fn)
     return units, t
 
 
@@ -299,8 +326,9 @@ def ccv_map(S, M, centres_idx, delay_steps, wb, n_shuffles, rng):
     return ccv, shf
 
 
-def readout(ccv, delays_s, times_s, delay_range, cfg=CONFIG["readout"]):
+def readout(ccv, delays_s, times_s, delay_range, cfg=None):
     """Paper readout per session: mean over delays in delay_range, minus baseline mean, mean over early window."""
+    cfg = CONFIG["readout"] if cfg is None else cfg
     dm = (delays_s >= delay_range[0] - 1e-9) & (delays_s <= delay_range[1] + 1e-9)
     trace = np.nanmean(ccv[dm], axis=0)
     b = (times_s >= cfg["baseline_s"][0] - 1e-9) & (times_s <= cfg["baseline_s"][1] + 1e-9)
@@ -323,7 +351,7 @@ def gap_mask(delays_s, times_s, gap=None, half=None):
     return clear(t + 0 * d) & clear(t + d)
 
 
-def readout_clean(ccv, delays_s, times_s, delay_range, cfg=CONFIG["readout"]):
+def readout_clean(ccv, delays_s, times_s, delay_range, cfg=None):
     """Option a readout: as readout(), using only map cells whose S1 and M2 windows are clear of the artefact gap
     (with 50-ms windows: S1-leading early cells from +30 ms, baseline cells up to -35 ms)."""
     m = np.where(gap_mask(delays_s, times_s), ccv, np.nan)
