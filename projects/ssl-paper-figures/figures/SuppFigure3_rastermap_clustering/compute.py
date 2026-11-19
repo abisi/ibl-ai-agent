@@ -43,6 +43,8 @@ N_PERM = 200
 FLOW_EDGE_TRIM = 1     # as run_clustering_new (fig8_flow_umap, edge_trim=1)
 MIN_AREA_NEURONS = 300  # areas shown in the specialization panel
 N_PERM_AMI_FACTOR = 20   # AMI is chance-corrected; the null only checks it is ~0
+N_MOUSE_SPLITS = 20     # random halves of the mice
+MIN_SPLIT_NEURONS = 10
 N_PERM_AGREE = 50     # AMI is slow at K = 100
 CUTS = np.round(np.arange(0.05, 0.951, 0.025), 3)
 rng = np.random.default_rng(0)
@@ -472,21 +474,24 @@ def compute_area_ami():
     return d
 
 
-ROBUST = [   # (label, reference variant, compared variant); "" = the main variant
+ROBUST = [   # (label, reference variant, compared variant); "" = the main variant; "<variant>:all" = fit on all trials
+    # (no all-trials fit in the main variant: its neuron_cluster_labels.csv is all 0, rastermap run in CV mode only)
     ("Good units only", "", "qc_good__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin"),
     ("All learner categories", "", "qc_good_mua__learncat_all__loc0p25_grid10_nodes__lickfix_longwin"),
     ("No passive conditions", "", "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin__nopassive"),
     ("No whisker-reward bins", "", "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin__noWhiskerReward"),
     ("Uncorrected lick times", "", "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes"),
+    ("No firing-rate threshold", "qc_good__learncat_good_moderate", "qc_good__learncat_good_moderate__noFR"),
     ("Locality 0 vs 0.25", "qc_good__learncat_good_moderate__loc0p25", "qc_good__learncat_good_moderate__loc0p00"),
     ("Locality 0.75 vs 0.25", "qc_good__learncat_good_moderate__loc0p25", "qc_good__learncat_good_moderate__loc0p75"),
 ]
 
 
 def _variant_labels(v):
+    v, _, mode = (v or VARIANT).partition(":")
     v = v or VARIANT
-    f = sorted((RES / "rastermap_variants" / v).glob("rastermap_clustering/*/*/clustering/*/rastermap/"
-                                                     "neuron_cluster_labels_cv.csv"))[0]
+    name = "neuron_cluster_labels.csv" if mode == "all" else "neuron_cluster_labels_cv.csv"   # all trials vs CV (odd) fit
+    f = sorted((RES / "rastermap_variants" / v).glob(f"rastermap_clustering/*/*/clustering/*/rastermap/{name}"))[0]
     d = pd.read_csv(f, usecols=KEYS + ["cluster_label"])
     d["cluster_id"] = d.cluster_id.astype(str)
     return d
@@ -508,6 +513,90 @@ def compute_robustness():
                               rho_min=float(d.spearman_position.min()),
                               gmm_ami=float(adjusted_mutual_info_score(base()["R"]["labels"], gl)))
     return d.assign(gmm_ami=META["robustness"]["gmm_ami"])
+
+
+def compute_mouse_split():
+    """per fine cluster: its mean PSTH (held-out even trials) from one random half of the mice vs the other half (r_self)
+    and vs the most similar other cluster's other-half mean (r_best_other); median over N_MOUSE_SPLITS splits; clusters
+    with < MIN_SPLIT_NEURONS neurons in a half skipped in that split"""
+    b = base()
+    R = b["R"]
+    X, lab, mouse = R["X"], R["labels"], R["mouse_arr"]
+    mice = np.unique(mouse)
+    ks = np.arange(int(lab.max()) + 1)
+    rs, ro = [], []
+    for _ in range(N_MOUSE_SPLITS):
+        half = np.isin(mouse, rng.permutation(mice)[: len(mice) // 2])
+        ok = np.array([min(((lab == k) & half).sum(), ((lab == k) & ~half).sum()) >= MIN_SPLIT_NEURONS for k in ks])
+        A = group_means(X[half], lab[half], ks[ok])
+        B = group_means(X[~half], lab[~half], ks[ok])
+        C = r_matrix(A, B)
+        s = np.full(len(ks), np.nan); o = np.full(len(ks), np.nan)
+        s[ok] = np.diag(C)
+        np.fill_diagonal(C, -np.inf)
+        o[ok] = C.max(1)
+        rs.append(s); ro.append(o)
+    d = pd.DataFrame(dict(cluster=ks, r_self=np.nanmedian(rs, 0), r_best_other=np.nanmedian(ro, 0),
+                          n_splits=np.isfinite(rs).sum(0))).dropna()
+    META["mouse_split"] = dict(n_clusters=int(len(d)), n_splits=N_MOUSE_SPLITS, r_self_median=float(d.r_self.median()),
+                               frac_self_beats_others=float((d.r_self > d.r_best_other).mean()),
+                               min_neurons=MIN_SPLIT_NEURONS)
+    return d
+
+
+def compute_mouse_share():
+    """same table as mouse_mixing (panel with the largest single-mouse share)"""
+    d = compute_mouse_mixing()
+    META["mouse_share"] = META["mouse_mixing"]
+    return d
+
+
+def compute_mouse_mixing():
+    """per fine cluster: effective number of contributing mice (exp of the Shannon entropy of its neurons' mouse
+    distribution) and the largest single-mouse share; null: cluster labels permuted across neurons (same sizes)"""
+    b = base()
+    R = b["R"]
+    lab, mouse = R["labels"], R["mouse_arr"]
+    ks = np.arange(int(lab.max()) + 1)
+    mi = np.unique(mouse, return_inverse=True)[1]
+    nm = mi.max() + 1
+
+    def stats(l):
+        C = np.bincount(l * nm + mi, minlength=len(ks) * nm).reshape(len(ks), nm).astype(float)
+        p = C / C.sum(1, keepdims=True)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            H = -np.where(p > 0, p * np.log(p), 0).sum(1)
+        return np.exp(H), p.max(1), (C >= 1).sum(1)
+
+    if "mouse_mixing" in _cache:
+        return _cache["mouse_mixing"]
+    eff, mx, nmice = stats(lab)
+    null = [stats(rng.permutation(lab)) for _ in range(N_PERM)]
+    ne = np.array([n[0] for n in null]); nx = np.array([n[1] for n in null])
+    # within-area null: cluster labels permuted among the neurons of each area (keeps every area's cluster mix and
+    # every mouse's area mix): is the mouse concentration more than the areas each mouse was recorded in?
+    by_area = pd.Series(np.arange(len(lab))).groupby(R["area_arr"]).indices.values()
+    na = []
+    for _ in range(N_PERM):
+        sh = lab.copy()
+        for ix in by_area:
+            sh[ix] = lab[rng.permutation(ix)]
+        na.append(stats(sh)[0])
+    na = np.array(na)
+    d = pd.DataFrame(dict(cluster=ks, n_neurons=np.bincount(lab, minlength=len(ks)), eff_mice=eff, max_share=mx,
+                          n_mice=nmice, null_eff_mean=ne.mean(0), null_eff_p5=np.percentile(ne, 5, 0),
+                          null_eff_p95=np.percentile(ne, 95, 0), null_max_p95=np.percentile(nx, 95, 0),
+                          area_null_eff_mean=na.mean(0), area_null_eff_p5=np.percentile(na, 5, 0),
+                          area_null_eff_p95=np.percentile(na, 95, 0),
+                          metacluster=[b["meta"]["families"][k] for k in ks]))
+    META["mouse_mixing"] = dict(eff_median=float(d.eff_mice.median()), null_eff_median=float(d.null_eff_mean.median()),
+                                n_mice_total=int(nm), max_share_median=float(d.max_share.median()),
+                                n_max_share_above_half=int((d.max_share > 0.5).sum()),
+                                frac_eff_below_null_p5=float((d.eff_mice < d.null_eff_p5).mean()), n_perm=N_PERM,
+                                area_null_eff_median=float(d.area_null_eff_mean.median()),
+                                frac_eff_below_area_null_p5=float((d.eff_mice < d.area_null_eff_p5).mean()))
+    _cache["mouse_mixing"] = d
+    return d
 
 
 def main():

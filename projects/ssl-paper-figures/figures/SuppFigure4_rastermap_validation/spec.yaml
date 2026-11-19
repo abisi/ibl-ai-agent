@@ -13,7 +13,7 @@ caption:
   title: 'Rastermap clustering: metaclustering, reproducibility, recovery by an independent method, relation
     to latency, hierarchy and areas, robustness.'
   footer: Neurons, good and multi-unit clusters of learner mice (reference-sheet learning category good or moderate),
-    all whisker days (rastermap variant qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin). Rastermap (locality 0.25, 10x grid upsampling) was fitted on the
+    whisker learning day (day 0), one session per mouse (rastermap variant qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin). Rastermap (locality 0.25, 10x grid upsampling) was fitted on the
     concatenated baseline-subtracted PSTHs of odd trials (passive whisker / auditory pre and post, active stimulus- and
     lick-aligned conditions) and cut into 100 clusters in rastermap order; metaclusters are contiguous groups of those
     clusters (average linkage on 1 - Pearson r between full-trial cluster-mean PSTHs, merges only between neighbouring
@@ -191,11 +191,57 @@ panels:
   status: filled
   caption: 'Agreement of the 100 rastermap clusters between analysis variants on the neurons present in both (unit keys):
     adjusted mutual information of the cluster labels (black) and Spearman correlation of the cluster position in the rastermap
-    order (grey); reference, the main run, except for locality (good units, earlier settings, 0 and 0.75 vs 0.25). AMI {ami_min:.2f}-{ami_max:.2f};
-    dashed, AMI between rastermap and the 100-component GMM ({gmm_ami:.2f}).'
+    order (grey). Reference, the main run, except: no firing-rate threshold (good units, vs the same run with the threshold)
+    and locality (good units, earlier settings, 0 and 0.75 vs 0.25). AMI {ami_min:.2f}-{ami_max:.2f}; dashed, AMI between
+    rastermap and the 100-component GMM ({gmm_ami:.2f}).'
   cell:
     x_mm: 122.0
     y_mm: 102.0
     w_mm: 61.0
     h_mm: 56.0
     margins_mm: [25.0, 5.0, 7.0, 0.5]
+- id: l
+  key: mouse_split
+  title: Across mice
+  data: FigS4_mouse_split.csv
+  status: filled
+  caption: 'As d, across mice: per rastermap cluster, correlation of its mean PSTH (held-out even trials) from one random
+    half of the mice with that from the other half (x) and with the most similar other cluster''s other-half mean (y); median
+    over {n_splits} splits (clusters with at least {min_neurons} neurons in both halves, {n_clusters} clusters). {frac_self_beats_others:.0%}
+    of clusters are closer to themselves (median r {r_self_median:.2f}).'
+  cell:
+    x_mm: 0.0
+    y_mm: 163.0
+    w_mm: 44.0
+    h_mm: 46.0
+    margins_mm: [8.5, 5.0, 6.0, 1.0]
+- id: m
+  key: mouse_mixing
+  title: Mice per cluster
+  data: FigS4_mouse_mixing.csv
+  status: filled
+  caption: Effective number of mice contributing to each rastermap cluster (exponential of the entropy of its neurons' mouse
+    distribution; median {eff_median:.1f} of {n_mice_total} mice) against rastermap position. Grey, 5th-95th percentile
+    of size-matched random clusters (cluster labels permuted across neurons; median {null_eff_median:.1f}); blue, labels
+    permuted within each area (keeps each area's cluster mix; median {area_null_eff_median:.1f}); {n_perm} permutations
+    each. Clusters draw on many mice but are more mouse-concentrated than the recorded areas alone explain ({frac_eff_below_area_null_p5:.0%}
+    below the within-area band); their PSTHs replicate across mice (l).
+  cell:
+    x_mm: 49.0
+    y_mm: 163.0
+    w_mm: 88.0
+    h_mm: 46.0
+    margins_mm: [8.0, 5.0, 6.0, 0.5]
+- id: n
+  key: mouse_share
+  title: Largest mouse share
+  data: FigS4_mouse_mixing.csv
+  status: filled
+  caption: Largest share of a single mouse among each cluster's neurons (black; median {max_share_median:.2f}; {n_max_share_above_half}
+    clusters above 0.5) and the 95th percentile of random clusters of the same size (grey).
+  cell:
+    x_mm: 142.0
+    y_mm: 163.0
+    w_mm: 41.0
+    h_mm: 46.0
+    margins_mm: [8.0, 5.0, 6.0, 0.5]

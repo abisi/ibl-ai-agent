@@ -13,7 +13,7 @@ grid:
 caption:
   title: 'Rastermap clustering: remaining metaclusters and population structure.'
   footer: Neurons, good and multi-unit clusters of learner mice (reference-sheet learning category good or moderate),
-    all whisker days (rastermap variant qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin). Rastermap (locality 0.25, 10x grid upsampling) was fitted on the
+    whisker learning day (day 0), one session per mouse (rastermap variant qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin). Rastermap (locality 0.25, 10x grid upsampling) was fitted on the
     concatenated baseline-subtracted PSTHs of odd trials (passive whisker / auditory pre and post, active stimulus- and
     lick-aligned conditions) and cut into 100 clusters in rastermap order; metaclusters are contiguous groups of those
     clusters (average linkage on 1 - Pearson r between full-trial cluster-mean PSTHs, merges only between neighbouring

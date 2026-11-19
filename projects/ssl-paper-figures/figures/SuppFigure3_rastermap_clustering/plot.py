@@ -101,7 +101,7 @@ def _stat_text(ax, lines, loc=(0.97, 0.97), ha="right", fontsize=4.5):
 
 def plot_bgmm_contingency(ax, df):
     M = df.pivot(index="cluster", columns="component_rank", values="frac_of_cluster").fillna(0)
-    ax.imshow(M.to_numpy(), cmap="Greys", vmin=0, vmax=0.6, aspect="auto", interpolation="nearest")
+    ax.imshow(M.to_numpy(), cmap="Greys", vmin=0, vmax=0.3, aspect="auto", interpolation="nearest")
     fam = df.drop_duplicates("cluster").sort_values("cluster").metacluster.to_numpy()
     strip = ax.inset_axes([-0.06, 0, 0.035, 1])
     strip.imshow((fam % 2)[:, None], cmap="Greys", vmin=-1, vmax=3, aspect="auto", interpolation="nearest")
@@ -112,8 +112,8 @@ def plot_bgmm_contingency(ax, df):
     ax.set_xlabel("GMM component (matched order)")
     cax = ax.inset_axes([0.72, 1.03, 0.28, 0.035])
     import matplotlib as mpl
-    cb = ax.figure.colorbar(mpl.cm.ScalarMappable(cmap="Greys", norm=mpl.colors.Normalize(0, 0.6)), cax=cax,
-                            ticks=[0, 0.6], orientation="horizontal")
+    cb = ax.figure.colorbar(mpl.cm.ScalarMappable(cmap="Greys", norm=mpl.colors.Normalize(0, 0.3)), cax=cax,
+                            ticks=[0, 0.3], orientation="horizontal", extend="max")
     cb.ax.tick_params(labelsize=4.5, length=1.5, pad=1)
     cb.ax.xaxis.set_ticks_position("top")
     cb.ax.set_title("Fraction of cluster", fontsize=5, pad=5)
@@ -322,3 +322,35 @@ def plot_robustness(ax, df):
     ax.set_xlabel("Agreement with main run")
     ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.04), ncol=2, fontsize=4.5, handlelength=0.8, frameon=False,
               borderaxespad=0, columnspacing=0.8)
+
+
+def plot_mouse_split(ax, df):
+    ax.plot([0, 1], [0, 1], color="0.6", lw=0.4, ls="--")
+    ax.scatter(df.r_self, df.r_best_other, s=3, c="k", lw=0)
+    lo = min(df.r_self.min(), df.r_best_other.min()) - 0.03
+    ax.set_xlim(lo, 1.01)
+    ax.set_ylim(lo, 1.01)
+    ax.set_xlabel("r, same cluster (other mice)")
+    ax.set_ylabel("r, best other cluster")
+
+
+def plot_mouse_mixing(ax, df):
+    d = df.sort_values("cluster")
+    ax.fill_between(d.cluster, d.null_eff_p5, d.null_eff_p95, color="0.9", lw=0, step="mid", label="Random clusters")
+    ax.fill_between(d.cluster, d.area_null_eff_p5, d.area_null_eff_p95, color="#9ecae1", lw=0, step="mid", alpha=0.8,
+                    label="Random within area")
+    ax.scatter(d.cluster, d.eff_mice, s=3, c="k", lw=0, label="Rastermap clusters", zorder=3)
+    ax.set_xlim(-2, 101)
+    ax.set_ylim(0, None)
+    ax.set_xlabel("Rastermap cluster")
+    ax.set_ylabel("Effective number of mice")
+    ax.legend(loc="lower right", fontsize=4.5, handlelength=0.8, frameon=False, markerscale=1.5)
+
+
+def plot_mouse_share(ax, df):
+    bins = np.linspace(0, max(0.6, df.max_share.max()), 25)
+    ax.hist(df.null_max_p95, bins, color="0.8", lw=0, label="Random, 95th pct.")
+    ax.hist(df.max_share, bins, histtype="step", color="k", lw=0.7, label="Rastermap")
+    ax.set_xlabel("Largest single-mouse share")
+    ax.set_ylabel("Clusters")
+    ax.legend(loc="upper right", fontsize=4.5, handlelength=0.8, frameon=False)
