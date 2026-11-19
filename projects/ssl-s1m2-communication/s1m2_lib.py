@@ -307,3 +307,24 @@ def readout(ccv, delays_s, times_s, delay_range, cfg=CONFIG["readout"]):
     e = (times_s >= cfg["early_s"][0] - 1e-9) & (times_s <= cfg["early_s"][1] + 1e-9)
     trace_b = trace - np.nanmean(trace[b])
     return float(np.nanmean(trace_b[e])), trace_b, trace
+
+
+def gap_mask(delays_s, times_s, gap=None, half=None):
+    """True where both the S1 window (centre t) and the M2 window (centre t + delay) are clear of the artefact gap
+    (option a, user 2026-11-19). Window = [centre - half, centre + half]."""
+    gap = CONFIG["artifact_window_s"] if gap is None else gap
+    half = CONFIG["window_bins"] * CONFIG["bin_s"] / 2 if half is None else half
+    t = times_s[None, :]
+    d = delays_s[:, None]
+
+    def clear(c):
+        return (c + half <= gap[0] + 1e-9) | (c - half >= gap[1] - 1e-9)
+
+    return clear(t + 0 * d) & clear(t + d)
+
+
+def readout_clean(ccv, delays_s, times_s, delay_range, cfg=CONFIG["readout"]):
+    """Option a readout: as readout(), using only map cells whose S1 and M2 windows are clear of the artefact gap
+    (with 50-ms windows: S1-leading early cells from +30 ms, baseline cells up to -35 ms)."""
+    m = np.where(gap_mask(delays_s, times_s), ccv, np.nan)
+    return readout(m, delays_s, times_s, delay_range, cfg)

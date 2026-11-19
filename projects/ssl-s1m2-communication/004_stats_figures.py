@@ -65,17 +65,22 @@ def load():
             sff, sff_tr, _ = L.readout(s, d, t, RO["ff_delays_s"])
             cff, cff_tr, cff_raw = L.readout(cv, dcv, t, RO["ff_delays_s"])
             cfb, cfb_tr, _ = L.readout(cv, dcv, t, RO["fb_delays_s"])
+            # option a (artefact-free windows only)
+            ffc, ffc_tr, _ = L.readout_clean(c, d, t, RO["ff_delays_s"])
+            fbc, fbc_tr, _ = L.readout_clean(c, d, t, RO["fb_delays_s"])
+            cffc, cffc_tr, _ = L.readout_clean(cv, dcv, t, RO["ff_delays_s"])
             cb = c - np.nanmean(c[:, b], axis=1, keepdims=True)
             prof = np.nanmean(cb[:, e], axis=1)
             win = np.abs(d) <= 0.05
             peak = float(d[win][np.nanargmax(prof[win])]) if np.isfinite(prof[win]).any() else np.nan
             rows.append(dict(meta, kind=kind, FF=ff, FB=fb, FF_shuffle=sff, FF_minus_FB=ff - fb,
                              FF_minus_shuffle=ff - sff, CV_FF=cff, CV_FB=cfb, CV_FF_minus_FB=cff - cfb,
+                             FF_clean=ffc, FB_clean=fbc, FF_minus_FB_clean=ffc - fbc, CV_FF_clean=cffc,
                              baseline_ccv=float(np.nanmean(ff_raw[b])), baseline_cv=float(np.nanmean(cff_raw[b])),
                              peak_delay_ms=peak * 1000))
             key = (meta["session_id"], meta["pair"], meta["condition"], kind)
             maps[key] = cb
-            traces[key] = (ff_tr, fb_tr, sff_tr, cff_tr, cfb_tr)
+            traces[key] = (ff_tr, fb_tr, sff_tr, cff_tr, cfb_tr, ffc_tr, cffc_tr)
     df = pd.DataFrame(rows)
     hr, fa = df.hit_rate_W.clip(0.01, 0.99), df.fa_rate.clip(0.01, 0.99)
     df["dprime_W"] = norm.ppf(hr) - norm.ppf(fa)
@@ -90,13 +95,14 @@ def stats_table(df):
             r = dict(pair=pair, condition=cond, kind=kind, stage=stage, cohort=coh, n_sessions=len(h),
                      n_mice=h.mouse_id.nunique())
             r["baseline_ccv_mean"] = h.baseline_ccv.mean()
-            for col in ("FF", "FB", "FF_minus_FB", "FF_minus_shuffle", "CV_FF", "CV_FB", "CV_FF_minus_FB"):
+            for col in ("FF", "FB", "FF_minus_FB", "FF_minus_shuffle", "CV_FF", "CV_FB", "CV_FF_minus_FB",
+                        "FF_clean", "FF_minus_FB_clean", "CV_FF_clean"):
                 r[f"{col}_mean"] = h[col].mean()
                 r[f"{col}_wilcoxon_p"] = wil(h[col])
                 r[f"{col}_signflip_p"] = sign_flip_p(h, col)
             r["peak_delay_ms_median"] = h.peak_delay_ms.median()
             out.append(r)
-        for col in ("FF", "CV_FF"):
+        for col in ("FF", "CV_FF", "FF_clean", "CV_FF_clean"):
             a, b = g[g.cohort == "R+"][col].dropna(), g[g.cohort == "R-"][col].dropna()
             if len(a) >= 3 and len(b) >= 3:
                 out.append(dict(pair=pair, condition=cond, kind=kind, stage=stage, cohort=f"R+ vs R- ({col})",

@@ -36,16 +36,18 @@ def main():
         # times are nominal (-0.459 ... ); the scripts index the bin nearest 0 as stimulus time
         t = t - t[np.argmin(np.abs(t))]
         for direction, rng in (("FF", (0.0, 0.015)), ("FB", (-0.015, 0.0))):
-            tr_all, trs_all = [], []
+            tr_all, trs_all, trc_all = [], [], []
             for s in range(C.shape[2]):
                 v, tr, _ = L.readout(C[:, :, s], d, t, rng)
                 vs, trs, _ = L.readout(S[:, :, s], d, t, rng)
-                tr_all.append(tr); trs_all.append(trs)
-                rows.append(dict(corr=corr, condition=cond, direction=direction, session_idx=s, value=v,
+                vc, trc, _ = L.readout_clean(C[:, :, s], d, t, rng)  # same windows as the SSL option-a readout
+                tr_all.append(tr); trs_all.append(trs); trc_all.append(trc)
+                rows.append(dict(corr=corr, condition=cond, direction=direction, session_idx=s, value=v, value_clean=vc,
                                  shuffle_value=vs, dprime=dprime[s] if s < len(dprime) else np.nan,
                                  fracSig_S1=_frac(E, "fracSig_S1", s), fracSig_M2=_frac(E, "fracSig_M2", s)))
             traces[f"{corr}_{cond}_{direction}"] = np.array(tr_all)
             traces[f"{corr}_{cond}_{direction}_shuffle"] = np.array(trs_all)
+            traces[f"{corr}_{cond}_{direction}_clean"] = np.array(trc_all)
         traces[f"{corr}_{cond}_map_mean"] = np.nanmean(C, axis=2)
         traces[f"{corr}_{cond}_t"], traces["delays"] = t, d
     df = pd.DataFrame(rows)

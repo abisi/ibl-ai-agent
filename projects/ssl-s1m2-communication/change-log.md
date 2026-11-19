@@ -32,3 +32,14 @@
     0.05. Same delay (0..+10 ms) patch in the maps. FF > FB: paper p = 0.09, SSL R- learning p = 0.002, others n.s.
     SSL adds a broad 100-250 ms rise (movement / licks) absent in the paper. Noise CCV: null, as in the paper's data.
   - 005_replication_figure.py: one page per trial type (All, W_all, W_hit, W_miss, A_hit) in replication/.
+- **2026-11-19: option a (artefact-free windows only; user).** s1m2_lib.gap_mask / readout_clean: a map cell is used only
+  if both the S1 and the M2 50-ms window are clear of -10..+5 ms (baseline cells up to -40 ms, early cells +30..+100 ms);
+  same mask on the paper's maps. replication/replication_total_clean.pdf.
+  - Paper transient survives (it sits at 20-70 ms). In SSL most of the sharp delay-0 patch was in excluded cells:
+    blanked rows are zero in both areas at the same samples and create shared variance at delays near 0, so the earlier
+    patch is at least partly an artefact of the blanking.
+  - All trials, clean: SSL learning R+ +0.045 (p = 0.03), R- +0.051 (p = 0.01), expert n.s.; driven by a broad rise over
+    all delays (FF - FB ~ 0 in every SSL group; paper FF - FB p = 0.17 on the same cells). Whisker hits clean: in-sample
+    n.s.; CV R+ / R- learning p = 0.01 / 0.04; a small delay 0..+15 ms patch at 30-50 ms in R- learning only.
+  - Shorter windows are needed to see 5-30 ms: first clean centre = 5 ms + half window (50 ms: +30; 20 ms: +15;
+    10 ms: +10).

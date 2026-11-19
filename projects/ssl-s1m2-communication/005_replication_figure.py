@@ -55,8 +55,19 @@ def mean_sem(x):
     return np.nanmean(x, 0), np.nanstd(x, 0) / np.sqrt(np.sum(np.isfinite(x), 0).clip(1))
 
 
-def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
+def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all, clean=False):
     pk = "Total" if kind == "total" else "Noise"
+    sfx = "_clean" if clean else ""
+    early_lo = 30 if clean else 0
+
+    def mask(m, Tm, Dm):
+        """option a: grey out cells whose S1 or M2 window overlaps the -10..+5 ms gap; re-baseline on clean cells"""
+        if not clean:
+            return m
+        m = np.where(L.gap_mask(Dm, Tm), m, np.nan)
+        b = (Tm >= -0.25) & (Tm <= 0)
+        return m - np.nanmean(m[:, b], axis=1, keepdims=True)
+
     df = df_all[(df_all.pair == PAIR) & (df_all.condition == cond) & (df_all.kind == kind)]
     ref = ref_all[(ref_all["corr"] == pk) & (ref_all.condition == pc)] if pc else None
     fig = plt.figure(figsize=(7.4, 7.0))
@@ -70,13 +81,14 @@ def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
         Tp = tr[f"{pk}_{pc}_t"]
         pm = tr[f"{pk}_{pc}_map_mean"]
         pm = pm - np.nanmean(pm[:, (Tp >= -0.25) & (Tp <= 0)], axis=1, keepdims=True)
-        panels.append(("Paper, expert\n" + f"{pc} trials (n = 50)", *crop(pm, Tp, tr["delays"]), "k"))
+        panels.append(("Paper, expert\n" + f"{pc} trials (n = 50)", *crop(mask(pm, Tp, tr["delays"]), Tp,
+                                                                         tr["delays"]), "k"))
     else:
         panels.append(("Paper: no matching\ntrial type", None, None, "0.4"))
     for st, co in GROUPS:
         sess = df[(df.stage == st) & (df.cohort == co)].session_id.unique()
         ms = [maps[(s, PAIR, cond, kind)] for s in sess if (s, PAIR, cond, kind) in maps]
-        m = crop(np.nanmean(ms, axis=0), T, D) if ms else (None, None)
+        m = crop(mask(np.nanmean(ms, axis=0), T, D), T, D) if ms else (None, None)
         panels.append((f"SSL {co}, {st}\n(n = {len(ms)} sessions)", *m, COL[co]))
     vals = np.concatenate([p[1].ravel() for p in panels if p[1] is not None])
     vmax = np.nanpercentile(np.abs(vals), 99)
@@ -86,7 +98,9 @@ def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
         if m is None:
             ax.set_axis_off()
             continue
-        im = ax.imshow(m, aspect="auto", origin="lower", cmap="RdBu_r", vmin=-vmax, vmax=vmax, extent=ext,
+        cmap = plt.get_cmap("RdBu_r").copy()
+        cmap.set_bad("0.82")
+        im = ax.imshow(np.ma.masked_invalid(m), aspect="auto", origin="lower", cmap=cmap, vmin=-vmax, vmax=vmax, extent=ext,
                        interpolation="nearest")
         ax.axhline(0, color="k", lw=0.4)
         ax.axvline(0, color="k", lw=0.4, ls="--")
@@ -105,18 +119,18 @@ def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
         ax = fig.add_subplot(g2[0, j])
         axes_b.append(ax)
         if pc:
-            m, se = mean_sem(tr[f"{pk}_{pc}_FF"])
+            m, se = mean_sem(tr[f"{pk}_{pc}_FF{sfx}"])
             ax.plot(Tp * 1e3, m, color="0.55", lw=0.9, label="paper")
             ax.fill_between(Tp * 1e3, m - se, m + se, color="0.55", alpha=.2, lw=0, edgecolor="none")
         sess = df[(df.stage == st) & (df.cohort == co)].session_id.unique()
-        x = [traces[(s, PAIR, cond, kind)][0] for s in sess if (s, PAIR, cond, kind) in traces]
+        x = [traces[(s, PAIR, cond, kind)][5 if clean else 0] for s in sess if (s, PAIR, cond, kind) in traces]
         if x:
             m, se = mean_sem(x)
             ax.plot(T * 1e3, m, color=COL[co], lw=1, label=f"SSL {co} {st}")
             ax.fill_between(T * 1e3, m - se, m + se, color=COL[co], alpha=.2, lw=0, edgecolor="none")
             sel = (T >= -0.25) & (T <= 0.4)
             ylo, yhi = min(ylo, np.nanmin((m - se)[sel])), max(yhi, np.nanmax((m + se)[sel]))
-        ax.axvspan(0, 100, color="gold", alpha=.15, lw=0, edgecolor="none")
+        ax.axvspan(early_lo, 100, color="gold", alpha=.15, lw=0, edgecolor="none")
         ax.axhline(0, color="k", lw=0.4)
         ax.axvline(0, color="k", lw=0.4, ls="--")
         ax.set_xlim(-250, 400)
@@ -125,7 +139,7 @@ def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
         ax.set_title(f"SSL {co}, {st} (n = {len(x)})", color=COL[co])
         ax.legend(frameon=False, loc="upper right", handlelength=1.2)
     if pc:
-        m, se = mean_sem(tr[f"{pk}_{pc}_FF"])
+        m, se = mean_sem(tr[f"{pk}_{pc}_FF{sfx}"])
         ylo, yhi = min(ylo, np.nanmin(m - se)), max(yhi, np.nanmax(m + se))
     pad = 0.08 * (yhi - ylo)
     for ax in axes_b:
@@ -133,16 +147,18 @@ def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
 
     # ---- C: per-session readouts
     rng = np.random.default_rng(0)
-    specs = (("FF", "S1 -> M2 coupling, 0-100 ms\n(in-sample CCV minus baseline)", True),
-             ("CV_FF", "S1 -> M2 coupling, 0-100 ms\n(cross-validated CCV minus baseline)", False),
-             ("FF_minus_FB", "Feedforward minus feedback\n(S1 leading minus M2 leading)", True))
+    win = f"{early_lo}-100 ms"
+    specs = ((f"FF{sfx}", f"S1 -> M2 coupling, {win}\n(in-sample CCV minus baseline)", True),
+             (f"CV_FF{sfx}", f"S1 -> M2 coupling, {win}\n(cross-validated CCV minus baseline)", False),
+             (f"FF_minus_FB{sfx}", "Feedforward minus feedback\n(S1 leading minus M2 leading)", True))
     for j, (col, lab, with_paper) in enumerate(specs):
         ax = fig.add_subplot(g3[0, j])
         xt, xl, xc = [], [], []
         if with_paper and pc:
-            v = ref[ref.direction == "FF"].set_index("session_idx").value
-            if col == "FF_minus_FB":
-                v = v - ref[ref.direction == "FB"].set_index("session_idx").value
+            vcol = "value_clean" if clean else "value"
+            v = ref[ref.direction == "FF"].set_index("session_idx")[vcol]
+            if col.startswith("FF_minus_FB"):
+                v = v - ref[ref.direction == "FB"].set_index("session_idx")[vcol]
             ax.errorbar(0, v.mean(), v.std() / np.sqrt(len(v)), color="0.4", marker="s", ms=3.5, capsize=2, lw=0.8)
             xt.append(0); xl.append(f"paper\n\nn=50\n{fmt_p(F4.wil(v))}"); xc.append("0.3")
         for x0, (st, co) in enumerate(GROUPS, start=1):
@@ -163,7 +179,8 @@ def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
         ax.set_ylabel(lab)
     for y, l in ((0.925, "A"), (0.635, "B"), (0.365, "C")):
         fig.text(0.01, y, l, fontsize=9, fontweight="bold")
-    fig.suptitle(f"{title}: S1 (SSp-bfd) -> M2 (MO-wM1 + MO-wM2) time-shifted CCA, {kind} coupling",
+    fig.suptitle(f"{title}: S1 (SSp-bfd) -> M2 (MO-wM1 + MO-wM2) time-shifted CCA, {kind} coupling"
+                 + (", artefact-free windows only" if clean else ""),
                  fontsize=8, y=0.985)
     cap = ("Method as Ranjbar-Slamloo & Kamigaki 2026 (PLoS Biol e3004095): 5-ms bins, 50-ms windows every 10 ms, M2 "
            "window shifted by the delay (delay > 0: S1 leads), first canonical correlation (CCV). A: maps baseline-"
@@ -174,6 +191,11 @@ def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
            "trial start removed (the diagonal band in A is where a window covers this gap). Session = unit of "
            "analysis, mean +- s.e.m. over sessions; p: Wilcoxon signed-rank vs 0, uncorrected. Open markers learning "
            "day (whisker day 0), filled expert days.")
+    if clean:
+        cap = cap.replace("averaged over 0-100 ms (yellow)", "averaged over +30..+100 ms (yellow)").replace(
+            "(the diagonal band in A is where a window covers this gap)",
+            "; only map cells whose S1 and M2 50-ms windows are both clear of this gap are used (grey in A: excluded; "
+            "baseline cells up to -40 ms, first early cell +30 ms), for the paper's maps too")
     fig.text(0.07, 0.012, "\n".join(textwrap.wrap(cap, 190)), fontsize=5.2, va="bottom")
     return fig
 
@@ -181,20 +203,22 @@ def page(cond, title, pc, kind, df_all, maps, traces, T, D, tr, ref_all):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--kind", default="total")
+    ap.add_argument("--clean", action="store_true", help="option a: artefact-free windows only")
     a = ap.parse_args()
     df, maps, traces, T, D = F4.load()
     tr = np.load(L.OUT / "paper_reference" / "traces.npz")
     ref = pd.read_parquet(L.OUT / "paper_reference" / "per_session.parquet")
     out = L.OUT / "replication"
     out.mkdir(parents=True, exist_ok=True)
-    with PdfPages(out / f"replication_{a.kind}.pdf") as pdf:
+    tag = f"{a.kind}_clean" if a.clean else a.kind
+    with PdfPages(out / f"replication_{tag}.pdf") as pdf:
         for cond, title, pc in TRIAL_TYPES:
-            fig = page(cond, title, pc, a.kind, df, maps, traces, T, D, tr, ref)
+            fig = page(cond, title, pc, a.kind, df, maps, traces, T, D, tr, ref, clean=a.clean)
             pdf.savefig(fig)
-            fig.savefig(out / f"replication_{a.kind}_{cond}.png", dpi=300)
+            fig.savefig(out / f"replication_{tag}_{cond}.png", dpi=300)
             plt.close(fig)
-    df[(df.pair == PAIR) & (df.kind == a.kind)].to_csv(out / f"replication_{a.kind}_per_session.csv", index=False)
-    print(out / f"replication_{a.kind}.pdf")
+    df[(df.pair == PAIR) & (df.kind == a.kind)].to_csv(out / f"replication_{tag}_per_session.csv", index=False)
+    print(out / f"replication_{tag}.pdf")
 
 
 if __name__ == "__main__":
