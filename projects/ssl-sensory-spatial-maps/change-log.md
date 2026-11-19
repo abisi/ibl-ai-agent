@@ -17,3 +17,6 @@
   ZETA pipeline test outputs deleted (the pipeline now lives in unit_spikes_analysis/zeta_analysis).
   Also deleted (user, 2026-11-19): zeta_pilot/ (013 outputs, superseded by 014), snapshot_zone70_20261004/ (pre-90 %
   zone results) and the old Quarto PDFs (superseded by the article report/report.pdf).
+- 2026-11-19: legacy Quarto report (build_report.py, render.sh, sensory_maps_report.qmd) and PowerPoint deck
+  (build_deck_assets.py, deck/) removed, code and NAS outputs (user); the article (build_article.py) is the only report.
+  The deck's latency vs decoding-onset link panel and summary schematic go with it (code in git history, c055652).

@@ -46,9 +46,8 @@ response timing: 001 -> 010 -> 011 -> 012; 014 independently.
 
 - `report/build_article.py`: the article report (skills/project-report) in `combined_results_ks4/ssl-sensory-spatial-maps/report/`
   (last built 2026-10-05: covers 001-008; not yet 009-014).
-- Legacy (before the project-report skill): `report/build_report.py` + `render.sh` (Quarto report) and
-  `build_deck_assets.py` + `deck/build_deck.py` + `deck/render_deck.sh` (PowerPoint deck). The deck still reads its
-  numbers from `report_numbers.json`, written by `build_report.py`.
+- The earlier Quarto report and the PowerPoint deck (with the single-neuron latency vs population-onset link panel and
+  the summary schematic) were removed on 2026-11-19; their code is in git history (last at commit c055652).
 
 ## Decisions (user, 2026-10-04 / 10-08)
 

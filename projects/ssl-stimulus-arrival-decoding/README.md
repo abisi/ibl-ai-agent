@@ -56,4 +56,4 @@ corrected accuracy = real - mean of 10 within-session label shuffles; 100 iterat
       and publish.
 - [ ] Passive pre-stimulus decoding offset (corrected accuracy above 0 before onset; see report): rerun with an order-preserving null
       (circular / linear label shift within session) before interpreting task vs passive onset differences. ASK USER.
-- [ ] Link single-neuron latency and population onset with all 18 groups (`build_deck_assets.py` link panel).
+- [ ] Link single-neuron latency and population onset with all 18 groups (the link panel of the removed sensory-maps deck, `ssl-sensory-spatial-maps/report/build_deck_assets.py` at commit c055652).
