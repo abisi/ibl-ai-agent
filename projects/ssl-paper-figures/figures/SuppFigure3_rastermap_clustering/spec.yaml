@@ -53,7 +53,7 @@ panels:
     x_mm: 0.0
     y_mm: 0.0
     w_mm: 183.0
-    h_mm: 49.0
+    h_mm: 47.0
     margins_mm: [0.5, 0.0, 3.0, 0.0]
 - id: b
   key: umap_clusters
@@ -63,9 +63,9 @@ panels:
   caption: UMAP of the {n_neurons} neurons' held-out (even-trial) PSTHs, coloured by rastermap cluster.
   cell:
     x_mm: 0.0
-    y_mm: 53.0
+    y_mm: 51.0
     w_mm: 40.0
-    h_mm: 44.0
+    h_mm: 40.0
     margins_mm: [4.0, 4.0, 4.0, 1.0]
 - id: c
   key: umap_areas
@@ -75,9 +75,9 @@ panels:
   caption: Same embedding, coloured by area group (as in a; minor groups pooled in Other).
   cell:
     x_mm: 43.0
-    y_mm: 53.0
+    y_mm: 51.0
     w_mm: 58.0
-    h_mm: 44.0
+    h_mm: 40.0
     margins_mm: [4.0, 4.0, 4.0, 19.0]
 - id: d
   key: pca_flow
@@ -89,9 +89,9 @@ panels:
     condition (shade, time from light to dark; circle, stimulus onset).
   cell:
     x_mm: 104.0
-    y_mm: 53.0
+    y_mm: 51.0
     w_mm: 38.0
-    h_mm: 44.0
+    h_mm: 40.0
     margins_mm: [4.0, 4.0, 4.0, 0.5]
 - id: e
   key: pca_flow_clusters
@@ -102,9 +102,9 @@ panels:
     baseline as weights): the population moves along the rastermap order within a trial.'
   cell:
     x_mm: 145.0
-    y_mm: 53.0
+    y_mm: 51.0
     w_mm: 38.0
-    h_mm: 44.0
+    h_mm: 40.0
     margins_mm: [4.0, 4.0, 4.0, 0.5]
 - id: f
   key: meta_matrix
@@ -116,9 +116,9 @@ panels:
     Median r within metaclusters {r_within_median:.2f}, between {r_between_median:.2f}.
   cell:
     x_mm: 0.0
-    y_mm: 103.0
+    y_mm: 96.0
     w_mm: 54.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [8.0, 6.5, 12.0, 5.0]
 - id: g
   key: meta_cut
@@ -128,9 +128,9 @@ panels:
   caption: Number of metaclusters as a function of the dendrogram cut (1 - r); dashed, the cut used ({cut}, {n_at_cut} metaclusters).
   cell:
     x_mm: 57.0
-    y_mm: 103.0
+    y_mm: 96.0
     w_mm: 30.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [7.5, 6.5, 12.0, 0.5]
 - id: h
   key: meta_sizes
@@ -141,9 +141,9 @@ panels:
     (dots; {n_mice_total} mice in total), metaclusters in rastermap order.
   cell:
     x_mm: 90.0
-    y_mm: 103.0
+    y_mm: 96.0
     w_mm: 46.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [9.0, 6.5, 6.0, 7.0]
 - id: i
   key: cv
@@ -155,9 +155,9 @@ panels:
     are closer to themselves (median r {r_self_median:.2f}).'
   cell:
     x_mm: 139.0
-    y_mm: 103.0
+    y_mm: 96.0
     w_mm: 44.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [8.5, 6.5, 6.0, 1.0]
 - id: j
   key: bgmm_contingency
@@ -172,9 +172,9 @@ panels:
     of neurons).
   cell:
     x_mm: 0.0
-    y_mm: 159.0
+    y_mm: 147.0
     w_mm: 54.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [8.0, 6.5, 6.0, 5.0]
 - id: k
   key: bgmm_agreement
@@ -186,9 +186,9 @@ panels:
     metaclusters; red, 95th percentile of {n_perm} permutations of the GMM labels across neurons (matching redone).
   cell:
     x_mm: 57.0
-    y_mm: 159.0
+    y_mm: 147.0
     w_mm: 30.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [7.5, 6.5, 6.0, 0.5]
 - id: l
   key: bgmm_matched
@@ -201,9 +201,9 @@ panels:
     {meta_p:p} for the median).
   cell:
     x_mm: 90.0
-    y_mm: 159.0
+    y_mm: 147.0
     w_mm: 29.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [7.5, 6.5, 6.0, 0.5]
 - id: m
   key: latency
@@ -216,9 +216,9 @@ panels:
     null, onsets shuffled across neurons ({n_perm}). Partly circular: rastermap orders neurons by PSTH shape.'
   cell:
     x_mm: 122.0
-    y_mm: 159.0
+    y_mm: 147.0
     w_mm: 30.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [7.5, 6.5, 6.0, 0.5]
 - id: n
   key: hierarchy
@@ -233,7 +233,52 @@ panels:
     null, scores shuffled across neurons ({n_perm}).
   cell:
     x_mm: 155.0
-    y_mm: 159.0
+    y_mm: 147.0
     w_mm: 28.0
-    h_mm: 50.0
+    h_mm: 46.0
     margins_mm: [7.5, 6.5, 6.0, 0.5]
+- id: o
+  key: area_specialization
+  title: Area specialization
+  data: FigS3_area_specialization.csv
+  status: filled
+  caption: 'Distribution of the neurons of each area (at least {min_neurons} neurons; {n_areas} areas, rows grouped by area
+    group) over the metaclusters (columns, rastermap order): log2 enrichment over the dataset distribution. Right, specialization:
+    KL divergence (bits) of the area''s distribution from the dataset distribution (bar), and the 95th percentile of {n_perm}
+    shuffles of area labels across neurons within each mouse (tick); {n_sig} of {n_areas} areas exceed it (P < 0.05).'
+  cell:
+    x_mm: 0.0
+    y_mm: 198.0
+    w_mm: 90.0
+    h_mm: 56.0
+    margins_mm: [9.0, 5.0, 7.0, 24.0]
+- id: p
+  key: area_ami
+  title: What explains cluster membership
+  data: FigS3_area_ami.csv
+  status: filled
+  caption: Adjusted mutual information between the cluster labels (fine clusters, metaclusters) and the area, area group,
+    mouse (one session per mouse) and reward group (R+ / R−) of each neuron (red tick, 95th percentile of {n_perm}
+    permutations). Mouse and area are partly confounded (each mouse was recorded in a subset of areas); see o for area
+    effects within mice.
+  cell:
+    x_mm: 93.0
+    y_mm: 198.0
+    w_mm: 32.0
+    h_mm: 56.0
+    margins_mm: [8.0, 5.0, 9.0, 0.5]
+- id: q
+  key: robustness
+  title: Robustness across variants
+  data: FigS3_robustness.csv
+  status: filled
+  caption: 'Agreement of the 100 rastermap clusters between analysis variants on the neurons present in both (unit keys):
+    adjusted mutual information of the cluster labels (black) and Spearman correlation of the cluster position in the rastermap
+    order (grey); reference, the main run, except for locality (good units, earlier settings, 0 and 0.75 vs 0.25). AMI {ami_min:.2f}-{ami_max:.2f};
+    dashed, AMI between rastermap and the 100-component GMM ({gmm_ami:.2f}).'
+  cell:
+    x_mm: 128.0
+    y_mm: 198.0
+    w_mm: 55.0
+    h_mm: 56.0
+    margins_mm: [25.0, 5.0, 7.0, 0.5]

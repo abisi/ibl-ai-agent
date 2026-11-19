@@ -256,3 +256,69 @@ def plot_pca_flow_clusters(ax, df):
     cb.ax.tick_params(labelsize=4.5, length=1.5, pad=1)
     cb.set_label("Weighted cluster", fontsize=4.5, labelpad=1)
     cb.outline.set_linewidth(0.3)
+
+
+def plot_area_specialization(ax, df):
+    q = df.drop_duplicates("area").sort_values(["area_group", "kl_bits"], ascending=[True, False])
+    areas = q.area.to_list()
+    ks = np.sort(df.metacluster.unique())
+    M = df.pivot(index="area", columns="metacluster", values="log2_enrichment").loc[areas, ks].to_numpy()
+    ax.imshow(M, cmap="RdBu_r", vmin=-3, vmax=3, aspect="auto", interpolation="nearest")
+    ax.set_yticks(range(len(areas)), areas, fontsize=4)
+    ax.tick_params(axis="y", length=0, pad=9)
+    ax.set_xticks(range(0, len(ks), 4), ks[::4])
+    ax.set_xlabel("Metacluster (rastermap order)")
+    strip = ax.inset_axes([-0.025, 0, 0.018, 1])           # area-group colour per row
+    import matplotlib.colors as mc
+    strip.imshow(np.array([mc.to_rgb(c) for c in q.color])[:, None, :], aspect="auto", interpolation="nearest")
+    strip.axis("off")
+    top = ax.inset_axes([0, 1.02, 1, 0.05])                # metacluster response type
+    top.imshow(np.array([mc.to_rgb(kind_color(m, k)) for m, k in
+                         df.drop_duplicates("metacluster").set_index("metacluster").loc[ks, ["modality", "kind"]]
+                         .itertuples(index=False)])[None], aspect="auto", interpolation="nearest")
+    top.axis("off")
+    side = ax.inset_axes([1.02, 0, 0.16, 1])               # specialization (KL, bits) vs within-mouse shuffle
+    y = np.arange(len(areas))
+    side.barh(y, q.kl_bits, height=0.75, color=["k" if p < 0.05 else "0.7" for p in q.p_perm], lw=0)
+    side.scatter(q.null_p95, y, marker="|", s=6, color="#e8222e", lw=0.6)
+    side.set_ylim(len(areas) - 0.5, -0.5)
+    side.set_yticks([])
+    side.spines["left"].set_visible(False)
+    side.set_xlabel("KL (bits)", fontsize=5, labelpad=1)
+    side.tick_params(labelsize=4.5, length=1.5)
+    cax = ax.inset_axes([1.22, 0.0, 0.025, 0.3])
+    import matplotlib as mpl
+    cb = ax.figure.colorbar(mpl.cm.ScalarMappable(cmap="RdBu_r", norm=mpl.colors.Normalize(-3, 3)), cax=cax,
+                            ticks=[-3, 0, 3])
+    cb.ax.tick_params(labelsize=4.5, length=1.5)
+    cb.set_label("log2 enrichment", fontsize=5, labelpad=1)
+    cb.outline.set_linewidth(0.3)
+
+
+def plot_area_ami(ax, df):
+    fac = ["area", "area_group", "mouse", "reward_group"]
+    names = ["Area", "Group", "Mouse", "R+/R−"]
+    w = 0.38
+    for k, (lv, c) in enumerate((("fine clusters", "k"), ("metaclusters", "0.6"))):
+        d = df[df.level == lv].set_index("factor").loc[fac]
+        x = np.arange(len(fac)) + (k - 0.5) * w
+        ax.bar(x, d.AMI, w * 0.9, color=c, lw=0, label="Fine" if k == 0 else "Meta")
+        for xi, v in zip(x, d.null_p95):
+            ax.plot([xi - w * 0.45, xi + w * 0.45], [v, v], color="#e8222e", lw=0.7)
+    ax.set_xticks(range(len(fac)), names, rotation=45, ha="right", rotation_mode="anchor")
+    ax.set_ylabel("AMI with cluster labels")
+    ax.legend(loc="upper right", fontsize=4.5, handlelength=0.8, frameon=False)
+
+
+def plot_robustness(ax, df):
+    y = np.arange(len(df))
+    ax.barh(y - 0.2, df.AMI, 0.38, color="k", lw=0, label="AMI")
+    ax.barh(y + 0.2, df.spearman_position, 0.38, color="0.6", lw=0, label="ρ position")
+    ax.axvline(df.gmm_ami.iloc[0], color="#e8222e", lw=0.6, ls="--")
+    ax.text(df.gmm_ami.iloc[0], -0.65, "GMM", color="#e8222e", fontsize=4.5, ha="center", va="bottom")
+    ax.set_yticks(y, df.comparison, fontsize=4.5)
+    ax.set_ylim(len(df) - 0.4, -0.6)
+    ax.set_xlim(0, 1)
+    ax.set_xlabel("Agreement with main run")
+    ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.04), ncol=2, fontsize=4.5, handlelength=0.8, frameon=False,
+              borderaxespad=0, columnspacing=0.8)

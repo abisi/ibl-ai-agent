@@ -41,6 +41,8 @@ KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 MIN_NEURONS_MOUSE = 3   # as 045
 N_PERM = 200
 FLOW_EDGE_TRIM = 1     # as run_clustering_new (fig8_flow_umap, edge_trim=1)
+MIN_AREA_NEURONS = 300  # areas shown in the specialization panel
+N_PERM_AMI_FACTOR = 20   # AMI is chance-corrected; the null only checks it is ~0
 N_PERM_AGREE = 50     # AMI is slow at K = 100
 CUTS = np.round(np.arange(0.05, 0.951, 0.025), 3)
 rng = np.random.default_rng(0)
@@ -391,6 +393,128 @@ def compute_hierarchy():
         d.loc[x.index, "p_perm"] = meta[g]["p_perm"]
     META["hierarchy"] = meta
     return d
+
+
+def _kl_bits(counts, p0):
+    """KL divergence (bits) of each row's distribution from p0; counts: (n_rows, K)"""
+    p = counts / counts.sum(1, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = np.where(p > 0, p * np.log2(p / p0), 0.0)
+    return t.sum(1)
+
+
+def compute_area_specialization():
+    """per area (>= MIN_AREA_NEURONS neurons): distribution of its neurons over the metaclusters, log2 enrichment
+    over the dataset distribution, specialization = KL divergence (bits) from the dataset distribution; null: area
+    labels shuffled across neurons within each mouse (keeps every mouse's area and metacluster composition)"""
+    b = base()
+    R, lab = b["R"], b["lab"]
+    meta = lab.metacluster.to_numpy()
+    area = R["area_arr"]
+    mouse = R["mouse_arr"]
+    cnt = pd.Series(area).value_counts()
+    areas = cnt.index[cnt >= MIN_AREA_NEURONS].to_numpy()
+    keep = np.isin(area, areas)
+    ks = np.sort(np.unique(meta))
+    p0 = np.bincount(np.searchsorted(ks, meta), minlength=len(ks)) / len(meta)
+    ai = {a: i for i, a in enumerate(areas)}
+
+    def table(ar):
+        m = keep & np.isin(ar, areas)
+        idx = np.array([ai[a] for a in ar[m]]) * len(ks) + np.searchsorted(ks, meta[m])
+        return np.bincount(idx, minlength=len(areas) * len(ks)).reshape(len(areas), len(ks)).astype(float)
+
+    C = table(area)
+    kl = _kl_bits(C, p0)
+    groups = pd.Series(np.arange(len(area))).groupby(mouse).indices
+    null = []
+    for _ in range(N_PERM):
+        sh = area.copy()
+        for ix in groups.values():
+            sh[ix] = area[rng.permutation(ix)]
+        null.append(_kl_bits(table(sh), p0))
+    null = np.array(null)
+    grp = pd.Series(R["area_group_arr"]).groupby(area).first()
+    major, acol = pms._area_categories(R)
+    acol = dict(acol, Other=pms.OTHER_AREA_COLOR)
+    nt = b["name_tab"].set_index("family")
+    rows = []
+    for i, a in enumerate(areas):
+        frac = C[i] / C[i].sum()
+        g = grp[a]
+        for j, k in enumerate(ks):
+            rows.append(dict(area=a, area_group=g, color=matplotlib.colors.to_hex(acol.get(g, acol["Other"])),
+                             n_area=int(C[i].sum()), metacluster=int(k), kind=nt.kind.get(k), modality=nt.modality.get(k),
+                             n=int(C[i, j]), frac=frac[j], frac_dataset=p0[j],
+                             log2_enrichment=np.log2((C[i, j] + 0.5) / (C[i].sum() * p0[j] + 0.5)),
+                             kl_bits=kl[i], null_mean=null[:, i].mean(), null_p95=np.percentile(null[:, i], 95),
+                             p_perm=(1 + (null[:, i] >= kl[i]).sum()) / (1 + N_PERM)))
+    d = pd.DataFrame(rows)
+    q = d.drop_duplicates("area")
+    META["area_specialization"] = dict(n_areas=int(len(areas)), min_neurons=MIN_AREA_NEURONS,
+                                       n_neurons=int(keep.sum()), n_sig=int((q.p_perm < 0.05).sum()),
+                                       kl_median=float(q.kl_bits.median()), null_median=float(q.null_mean.median()),
+                                       n_perm=N_PERM)
+    return d
+
+
+def compute_area_ami():
+    """adjusted mutual information between cluster labels (fine / metaclusters) and area, area group, mouse (= session:
+    one session per mouse here) and reward group; null: factor labels permuted across neurons"""
+    b = base()
+    R, lab = b["R"], b["lab"]
+    factors = dict(area=R["area_arr"], area_group=R["area_group_arr"], mouse=R["mouse_arr"],   # 1 session per mouse
+                   reward_group=lab.reward_group.astype(str).to_numpy())
+    rows = []
+    for level, y in (("fine clusters", R["labels"]), ("metaclusters", lab.metacluster.to_numpy())):
+        for f, x in factors.items():
+            real = adjusted_mutual_info_score(y, x)
+            null = [adjusted_mutual_info_score(y, rng.permutation(x)) for _ in range(N_PERM_AMI_FACTOR)]
+            rows.append(dict(level=level, factor=f, n_labels=int(len(np.unique(x))), AMI=real,
+                             null_p95=np.percentile(null, 95),
+                             p_perm=(1 + np.sum(np.array(null) >= real)) / (1 + len(null))))
+    d = pd.DataFrame(rows)
+    META["area_ami"] = {f"{r.level.split()[0]}_{r.factor}": float(r.AMI) for r in d.itertuples()}
+    META["area_ami"]["n_perm"] = N_PERM_AMI_FACTOR
+    return d
+
+
+ROBUST = [   # (label, reference variant, compared variant); "" = the main variant
+    ("Good units only", "", "qc_good__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin"),
+    ("All learner categories", "", "qc_good_mua__learncat_all__loc0p25_grid10_nodes__lickfix_longwin"),
+    ("No passive conditions", "", "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin__nopassive"),
+    ("No whisker-reward bins", "", "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin__noWhiskerReward"),
+    ("Uncorrected lick times", "", "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes"),
+    ("Locality 0 vs 0.25", "qc_good__learncat_good_moderate__loc0p25", "qc_good__learncat_good_moderate__loc0p00"),
+    ("Locality 0.75 vs 0.25", "qc_good__learncat_good_moderate__loc0p25", "qc_good__learncat_good_moderate__loc0p75"),
+]
+
+
+def _variant_labels(v):
+    v = v or VARIANT
+    f = sorted((RES / "rastermap_variants" / v).glob("rastermap_clustering/*/*/clustering/*/rastermap/"
+                                                     "neuron_cluster_labels_cv.csv"))[0]
+    d = pd.read_csv(f, usecols=KEYS + ["cluster_label"])
+    d["cluster_id"] = d.cluster_id.astype(str)
+    return d
+
+
+def compute_robustness():
+    """agreement of the rastermap clusters between analysis variants, on the neurons present in both (unit keys):
+    AMI of the 100 fine-cluster labels and Spearman correlation of the cluster position (rastermap order)"""
+    rows = []
+    for label, ref, other in ROBUST:
+        m = _variant_labels(ref).merge(_variant_labels(other), on=KEYS, suffixes=("_a", "_b"))
+        rows.append(dict(comparison=label, reference=ref or VARIANT, variant=other, n_common=int(len(m)),
+                         AMI=adjusted_mutual_info_score(m.cluster_label_a, m.cluster_label_b),
+                         ARI=adjusted_rand_score(m.cluster_label_a, m.cluster_label_b),
+                         spearman_position=spearmanr(m.cluster_label_a, m.cluster_label_b)[0]))
+    d = pd.DataFrame(rows)
+    gl = _bgmm(100)
+    META["robustness"] = dict(ami_min=float(d.AMI.min()), ami_max=float(d.AMI.max()),
+                              rho_min=float(d.spearman_position.min()),
+                              gmm_ami=float(adjusted_mutual_info_score(base()["R"]["labels"], gl)))
+    return d.assign(gmm_ami=META["robustness"]["gmm_ami"])
 
 
 def main():
