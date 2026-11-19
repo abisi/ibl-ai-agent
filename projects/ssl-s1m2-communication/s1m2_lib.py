@@ -37,25 +37,37 @@ for p in (ROOT / "NWB_reader", ROOT / "Github" / "ephys_utilities", ROOT / "Gith
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
+STABLE_TABLE = ROOT / "combined_results_ks4" / "ssl-whisker-hitmiss-timeresolved-decoding" / "tables" / "137_stable_units.parquet"
+
 CONFIG = {
-    "version": 1,
+    "version": 3,
     "paper": "Ranjbar-Slamloo & Kamigaki 2026 PLoS Biol e3004095",
     "s1_area": "SSp-bfd",
-    "m2_areas": ["MO-wM1", "MO-wM2"],
-    "unit_quality": ["good", "mua"],  # unit_info_all_days_v2 quality_label (non-soma dropped); paper: all clusters
-    "min_rate_hz": 0.5,
-    "min_units": 20,
-    "max_units": 50,             # random draw per area (paper: ~50 neurons per area; in-sample CCV depends on units/samples)
+    # M2: pooled MO-wM1 + MO-wM2 (main; the paper's M2 box, AP +1.3..2.2 / ML 0.5..1.0, lies between the two), and
+    # each one separately
+    "m2_sets": {"wMO": ["MO-wM1", "MO-wM2"], "MO-wM1": ["MO-wM1"], "MO-wM2": ["MO-wM2"]},
+    "unit_quality": ["good", "mua"],
+    "unit_stability": "137_stable_units.stable (coverage >= 0.9, presence >= 0.5, no probe-drift dependence)",
+    "min_rate_hz": 0.0,          # paper: all clusters (neurons silent in a window drop out of that window's CCA)
+    "min_units": 10,
+    "max_units": None,           # all stable units (paper: all units)
+    # v3: with all units (~150-270 per area) in-sample CCA saturates (CCV ~ 1 at baseline). Each area is reduced to its
+    # top pca_dims principal components (one PCA per area and condition, fit on all trials x bins of the analysis
+    # period; PCA -> CCA); in the CV control the PCA is refit on the training trials of each fold
+    "pca_dims": 10,
     "min_trials": 20,
     "bin_s": 0.005,
     "window_bins": 10,           # 50 ms
     "step_s": 0.010,
     "t_from_s": -0.45, "t_to_s": 1.0,   # S1 window centres
     "delays_s": [-0.10, 0.10],   # 5-ms steps
-    "n_shuffles": 1,  # paper: one trial-shuffle map
+    "n_shuffles": 1,             # paper: one trial-shuffle map
+    "cv_folds": 10,              # paper S11: 10-fold cross-validated CCV (weights on 90 % of trials)
+    "cv_delays_s": [-0.015, 0.015],
     "trials": "context active (resolve_context ITI rule), perf != 6, early_lick == 0, warm-up cut, rule-A1 tail trim",
-    "artifact": "ephys_utilities whisker-artefact correction (spikes in -10..+5 ms of every whisker onset replaced by "
-                "Poisson spikes at the -200..-10 ms rate)",
+    "artifact": "no Poisson fill; spikes in -10..+5 ms of EVERY trial start removed (all trial types, all windows "
+                "analysed)",
+    "artifact_window_s": [-0.010, 0.005],
     "conditions": {
         "All": "all active trials (whisker, auditory, no-stim)",
         "W_all": "whisker trials", "W_hit": "whisker & lick", "W_miss": "whisker & no lick",
@@ -84,12 +96,75 @@ def _qr_basis(X, tol_scale=None):
     return Q[:, :r]
 
 
+def pca_project(X, k, rows=None):
+    """Project [trial, bin, unit] onto the top-k principal components of the area, fit on all bins of the given trials
+    (rows; default all). One fixed subspace per area and condition (PCA -> CCA)."""
+    rows = np.arange(X.shape[0]) if rows is None else rows
+    Xf = X[rows].reshape(-1, X.shape[2]).astype(np.float64)
+    mu = Xf.mean(0)
+    C = (Xf - mu).T @ (Xf - mu)
+    w, V = np.linalg.eigh(C)
+    V = V[:, np.argsort(w)[::-1][:k]]
+    return ((X.astype(np.float64) - mu) @ V).astype(np.float32)
+
+
 def first_cc(Q1, Q2):
     """First canonical correlation from two orthonormal bases."""
     if Q1.shape[1] == 0 or Q2.shape[1] == 0:
         return np.nan
     s = np.linalg.svd(Q1.T @ Q2, compute_uv=False)
     return float(min(max(s[0], 0.0), 1.0))
+
+
+def _qr_full(Xc):
+    import scipy.linalg as sla
+    Q, R, piv = sla.qr(Xc, mode="economic", pivoting=True)
+    d = np.abs(np.diag(R))
+    if d.size == 0 or d[0] == 0:
+        return None
+    r = int((d > np.finfo(float).eps * max(Xc.shape) * d[0]).sum())
+    return Q[:, :r], R[:r, :r], piv[:r]
+
+
+def cv_map(S, M, centres_idx, delay_steps, wb, folds, k):
+    """Cross-validated first canonical correlation [delay, time] (paper S11 control): per fold, PCA (top k per area, all
+    bins) and canoncorr weights are fit on the training trials; the held-out projections are correlated; mean over folds.
+    S, M: raw [trial, bin, unit] tensors."""
+    nT = S.shape[0]
+    out = np.zeros((len(delay_steps), len(centres_idx)))
+    cnt = np.zeros_like(out)
+    for te in folds:
+        tr = np.setdiff1d(np.arange(nT), te)
+        Sk, Mk = pca_project(S, k, tr).astype(np.float64), pca_project(M, k, tr).astype(np.float64)
+        cache = {}
+
+        def dec(X, b0):
+            Xw = X[tr, b0:b0 + wb].reshape(len(tr) * wb, -1)
+            mu = Xw.mean(0)
+            q = _qr_full(Xw - mu)
+            return (mu, q) if q is not None else None
+
+        for j, b0 in enumerate(centres_idx):
+            ds = dec(Sk, b0)
+            if ds is None:
+                continue
+            mus, (Qs, Rs, ps) = ds
+            Ste = (Sk[te, b0:b0 + wb].reshape(len(te) * wb, -1) - mus)[:, ps]
+            for i, d in enumerate(delay_steps):
+                if b0 + d not in cache:
+                    cache[b0 + d] = dec(Mk, b0 + d)
+                dm = cache[b0 + d]
+                if dm is None:
+                    continue
+                mum, (Qm, Rm, pm) = dm
+                U, _, Vt = np.linalg.svd(Qs.T @ Qm)
+                xs = Ste @ np.linalg.solve(Rs, U[:, 0])
+                xm = (Mk[te, b0 + d:b0 + d + wb].reshape(len(te) * wb, -1) - mum)[:, pm] @ np.linalg.solve(Rm, Vt[0])
+                if xs.std() > 0 and xm.std() > 0:
+                    out[i, j] += np.corrcoef(xs, xm)[0, 1]
+                    cnt[i, j] += 1
+    with np.errstate(invalid="ignore"):
+        return np.where(cnt > 0, out / np.maximum(cnt, 1), np.nan)
 
 
 # ---------------------------------------------------------------- data
@@ -109,7 +184,8 @@ def load_session(session_id, unit_keys):
     from ssl_bwm_trial_prep import resolve_context
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        res = data_utils.process_single_nwb(str(NWB_DIR / f"{session_id}.nwb"), day_to_analyze="all")
+        res = data_utils.process_single_nwb(str(NWB_DIR / f"{session_id}.nwb"), day_to_analyze="all",
+                                             apply_artifact_correction=False)
     if res is None:
         raise RuntimeError(f"{session_id}: no ephys")
     units, trials = res["unit_table"], res["trial_table"]
@@ -136,6 +212,21 @@ def load_session(session_id, unit_keys):
         if (trail.trial_type == "whisker_trial").sum() >= 5 and (trail.trial_type == "auditory_trial").sum() >= 1:
             t = t.iloc[:licked[-1] + 1].reset_index(drop=True)
     t["n_trimmed_a1"] = n0 - len(t)
+    # artefact: remove spikes in the artefact window around every trial start (all trial types, so whisker and other
+    # trials are treated alike; no Poisson fill)
+    lo, hi = CONFIG["artifact_window_s"]
+    st_all = np.sort(trials.start_time.to_numpy(float))
+
+    def blank(sp):
+        sp = np.asarray(sp, float)
+        i = np.searchsorted(st_all, sp, side="right") - 1
+        prev = np.where(i >= 0, st_all[np.clip(i, 0, None)], -np.inf)
+        nxt_i = np.clip(i + 1, 0, len(st_all) - 1)
+        nxt = np.where(i + 1 < len(st_all), st_all[nxt_i], np.inf)
+        bad = ((sp - prev) < hi) | ((nxt - sp) <= -lo)
+        return sp[~bad]
+
+    units["spike_times"] = units["spike_times"].apply(blank)
     return units, t
 
 

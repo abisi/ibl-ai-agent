@@ -22,3 +22,13 @@
   - Expert: 12 sessions in total (R+ 5, R- 7 pooled), too few to test.
   - Caveat: the whisker-artefact correction replaces spikes in -10..+5 ms with independent Poisson spikes, diluting
     windows centred before ~+30 ms on whisker trials.
+- **2026-11-19: v3 = paper recipe on all stable units (user: "keep all units, stable, >= 10 per area"; pool wM1 + wM2).**
+  - v2 (all units, plain in-sample CCA) stopped: CCV saturates at ~1 with ~150-270 units per area. v3: each area reduced
+    to its top 10 PCs (one PCA per area and condition, all bins) before CCA; 10-fold CV control refits the PCA on
+    training trials. Artefact: spikes -10..+5 ms around every trial start removed, no Poisson fill. Sessions_v2: 39
+    sessions; pooled S1-wMO learning R+ 12 / R- 14, expert R+ 6 / R- 7. 232 jobs, no failures.
+  - All trials, total CCV, FF 0-100 ms: paper +0.038 (n = 50, p = 3e-5); SSL learning R+ +0.052 (p = 0.005),
+    R- +0.059 (p = 0.005); expert R+ +0.093 (p = 0.06), R- +0.024 (p = 0.08); CV versions p = 0.005 / 0.005 / 0.03 /
+    0.05. Same delay (0..+10 ms) patch in the maps. FF > FB: paper p = 0.09, SSL R- learning p = 0.002, others n.s.
+    SSL adds a broad 100-250 ms rise (movement / licks) absent in the paper. Noise CCV: null, as in the paper's data.
+  - 005_replication_figure.py: one page per trial type (All, W_all, W_hit, W_miss, A_hit) in replication/.
