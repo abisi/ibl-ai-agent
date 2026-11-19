@@ -1,0 +1,201 @@
+# Supplementary Figure 4 (rastermap validation) -- split from SuppFigure3_rastermap_clustering (user 2026-11-19: panel a of S3
+# much bigger, two pages). compute.py / plot.py reuse the SuppFigure3 functions (one source).
+# Main run: combined_results_ks4/rastermap_variants/qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin
+figure: SuppFigure4_rastermap_validation
+number: S4
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 11.5
+  pad_left_mm: 8
+caption:
+  title: 'Rastermap clustering: metaclustering, reproducibility, recovery by an independent method, relation
+    to latency, hierarchy and areas, robustness.'
+  footer: Neurons, good and multi-unit clusters of learner mice (reference-sheet learning category good or moderate),
+    all whisker days (rastermap variant qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin). Rastermap (locality 0.25, 10x grid upsampling) was fitted on the
+    concatenated baseline-subtracted PSTHs of odd trials (passive whisker / auditory pre and post, active stimulus- and
+    lick-aligned conditions) and cut into 100 clusters in rastermap order; metaclusters are contiguous groups of those
+    clusters (average linkage on 1 - Pearson r between full-trial cluster-mean PSTHs, merges only between neighbouring
+    clusters, cut at 1 - r = 0.40).
+shared:
+  rastermap_run:
+    code: rastermap_psth.population_matrix_summary (load_rastermap, metaclustering, _cluster_means, family_names_psth)
+    calls:
+    - unit_spikes_analysis/rastermap_psth/run_clustering_new.run_rastermap (CV fit, results)
+    params:
+      variant: qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin
+      clusters: 100, fit on odd trials, PSTHs shown on even trials
+      metaclustering: contiguous, average linkage, 1 - r, cut 0.40
+  bgmm:
+    code: ssl-rastermap-psth-variants/exploratory-analyses/046_bgmm_main_variant.py (embedding + Dirichlet-process
+      GMM), 047_bgmm_fixed_k.py (fixed K = 100 / 24 on the same embedding, maximum likelihood)
+    calls:
+    - unit_spikes_analysis/rastermap_psth/gmm_utils_new (method and defaults of run_gmm)
+    params:
+      matrix: X_odd (as rastermap)
+      spectral: 13 dimensions, sigma tuned to mean similarity 0.5, N_PCA by permutation test
+      bgmm: 200 components, Dirichlet process, concentration 1, diagonal, 10 inits
+panels:
+- id: a
+  key: meta_matrix
+  title: Metaclustering
+  data: FigS4_meta_matrix.csv
+  status: filled
+  caption: Pearson correlation between the full-trial mean PSTHs of the {n_clusters} rastermap clusters (rastermap order)
+    with the contiguous metaclustering dendrogram (top) and the {n_metaclusters} metaclusters (boxes; cut 1 - r = {cut}).
+    Median r within metaclusters {r_within_median:.2f}, between {r_between_median:.2f}.
+  cell:
+    x_mm: 0.0
+    y_mm: 0.0
+    w_mm: 54.0
+    h_mm: 46.0
+    margins_mm: [8.0, 6.5, 12.0, 5.0]
+- id: b
+  key: meta_cut
+  title: Cut threshold
+  data: FigS4_meta_cut.csv
+  status: filled
+  caption: Number of metaclusters as a function of the dendrogram cut (1 - r); dashed, the cut used ({cut}, {n_at_cut} metaclusters).
+  cell:
+    x_mm: 57.0
+    y_mm: 0.0
+    w_mm: 30.0
+    h_mm: 46.0
+    margins_mm: [7.5, 6.5, 12.0, 0.5]
+- id: c
+  key: meta_sizes
+  title: Metacluster sizes
+  data: FigS4_meta_sizes.csv
+  status: filled
+  caption: Neurons per metacluster (bars, log scale, coloured by response type) and mice contributing at least 3 neurons
+    (dots; {n_mice_total} mice in total), metaclusters in rastermap order.
+  cell:
+    x_mm: 90.0
+    y_mm: 0.0
+    w_mm: 46.0
+    h_mm: 46.0
+    margins_mm: [9.0, 6.5, 6.0, 7.0]
+- id: d
+  key: cv
+  title: Held-out trials
+  data: FigS4_cv.csv
+  status: filled
+  caption: 'Per rastermap cluster: correlation of its mean PSTH on the fitted odd trials with its mean PSTH on held-out
+    even trials (x) and with the most similar other cluster''s even-trial mean (y). {frac_self_beats_others:.0%} of clusters
+    are closer to themselves (median r {r_self_median:.2f}).'
+  cell:
+    x_mm: 139.0
+    y_mm: 0.0
+    w_mm: 44.0
+    h_mm: 46.0
+    margins_mm: [8.5, 6.5, 6.0, 1.0]
+- id: e
+  key: bgmm_contingency
+  title: Rastermap vs GMM
+  data: FigS4_bgmm_contingency.csv
+  status: filled
+  caption: Fraction of each rastermap cluster's neurons (rows, rastermap order; strip, metaclusters) in each component of
+    a Gaussian mixture with K = 100 components fitted on the spectral embedding of the same odd-trial PSTHs (the Bayesian
+    GMM pipeline with a fixed K, maximum likelihood; with a Dirichlet-process prior it keeps only {n_dp_components} components;
+    {n_components} of the 100 receive neurons); components ordered by their one-to-one matched rastermap cluster (Hungarian
+    matching on the correlation of held-out mean PSTHs), so that agreement lies on the diagonal ({frac_on_diagonal:.0%}
+    of neurons).
+  cell:
+    x_mm: 0.0
+    y_mm: 51.0
+    w_mm: 54.0
+    h_mm: 46.0
+    margins_mm: [8.0, 6.5, 6.0, 5.0]
+- id: f
+  key: bgmm_agreement
+  title: Agreement
+  data: FigS4_bgmm_agreement.csv
+  status: filled
+  caption: Fraction of neurons in matched clusters, adjusted mutual information and adjusted Rand index between rastermap
+    and the GMM with the same number of groups (K = 100 and K = number of metaclusters), for the 100 fine clusters and the
+    metaclusters; red, 95th percentile of {n_perm} permutations of the GMM labels across neurons (matching redone).
+  cell:
+    x_mm: 57.0
+    y_mm: 51.0
+    w_mm: 30.0
+    h_mm: 46.0
+    margins_mm: [7.5, 6.5, 6.0, 0.5]
+- id: g
+  key: bgmm_matched
+  title: Matched PSTHs
+  data: FigS4_bgmm_matched.csv
+  status: filled
+  caption: Pearson r between the mean PSTHs of matched rastermap and GMM clusters (dots; red, median; fine {fine_r:.2f},
+    metaclusters {meta_r:.2f}), on held-out even trials with the population-mean PSTH subtracted; grey, median and 95% range
+    of {n_perm} label permutations (median fine {fine_null:.2f}, metaclusters {meta_null:.2f}; permutation {fine_p:p} and
+    {meta_p:p} for the median).
+  cell:
+    x_mm: 90.0
+    y_mm: 51.0
+    w_mm: 29.0
+    h_mm: 46.0
+    margins_mm: [7.5, 6.5, 6.0, 0.5]
+- id: h
+  key: latency
+  title: Onset latency
+  data: FigS4_latency.csv
+  status: filled
+  caption: 'Median latenZy onset of each rastermap cluster''s ZETA-positive neurons in active whisker (yellow) and auditory
+    trials (blue), clusters with at least 10 such neurons, against rastermap position; lines, least-squares fits. Spearman
+    rho, whisker {whisker_active.rho:.2f} (permutation {whisker_active.p_perm:p}), auditory {auditory_active.rho:.2f} ({auditory_active.p_perm:p});
+    null, onsets shuffled across neurons ({n_perm}). Partly circular: rastermap orders neurons by PSTH shape.'
+  cell:
+    x_mm: 122.0
+    y_mm: 51.0
+    w_mm: 30.0
+    h_mm: 46.0
+    margins_mm: [7.5, 6.5, 6.0, 0.5]
+- id: i
+  key: hierarchy
+  title: Cortical hierarchy
+  data: FigS4_hierarchy.csv
+  status: filled
+  caption: Mean hierarchy score (Harris et al., 2019) of each cluster's neurons in scored areas (isocortex and thalamus,
+    {n_neurons} neurons; clusters with at least 20; mean ± s.e.m.) against rastermap position, for whisker-dominated (yellow,
+    {whisker.n_clusters} clusters) and auditory-dominated clusters (blue, {auditory.n_clusters}; larger fraction of ZETA-positive
+    neurons in active whisker vs auditory trials); lines, least-squares fits. Spearman rho, whisker {whisker.rho:.2f} (permutation
+    {whisker.p_perm:p}), auditory {auditory.rho:.2f} ({auditory.p_perm:p}); all clusters {all.rho:.2f} ({all.p_perm:p});
+    null, scores shuffled across neurons ({n_perm}).
+  cell:
+    x_mm: 155.0
+    y_mm: 51.0
+    w_mm: 28.0
+    h_mm: 46.0
+    margins_mm: [7.5, 6.5, 6.0, 0.5]
+- id: j
+  key: area_specialization
+  title: Area specialization
+  data: FigS4_area_specialization.csv
+  status: filled
+  caption: 'Distribution of the neurons of each area (at least {min_neurons} neurons; {n_areas} areas, rows grouped by area
+    group, colour strip) over the metaclusters (columns, rastermap order; top strip, response type): log2 enrichment over
+    the dataset distribution. Right, specialization: KL divergence (bits) of the area''s distribution from the dataset distribution
+    (bars; black, P < 0.05) and the 95th percentile of {n_perm} shuffles of area labels across all neurons of the dataset
+    (red tick); {n_sig} of {n_areas} areas exceed it.'
+  cell:
+    x_mm: 0.0
+    y_mm: 102.0
+    w_mm: 112.0
+    h_mm: 56.0
+    margins_mm: [9.0, 5.0, 7.0, 24.0]
+- id: k
+  key: robustness
+  title: Robustness across variants
+  data: FigS4_robustness.csv
+  status: filled
+  caption: 'Agreement of the 100 rastermap clusters between analysis variants on the neurons present in both (unit keys):
+    adjusted mutual information of the cluster labels (black) and Spearman correlation of the cluster position in the rastermap
+    order (grey); reference, the main run, except for locality (good units, earlier settings, 0 and 0.75 vs 0.25). AMI {ami_min:.2f}-{ami_max:.2f};
+    dashed, AMI between rastermap and the 100-component GMM ({gmm_ami:.2f}).'
+  cell:
+    x_mm: 122.0
+    y_mm: 102.0
+    w_mm: 61.0
+    h_mm: 56.0
+    margins_mm: [25.0, 5.0, 7.0, 0.5]

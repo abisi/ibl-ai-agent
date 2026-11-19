@@ -23,7 +23,9 @@ Output: <variant folder>/metacluster_description/metacluster_description.{png,pd
 method_dir, order) + _psth_mice.csv (per-mouse PSTH means).
 Run (haas): cd ~/code/unit_spikes_analysis; PYTHONPATH=~/code/NWB_reader:. .venv/bin/python \
   ~/code/ibl-ai-agent/projects/ssl-rastermap-psth-variants/exploratory-analyses/045_metacluster_description.py \
-  [--variant V] [--order 23 18 14 15 12] [--name supp_metaclusters]
+  [--variant V] [--order 23 18 14 15 12] [--name supp_metaclusters] [--cols 1 --fs 6 --width-mm 183]
+Supp. Fig. 3 (user 2026-11-19, "much bigger"): --order 17 15 16 9 20 21 --name supp_metaclusters --cols 1 --fs 6
+  --width-mm 183 (one metacluster per row, full width); defaults reproduce the Figure 2 layout.
 """
 import argparse
 import json
@@ -85,6 +87,10 @@ def main():
     ap.add_argument("--order", type=int, nargs="+", default=ORDER)
     ap.add_argument("--name", default="metacluster_description",
                     help="output stem in metacluster_description/ (e.g. supp_metaclusters for Supp. Fig. 3)")
+    ap.add_argument("--cols", type=int, default=N_COLS, help="metaclusters per row (Supp. Fig. 3: 1)")
+    ap.add_argument("--fs", type=float, default=4.0, help="base font size (pt); text-related spacing scales with it")
+    ap.add_argument("--width-mm", type=float, default=None,
+                    help="figure width; the square panels grow to fill it (default: native 9.4 mm panels)")
     a = ap.parse_args()
     md = method_dir(a.variant)
     prov = json.load(open(ROOT / a.variant / "variant_provenance.json"))
@@ -133,22 +139,27 @@ def main():
     tab["name"] = tab.metacluster.map(names)
 
     pms.use_pub_font()
-    fs = 4.0
+    fs = a.fs
+    u = fs / 4.0                                               # text-related spacing scales with the font size
+    ncols = a.cols
     plt.rcParams.update({"font.size": fs, "axes.linewidth": 0.4, "pdf.fonttype": 42, "svg.fonttype": "none",
                          "xtick.major.width": 0.4, "ytick.major.width": 0.4, "xtick.major.size": 1.0,
                          "ytick.major.size": 1.0, "xtick.labelsize": fs - 0.5, "ytick.labelsize": fs - 0.5,
                          "xtick.major.pad": 1, "ytick.major.pad": 1})
     # layout in mm (user 2026-11-12: a third of an A4 page, no white space between rows, square panels)
     # user 2026-11-12: half the height, one row per metacluster: label block on the left of each row, ~7 mm panels
-    S, ROW, HDR, TOP, BOT = 9.4, 10.6, 0.0, 4.4, 9.4
-    LAB = 15.0                                                # label block width
-    x_p = [LAB + 5.5, LAB + 5.5 + S + 1.4, LAB + 5.5 + 2 * (S + 1.4)]   # PSTHs (shared y: no tick labels on 2 and 3)
-    x_pol = x_p[2] + S + 3.0
-    x_roc = x_pol + S + 10.0
-    # user 2026-11-12: half the height -> metaclusters in N_COLS columns of rows (left column first)
-    n_rows = int(np.ceil(len(top) / N_COLS))
-    block_w = x_roc + S + 3.0
-    width_mm = N_COLS * block_w + (N_COLS - 1) * COL_GAP
+    HDR, TOP, BOT, LAB = 0.0, 4.4 * u, 9.4 * u, 15.0 * u      # LAB: label block width
+    fixed = LAB + 5.5 * u + 2 * 1.4 + 3.0 * u + 10.0 * u + 3.0 * u   # block width without the 5 square panels
+    S = 9.4 if a.width_mm is None else (a.width_mm - (ncols - 1) * COL_GAP) / ncols - fixed
+    S /= 5 if a.width_mm is not None else 1
+    ROW = S + 1.2 * u
+    x_p = [LAB + 5.5 * u, LAB + 5.5 * u + S + 1.4, LAB + 5.5 * u + 2 * (S + 1.4)]   # PSTHs (shared y)
+    x_pol = x_p[2] + S + 3.0 * u
+    x_roc = x_pol + S + 10.0 * u
+    # user 2026-11-12: half the height -> metaclusters in ncols columns of rows (left column first)
+    n_rows = int(np.ceil(len(top) / ncols))
+    block_w = x_roc + S + 3.0 * u
+    width_mm = ncols * block_w + (ncols - 1) * COL_GAP
     height_mm = TOP + ROW * n_rows + BOT
     fig = plt.figure(figsize=(width_mm / 25.4, height_mm / 25.4), dpi=300)
 
@@ -161,14 +172,14 @@ def main():
     for r, f in enumerate(top):
         m = fam == f
         mice = [mm for mm in np.unique(mouse[m]) if (m & (mouse == mm)).sum() >= MIN_NEURONS_MOUSE]
-        rr, col = divmod(r, N_COLS)   # row-major: two metaclusters per row
+        rr, col = divmod(r, ncols)   # row-major
         dx = col * (block_w + COL_GAP)
         y0 = TOP + rr * ROW + HDR
-        last = rr == n_rows - 1 or r + N_COLS >= len(top)   # bottom panel of its column: x labels
-        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 0.2) / height_mm, f"Metacluster {f}", fontsize=fs + 0.2, va="top")
-        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 2.4) / height_mm, names.get(f, ""), fontsize=fs - 0.4, va="top",
+        last = rr == n_rows - 1 or r + ncols >= len(top)   # bottom panel of its column: x labels
+        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 0.2 * u) / height_mm, f"Metacluster {f}", fontsize=fs + 0.2, va="top")
+        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 2.4 * u) / height_mm, names.get(f, ""), fontsize=fs - 0.4, va="top",
                  color="0.2")
-        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 4.4) / height_mm, f"{int(m.sum()):,} neurons, {len(mice)} mice",
+        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 4.4 * u) / height_mm, f"{int(m.sum()):,} neurons, {len(mice)} mice",
                  fontsize=fs - 0.9, va="top", color="0.4")
         axs, lo, hi = [], np.inf, -np.inf
         for j, (title, conds) in enumerate(PSTH_GROUPS):
@@ -244,11 +255,11 @@ def main():
             ax.spines[s_].set_visible(False)
         if rr == 0:
             ax.set_title("ROC", fontsize=fs, pad=1.2)
-    free = n_rows * N_COLS > len(top)   # empty slot at the bottom of the last column: the area key goes there
-    keyax = (add_ax((N_COLS - 1) * (block_w + COL_GAP) + 4, TOP + (n_rows - 1) * ROW + HDR + 5, block_w - 8, S - 2) if free
-             else add_ax(1, height_mm - 2.6, width_mm - 2, 2.4)); keyax.axis("off")
+    free = n_rows * ncols > len(top)   # empty slot at the bottom of the last column: the area key goes there
+    keyax = (add_ax((ncols - 1) * (block_w + COL_GAP) + 4, TOP + (n_rows - 1) * ROW + HDR + 5, block_w - 8, S - 2) if free
+             else add_ax(1, height_mm - 2.6 * u, width_mm - 2, 2.4 * u)); keyax.axis("off")
     from matplotlib.lines import Line2D
-    trax = add_ax(1, height_mm - 6.2, width_mm - 2, 3.6); trax.axis("off")   # trace key (user: no legends on top)
+    trax = add_ax(1, height_mm - 6.2 * u, width_mm - 2, 3.6 * u); trax.axis("off")   # trace key (user: no legends on top)
     trax.legend(handles=[Line2D([], [], color=W, ls="--", lw=0.6, label="W pre"), Line2D([], [], color=W, lw=0.6, label="W post / hit"),
                          Line2D([], [], color=WMISS, lw=0.6, label="W miss"), Line2D([], [], color=A, ls="--", lw=0.6, label="A pre"),
                          Line2D([], [], color=A, lw=0.6, label="A post / hit"), Line2D([], [], color=NS, lw=0.6, label="Spont. lick"),
