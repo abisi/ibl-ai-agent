@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy import stats as stats_mod
 
 FIG_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(FIG_DIR.parents[1]))
@@ -154,6 +155,22 @@ def compute_day0_closeup(ctx):
     df, _ = s1.compute_day0_closeup(all_mice_ctx(ctx))
     df = label(ctx, df)
     return df, {"n": n_groups(df), "stats": within(df, "lick_probability", ["trial_type"])}
+
+
+def compute_dprime_day0(ctx):
+    """User 2026-11-19: d' on whisker day 0 per mouse, whisker vs no-stimulus and auditory vs no-stimulus trials:
+    z(lick rate) - z(false-alarm rate) per session (log-linear correction (k + 0.5) / (n + 1), early licks dropped),
+    mean over sessions per mouse."""
+    t = fig1.day0_table(all_mice_ctx(ctx)["table"])
+    t = t[(t.early_lick == 0) & t.trial_type.isin(TRIAL_TYPES)]
+    g = t.groupby(["mouse_id", "cohort", "session_id", "trial_type"]).lick_flag.agg(["sum", "count"]).unstack("trial_type")
+    z = lambda tt: pd.Series(stats_mod.norm.ppf(s1._rate(g[("sum", tt)], g[("count", tt)])), index=g.index)  # noqa: E731
+    rows = []
+    for tt, name in (("whisker_trial", "whisker"), ("auditory_trial", "auditory")):
+        d = (z(tt) - z("no_stim_trial")).rename("dprime").dropna().groupby(["mouse_id", "cohort"]).mean().reset_index()
+        rows.append(d.assign(comparison=name))
+    df = label(ctx, pd.concat(rows, ignore_index=True))
+    return df, {"n": n_groups(df), "stats": within(df, "dprime", ["comparison"])}
 
 
 def compute_days(ctx):

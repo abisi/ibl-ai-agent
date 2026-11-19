@@ -91,9 +91,23 @@ panels:
   cell:
     x_mm: 0.0
     y_mm: 45.0
-    w_mm: 50.0
+    w_mm: 44.0
     h_mm: 34.0
 - id: e
+  key: dprime_day0
+  title: Day-0 d' per mouse
+  data: FigS1L_dprime_day0.csv
+  status: filled
+  caption: 'As d with d'' on whisker day 0: whisker (W) and auditory (A) versus no-stimulus trials, z(lick rate) minus
+    z(false-alarm rate) per session (log-linear rate correction), mean per mouse. R+ learners versus non-learners: whisker
+    Mann-Whitney {stats.R+ whisker.mannwhitney_p:p}, Welch {stats.R+ whisker.welch_p:p}; auditory Mann-Whitney
+    {stats.R+ auditory.mannwhitney_p:p}, Welch {stats.R+ auditory.welch_p:p}.'
+  cell:
+    x_mm: 51.0
+    y_mm: 45.0
+    w_mm: 28.0
+    h_mm: 34.0
+- id: f
   key: days
   title: Lick probability and d' on each day
   data: FigS1L_days.csv
@@ -106,11 +120,11 @@ panels:
     {stats.R+ dprime whisker_trial 1.welch_p:p}; day 2 {stats.R+ dprime whisker_trial 2.mannwhitney_p:p}, Welch
     {stats.R+ dprime whisker_trial 2.welch_p:p}. Every test and the mice per day in the source data.'
   cell:
-    x_mm: 58.0
+    x_mm: 86.0
     y_mm: 45.0
-    w_mm: 125.0
+    w_mm: 97.0
     h_mm: 34.0
-- id: f
+- id: g
   key: perf_trial
   title: Learning curves and Delta P(lick) from the first whisker trial
   data: FigS1L_perf_trial.csv
@@ -126,7 +140,7 @@ panels:
     y_mm: 90.0
     w_mm: 122.0
     h_mm: 34.0
-- id: g
+- id: h
   key: cumulative_fa
   title: False alarms on day -1 and day 0
   data: FigS1L_cumulative_fa.csv
@@ -143,12 +157,12 @@ panels:
     y_mm: 90.0
     w_mm: 51.0
     h_mm: 34.0
-- id: h
+- id: i
   key: perf_hit
   title: Learning curves and Delta P(lick) from the first whisker hit
   data: FigS1L_perf_hit.csv
   status: filled
-  caption: 'As f from the first whisker hit (0) to the session end (1), as Fig. 1J. Clusters: R+ {sig_clusters_text.R+};
+  caption: 'As g from the first whisker hit (0) to the session end (1), as Fig. 1J. Clusters: R+ {sig_clusters_text.R+};
     R- {sig_clusters_text.R-}. n = {n.R+.learners} learners and {n.R+.non_learners} non-learners (R+), {n.R-.learners}
     and {n.R-.non_learners} (R-).'
   cell:
@@ -156,7 +170,7 @@ panels:
     y_mm: 135.0
     w_mm: 122.0
     h_mm: 34.0
-- id: i
+- id: j
   key: rt
   title: Reaction times on day 0
   data: FigS1L_rt.csv
@@ -169,7 +183,7 @@ panels:
     y_mm: 135.0
     w_mm: 51.0
     h_mm: 34.0
-- id: j
+- id: k
   key: dprime_norm
   title: d' across normalised session time
   data: FigS1L_dprime_norm.csv
@@ -183,12 +197,12 @@ panels:
     y_mm: 180.0
     w_mm: 88.0
     h_mm: 34.0
-- id: k
+- id: l
   key: dprime_abs
   title: d' across absolute session time
   data: FigS1L_dprime_abs.csv
   status: filled
-  caption: 'As j against minutes from the alignment, as Supplementary Fig. 1F, shown while at least 5 mice per group
+  caption: 'As k against minutes from the alignment, as Supplementary Fig. 1F, shown while at least 5 mice per group
     remain (R+). Clusters: from the first whisker trial {sig_clusters_text.R+_first_whisker_trial}; from the first whisker
     hit {sig_clusters_text.R+_first_whisker_hit}.'
   cell:
@@ -196,7 +210,7 @@ panels:
     y_mm: 180.0
     w_mm: 88.0
     h_mm: 34.0
-- id: l
+- id: m
   key: pretraining
   title: Auditory pretraining
   data: FigS1L_pretraining.csv
@@ -208,7 +222,7 @@ panels:
     y_mm: 225.0
     w_mm: 40.0
     h_mm: 34.0
-- id: m
+- id: n
   key: first_lick
   title: Whisker trials before the first lick
   data: FigS1L_first_lick.csv

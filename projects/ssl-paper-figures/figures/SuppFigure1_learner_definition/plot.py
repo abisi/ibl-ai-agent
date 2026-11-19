@@ -107,6 +107,17 @@ def plot_day0_closeup(ax, df):
     ax.set_xlabel("Trial type (L, NL per cohort)", labelpad=1)
 
 
+def plot_dprime_day0(ax, df):
+    """User 2026-11-19: as D with d' (whisker vs FA, auditory vs FA) per mouse on day 0."""
+    cats = ["whisker", "auditory"]
+    tt = {"whisker": "whisker_trial", "auditory": "auditory_trial"}
+    ticks = _four_dots(ax, df, "dprime", cats, "comparison", lambda c_, c: fig1.group_color(tt[c_], c))
+    ax.axhline(0, color="0.6", lw=0.4, ls=":")
+    ax.set_xticks(ticks, ["W", "A"])
+    ax.set_ylabel("d′ vs FA, day 0", labelpad=1)
+    ax.set_xlabel("Trial type (L, NL per cohort)", labelpad=1)
+
+
 def plot_days(ax, df):
     from scipy import stats
     axes = fig1._split(ax, 3, gap=0.13)
