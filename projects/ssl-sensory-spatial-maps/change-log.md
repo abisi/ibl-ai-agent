@@ -15,3 +15,5 @@
   (project-organization rule; symlink left at the old path); all script / report paths updated; the old Quarto report
   files (report_numbers.json, report_figures.txt, sensory_maps_report.qmd) now sit next to the article in report/.
   ZETA pipeline test outputs deleted (the pipeline now lives in unit_spikes_analysis/zeta_analysis).
+  Also deleted (user, 2026-11-19): zeta_pilot/ (013 outputs, superseded by 014), snapshot_zone70_20261004/ (pre-90 %
+  zone results) and the old Quarto PDFs (superseded by the article report/report.pdf).
