@@ -6,3 +6,4 @@
   for the DTW criterion in ~/pylibs/tslearn on haas (PYTHONPATH; not in the shared venv).
 - 2026-11-13: report v1 built (render.sh) and published to abisi/ibl-ai-agent-reports docs/ssl-learner-classification
   (pdf, md, html). Supplementary figure snapshot: manuscript Figures/SuppFigure_learners_2026-11-13 (not in the planner yet).
+- 2026-11-19: 003 per-mouse day-0 exact learning curves of every sheet 'bad' mouse and every sheet learner the agnostic label calls a non-learner (figures/003_mouse_curves.png/pdf).
