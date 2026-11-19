@@ -85,6 +85,6 @@ description: Use this skill whenever making publication, abstract (e.g. COSYNE),
 ## Implementation pointers
 - `projects/ssl-paper-figures/paperstyle.py`: Nature rcParams, colours, `light()`, square-cell grid, `save_figure`
   (all formats, rasterized layers at 1200 dpi), source-data workbook.
-- `projects/ssl-rastermap-psth-variants/exploratory-analyses/062_pub_convergence_figures.py`: `setup()` (rcParams),
+- `projects/ssl-prelick-convergence/exploratory-analyses/062_pub_convergence_figures.py`: `setup()` (rcParams),
   `letter_row()` (aligned panel letters), `save()`, `mean_panel()` (rule 3), `mouse_psth()` (rules 1–2),
   `load_psth_prestart()` (pre-trial baseline).

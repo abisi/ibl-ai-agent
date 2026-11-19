@@ -23,8 +23,11 @@
       ROC definitions confirmed by user (gated = choice & hit_vs_spont & !whisker_sensory & !spont_licks_vs_cr;
       sensory = passive_pre|passive_post|active; modality = any of 3 wh_vs_aud epochs; either direction).
 - [~] matrix_summary for qc_good__* variants (running); qc_good_mua__* chained after EDA (~/tmp/chain_matrix_summary_20260926.sh)
-- [ ] REMINDER (user 2026-11-12): clean up the rastermap clustering analyses (45 exploratory scripts, many superseded variants
-      and _stopped / _test folders in combined_results_ks4/rastermap_variants; population_matrix_summary.py duplicated here and
-      in unit_spikes_analysis/rastermap_psth). Remind at the next rastermap / Figure 2 work.
+- [X] Cleanup (user 2026-11-12, done 2026-11-19): README index; non-rastermap topics moved to exploratory-analyses/
+      lick_timing, mmd_rewardfree, roc_rates, rpe_novelty; stale local population_matrix_summary.py removed (package copy
+      is the source).
+- [ ] ASK USER: delete on the NAS _test (306 MB), _stopped_qc_good_learning_expert_with_duplicates and the empty
+      qc_good_mua__learncat_all__..._learning_expert (aborted runs), ..._nopassive__v1_missing_prepassive_mice (1.5 GB,
+      superseded by __nopassive); _cache tables_all_days.pkl (34 GB, superseded by _v2?) only after checking other projects.
 - [~] 045_metacluster_description.py (2026-11-12): Figure 2 metacluster description prototype, N_TOP largest metaclusters,
       variant qc_good__learncat_good_moderate__grid10_nodes__lickfix -> _publication_layout_preview/.
