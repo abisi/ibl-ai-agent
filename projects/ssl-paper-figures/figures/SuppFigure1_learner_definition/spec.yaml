@@ -16,8 +16,8 @@ grid:
 caption:
   title: 'Learner definition: learners and non-learners of each cohort compared on the session measures of Fig. 1 and
     Supplementary Fig. 1.'
-  footer: Learners, mice whose reference-sheet learning category is good or moderate; non-learners, category bad (both
-    cohorts). Every mouse with a whisker day-0 session is included. Trials with perf = 6 and passive trials are excluded;
+  footer: Learners, mice whose reference-sheet learning category (column learning_category_new, 2026-11-19) is good or
+    moderate; non-learners, category bad (both cohorts). Every mouse with a whisker day-0 session is included. Trials with perf = 6 and passive trials are excluded;
     on whisker day 0 the auditory warm-up block is removed except its last trial; early-lick trials are excluded.
     Learners solid lines and filled markers, non-learners dashed lines and open markers; R+, green; R-, magenta;
     auditory, blue; no stimulus, black (R+) and grey (R-). Data are mean ± s.e.m. over mice. Learners versus

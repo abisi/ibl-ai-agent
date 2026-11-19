@@ -35,6 +35,18 @@ COHORTS = ["R+", "R-"]
 TRIAL_TYPES = fig1.TRIAL_TYPES
 MIN_TEST = 3  # mice per group for a two-group test
 MIN_CLUSTER = 5  # mice per group at each x for the cluster test
+CATEGORY_COLUMN = "learning_category_new"  # user 2026-11-19: sheet column with AB104, AB141, MH009, MH026 bad -> moderate
+
+
+def with_sheet_category(table, column=CATEGORY_COLUMN):
+    """Replace learning_category by `column` of the reference sheet (per mouse); the old label kept as
+    learning_category_old."""
+    ref = pd.read_excel(shared_behaviour.REFERENCE_SHEET)[["mouse_id", column]].drop_duplicates("mouse_id")
+    t = table.drop(columns=[column], errors="ignore").merge(ref, on="mouse_id", how="left")
+    changed = t[t.learning_category != t[column]].groupby("mouse_id").first()
+    print("learner category from", column, "; changed:",
+          {m: f"{r.learning_category} -> {r[column]}" for m, r in changed.iterrows()}, flush=True)
+    return t.assign(learning_category_old=t.learning_category, learning_category=t[column]).drop(columns=[column])
 
 
 # ---------------------------------------------------------------- learner labels and the all-mice table
@@ -234,7 +246,7 @@ def main():
     ap.add_argument("--panels", nargs="*")
     ap.add_argument("--date")
     a = ap.parse_args()
-    ctx = {"table": shared_behaviour.load()}
+    ctx = {"table": with_sheet_category(shared_behaviour.load())}
     out = snapshot_dir(SPEC, a.date)
     (out / "data").mkdir(parents=True, exist_ok=True)
     (out / "_build").mkdir(exist_ok=True)
