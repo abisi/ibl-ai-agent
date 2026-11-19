@@ -406,12 +406,11 @@ def _kl_bits(counts, p0):
 def compute_area_specialization():
     """per area (>= MIN_AREA_NEURONS neurons): distribution of its neurons over the metaclusters, log2 enrichment
     over the dataset distribution, specialization = KL divergence (bits) from the dataset distribution; null: area
-    labels shuffled across neurons within each mouse (keeps every mouse's area and metacluster composition)"""
+    labels shuffled across all neurons of the dataset (user 2026-11-19)"""
     b = base()
     R, lab = b["R"], b["lab"]
     meta = lab.metacluster.to_numpy()
     area = R["area_arr"]
-    mouse = R["mouse_arr"]
     cnt = pd.Series(area).value_counts()
     areas = cnt.index[cnt >= MIN_AREA_NEURONS].to_numpy()
     keep = np.isin(area, areas)
@@ -426,13 +425,7 @@ def compute_area_specialization():
 
     C = table(area)
     kl = _kl_bits(C, p0)
-    groups = pd.Series(np.arange(len(area))).groupby(mouse).indices
-    null = []
-    for _ in range(N_PERM):
-        sh = area.copy()
-        for ix in groups.values():
-            sh[ix] = area[rng.permutation(ix)]
-        null.append(_kl_bits(table(sh), p0))
+    null = [_kl_bits(table(rng.permutation(area)), p0) for _ in range(N_PERM)]
     null = np.array(null)
     grp = pd.Series(R["area_group_arr"]).groupby(area).first()
     major, acol = pms._area_categories(R)

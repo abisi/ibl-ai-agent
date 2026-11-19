@@ -243,31 +243,17 @@ panels:
   data: FigS3_area_specialization.csv
   status: filled
   caption: 'Distribution of the neurons of each area (at least {min_neurons} neurons; {n_areas} areas, rows grouped by area
-    group) over the metaclusters (columns, rastermap order): log2 enrichment over the dataset distribution. Right, specialization:
-    KL divergence (bits) of the area''s distribution from the dataset distribution (bar), and the 95th percentile of {n_perm}
-    shuffles of area labels across neurons within each mouse (tick); {n_sig} of {n_areas} areas exceed it (P < 0.05).'
+    group, colour strip) over the metaclusters (columns, rastermap order; top strip, response type): log2 enrichment over
+    the dataset distribution. Right, specialization: KL divergence (bits) of the area''s distribution from the dataset distribution
+    (bars; black, P < 0.05) and the 95th percentile of {n_perm} shuffles of area labels across all neurons of the dataset
+    (red tick); {n_sig} of {n_areas} areas exceed it.'
   cell:
     x_mm: 0.0
     y_mm: 198.0
-    w_mm: 90.0
+    w_mm: 112.0
     h_mm: 56.0
     margins_mm: [9.0, 5.0, 7.0, 24.0]
 - id: p
-  key: area_ami
-  title: What explains cluster membership
-  data: FigS3_area_ami.csv
-  status: filled
-  caption: Adjusted mutual information between the cluster labels (fine clusters, metaclusters) and the area, area group,
-    mouse (one session per mouse) and reward group (R+ / R−) of each neuron (red tick, 95th percentile of {n_perm}
-    permutations). Mouse and area are partly confounded (each mouse was recorded in a subset of areas); see o for area
-    effects within mice.
-  cell:
-    x_mm: 93.0
-    y_mm: 198.0
-    w_mm: 32.0
-    h_mm: 56.0
-    margins_mm: [8.0, 5.0, 9.0, 0.5]
-- id: q
   key: robustness
   title: Robustness across variants
   data: FigS3_robustness.csv
@@ -277,8 +263,8 @@ panels:
     order (grey); reference, the main run, except for locality (good units, earlier settings, 0 and 0.75 vs 0.25). AMI {ami_min:.2f}-{ami_max:.2f};
     dashed, AMI between rastermap and the 100-component GMM ({gmm_ami:.2f}).'
   cell:
-    x_mm: 128.0
+    x_mm: 122.0
     y_mm: 198.0
-    w_mm: 55.0
+    w_mm: 61.0
     h_mm: 56.0
     margins_mm: [25.0, 5.0, 7.0, 0.5]
