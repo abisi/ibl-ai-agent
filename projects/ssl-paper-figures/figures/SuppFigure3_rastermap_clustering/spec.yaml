@@ -1,5 +1,5 @@
 # Supplementary Figure 3 (rastermap clustering) -- user 2026-11-19: the metaclusters not shown in Figure 2, the
-# details of the metaclustering, the recovery of the rastermap clusters by a spectral Bayesian GMM, and the rastermap
+# details of the metaclustering, and the rastermap
 # position of the fine clusters against onset latency and cortical hierarchy. Planner: figures/SuppFigure3_rastermap_clustering.
 # Main run: combined_results_ks4/rastermap_variants/qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin
 figure: SuppFigure3_rastermap_clustering
@@ -27,19 +27,11 @@ shared:
       variant: qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin
       clusters: 100, fit on odd trials, PSTHs shown on even trials
       metaclustering: contiguous, average linkage, 1 - r, cut 0.40
-  bgmm:
-    code: ssl-rastermap-psth-variants/exploratory-analyses/046_bgmm_main_variant.py (embedding + Dirichlet-process
-      GMM), 047_bgmm_fixed_k.py (fixed K = 100 / 24 on the same embedding, maximum likelihood)
-    calls:
-    - unit_spikes_analysis/rastermap_psth/gmm_utils_new (method and defaults of run_gmm)
-    params:
-      matrix: X_odd (as rastermap)
-      spectral: 13 dimensions, sigma tuned to mean similarity 0.5, N_PCA by permutation test
-      bgmm: 200 components, Dirichlet process, concentration 1, diagonal, 10 inits
 panels:
 - id: a
   key: metaclusters
   title: Remaining metaclusters
+  heading: "Six further metaclusters, as in Fig. 2: mean PSTHs, area enrichment and ROC categories"
   status: filled
   source: /mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin/metacluster_description/supp_metaclusters.pdf
   image: _cache/suppfig3_metaclusters_1200dpi.png
@@ -53,34 +45,39 @@ panels:
     y_mm: 0.0
     w_mm: 183.0
     h_mm: 181.0
-    margins_mm: [0.5, 0.0, 1.0, 0.0]
+    margins_mm: [0.5, 0.0, 5.0, 0.0]
 - id: b
   key: umap_clusters
   title: UMAP, clusters
+  heading: "UMAP of neurons, coloured\nby rastermap cluster"
   data: FigS3_umap_clusters.csv
   status: filled
-  caption: UMAP of the {n_neurons} neurons' held-out (even-trial) PSTHs, coloured by rastermap cluster.
+  caption: UMAP of the {n_neurons} neurons' PSTHs (mean of odd- and even-trial PSTHs, all conditions concatenated;
+    {n_neighbors} neighbours, minimum distance {min_dist}, Euclidean), coloured by rastermap cluster; numbers, metaclusters
+    with at least 1,000 neurons, placed at their most central neuron.
   cell:
     x_mm: 0.0
-    y_mm: 186.0
+    y_mm: 187.0
     w_mm: 40.0
-    h_mm: 42.0
-    margins_mm: [4.0, 4.0, 4.0, 1.0]
+    h_mm: 48.0
+    margins_mm: [4.0, 4.5, 9.5, 1.0]
 - id: c
   key: umap_areas
   title: UMAP, areas
+  heading: "Same UMAP, coloured\nby area group"
   data: FigS3_umap_areas.csv
   status: filled
   caption: Same embedding, coloured by area group (as in a; minor groups pooled in Other).
   cell:
     x_mm: 43.0
-    y_mm: 186.0
+    y_mm: 187.0
     w_mm: 58.0
-    h_mm: 42.0
-    margins_mm: [4.0, 4.0, 4.0, 19.0]
+    h_mm: 48.0
+    margins_mm: [4.0, 4.5, 9.5, 19.0]
 - id: d
   key: pca_flow
   title: Population flow
+  heading: "Population trajectories in\nPC space, all trial types"
   data: FigS3_pca_flow.csv
   status: filled
   caption: Population state in the first two principal components of the time bins of the held-out mean PSTHs (each point
@@ -88,20 +85,35 @@ panels:
     condition (shade, time from light to dark; circle, stimulus onset).
   cell:
     x_mm: 104.0
-    y_mm: 186.0
+    y_mm: 187.0
     w_mm: 38.0
-    h_mm: 42.0
-    margins_mm: [4.0, 4.0, 4.0, 0.5]
+    h_mm: 48.0
+    margins_mm: [4.0, 4.5, 9.5, 0.5]
 - id: e
   key: pca_flow_clusters
   title: Flow, clusters
+  heading: "Same trajectories, coloured\nby the most active cluster"
   data: FigS3_pca_flow_clusters.csv
   status: filled
   caption: 'Same trajectories coloured by the activity-weighted mean rastermap cluster of each bin (cluster means above
     baseline as weights): the population moves along the rastermap order within a trial.'
   cell:
     x_mm: 145.0
-    y_mm: 186.0
+    y_mm: 187.0
     w_mm: 38.0
-    h_mm: 42.0
-    margins_mm: [4.0, 4.0, 4.0, 0.5]
+    h_mm: 48.0
+    margins_mm: [4.0, 4.5, 9.5, 0.5]
+- id: f
+  key: pca_flow_by_type
+  title: Flow per trial type
+  heading: "Population trajectory of each trial type (other trial types in grey)"
+  data: FigS3_pca_flow.csv
+  status: filled
+  caption: The trajectories of d, one panel per trial type (same PCs and limits); grey, the time bins of all other trial
+    types; shade, time from light to dark; circle, stimulus onset.
+  cell:
+    x_mm: 0.0
+    y_mm: 240.0
+    w_mm: 183.0
+    h_mm: 31.0
+    margins_mm: [4.0, 4.0, 10.0, 0.5]

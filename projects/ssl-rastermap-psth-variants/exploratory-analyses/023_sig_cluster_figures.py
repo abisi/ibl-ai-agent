@@ -145,8 +145,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--variant", required=True)
     ap.add_argument("--title", default=None)
+    ap.add_argument("--method-dir", default=None, help="rastermap-shaped folder (e.g. 048 Bayesian GMM post hoc)")
     a = ap.parse_args()
-    md = sorted((VARIANTS_ROOT / a.variant).glob("rastermap_clustering/*/*/clustering/*/rastermap"))[0]
+    md = pathlib.Path(a.method_dir) if a.method_dir else \
+        sorted((VARIANTS_ROOT / a.variant).glob("rastermap_clustering/*/*/clustering/*/rastermap"))[0]
     out = md / "sig_cluster_figures"; out.mkdir(exist_ok=True)
     qc = ["good", "mua"] if a.variant.startswith("qc_good_mua") else ["good"]
     cfg = pms.load_cfg(CONFIG, unit_quality_label=qc)

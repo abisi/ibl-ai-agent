@@ -1,12 +1,12 @@
 """SuppFigure3_rastermap_clustering -- one compute_<key>() per panel, each writing data/<csv> of the dated snapshot
-(user 2026-11-19: remaining metaclusters, metaclustering details, Bayesian GMM recovers the rastermap clusters,
+(user 2026-11-19: remaining metaclusters, metaclustering details, GMM families recover the metaclusters (S4),
 cluster position vs latency / hierarchy).
 
 Main rastermap run: rastermap_variants/<VARIANT> (fit on odd trials, 100 clusters; clusters numbered 0..99 in
 rastermap order); metaclusters from population_matrix_summary.metaclustering (contiguous, 1 - r cut 0.40).
 Panel a is the 045_metacluster_description.py figure (--order 17 15 16 9 20 21 --name supp_metaclusters), placed as
-an image. GMM labels: ssl-rastermap-psth-variants/046_bgmm_main_variant.py (embedding, Dirichlet-process run) and
-047_bgmm_fixed_k.py (K = 100 and K = n metaclusters, maximum likelihood on the same embedding).
+an image. GMM labels: ssl-rastermap-psth-variants/046_bgmm_main_variant.py (spectral embedding) and
+047_bgmm_fixed_k.py (K = 100, maximum likelihood on that embedding).
 
 Run on haas: cd ~/code/unit_spikes_analysis; PYTHONPATH=~/code/NWB_reader:. .venv/bin/python \
   ~/code/ibl-ai-agent/projects/ssl-paper-figures/figures/SuppFigure3_rastermap_clustering/compute.py [--only key ...]
@@ -27,7 +27,7 @@ from sklearn.metrics import adjusted_mutual_info_score, adjusted_rand_score
 
 FIG_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(FIG_DIR.parents[1]))
-from common import load_spec, snapshot_dir  # noqa: E402
+from common import CACHE_DIR, load_spec, snapshot_dir  # noqa: E402
 from rastermap_psth import population_matrix_summary as pms  # noqa: E402
 
 SPEC = load_spec(FIG_DIR)
@@ -45,7 +45,6 @@ MIN_AREA_NEURONS = 300  # areas shown in the specialization panel
 N_PERM_AMI_FACTOR = 20   # AMI is chance-corrected; the null only checks it is ~0
 N_MOUSE_SPLITS = 20     # random halves of the mice
 MIN_SPLIT_NEURONS = 10
-N_PERM_AGREE = 50     # AMI is slow at K = 100
 CUTS = np.round(np.arange(0.05, 0.951, 0.025), 3)
 rng = np.random.default_rng(0)
 META = {}
@@ -81,20 +80,34 @@ def group_means(X, labels, ks):
 
 # ---------------------------------------------------------------- panels
 
+UMAP_PARAMS = dict(n_neighbors=15, min_dist=0.0, metric="euclidean", random_state=42)
+
+
 def _umap():
-    """neuron UMAP of the run (fitted on the held-out even-trial PSTHs, rastermap_results_cv.npz), random draw order"""
+    """neuron UMAP on the mean of the odd- and even-trial PSTHs (raw, no PCA), min_dist 0 (user 2026-11-20: the run's
+    UMAP, even trials only with min_dist 0.11, was blobby; a parameter screen on haas showed PCA or z-scoring merge the
+    response arms, while averaging the two halves and min_dist 0 separate them; screen: rastermap_variants/
+    umap_param_test*.npz, variant J). Cached: ~75 s for 47k neurons. Random draw order."""
+    if "umap" in _cache:
+        return _cache["umap"]
     b = base()
     R = b["R"]
-    d = np.load(MD / "rastermap_results_cv.npz", allow_pickle=True)
-    assert np.array_equal(d["unit_ids"], R["unit_ids"])
-    emb = d["umap_embedding"]
+    cache = CACHE_DIR / f"suppfig3_umap_{VARIANT}_mean_nn15_md0.npz"
+    if cache.exists() and np.array_equal(np.load(cache, allow_pickle=True)["unit_ids"], R["unit_ids"]):
+        emb = np.load(cache, allow_pickle=True)["emb"]
+    else:
+        import umap
+        Xm = (np.nan_to_num(R["X"]) + np.nan_to_num(R["X_odd"])) / 2
+        emb = umap.UMAP(n_components=2, **UMAP_PARAMS).fit_transform(Xm)
+        np.savez(cache, emb=emb, unit_ids=R["unit_ids"], params=json.dumps(UMAP_PARAMS))
     o = rng.permutation(len(emb))
-    return b, R, emb, o
+    _cache["umap"] = (b, R, emb, o)
+    return _cache["umap"]
 
 
 def compute_umap_clusters():
     b, R, emb, o = _umap()
-    META["umap_clusters"] = dict(n_neurons=int(len(emb)))
+    META["umap_clusters"] = dict(n_neurons=int(len(emb)), input="mean of odd- and even-trial PSTHs", **UMAP_PARAMS)
     return pd.DataFrame(dict(u1=emb[o, 0], u2=emb[o, 1], cluster=R["labels"][o],
                              metacluster=[b["meta"]["families"][k] for k in R["labels"][o]]))
 
@@ -139,7 +152,8 @@ def _flow():
     w = np.clip(cm, 0, None)
     ws = w.sum(1)
     wci = np.where(ws > 0, (w @ np.arange(K)) / np.where(ws > 0, ws, 1), (K - 1) / 2)
-    d = pd.DataFrame(rows).assign(pc1=pc[:, 0], pc2=pc[:, 1], weighted_cluster=wci)
+    var = pca.explained_variance_ratio_
+    d = pd.DataFrame(rows).assign(pc1=pc[:, 0], pc2=pc[:, 1], weighted_cluster=wci, pc1_var=var[0], pc2_var=var[1])
     _cache["flow"] = (d, pca.explained_variance_ratio_)
     return _cache["flow"]
 
@@ -216,14 +230,6 @@ def _bgmm(K):
     return g.bgmm_component.to_numpy()
 
 
-def _levels():
-    """(level, K, rastermap labels, BGMM labels): fine clusters vs K = 100, metaclusters vs K = n metaclusters"""
-    b = base()
-    rl = b["R"]["labels"]
-    fam = np.array([b["meta"]["families"][k] for k in rl])
-    return [("fine clusters", 100, rl, _bgmm(100)), ("metaclusters", int(fam.max()), fam, _bgmm(int(fam.max())))]
-
-
 def _means(X, labels):
     """mean PSTH per label (one-hot product), labels sorted"""
     ks, inv = np.unique(labels, return_inverse=True)
@@ -232,90 +238,96 @@ def _means(X, labels):
     return ks, (M @ X) / M.sum(1, keepdims=True)
 
 
-def _match(Xd, a, c):
-    """one-to-one (Hungarian) matching of rastermap groups a and BGMM components c on the Pearson r of their mean
-    PSTHs (Xd: held-out trials, population mean subtracted); returns matched a keys, c keys, r per pair"""
-    ka, Ma = _means(Xd, a)
-    kc, Mc = _means(Xd, c)
-    C = r_matrix(Ma, Mc)
-    i, j = linear_sum_assignment(-C)
-    return ka[i], kc[j], C[i, j]
-
-
 def _xd():
     if "Xd" not in _cache:
         X = base()["R"]["X"].astype(np.float32)          # even (held-out) trials
-        _cache["Xd"] = X - X.mean(0, keepdims=True)      # deviation from the population-mean PSTH
+        _cache["Xd"] = X                                 # raw mean PSTHs, population mean kept (user 2026-11-21)
     return _cache["Xd"]
 
 
-def compute_bgmm_contingency():
-    """fraction of each rastermap cluster's neurons in each K = 100 component; components in the order of their
-    matched rastermap cluster (diagonal = one-to-one agreement)"""
+def _xfull():
+    """full-trial neuron PSTHs (the metaclustering input of pms._cluster_means), rows in R["unit_ids"] order"""
+    if "Xfull" not in _cache:
+        cpa = pms.cpa
+        cdf = cpa.load_cluster_table(MD)
+        uids, conds, psth, _ = cpa.load_psth_npz(MD)
+        X, sub, _ = cpa._build_neuron_matrix(cdf, conds, psth, uids)
+        pos = pd.Series(np.arange(len(sub)), sub.unit_ids.to_numpy()).reindex(base()["R"]["unit_ids"]).to_numpy()
+        assert np.isfinite(pos).all(), "full-trial PSTHs missing for some neurons"
+        _cache["Xfull"] = X[pos.astype(int)].astype(np.float32)
+    return _cache["Xfull"]
+
+
+def _gmm_families():
+    """metaclustering applied to the 100-component GMM (047, spectral embedding): components smaller than the smallest
+    rastermap cluster dropped (their neurons excluded), component-mean PSTHs (full trials, as for rastermap) grouped
+    by the same average linkage on 1 - Pearson r but WITHOUT the contiguity constraint (GMM components have no order),
+    cut to the number of rastermap metaclusters. Families are matched one-to-one (Hungarian) to the metaclusters on
+    the Pearson r of family-mean PSTHs (average of the neurons' held-out even-trial PSTHs)."""
+    if "gfam" in _cache:
+        return _cache["gfam"]
+    from sklearn.cluster import AgglomerativeClustering
     b = base()
-    _, K, rl, gl = _levels()[0]
-    ka, kc, _ = _match(_xd(), rl, gl)
-    order = list(kc[np.argsort(ka)]) + [c for c in np.unique(gl) if c not in set(kc)]
-    T = pd.crosstab(rl, gl).reindex(columns=order, fill_value=0)
-    Tn = T.div(T.sum(axis=1), axis=0)
-    long = Tn.stack().rename("frac_of_cluster").reset_index()
-    long.columns = ["cluster", "component", "frac_of_cluster"]
-    long["component_rank"] = long.component.map({c: i for i, c in enumerate(order)})
-    long["metacluster"] = long.cluster.map(b["meta"]["families"])
-    kmeta = _levels()[1][1]
-    prov = {k: json.load(open(BGMM.parent / f"bgmm_k{k}_provenance.json")) for k in (100, kmeta)}
-    dp = json.load(open(BGMM.parent / "bgmm_provenance.json"))
-    META["bgmm_contingency"] = dict(n_components=int(len(order)), n_clusters=int(T.shape[0]),
-                                    frac_on_diagonal=float(sum(T.loc[x, y] for x, y in zip(ka, kc)) / T.to_numpy().sum()),
-                                    n_dp_components=dp["n_active"], fixed_k=prov, dp=dp)
-    return long
+    rl = b["R"]["labels"]
+    ml = np.array([b["meta"]["families"][k] for k in rl])
+    n_meta = int(ml.max())
+    min_size = int(np.bincount(rl).min())
+    gl = _bgmm(100)
+    sz = pd.Series(gl).value_counts()
+    keep = np.isin(gl, sz.index[sz >= min_size])
+    kc, Mc = _means(_xfull()[keep], gl[keep])
+    C = Mc - Mc.mean(1, keepdims=True)
+    fam = AgglomerativeClustering(n_clusters=n_meta, metric="cosine", linkage="average").fit(C).labels_
+    gf = np.full(len(gl), -1)
+    gf[keep] = pd.Series(fam, kc).reindex(gl[keep]).to_numpy()
+    ka, Ma = _means(_xd(), ml)
+    kf, Mf = _means(_xd()[keep], gf[keep])
+    R = r_matrix(Ma.copy(), Mf.copy())
+    i, j = linear_sum_assignment(-R)
+    _cache["gfam"] = dict(ml=ml, gf=gf, keep=keep, ka=ka[i], kf=kf[j], r=R[i, j], Ma=Ma[i], Mf=Mf[j],
+                          min_size=min_size, n_dropped=int((sz < min_size).sum()), n_neurons_dropped=int((~keep).sum()),
+                          n_components=int(len(sz)), n_meta=n_meta)
+    return _cache["gfam"]
 
 
-def compute_bgmm_agreement():
-    """AMI, ARI and fraction of neurons in matched pairs, rastermap vs BGMM with the same number of groups;
-    null: BGMM labels permuted across neurons (matching redone)"""
-    Xd = _xd()
-    rows, meta = [], {}
-    for level, K, a, c in _levels():
-        def stats(cc):
-            ka, kc, _ = _match(Xd, a, cc)
-            m = dict(zip(kc, ka))
-            return dict(AMI=adjusted_mutual_info_score(a, cc), ARI=adjusted_rand_score(a, cc),
-                        matched=float(np.mean(pd.Series(cc).map(m).to_numpy() == a)))
-        real = stats(c)
-        null = pd.DataFrame([stats(rng.permutation(c)) for _ in range(N_PERM_AGREE)])
-        for metric in real:
-            rows.append(dict(level=level, K=K, metric=metric, value=real[metric], null_mean=null[metric].mean(),
-                             null_p95=null[metric].quantile(0.95),
-                             p_perm=(1 + (null[metric] >= real[metric]).sum()) / (1 + len(null))))
-        meta[level.split()[0]] = {**real, "K": K}
-    META["bgmm_agreement"] = dict(fine_matched=meta["fine"]["matched"], meta_matched=meta["metaclusters"]["matched"],
-                                  n_perm=N_PERM_AGREE, levels=meta)
-    return pd.DataFrame(rows)
+def _match_table():
+    g = _gmm_families()
+    nt = base()["name_tab"].rename(columns={"family": "metacluster"})
+    nm, nf = pd.Series(g["ml"]).value_counts(), pd.Series(g["gf"][g["keep"]]).value_counts()
+    d = pd.DataFrame(dict(metacluster=g["ka"], gmm_family=g["kf"], r=g["r"], n_neurons=nm.reindex(g["ka"]).to_numpy(),
+                          n_neurons_gmm_family=nf.reindex(g["kf"]).to_numpy()))
+    return d.merge(nt[["metacluster", "name", "kind", "modality"]], on="metacluster", how="left")
 
 
-def compute_bgmm_matched():
-    """r between matched rastermap and BGMM mean PSTHs (held-out even trials, population mean subtracted), per pair;
-    null: BGMM labels permuted, matching redone"""
-    Xd = _xd()
-    rows, meta = [], {}
-    for level, K, a, c in _levels():
-        ka, kc, r = _match(Xd, a, c)
-        na, nc = pd.Series(a).value_counts(), pd.Series(c).value_counts()
-        rows += [dict(level=level, kind="real", rastermap=x, bgmm=y, r=v, n_rastermap=int(na[x]), n_bgmm=int(nc[y]))
-                 for x, y, v in zip(ka, kc, r)]
-        med = []
-        for p in range(N_PERM):
-            _, _, rp = _match(Xd, a, rng.permutation(c))
-            med.append(np.median(rp))
-            rows += [dict(level=level, kind="perm", r=v, perm=p) for v in rp]
-        meta[level.split()[0]] = dict(r_median=float(np.median(r)), null_median=float(np.median(med)),
-                                      p_perm=float((1 + np.sum(np.array(med) >= np.median(r))) / (1 + N_PERM)),
-                                      n_pairs=int(len(r)))
-    META["bgmm_matched"] = dict(fine_r=meta["fine"]["r_median"], meta_r=meta["metaclusters"]["r_median"],
-                                fine_null=meta["fine"]["null_median"], meta_null=meta["metaclusters"]["null_median"],
-                                fine_p=meta["fine"]["p_perm"], meta_p=meta["metaclusters"]["p_perm"], n_perm=N_PERM)
-    return pd.DataFrame(rows)
+def compute_gmm_family_match():
+    """per rastermap metacluster: r with its matched GMM family (family-mean PSTHs, held-out trials) vs its size"""
+    g, d = _gmm_families(), _match_table()
+    w = d.n_neurons / d.n_neurons.sum()
+    META["gmm_family_match"] = dict(
+        n_meta=g["n_meta"], n_components=g["n_components"], min_size=g["min_size"], n_dropped=g["n_dropped"],
+        n_neurons_dropped=g["n_neurons_dropped"], r_median=float(d.r.median()), r_weighted=float((w * d.r).sum()),
+        n_r_gt_0p8=int((d.r > 0.8).sum()), frac_neurons_r_gt_0p8=float(w[d.r > 0.8].sum()),
+        min_size_all_matched=int(d.n_neurons[d.r <= 0.8].max() + 1) if (d.r <= 0.8).any() else 0)
+    return d.sort_values("metacluster")
+
+
+def compute_gmm_family_psth():
+    """family-mean PSTHs (held-out even trials, concatenated conditions) of each metacluster and its matched GMM
+    family, rows in metacluster (rastermap) order"""
+    g, d = _gmm_families(), _match_table().set_index("metacluster")
+    R = base()["R"]
+    off = np.r_[0, np.cumsum(R["n_bins_list"])]
+    cond = np.repeat(np.arange(len(R["n_bins_list"])), R["n_bins_list"])
+    rows = []
+    for a, Ma, Mf in sorted(zip(g["ka"], g["Ma"], g["Mf"]), key=lambda t: t[0]):
+        for method, M in (("rastermap", Ma), ("gmm", Mf)):
+            rows.append(pd.DataFrame(dict(metacluster=a, method=method, col=np.arange(len(M)), cond=cond, value=M,
+                                          r=d.loc[a, "r"], n_neurons=d.loc[a, "n_neurons"], kind=d.loc[a, "kind"],
+                                          modality=d.loc[a, "modality"])))
+    META["gmm_family_psth"] = dict(cond_labels=list(pms.rmu.COND_LABELS), cond_edges=off.tolist(),
+                                   **{k: g[k] for k in ("n_meta", "n_components", "min_size", "n_dropped",
+                                                        "n_neurons_dropped")})
+    return pd.concat(rows, ignore_index=True)
 
 
 def _zeta(types=("whisker_active", "auditory_active")):
@@ -360,12 +372,29 @@ def compute_latency():
 
 
 def compute_hierarchy():
-    """per fine cluster: mean Harris et al. (2019) hierarchy score of its neurons with a score; clusters split into
+    """per fine cluster: mean Harris et al. (2019) hierarchy score of its neurons with a score"""
+    d, meta = _anatomy_vs_order(pms.ANATOMY_COLS[1])
+    META["hierarchy"] = meta
+    return d
+
+
+def compute_liu_projection():
+    """as compute_hierarchy, for the wS1/wS2 projection strength to the neuron's area (Liu et al., 2024; avg_ipsi),
+    log10 (heavy-tailed: 0.004 to 1006, median 225) -- user 2026-11-20, panel next to the hierarchy panel"""
+    d, meta = _anatomy_vs_order(pms.ANATOMY_COLS[0], log10=True)
+    META["liu_projection"] = meta
+    return d
+
+
+def _anatomy_vs_order(column, log10=False):
+    """per fine cluster: mean anatomy score (column of R['anatomy']) of its neurons with a score; clusters split into
     whisker- and auditory-dominated (larger fraction of ZETA-positive neurons in active whisker vs auditory trials);
     Spearman rho per group, permutation p (scores shuffled across neurons of that group's clusters), least-squares line"""
     b = base()
     R = b["R"]
-    h = R["anatomy"][pms.ANATOMY_COLS[1]]
+    h = R["anatomy"][column].astype(float)
+    if log10:
+        h = np.where(h > 0, np.log10(np.where(h > 0, h, 1)), np.nan)
     ok = np.isfinite(h)
     hl, ll = h[ok], R["labels"][ok]
     d = (pd.DataFrame(dict(cluster=ll, h=hl)).groupby("cluster").h.agg(["mean", "sem", "size"])
@@ -378,7 +407,7 @@ def compute_hierarchy():
     d["frac_auditory"] = d.cluster.map(fr["auditory_active"])
     d["dominant"] = np.where(d.frac_whisker > d.frac_auditory, "whisker", "auditory")
     d["metacluster"] = d.cluster.map(b["meta"]["families"])
-    meta = dict(n_neurons=int(ok.sum()), column=pms.ANATOMY_COLS[1], n_perm=N_PERM)
+    meta = dict(n_neurons=int(ok.sum()), column=column, log10=log10, n_perm=N_PERM)
     rho, _ = spearmanr(d.cluster, d.hierarchy)
     meta["all"] = dict(rho=float(rho), p_perm=_p(_perm_rho(hl, ll, d.cluster.to_numpy(), "mean"), rho),
                        n_clusters=int(len(d)))
@@ -393,8 +422,7 @@ def compute_hierarchy():
         d.loc[x.index, "fit"] = icpt + slope * x.cluster
         d.loc[x.index, "rho"] = rho
         d.loc[x.index, "p_perm"] = meta[g]["p_perm"]
-    META["hierarchy"] = meta
-    return d
+    return d, meta
 
 
 def _kl_bits(counts, p0):
@@ -612,8 +640,8 @@ def main():
         fn = globals().get(f"compute_{key}")
         if fn is None or "data" not in p or (a.only and key not in a.only):
             continue
-        if key.startswith("bgmm") and not (BGMM.parent / "bgmm_k100_labels.csv").exists():
-            print("BGMM labels not ready, skipped", key)
+        if key.startswith("gmm") and not (BGMM.parent / "bgmm_k100_labels.csv").exists():
+            print("GMM labels not ready, skipped", key)
             continue
         df = fn()
         df.to_csv(out / "data" / p["data"], index=False)

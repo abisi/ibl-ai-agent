@@ -82,8 +82,37 @@ def assemble(spec, out, plot):
             grid.placeholder(ax, f"{panel['title']}\n({panel.get('kind', 'not filled')})")
             continue
         getattr(plot, fn)(ax, pd.read_csv(csv))
+        panel_heading(grid, panel)
     figure_legend(grid, spec)
+    figure_key(grid, spec)
     return grid
+
+
+def panel_heading(grid, panel):
+    """spec panel 'heading': what the panel shows, one or two lines at the top of the planner box, right of the letter
+    (user 2026-11-20: explain each panel on the figure itself). Leave room for it in the cell's top margin."""
+    if not panel.get("heading") or "x_mm" not in panel["cell"]:
+        return
+    pw, ph = grid.page
+    x = grid.x0 - grid.pad_left + panel["cell"]["x_mm"] + 3.2
+    y = grid.y0 - grid.row_gap + panel["cell"]["y_mm"] + 0.15
+    grid.fig.text(x / pw, 1 - y / ph, panel["heading"], fontsize=6, va="top", ha="left", linespacing=1.05)  # not bold (user 2026-11-20)
+
+
+def figure_key(grid, spec):
+    """spec 'figure_key': list of lines (abbreviations, area names) printed under the last row of panels, full width."""
+    lines = spec.get("figure_key")
+    if not lines:
+        return
+    import textwrap
+    pw, ph = grid.page
+    x = grid.x0 - grid.pad_left
+    width_chars = int(spec["grid"]["width_mm"] / 1.05)  # 5 pt Arial ~ 1 mm per character
+    text = "\n".join(textwrap.fill(line, width_chars) for line in lines)
+    y = grid.bottom_mm + 4.0
+    t = grid.fig.text(x / pw, 1 - y / ph, text, fontsize=5, va="top", ha="left", linespacing=1.25)
+    grid.bottom_mm = y + 2.3 * (text.count("\n") + 1)
+    return t
 
 
 def figure_legend(grid, spec):
