@@ -2,12 +2,12 @@
 against the whisker responses.
 
 1. Tissue (per brain, compute step): the L4 slab of the brain's own autofluorescence image (channel 0, voxels within
-   30 um of the L4 depth Lana's fit used, depth below the image pia from her pia_depth), averaged per flat pixel, in two
+   30 um of the L4 depth the final fit used, depth below the image pia from her pia_depth), averaged per flat pixel, in two
    frames on the same template grid:
      global frame = the brain's own flatmap before the barrel correction (flatcoords G): the Blue Brain atlas barrels
        land here as the coarse (brainreg) registration placed them, i.e. the registration behind the NWB CCF labels
        (the IBL alignment picks lie on that registration's atlas-space tracks);
-     D2 frame = after Lana's barrel correction (G_corrected): the corrected barrels are the template itself.
+     D2 frame = after the final fit's barrel correction (G_corrected): the corrected barrels are the template itself.
    DiI (channel 1): 99th percentile per flat pixel over 150-1000 um below the pia (the probe's footprint in the column).
    Units: global = NWB CCF -> inverse deformation field -> sample voxel (001 `z, y, x`); D2 = the same unit on the
    physical DiI track (001 `trk_z, trk_y, trk_x`). Both are looked up in both frames, so the registration effect
@@ -35,6 +35,13 @@ tifffile.memmap = lambda *a, **k: _memmap(*a, **{"mode": "r", **k})  # Lana's fi
 sys.path.insert(0, str(D2))
 sys.path.insert(0, str(D2 / "code_snapshot"))
 import tracks_to_barrels as ttb  # noqa: E402  (read only)
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+from axel_bisi_paths import axel_bisi_root  # noqa: E402
+
+# the final user-picked fits (ws1-barrel-registration/D2_final_user_picked, 2026-11-22); brainreg folders from its brain list
+FINAL = axel_bisi_root() / "combined_results_ks4" / "ws1-barrel-registration" / "D2_final_user_picked"
+_REG = pd.read_csv(FINAL.parent / "D2_all_brains" / "registration_params.csv").set_index("brain").reg_dir.to_dict()
+ttb.cfg.reg_dir = lambda b: _REG[b]
 from barrelreg.imageproc import bandpass, tissue_mask_padded  # noqa: E402
 from barrelreg.register import pia_depth  # noqa: E402
 
@@ -89,7 +96,9 @@ def flat_at(G, lo_vox, V):
 def compute(mouse):
     inv = pd.read_csv(TABLES / "000_inventory.csv")
     folder = inv[inv.mouse_id == mouse].d2_folder.dropna().iloc[0]
-    bd = D2 / folder
+    bd = FINAL / folder / "results"
+    if not (bd / "h1" / "metrics.json").exists():  # use_global brain: no local fit to compare
+        return mouse, "use_global (no local fit)"
     met = json.load(open(bd / "h1" / "metrics.json"))
     fz = np.load(bd / "h1" / "flatcoords.npz")
     G, Gc, lo_vox = fz["G"], fz["G_corrected"], np.asarray(fz["crop20_lo"])

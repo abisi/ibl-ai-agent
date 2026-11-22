@@ -1,16 +1,17 @@
 """005 figures -- global (NWB CCF) vs local (D2) registration on each brain's own tissue, and the C2 functional test.
 
 Inputs: 005_registration_validation.py compute (tables/005_l4_<mouse>.npz, 005_units_flat_<mouse>.parquet), 002 responses.
-Everything is drawn in the brain's own flatmap (before Lana's barrel correction), so both registrations sit on exactly
+Everything is drawn in the brain's own flatmap (before the barrel correction), so both registrations sit on exactly
 the same tissue image and only the barrel outlines and unit positions differ:
   global = Blue Brain barrels of the coarse (brainreg) registration, units at their NWB CCF (inverse field);
-  D2 = Lana's corrected barrels (barrels_corrected_full), units on the physical DiI track (001 track transfer).
+  D2 = the final user-picked fit's corrected barrels (barrels_corrected_full), units on the physical DiI track (001 track transfer).
 Per brain: 005_tissue_<mouse> (tissue alone | global | D2). Population: 005_functional_c2_<set> (whisker response vs
 distance from C2 under each registration, plus the two mixed routes that separate the barrel map from the unit
-placement), 005_fit_qc (Lana's landmark error and Dice, coarse placement vs D2).
+placement), 005_fit_qc (final fit landmark error and Dice, coarse placement vs D2).
 Run (haas): ~/code/unit_spikes_analysis/.venv/bin/python 005_plot.py [mice]
 """
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -255,9 +256,15 @@ def functional_figure(df, tag):
 
 
 def qc_figure():
-    s = pd.read_csv(v.D2 / "summary.csv")
     inv = pd.read_csv(TABLES / "000_inventory.csv")
-    s = s[s.brain.isin(inv.d2_folder)]
+    rows = []
+    for b in inv[~inv.d2_variant].d2_folder.unique():  # final user-picked fit of each linked brain (use_local only)
+        f = v.FINAL / b / "results" / "h1" / "metrics.json"
+        if f.exists():
+            m = json.load(open(f))
+            rows.append(dict(brain=b, **{k: m.get(k) for k in ("err_initial_um", "err_tps_loo_um", "dice_initial", "dice_after",
+                                                                "n_matched", "contrast_after")}))
+    s = pd.DataFrame(rows)
     fig, axes = plt.subplots(1, 2, figsize=(4.4, 2.1), constrained_layout=True)
     for ax, (a, b, yl) in zip(axes, [("err_initial_um", "err_tps_loo_um", "Barrel landmark error vs tissue (µm)"),
                                      ("dice_initial", "dice_after", "Overlap with tissue barrels (Dice)")]):
@@ -268,7 +275,7 @@ def qc_figure():
         ax.set_ylabel(yl)
         ax.set_title(f"median {s[a].median():.2f} -> {s[b].median():.2f}" if "dice" in a else
                      f"median {s[a].median():.0f} -> {s[b].median():.0f} µm")
-    fig.suptitle(f"Lana's barrel fit QC, {len(s)} brains", fontsize=6.5)
+    fig.suptitle(f"Final barrel fit QC, {len(s)} brains (use_local)", fontsize=6.5)
     for ext in ("png", "pdf", "svg"):
         fig.savefig(OUT / f"005_fit_qc.{ext}", dpi=400)
     plt.close(fig)
