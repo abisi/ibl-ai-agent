@@ -17,4 +17,9 @@
 - [X] all barrel-field brains (2026-11-11): 49 of 58 D2 brains have a wS1 probe and are linked (57 probes); MH007, MH020
       have no units on a DiI track. Global vs D2 barrel agree for 17 % of units (median shift 277 um, pilot AB156 was
       the exception). C2 L4 latency 7 ms vs 9 ms in neighbours.
+- [X] rerun on the final user-picked D2 fits (ws1-barrel-registration/D2_final_user_picked, 2026-11-22): 000 reads the
+      final table (85 use_local, 16 use_global; per mouse the Anatomy brain), 001 reads <brain>/results; use_global
+      brains placed with the NWB global registration (glob_barrel / glob_layer, global flat position via the Blue Brain
+      flatmap; lookup check 99.8 % barrel agreement). Maps: 41 mice D2 (14934 units), 7 mice global (1160 units).
+      MH007, MH008 have no wS1-targeted probe in the current NWBs (dropped). Old outputs in _archive_lana_d2_neuropixels_20261111/.
 - [ ] full results to the user  **consult user**; report

@@ -1,4 +1,4 @@
-"""001 -- NWB units -> global CCF (IBL ephys alignment) -> brain voxel -> Lana Smith's D2 barrel registration.
+"""001 -- NWB units -> global CCF (IBL ephys alignment) -> brain voxel -> final user-picked D2 barrel registration.
 
 Chain (verified 2026-11-11 on AB156, AB164, MH064):
 - Each unit's NWB `ccf_atlas_ap/dv/ml` is the aligned position of its peak channel in channel_locations.json (IBL ephys
@@ -9,7 +9,8 @@ Chain (verified 2026-11-11 on AB156, AB164, MH064):
 1. Global CCF -> atlas voxel (10 um) -> nearest brain voxel (inverse of the brainreg deformation field, 20 um brain grid);
    `residual_um` = atlas distance between the unit and that voxel's atlas position.
 2. Global labels: Blue Brain barrels annotation (the registration atlas) at the global CCF position -> `glob_region`,
-   `glob_barrel`, `glob_layer`.
+   `glob_barrel`, `glob_layer`, and the global flat position `glob_flat_{anterior,dorsal}_um` (Blue Brain flatmap ->
+   template frame). Brains whose local fit was rejected (final decision use_global) are placed with these.
 3. Barrel-specific labels at the voxel (Lana's sample_table, tracks_to_barrels.py, imported read only): D2 barrel, D2
    region / layer (annotation at the corrected CCF), corrected CCF (`ccf_*_um`), corrected flat L4 coordinate, brainreg
    region. `shift_*_um` = corrected - global CCF (the local barrel correction at the unit).
@@ -42,6 +43,14 @@ _memmap = tifffile.memmap
 tifffile.memmap = lambda *a, **k: _memmap(*a, **{"mode": "r", **k})  # Lana's files are read only (default mode is r+)
 sys.path.insert(0, str(D2))
 import tracks_to_barrels as ttb  # noqa: E402  (Lana's module: config, atlas tables, load_brain, sample_table; read only)
+
+# Barrel fits: the final user-picked registration (ws1-barrel-registration/D2_final_user_picked, 2026-11-22), not Lana's
+# D2_neuropixels run: Lana's lookup functions read <brain>/results there (use_local brains; use_global brains have no
+# fit, so their D2 columns stay empty). Brainreg folders from the registration's brain list (covers every brain).
+FINAL = axel_bisi_root() / "combined_results_ks4" / "ws1-barrel-registration" / "D2_final_user_picked"
+_REG = pd.read_csv(FINAL.parent / "D2_all_brains" / "registration_params.csv").set_index("brain").reg_dir.to_dict()
+ttb.cfg.brain_dir = lambda b: str(FINAL / b / "results")
+ttb.cfg.reg_dir = lambda b: _REG[b]
 
 NWB = axel_bisi_root() / "NWB_ks4"
 OUT = axel_bisi_root() / "combined_results_ks4" / "ssl-barrel-localization" / "tables"
@@ -152,11 +161,36 @@ def transfer_to_sample_track(units_ccf_vox, A, S, field):
     return point_at_arc(S, arcS, f * arcS[-1])
 
 
+_FM = {}
+
+
+def global_flat(v):
+    """global CCF voxels (10 um, ap / dv / ml) -> position in the template flat frame (um): Blue Brain flatmap at the
+    voxel (one CCF hemisphere, ml index >= 572; the other is mirrored) through the template's flatmap -> plane affine L.
+    Every isocortex voxel carries its column's flat position, so this is the global registration's flat position."""
+    if not _FM:
+        _FM.update(F=np.load(ttb.cfg.flatmap_crop, mmap_mode="r"), lo=np.load(ttb.cfg.flatmap_crop_lo))
+    v = v.copy()
+    mid = ttb.ann.shape[2] // 2
+    v[:, 2] = np.where(v[:, 2] < mid, ttb.ann.shape[2] - 1 - v[:, 2], v[:, 2])
+    g = v - _FM["lo"]
+    ok = (g >= 0).all(1) & (g < np.array(_FM["F"].shape[:3])).all(1)
+    F = np.full((len(v), 2), np.nan)
+    F[ok] = np.asarray(_FM["F"][tuple(g[ok].T)], np.float64)
+    F[~(np.isfinite(F).all(1) & (F >= 0).all(1))] = np.nan
+    T = np.c_[F, np.ones(len(F))] @ ttb.TPL["L"]
+    return T[:, 0], T[:, 1]
+
+
 def global_labels(units):
+    """Labels and flat position under the global registration (the NWB CCF): used for brains whose local fit was
+    rejected (decision use_global)."""
     v = np.clip(np.rint(units[CCF].to_numpy(float) / 10).astype(int), 0, np.array(ttb.ann.shape) - 1)
     rid = np.asarray(ttb.ann[tuple(v.T)]).astype(np.int64)
+    fa, fd = global_flat(v)
     return pd.DataFrame({"glob_region": [ttb.acronym(i) for i in rid], "glob_barrel": [ttb.barrel(i) for i in rid],
-                         "glob_layer": [ttb.layer(i) for i in rid]}, index=units.index)
+                         "glob_layer": [ttb.layer(i) for i in rid], "glob_flat_anterior_um": fa,
+                         "glob_flat_dorsal_um": fd}, index=units.index)
 
 
 def link_mouse(mouse, inv_table):
@@ -199,6 +233,8 @@ def link_mouse(mouse, inv_table):
     for k, c in zip(("ap", "dv", "ml"), CCF):
         units[f"trk_shift_{k}_um"] = units[f"trk_ccf_{k}_um"] - units[c]
     units["trk_shift_um"] = np.linalg.norm(units[["trk_shift_ap_um", "trk_shift_dv_um", "trk_shift_ml_um"]].to_numpy(float), axis=1)
+    # which registration places this brain's units: its final user-picked D2 fit, or the global one (use_global)
+    units["registration"] = "D2" if B["met"] is not None else "global"
     OUT.mkdir(parents=True, exist_ok=True)
     units.to_parquet(OUT / f"001_units_{mouse}.parquet")
     bar = on_ws1 & (units.d2_barrel.fillna("") != "")

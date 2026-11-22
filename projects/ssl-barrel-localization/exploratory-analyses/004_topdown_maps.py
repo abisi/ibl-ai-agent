@@ -1,6 +1,8 @@
 """004 -- Top-down barrel-field figures of probes, units and their whisker / auditory responses (all brains pooled).
 
-Every brain is in Lana's common flat frame (D2 template; units placed on their DiI track, 001 `trk_flat_*`), drawn
+Every brain is in the common flat frame of the D2 template. Units of brains with a final user-picked local fit are placed
+on their DiI track (001 `trk_flat_*`); brains whose local fit was rejected (use_global) use the NWB global registration
+(barrel / layer at the NWB CCF, global flat position; 003 `load`, column `registration`). Drawn
 as the standard barrel-map schematic: anterior to the right (arcs 1 -> 8 left to right, straddlers on the left), row A
 at the top and row E at the bottom (the frame's flat-dorsal axis points down). Good / mua units on wS1 probes (003 `load`).
   004_probe_locations: each probe's path through the barrel field (its units from superficial to deep), dot at its

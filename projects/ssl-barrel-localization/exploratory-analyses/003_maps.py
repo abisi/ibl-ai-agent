@@ -1,6 +1,6 @@
 """003 -- Localization and functional maps of the linked units (001 track transfer `trk_`, 002), good / mua units on wS1 probes.
 
-Per mouse (one row): flat L4 map of the barrel field (Lana's D2 template, all brains in the same flat frame; C2 shaded)
+Per mouse (one row): flat L4 map of the barrel field (D2 template, final user-picked fits, all brains in the same flat frame; C2 shaded)
 with the units at their corrected flat coordinate, coloured by (1) layer, (2) whisker AUC (evoked vs baseline),
 (3) whisker latency, (4) auditory AUC; (5) depth profile: whisker delta rate against the unit depth on the probe,
 coloured by barrel. Global vs barrel-specific registration: shift between the global CCF (IBL alignment) and the D2
@@ -26,7 +26,7 @@ from skimage.segmentation import find_boundaries  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from axel_bisi_paths import axel_bisi_root  # noqa: E402
 
-D2 = Path("/raid0/lmsmith/local_barrel_reg/D2_neuropixels")
+D2 = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ws1-barrel-registration/D2_all_brains")  # template.npz (same file as Lana's D2 run)
 ROOT = axel_bisi_root() / "combined_results_ks4" / "ssl-barrel-localization"
 TABLES, FIGS = ROOT / "tables", ROOT / "figures"
 TPL = np.load(D2 / "template.npz")
@@ -45,9 +45,18 @@ def load(mouse):
         d["cluster_id"] = d.cluster_id.astype(float)
     df = u.merge(r, on=["mouse_id", "session_id", "electrode_group", "cluster_id"], how="left")
     df = df[df.bc_label.isin(["good", "mua"]) & df.track_file.notna()]
-    df = df[df.trk_brainreg_region.notna()]  # units placed on their probe's DiI track
+    glob = df.get("registration", pd.Series("D2", index=df.index)).eq("global")
+    df = df[glob | df.trk_brainreg_region.notna()]  # D2 brains: units placed on their probe's DiI track
+    glob = glob.reindex(df.index)
     df["barrel"] = df.trk_d2_barrel.fillna("")
     df["layer"] = df.trk_d2_layer.fillna("").replace("", np.nan).fillna(df.trk_brainreg_layer.replace("", np.nan))
+    # brains whose local fit was rejected (final decision use_global): the global registration of the NWB files, i.e.
+    # barrel / layer of the annotation at the unit's NWB CCF and its global flat position
+    df.loc[glob, "barrel"] = df.loc[glob, "glob_barrel"].fillna("")
+    df.loc[glob, "layer"] = df.loc[glob, "glob_layer"].replace("", np.nan)
+    df.loc[glob, "trk_flat_anterior_um"] = df.loc[glob, "glob_flat_anterior_um"]
+    df.loc[glob, "trk_flat_dorsal_um"] = df.loc[glob, "glob_flat_dorsal_um"]
+    df["registration"] = np.where(glob, "global", "D2")
     in_bfd = df.glob_region.fillna("").str.startswith("SSp-bfd") | (df.barrel != "")
     df["barrel_class"] = np.select([df.barrel == "C2", df.barrel.isin(NEIGHBOURS), df.barrel != "", in_bfd],
                                    ["C2", "C2 neighbours", "other barrels", "septa / between columns"], "outside SSp-bfd")
