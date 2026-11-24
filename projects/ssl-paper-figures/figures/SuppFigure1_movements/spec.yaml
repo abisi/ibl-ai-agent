@@ -1,0 +1,73 @@
+# Supplementary Figure 1c (evoked movements) -- moved out of SuppFigure1_behaviour (user 2026-11-22: 'DLC adjust look and
+# stats / add tongue, lick-aligned'). One panel per DeepLabCut measure: stimulus-aligned traces on every trial type and
+# outcome, then lick-aligned traces on licked trials. Data: shared_movement_peth v13 (user 2026-11-23: whisker speed, jaw distance, pupil area and nose
+# distance, tongue-out probability, aligned to the stimulus and to the first lick; 120 mm wide).
+figure: SuppFigure1_movements
+figure_legend:
+- {label: R+, color: '#00B400'}
+- {label: R−, color: '#C800C8'}
+number: S1c
+grid:
+  width_mm: 120
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 11.5
+  pad_left_mm: 8
+caption:
+  title: 'Evoked movements on every trial type and outcome of whisker day 0, aligned to the stimulus and to the first lick.'
+  footer: Learner mice with dual-view video (DeepLabCut, ephys_utilities dlc_helpers). Trials with perf = 6 and passive trials
+    are excluded; on whisker day 0 the auditory warm-up block is removed except its last trial; early-lick trials are
+    excluded. Each trial minus its pre-stimulus mean (also for lick-aligned traces), mean over trials per
+    session and over sessions per mouse; mean ± s.e.m. over mice. Columns, stimulus-aligned whisker, auditory and no-stimulus trials with a
+    lick (solid; hits, false alarms) or without (dashed; misses, correct rejections), then licked trials aligned to the
+    first lick (whisker hits, auditory hits, false alarms). R+, green; R-, magenta (whisker trials); auditory, blue, lighter
+    for R-; no stimulus, black (R+) and grey (R-). Bars, R+ versus R- clusters (cluster-based permutation test of cohort
+    labels on Welch t, 1,000 permutations, cluster P < 0.05; conditions with at least 5 mice per cohort), grey to black by
+    P, with stars (* P < 0.05, ** P < 0.01, *** P < 0.001) and the P value above.
+shared:
+  movement_peth:
+    code: shared_movement_peth.load (version 13)
+    calls:
+    - shared_movements.dlc_signals (ephys_utilities dlc_helpers; tongue_presence for the tongue)
+    params:
+      stimulus_window_s: whisker speed, jaw, nose -0.1 to 0.5; pupil -1 to 3
+      lick_window_s: -0.3 to 0.3; pupil -2 to 2
+      lick_time: start_time + computed_reaction_time
+panels:
+- id: a
+  key: evoked_whisker_speed
+  title: Whisker speed
+  data: FigS1c_evoked_whisker_speed.csv
+  status: filled
+  caption: 'Whisker speed (|whisker_velocity|, top view). Clusters: {cluster_text}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
+  cell: {x_mm: 0.0, y_mm: 0.0, w_mm: 120.0, h_mm: 28.0, margins_mm: [9.0, 6.0, 5.0, 0.5]}
+- id: b
+  key: evoked_jaw_opening
+  title: Jaw distance
+  data: FigS1c_evoked_jaw_opening.csv
+  status: filled
+  caption: 'Jaw distance (jaw_distance, side view). Clusters: {cluster_text}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
+  cell: {x_mm: 0.0, y_mm: 38.0, w_mm: 120.0, h_mm: 28.0, margins_mm: [9.0, 6.0, 5.0, 0.5]}
+- id: c
+  key: evoked_pupil_area
+  title: Pupil area
+  data: FigS1c_evoked_pupil_area.csv
+  status: filled
+  caption: 'Pupil area (side view, trials with a blink or squint in the window dropped). Clusters: {cluster_text}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
+  cell: {x_mm: 0.0, y_mm: 76.0, w_mm: 120.0, h_mm: 28.0, margins_mm: [9.0, 6.0, 5.0, 0.5]}
+- id: d
+  key: evoked_nose_distance
+  title: Nose distance
+  data: FigS1c_evoked_nose_distance.csv
+  status: filled
+  caption: 'Nose distance (nose tip from its reference point; side and top views combined when both exist,
+    shared_movements nose). Clusters: {cluster_text}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
+  cell: {x_mm: 0.0, y_mm: 114.0, w_mm: 120.0, h_mm: 28.0, margins_mm: [9.0, 6.0, 5.0, 0.5]}
+- id: e
+  key: evoked_tongue_out
+  title: Tongue out
+  data: FigS1c_evoked_tongue_out.csv
+  status: filled
+  caption: 'Probability of the tongue being out (side view, tongue likelihood above 0.6 per frame). Clusters: {cluster_text}.
+    n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
+  cell: {x_mm: 0.0, y_mm: 152.0, w_mm: 120.0, h_mm: 28.0, margins_mm: [9.0, 6.0, 5.0, 0.5]}

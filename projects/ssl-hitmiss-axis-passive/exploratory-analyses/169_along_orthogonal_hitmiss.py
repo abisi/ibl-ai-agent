@@ -45,7 +45,11 @@ N_SHIFT, FRAC, MIN_CLASS, N_HALF, MIN_UNITS = 50, (0.10, 0.50), 10, 50, 20
 N_WORKERS = int(os.environ.get("SSL_DECODE_N_WORKERS", "30"))
 STAGE = os.environ.get("SSL_STAGE", "learning")             # 2026-10-08: SSL_STAGE=expert for the across-days port; suffix _expert
 RAW = bool(os.environ.get("SSL_169_RAW"))                      # 2026-10-09: raw rates, no SD scaling; suffix _raw
-OUT_P = EA / (("169_along_orthogonal" if STAGE == "learning" else f"169_along_orthogonal_{STAGE}") + ("_raw" if RAW else "") + ".parquet")
+# 2026-11-23 (user: "one need 3 hits and 3 misses for the axis"): SSL_169_MIN_CLASS = minimum licked AND unlicked active whisker
+# trials for the real axis and for each shifted axis (default 10, the October runs); != 10 -> suffix _hm<n>
+MIN_CLASS = int(os.environ.get("SSL_169_MIN_CLASS", str(MIN_CLASS)))
+OUT_P = EA / (("169_along_orthogonal" if STAGE == "learning" else f"169_along_orthogonal_{STAGE}") + ("_raw" if RAW else "")
+              + ("" if MIN_CLASS == 10 else f"_hm{MIN_CLASS}") + ".parquet")
 SET_IDS = {}
 
 
@@ -135,6 +139,7 @@ def process(args):
         gden = np.sqrt(max(np.mean(g_den1), 0) * max(np.mean(g_den2), 0))
         g = np.mean(g_num) / gden if gden > 0 else np.nan
         r = dict(session_id=sid, mouse_id=subject, reward_group=rg, stim=s_, n_units=N, n_shifts=len(us),
+                 n_hit=int(y.sum()), n_miss=int((~y).sum()),
                  n_pre=len(P["passive_pre"]), n_post=len(P["passive_post"]), g=g,
                  rho_pre=rho["passive_pre"], rho_post=rho["passive_post"],
                  dlick_W=beh["W"][0], plick_W=beh["W"][1], dlick_A=beh["A"][0], plick_A=beh["A"][1])

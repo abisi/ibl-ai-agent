@@ -30,7 +30,7 @@ from scipy.stats import ttest_1samp
 from sklearn.decomposition import PCA
 from sklearn.mixture import BayesianGaussianMixture
 
-VARIANT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/"
+VARIANT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/_archive_v1/"
                        "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin")
 ROOT = VARIANT / "rastermap_clustering/passive_active/whisker_auditory"
 FM = ROOT / "unmerge_nobl_baseline_good_mua/feature_matrix.npz"

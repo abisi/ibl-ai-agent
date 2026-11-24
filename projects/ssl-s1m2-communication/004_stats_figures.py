@@ -87,7 +87,63 @@ def load():
     df = pd.DataFrame(rows)
     hr, fa = df.hit_rate_W.clip(0.01, 0.99), df.fa_rate.clip(0.01, 0.99)
     df["dprime_W"] = norm.ppf(hr) - norm.ppf(fa)
+    if L.DATASET == "jl":
+        df, maps, traces = jl_remap(df, maps, traces)
     return df, maps, traces, T, D
+
+
+def jl_remap(df, maps, traces):
+    """jl: condition 'W_hit_rew' -> condition 'W_hit', cohort 'rew' (context), session_id 'sid|rew' (so that the figure
+    code, which selects maps by (session_id, pair, condition, kind) and groups by (stage, cohort), works unchanged);
+    the real session is kept in 'session'. dprime_W = context discrimination d' (whisker P(lick) rewarded vs
+    non-rewarded context)."""
+    sp = df.condition.map(L.split_condition)
+    df = df.assign(session=df.session_id, base=[b for b, _ in sp], ctx=[c for _, c in sp])
+    old_keys = list(zip(df.session_id, df.pair, df.condition, df.kind))
+    df["session_id"] = df.session + "|" + df.ctx
+    df["condition"], df["cohort"] = df.base, df.ctx
+    new_keys = list(zip(df.session_id, df.pair, df.condition, df.kind))
+    maps = {n: maps[o] for o, n in zip(old_keys, new_keys)}
+    traces = {n: traces[o] for o, n in zip(old_keys, new_keys)}
+    df["dprime_W"] = (norm.ppf(df.plick_W_rew.clip(0.01, 0.99)) - norm.ppf(df.plick_W_nonrew.clip(0.01, 0.99)))
+    return df, maps, traces
+
+
+def paired_p(a, b):
+    """Paired Wilcoxon and paired t-test over sessions present in both (a, b: Series indexed by session)."""
+    j = pd.concat([a, b], axis=1, keys=["a", "b"]).dropna()
+    if len(j) < 5:
+        return len(j), np.nan, np.nan, np.nan
+    d = j.a - j.b
+    return len(j), d.mean(), float(stats.wilcoxon(d).pvalue), float(stats.ttest_rel(j.a, j.b).pvalue)
+
+
+COLS_ST = ("FF", "FB", "FF_minus_FB", "FF_minus_shuffle", "CV_FF", "CV_FB", "CV_FF_minus_FB", "FF_clean",
+           "FF_minus_FB_clean", "CV_FF_clean")
+
+
+def stats_table_jl(df):
+    """Session = unit. Per pair x trial type x kind x context: Wilcoxon vs 0 (+ mouse-level sign flip, secondary);
+    rewarded vs non-rewarded context (within session): paired Wilcoxon + paired t-test. Uncorrected (exploratory).
+    Also for the subset of sessions on Jules's ephys_context_expert list."""
+    out = []
+    for subset, dd in (("all", df), ("expert_list", df[df.in_expert_list.astype(bool)])):
+        for (pair, cond, kind), g in dd.groupby(["pair", "condition", "kind"]):
+            for ctx, h in g.groupby("ctx"):
+                r = dict(subset=subset, pair=pair, condition=cond, kind=kind, context=ctx, n_sessions=len(h),
+                         n_mice=h.mouse_id.nunique(), baseline_ccv_mean=h.baseline_ccv.mean())
+                for col in COLS_ST:
+                    r[f"{col}_mean"] = h[col].mean()
+                    r[f"{col}_wilcoxon_p"] = wil(h[col])
+                    r[f"{col}_signflip_p"] = sign_flip_p(h, col)
+                r["peak_delay_ms_median"] = h.peak_delay_ms.median()
+                out.append(r)
+            a, b = g[g.ctx == "rew"].set_index("session"), g[g.ctx == "nonrew"].set_index("session")
+            for col in ("FF", "CV_FF", "FF_clean", "CV_FF_clean", "FF_minus_FB"):
+                n, dm, pw, pt = paired_p(a[col], b[col])
+                out.append(dict(subset=subset, pair=pair, condition=cond, kind=kind, context=f"rew - nonrew ({col})",
+                                n_sessions=n, **{f"{col}_mean": dm}, paired_wilcoxon_p=pw, paired_t_p=pt))
+    return pd.DataFrame(out)
 
 
 def stats_table(df):
@@ -144,7 +200,7 @@ def fig_maps(maps, T, D, df, pair, conds=("W_all", "All"), kind="total"):
 
 
 def fig_paper_maps():
-    tr = np.load(L.OUT / "paper_reference" / "traces.npz")
+    tr = np.load(L.OUT_SSL / "paper_reference" / "traces.npz")
     D = tr["delays"]
     fig, axs = plt.subplots(2, 3, figsize=(10, 5.4), constrained_layout=True)
     win = np.abs(D) <= 0.05
@@ -174,7 +230,7 @@ GROUPS = [("learning", "R+"), ("learning", "R-"), ("expert", "R+"), ("expert", "
 
 def fig_traces(traces, T, df, pair="SSp-bfd__wMO", kind="total", conds=("All", "W_all", "W_hit", "W_miss", "A_hit")):
     """Rows: paper (their maps), SSL in-sample CCV, SSL 10-fold CV CCV; FF (delays 0..+15 ms), baseline-subtracted."""
-    tr = np.load(L.OUT / "paper_reference" / "traces.npz")
+    tr = np.load(L.OUT_SSL / "paper_reference" / "traces.npz")
     pk = "Total" if kind == "total" else "Noise"
     fig, axs = plt.subplots(3, len(conds), figsize=(3.2 * len(conds), 7.6), constrained_layout=True, sharex=True)
     for j, cond in enumerate(conds):
@@ -219,7 +275,7 @@ def fig_traces(traces, T, df, pair="SSp-bfd__wMO", kind="total", conds=("All", "
 def fig_readouts(df, pair="SSp-bfd__wMO", kind="total", conds=("All", "W_all", "W_hit", "W_miss", "A_hit")):
     """One value per session: mean CCV over 0-100 ms after the stimulus minus the -250..0 ms baseline, S1 leading by
     0..15 ms. Grey band: paper mean +- s.e.m. (50 sessions) for the matching trial type."""
-    ref = pd.read_parquet(L.OUT / "paper_reference" / "per_session.parquet")
+    ref = pd.read_parquet(L.OUT_SSL / "paper_reference" / "per_session.parquet")
     pk = "Total" if kind == "total" else "Noise"
     rows = (("FF", "In-sample CCV (paper measure)"), ("CV_FF", "10-fold cross-validated CCV"))
     fig, axs = plt.subplots(len(rows), len(conds), figsize=(2.7 * len(conds), 6.4), constrained_layout=True,
@@ -260,7 +316,7 @@ def fig_readouts(df, pair="SSp-bfd__wMO", kind="total", conds=("All", "W_all", "
 
 
 def fig_dprime(df, pair="SSp-bfd__wMO", kind="total", cond="All"):
-    ref = pd.read_parquet(L.OUT / "paper_reference" / "per_session.parquet")
+    ref = pd.read_parquet(L.OUT_SSL / "paper_reference" / "per_session.parquet")
     pk = "Total" if kind == "total" else "Noise"
     fig, axs = plt.subplots(1, 3, figsize=(11, 3.4), constrained_layout=True)
     r = ref[(ref["corr"] == pk) & (ref.condition == "All") & (ref.direction == "FF")].dropna(subset=["dprime"])
@@ -295,6 +351,19 @@ def main():
     FIG.mkdir(parents=True, exist_ok=True)
     df, maps, traces, T, D = load()
     df.to_parquet(L.OUT / f"readouts_v{L.CONFIG['version']}.parquet")
+    if L.DATASET == "jl":
+        ses = pd.read_csv(L.OUT / "sessions_v2.csv")[["session_id", "in_expert_list"]].drop_duplicates()
+        df = df.merge(ses.rename(columns={"session_id": "session"}), on="session", how="left")
+        df.to_parquet(L.OUT / f"readouts_v{L.CONFIG['version']}.parquet")
+        st = stats_table_jl(df)
+        st.to_csv(L.OUT / f"stats_v{L.CONFIG['version']}.csv", index=False)
+        pd.set_option("display.width", 300)
+        show = st[(st.subset == "all") & (st.pair == "SSp-bfd__wMO")]
+        cols = ["condition", "kind", "context", "n_sessions", "FF_mean", "FF_wilcoxon_p", "FF_minus_FB_wilcoxon_p",
+                "FF_minus_shuffle_wilcoxon_p", "CV_FF_mean", "CV_FF_wilcoxon_p", "FF_clean_mean", "FF_clean_wilcoxon_p",
+                "CV_FF_clean_wilcoxon_p", "paired_wilcoxon_p", "paired_t_p"]
+        print(show[[c for c in cols if c in show]].round(4).to_string())
+        return
     st = stats_table(df)
     st.to_csv(L.OUT / f"stats_v{L.CONFIG['version']}.csv", index=False)
     show = st[st.condition.isin(["All", "W_all", "W_hit", "W_miss", "A_hit"]) & (st.pair == "SSp-bfd__wMO")]

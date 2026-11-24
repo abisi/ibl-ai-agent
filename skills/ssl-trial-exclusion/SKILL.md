@@ -10,8 +10,19 @@ description: Use this skill whenever an SSL analysis selects trials (behaviour, 
 - Writing a new trial-preparation helper, or reviewing one.
 
 ## Rules (in order of application)
-1. **perf == 6 is always excluded, except for passive trials.** `perf == 6` marks excluded trials (e.g. AB105: an 86-trial block at
-   the end of whisker day 0). Drop them from every active-context analysis: behaviour, learning curves, learning-trial
+0. **Select data with ephys_utilities, never re-implement it (STRICT, user 2026-11-24, all projects).**
+   `ephys_utilities.helpers.data_utils.keep_active_trials` (not passive, perf != 6, early_lick == 0),
+   `keep_passive_data` / `keep_passive_mice` / `keep_passive_units` (mice with passive pre + post; AB155 imec4 units out),
+   `keep_active_from_whisker_onset` (warm-up cut); passive pre / post = every passive trial split at the session's middle
+   trial (`neural_utils`); passive trials with a lick are dropped (`get_passive_conditions_fast`). Use the NAS checkout
+   (`Axel_Bisi/Github/ephys_utilities`). Whenever project code re-implements one of these, warn the user explicitly and switch.
+   The project-level helpers below (`prep_session`, `resolve_context`, `detect_terminal_disengagement`) predate this rule;
+   rule 2 (ITI context) is not in ephys_utilities -- it differs from the labels in 6 day-0 trials (AB128 x2, MH028 x4) and
+   MH064_20260114 (21).
+1. **perf == 6 is always excluded, except for passive trials.** `perf == 6` marks excluded trials -- trials where the whisker
+   stimulus could not be delivered (particle / stimulator off) or that the experimenter invalidated (e.g. AB105: an 86-trial
+   block at the end of whisker day 0); they are never valid trials (user 2026-11-24: "perf 6 trials are also trials without
+   the particle on so they must always be removed"). Drop them from every active-context analysis: behaviour, learning curves, learning-trial
    identification, decoding, single-cell. Passive trials (`context == 'passive'`) keep their own definition (see
    `skills/ssl-analyze/references/ssl_task_semantics.md`) and are not filtered on `perf`. User rule, 2026-10-01.
    In ssl_ephys 1.0.0 there are 313 active perf == 6 trials: 155 in pretraining sessions, 128 in six whisker day-0

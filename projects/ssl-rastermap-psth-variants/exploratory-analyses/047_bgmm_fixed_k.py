@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 from sklearn.mixture import BayesianGaussianMixture, GaussianMixture
 
-OUT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/"
+OUT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/_archive_v1/"
                    "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin/rastermap_clustering/"
                    "passive_active/whisker_auditory/clustering/"
                    "n100_passive_active_unmerge_baseline_whisker_auditory_combined_nobl/gmm_bayesian_main")

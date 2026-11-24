@@ -18,6 +18,7 @@ Tables: unit_table / trial_table from the 000 driver's NAS cache (same loading a
 """
 import argparse
 import json
+import os
 import pathlib
 import pickle
 import shutil
@@ -30,10 +31,20 @@ from scipy.stats import mannwhitneyu, ttest_ind
 import rastermap_psth.rastermap_utils as rmu
 from rastermap_psth.rastermap_utils import run_stats_only, load_cfg
 
-VARIANTS_ROOT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants")
-CACHE = VARIANTS_ROOT / "_cache" / "tables_day0.pkl"
+VARIANTS_ROOT = pathlib.Path(os.environ.get("RASTERMAP_VARIANTS_ROOT", "/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants"))
+CACHE = pathlib.Path(os.environ.get("RASTERMAP_TABLES_CACHE", str(VARIANTS_ROOT / "_cache" / "tables_day0.pkl")))
 CONFIG_PATH = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/unit_spikes_analysis/rastermap_psth/config.yaml")
 
+
+
+def qc_from_variant(vroot):
+    """unit_quality_label of a variant: v2 provenance (config) if present, else the qc_<good|good_mua> name prefix."""
+    p = pathlib.Path(vroot) / "variant_provenance.json"
+    if p.exists():
+        cfg = json.load(open(p)).get("config", {})
+        if "unit_quality_label" in cfg:
+            return list(cfg["unit_quality_label"])
+    return ["good"] if pathlib.Path(vroot).name.startswith("qc_good__") else ["good", "mua"]
 
 def bh(p):
     p = np.asarray(p, float); n = len(p); o = np.argsort(p)
@@ -88,15 +99,15 @@ if __name__ == "__main__":
     with open(CACHE, "rb") as f:
         tables = pickle.load(f)
     print(f"  loaded in {(time.time() - t0) / 60:.1f} min", flush=True)
-    for md in sorted(VARIANTS_ROOT.glob("qc_*/rastermap_clustering/*/*/clustering/*/rastermap")):
-        variant = next(p for p in md.parts if p.startswith("qc_"))
+    for md in sorted(VARIANTS_ROOT.glob("*/rastermap_clustering/*/*/clustering/*/rastermap")):
+        variant = md.relative_to(VARIANTS_ROOT).parts[0]
         if a.variants and variant not in a.variants:
             continue
         t1 = time.time()
         print(f"\n=== {variant} ===", flush=True)
         try:
             out, n_mc = build_metacluster_folder(md)
-            qc = ["good"] if variant.startswith("qc_good__") else ["good", "mua"]
+            qc = qc_from_variant(VARIANTS_ROOT / variant)
             cfg = load_cfg(CONFIG_PATH, unit_quality_label=qc)
             (rmu.CONDITIONS, rmu.COND_LABELS, rmu.COND_COLORS,
              rmu.COND_LABELS_MATRIX, rmu.COND_ALIGN_COLS) = rmu.get_conditions(cfg)

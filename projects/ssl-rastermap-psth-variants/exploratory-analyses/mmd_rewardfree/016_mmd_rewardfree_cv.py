@@ -20,6 +20,7 @@ Usage: 016_mmd_rewardfree_cv.py --variant <rastermap variant name> [--n-perm 999
 """
 import argparse
 import json
+import os
 import pathlib
 import sys
 import time
@@ -35,7 +36,8 @@ sys.path.insert(0, str(pathlib.Path.home() / "code/unit_spikes_analysis"))
 import cluster_mmd_analysis_new as mmd                               # noqa: E402
 import rastermap_psth.rastermap_utils as rmu                          # noqa: E402
 
-VARIANTS_ROOT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants")
+VARIANTS_ROOT = pathlib.Path(os.environ.get(                      # v2 variants (050); v1 runs: .../rastermap_variants/_archive_v1
+    "RASTERMAP_VARIANTS_ROOT", "/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/v2"))
 REWARD_FREE_CUTS = {"Whisker hit (lick)": 0.05, "Auditory hit (lick)": 0.05,   # s after corrected first lick
                     "Whisker hit": 0.2, "Auditory hit": 0.2, "Whisker miss": 0.2}   # s after stimulus onset (miss: same cut for a fair whisker comparison)
 GROUPS = {
@@ -170,6 +172,13 @@ def main():
     summ["significant_both"] = ((summ["p_value__fit_odd_test_even"] < ALPHA)
                                 & (summ["p_value__fit_even_test_odd"] < ALPHA))
     summ = summ.reindex(versions).reset_index()
+    # BH-FDR across the single PSTH types (p_max = larger p of the two CV directions); groups are not in the family
+    from statsmodels.stats.multitest import multipletests
+    summ["p_max"] = summ[["p_value__fit_odd_test_even", "p_value__fit_even_test_odd"]].max(1)
+    single = summ.feature_version.isin(cond_labels)
+    summ["q_bh_single_types"] = np.nan
+    if single.any():
+        summ.loc[single, "q_bh_single_types"] = multipletests(summ.loc[single, "p_max"], method="fdr_bh")[1]
     summ.to_csv(out / "mmd_cv_summary.csv", index=False)
     np.savez_compressed(out / "mmd_cv_nulls.npz", **{f"{r['feature_version']}__{r['direction']}": r["null"]
                                                     for r in records})
@@ -212,7 +221,8 @@ def main():
     json.dump(dict(variant=a.variant, feature_matrix=str(fm_path), method_dir=str(md), n_neurons=int(len(pos)),
                    n_mice=int(len(np.unique(mice))), reward_free_cuts_s=REWARD_FREE_CUTS,
                    cut_rule="drop bins whose end (t_ctr + bin/2) is after the cut", bins_kept=kept,
-                   groups=GROUPS, n_perm=a.n_perm, alpha=ALPHA, multiple_comparisons="none",
+                   groups=GROUPS, n_perm=a.n_perm, alpha=ALPHA, multiple_comparisons="significant_both uncorrected; q_bh_single_types = BH over the "
+                   "single PSTH types on p_max",
                    pca="99% variance, fit on the fit split", sigma2="median heuristic on the fit split "
                    "(random 8000-neuron subset when larger)", permutation="mouse-level Monte Carlo",
                    normalisation="none added (feature matrix as built)",

@@ -1,0 +1,96 @@
+# Supplementary figure to Figure 4 rows 3+ (hit - miss coding direction; user 2026-11-23: one supp, no robustness panels;
+# v2 in the COSYNE style). 2026-11-24 (user): renamed SuppFigure4_passive_cd; "side by side main whisker figures and auditory
+# figures, matching axes everywhere" -> rows 1-4 = every main panel (Fig. 4 I-P) as whisker | auditory pairs on shared axes
+# (plot_wa_*), the 146 decoder readout, data / shifted / data - shifted. Page 2 (SuppFigure4_passive_cd_p2): axis, neurons,
+# behaviour, fine areas, then the subspace / orthogonalisation / neuron-class analyses.
+# Code: shared_passive_cd.py; input ssl-hitmiss-axis-passive 179_cd_clean.py.
+figure: SuppFigure4_passive_cd_p2
+number: S4
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 11.5
+  pad_left_mm: 8
+caption:
+  title: 'Hit − miss coding direction (2/2): data versus shifted axes, axis quality, stimulus axis, neurons,
+    behaviour and fine areas.'
+  footer: As Fig. 4 H-P. Tracked stable neurons of learner mice, whisker day 0, one session per mouse; responses 5-35 ms,
+    baseline-subtracted and scaled by each neuron's s.d. over the active trials; hit − miss axis from all active whisker
+    trials (at least 3 hits and 3 misses); data − shifted, real value minus the mean of 50 linearly shifted-label axes. Data
+    are mean ± s.e.m. over sessions; R+ versus R−, Mann-Whitney U and Welch's t-tests, pre versus post and versus zero,
+    Wilcoxon signed-rank and (paired) t-tests; the larger P value shown, uncorrected.
+shared:
+  cd_tables:
+    code: shared_passive_cd.clean / whole
+    calls:
+    - ssl-hitmiss-axis-passive/exploratory-analyses/179_cd_clean.py (learning and SSL_STAGE=expert)
+    params:
+      learners: reference sheet learning_category good / moderate
+panels:
+- id: k
+  key: wa_data_vs_shifted
+  title: Data vs shifted axes
+  heading: "Data, shifted and data − shifted"
+  data: FigS_cd_wa_data_vs_shifted.csv
+  caption: Change (post − pre) of the passive projection (left pair) and of the angle to the axis (right pair), whisker and
+    auditory, on the data axis (filled), on the linearly shifted-label axes (open; mean of 50) and their difference (data −
+    shifted; the measure of Fig. 4). Whisker, R+ versus R−, projection, data Mann-Whitney
+    {W.projection.data.mannwhitney_p:p}, Welch {W.projection.data.welch_p:p}; shifted
+    {W.projection.shifted.mannwhitney_p:p}, {W.projection.shifted.welch_p:p}; data − shifted
+    {W.projection.excess.mannwhitney_p:p}, {W.projection.excess.welch_p:p}; angle, data {W.angle.data.mannwhitney_p:p},
+    {W.angle.data.welch_p:p}; shifted {W.angle.shifted.mannwhitney_p:p}, {W.angle.shifted.welch_p:p}; data − shifted
+    {W.angle.excess.mannwhitney_p:p}, {W.angle.excess.welch_p:p}. Auditory, projection, data
+    {A.projection.data.mannwhitney_p:p}, {A.projection.data.welch_p:p}; shifted {A.projection.shifted.mannwhitney_p:p},
+    {A.projection.shifted.welch_p:p}; data − shifted {A.projection.excess.mannwhitney_p:p},
+    {A.projection.excess.welch_p:p}; angle, data {A.angle.data.mannwhitney_p:p}, {A.angle.data.welch_p:p}; shifted
+    {A.angle.shifted.mannwhitney_p:p}, {A.angle.shifted.welch_p:p}; data − shifted {A.angle.excess.mannwhitney_p:p},
+    {A.angle.excess.welch_p:p}. Shifted-label axes carry no hit / miss information, so their cohort difference is the
+    part of the data change not specific to the hit − miss direction.
+  cell: {x_mm: 0.0, y_mm: 0.0, w_mm: 183.0, h_mm: 48.0, margins_mm: [11.0, 10.0, 17.0, 0.5]}
+- id: l
+  key: axis_quality
+  title: Axis quality
+  heading: "Hit − miss separation"
+  data: FigS_cd_axis_quality.csv
+  caption: Separation (d′) of active whisker hits and misses on the hit − miss axis, each trial projected on the axis built
+    without it. At least {min_hit} hits and {min_miss} misses per session; {units_median:.0f} neurons per session (median;
+    minimum {units_min}). R+ versus R−, Mann-Whitney {dprime.mannwhitney_p:p}, Welch {dprime.welch_p:p}.
+  cell: {x_mm: 0.0, y_mm: 53.0, w_mm: 33.0, h_mm: 50.0, margins_mm: [11.0, 11.0, 13.0, 0.5]}
+- id: m
+  key: stimulus_axis
+  title: Stimulus axis
+  heading: "Hit − miss vs stimulus axis"
+  data: FigS_cd_stimulus_axis.csv
+  caption: Cosine between the hit − miss axis and the stimulus axis (mean active whisker minus mean active auditory
+    response). R+ versus R−, Mann-Whitney {cos_u_s.mannwhitney_p:p}, Welch {cos_u_s.welch_p:p}. The passive whisker
+    projection on the stimulus axis did not change differently between cohorts (Mann-Whitney {ds.mannwhitney_p:p},
+    Welch {ds.welch_p:p}).
+  cell: {x_mm: 37.0, y_mm: 53.0, w_mm: 38.0, h_mm: 50.0, margins_mm: [12.0, 11.0, 13.0, 0.5]}
+- id: n
+  key: units
+  title: Neurons
+  heading: "Neurons"
+  data: FigS_cd_units.csv
+  caption: Per session, Spearman correlation across neurons between the weight on the hit − miss axis and the change of the
+    whisker-evoked rate (post − pre). Versus zero, R+ {R+.mean:.2f} (Wilcoxon {R+.p_wilcoxon:p}, t {R+.p_t:p}), R−
+    {R-.mean:.2f} ({R-.p_wilcoxon:p}, {R-.p_t:p}); R+ versus R−, Mann-Whitney {cohorts.mannwhitney_p:p}, Welch
+    {cohorts.welch_p:p}; {n_units} neurons.
+  cell: {x_mm: 79.0, y_mm: 53.0, w_mm: 38.0, h_mm: 50.0, margins_mm: [12.0, 11.0, 13.0, 0.5]}
+- id: o
+  key: behaviour
+  title: Behaviour
+  heading: "Whisker change vs licking"
+  data: FigS_cd_behaviour.csv
+  caption: Whisker projection change (data − shifted) against the session's whisker P(lick) in the active block; lines,
+    least-squares fits with 95 % confidence bands. R+ r = {R+.r:.2f} ({R+.p:p}), R− r = {R-.r:.2f} ({R-.p:p}).
+  cell: {x_mm: 122.0, y_mm: 53.0, w_mm: 61.0, h_mm: 50.0, margins_mm: [11.5, 11.0, 6.0, 0.5]}
+- id: p
+  key: fine_areas
+  title: Fine areas
+  heading: "Fine areas, whisker"
+  data: FigS_cd_fine_areas.csv
+  caption: Whisker projection change (post − pre; data − shifted) per fine area with at least 10 neurons in at least 4
+    sessions per cohort ({n_areas} areas), grouped and coloured by area group; stars, R+ versus R− ({n_both} areas with both
+    tests P < 0.05, uncorrected).
+  cell: {x_mm: 0.0, y_mm: 108.0, w_mm: 183.0, h_mm: 50.0, margins_mm: [12.0, 10.0, 10.0, 0.5]}

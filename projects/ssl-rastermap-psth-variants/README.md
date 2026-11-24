@@ -8,15 +8,28 @@ analysis variants, plus the analyses built on it. Question and history: `questio
 - Pipeline functions live in `unit_spikes_analysis/rastermap_psth` (`run_clustering_new`, `population_matrix_summary`,
   `rastermap_utils`, `gmm_utils_new`); the scripts here only call them (no local copies).
 
-## Main (publication) variant
+## v2 variants (2026-11-23, `050_rastermap_variants_v2.py`)
 
-`qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin`: good + MUA units of learners (reference-sheet
-learning category good / moderate), whisker learning day (day 0, one session per mouse), corrected lick times, long
-windows, locality 0.25, grid upsampling 10; cross-validated fit on odd trials, 100 clusters, contiguous metaclusters
-(1 - r cut 0.40, 24 metaclusters).
+Results: `combined_results_ks4/rastermap_variants/v2/<variant>/` (`variant_provenance.json` with the full config,
+pipeline tree `rastermap_clustering/`, organised copies in `figures/<topic>/` + `figures/index.md`); comparison with main
+in `v2/_comparison/`; fresh day-0 tables in `v2/_tables/`.
 
-Used by: Figure 2 (metacluster description, `045`), Supplementary Figures 3 and 4
-(`projects/ssl-paper-figures/figures/SuppFigure3_rastermap_clustering`, `SuppFigure4_rastermap_validation`).
+**Main** (all settings set in 050, not taken from config.yaml defaults): stable units (good + MUA passing coverage >= 0.9,
+presence >= 0.5, drift independence; `build_feature_matrix.stable_unit_mask`, `stable_only: true` in config.yaml) of
+learners (reference-sheet learning category good / moderate), whisker day 0, one session per mouse; corrected lick times
+(code default, no longer in names); windows passive -0.1..0.2, active -0.1..0.4, lick -0.3..0.2 s; 10-ms bins, 5-ms
+stride; baseline-normalised; FR filters 0.01 Hz (session) / 0.1 Hz (condition); odd/even r >= 0.1; CV fit on odd trials,
+100 clusters = rastermap k-means nodes, locality 0.25, grid upsampling 10; contiguous metaclusters, 1 - r cut 0.40.
+
+Variants (one change each): `units_all` (stable filter off), `units_good`, `loc0p00`, `loc0p75`, `noFR`, `mice_all`
+(learners + non-learners), `noWhiskerReward` (reward-containing whisker-hit bins removed).
+
+Phases: `tables` -> `features` -> `fit` -> `figures` (003, 004, 001, 023, 045) -> `organize` -> `compare`; `--test` runs
+8 mice into `rastermap_variants/_v2_test/`. The figure scripts read `RASTERMAP_VARIANTS_ROOT` / `RASTERMAP_TABLES_CACHE`.
+
+Until the paper figures move to v2, Figure 2 / Supp. Figs 3-4 and 045-048 read the archived v1 main run
+`rastermap_variants/_archive_v1/qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin` (good + MUA
+including unstable units). All v1 variants were moved to `_archive_v1/` on 2026-11-23.
 
 ## Scripts
 
@@ -24,7 +37,8 @@ Used by: Figure 2 (metacluster description, `045`), Supplementary Figures 3 and 
 
 | Script | What |
 |---|---|
-| 000 | driver: build feature matrix, run rastermap, figures, provenance (all variants) |
+| 050 | **v2 driver**: main + robustness variants, all figures, organised folders, comparison (supersedes 000/006/015/042 for new runs) |
+| 000 | v1 driver: build feature matrix, run rastermap, figures, provenance (`load_tables` reused by 050) |
 | 001 | ROC types per cluster / metacluster (EDA, Fisher + BH, Cramér's V) |
 | 002, 008 | population-matrix summaries (`population_matrix_summary`), regeneration with current defaults |
 | 003, 004 | R+ / R- composition (F_mk) and run_stats_only per metacluster |
@@ -52,6 +66,5 @@ The pre-lick convergence analyses (051-071) moved to `projects/ssl-prelick-conve
 
 ## Results folders that are not variants
 
-`_cache/` (feature tables shared with other projects, ~89 GB), `_locality_test_summary/`, `_trim_test_summary/`,
-`_publication_layout_preview/` (045 prototype), `_test/` (8-mouse test run), `_stopped_qc_good_learning_expert_with_duplicates/`
-(aborted run).
+`_cache/` (feature tables shared with other projects, ~89 GB; never touch), `_archive_v1/` (all v1 variants and their
+test summaries, archived 2026-11-23), `_v2_test/` (8-mouse test of 050).

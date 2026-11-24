@@ -18,6 +18,7 @@ Sanity check (printed + saved): direct F equals the sum of fine-cluster F over m
 """
 import argparse
 import json
+import os
 import pathlib
 
 import numpy as np
@@ -29,7 +30,7 @@ import matplotlib.pyplot as plt
 from rastermap_psth import population_matrix_summary as pms
 from ephys_utilities.plotting_utils.plotting_utils import GROUP_COLORS
 
-VARIANTS_ROOT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants")
+VARIANTS_ROOT = pathlib.Path(os.environ.get("RASTERMAP_VARIANTS_ROOT", "/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants"))
 
 
 def run(md, variant):
@@ -111,8 +112,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--variants", nargs="*", default=None)
     a = ap.parse_args()
-    for md in sorted(VARIANTS_ROOT.glob("qc_*/rastermap_clustering/*/*/clustering/*/rastermap")):
-        variant = next(p for p in md.parts if p.startswith("qc_"))
+    for md in sorted(VARIANTS_ROOT.glob("*/rastermap_clustering/*/*/clustering/*/rastermap")):
+        variant = md.relative_to(VARIANTS_ROOT).parts[0]
         if a.variants and variant not in a.variants:
             continue
         if not (md / "stats" / "f_matrix.npz").exists():

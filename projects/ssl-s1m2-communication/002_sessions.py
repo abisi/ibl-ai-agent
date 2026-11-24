@@ -11,8 +11,13 @@ import s1m2_lib as L
 
 
 def stable_units():
-    """unit_info_all_days_v2 good / mua units joined to the stable flag (137 table, NWB cluster ids)."""
+    """unit_info_all_days_v2 good / mua units joined to the stable flag (137 table, NWB cluster ids).
+    S1M2_DATASET=jl: jl_001_units table (bc_label good / mua, presence >= 0.5, coverage >= 0.9)."""
     c = L.CONFIG
+    if L.DATASET == "jl":
+        u = pd.read_parquet(L.JL_UNITS)
+        u = u[u.stable & (u.firing_rate >= c["min_rate_hz"])].copy()
+        return u.assign(quality_label=u.bc_label)
     u = pd.read_parquet(L.UNIT_TABLE)
     u["cluster_id"] = u.cluster_id.astype(int)
     s = pd.read_parquet(L.STABLE_TABLE, columns=["session_id", "electrode_group", "nwb_cluster_id", "stable"])
@@ -23,8 +28,37 @@ def stable_units():
     return u
 
 
+def main_jl():
+    """One row per (session, pair); single group (expert context mice). expert_list = listed in Jules's
+    group.yaml ephys_context_expert. Context per trial is resolved in s1m2_lib.load_session."""
+    import yaml
+    c = L.CONFIG
+    u = stable_units()
+    g = yaml.safe_load(open(L.NWB_DIR.parent / "group.yaml"))
+    expert = {f[:-4] for f in g.get("ephys_context_expert", [])}
+    listed = {f[:-4] for f in g.get("ephys_context", [])}
+    rows = []
+    for (sid, mouse), gg in u.groupby(["session_id", "mouse_id"]):
+        s1 = gg[gg.area_acronym_custom == c["s1_area"]]
+        for name, areas in c["m2_sets"].items():
+            m2 = gg[gg.area_acronym_custom.isin(areas)]
+            if len(s1) >= c["min_units"] and len(m2) >= c["min_units"]:
+                rows.append(dict(session_id=sid, mouse_id=mouse, day=int(gg.day.iloc[0]), stage="expert",
+                                 cohort="context", learning_category="", learner=True,
+                                 in_ephys_context_list=sid in listed, in_expert_list=sid in expert,
+                                 pair=f"{c['s1_area']}__{name}", m2_set=name, n_s1=len(s1), n_m2=len(m2),
+                                 s1_targets=";".join(sorted(s1.target_region.dropna().unique())),
+                                 m2_targets=";".join(sorted(m2.target_region.dropna().unique()))))
+    df = pd.DataFrame(rows)
+    df.to_csv(L.OUT / "sessions_v2.csv", index=False)
+    print(df.groupby(["pair"]).agg(n=("session_id", "size"), mice=("mouse_id", "nunique"), expert_list=("in_expert_list", "sum"),
+                                   med_s1=("n_s1", "median"), med_m2=("n_m2", "median")).to_string())
+
+
 def main():
     c = L.CONFIG
+    if L.DATASET == "jl":
+        return main_jl()
     u = stable_units()
     ref = L.reference_sheet()
     ref = ref[(ref.exclude != 1) & (ref.exclude_ephys != 1)].set_index("subject_id")

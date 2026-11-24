@@ -46,7 +46,7 @@ from scipy.stats import mannwhitneyu, ttest_ind
 
 HERE = pathlib.Path(__file__).resolve().parent
 VARIANT = "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin"
-VARIANTS_ROOT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants")
+VARIANTS_ROOT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/_archive_v1")
 CLU = (VARIANTS_ROOT / VARIANT / "rastermap_clustering/passive_active/whisker_auditory/clustering/"
        "n100_passive_active_unmerge_baseline_whisker_auditory_combined_nobl")
 RM = CLU / "rastermap"

@@ -11,6 +11,8 @@ CCF atlas coordinates are read once from the cached unit table and stored in <ou
 Outputs -> <method_dir>/sig_cluster_figures/
 """
 import argparse
+import json
+import os
 import pathlib
 import sys
 
@@ -25,13 +27,23 @@ import rastermap_psth.population_matrix_summary as pms            # noqa: E402
 import rastermap_psth.rastermap_utils as rmu                       # noqa: E402
 import ephys_utilities.allen_utils.allen_utils as allen_utils     # noqa: E402
 
-VARIANTS_ROOT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants")
+VARIANTS_ROOT = pathlib.Path(os.environ.get("RASTERMAP_VARIANTS_ROOT", "/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants"))
 CONFIG = "/mnt/lsens-analysis/Axel_Bisi/unit_spikes_analysis/rastermap_psth/config.yaml"
 ATLAS_PATH = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/Anatomy/allen_mouse_bluebrain_barrels_10um_v1.0")
-CACHE = VARIANTS_ROOT / "_cache" / "tables_day0.pkl"
+CACHE = pathlib.Path(os.environ.get("RASTERMAP_TABLES_CACHE", str(VARIANTS_ROOT / "_cache" / "tables_day0.pkl")))
 RP, RM = "#00B400", "#C800C8"
 FS = 7
 
+
+
+def qc_from_variant(vroot):
+    """unit_quality_label of a variant: v2 provenance (config) if present, else the qc_<good|good_mua> name prefix."""
+    p = pathlib.Path(vroot) / "variant_provenance.json"
+    if p.exists():
+        cfg = json.load(open(p)).get("config", {})
+        if "unit_quality_label" in cfg:
+            return list(cfg["unit_quality_label"])
+    return ["good"] if pathlib.Path(vroot).name.startswith("qc_good__") else ["good", "mua"]
 
 def ccf_coords(md, unit_ids, out):
     f = out / "neuron_ccf_coords.parquet"
@@ -150,7 +162,7 @@ def main():
     md = pathlib.Path(a.method_dir) if a.method_dir else \
         sorted((VARIANTS_ROOT / a.variant).glob("rastermap_clustering/*/*/clustering/*/rastermap"))[0]
     out = md / "sig_cluster_figures"; out.mkdir(exist_ok=True)
-    qc = ["good", "mua"] if a.variant.startswith("qc_good_mua") else ["good"]
+    qc = qc_from_variant(VARIANTS_ROOT / a.variant)
     cfg = pms.load_cfg(CONFIG, unit_quality_label=qc)
     (rmu.CONDITIONS, rmu.COND_LABELS, rmu.COND_COLORS, rmu.COND_LABELS_MATRIX, rmu.COND_ALIGN_COLS) = \
         rmu.get_conditions(cfg)
@@ -162,6 +174,11 @@ def main():
     share = mrp / (mrp + mrm)
     sig = np.flatnonzero(fmk["reject"])
     sig = sig[np.argsort(-share[sig])]                                 # R+ enriched first
+    if len(sig) == 0:
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "NO_SIGNIFICANT_CLUSTERS.txt").write_text("no cluster passes R+ vs R- Mann-Whitney BH-FDR q < 0.05\n")
+        print("no significant clusters: nothing to plot", flush=True)
+        return
     names, name_tab = cluster_names(R)
     name_tab.to_csv(out / "cluster_function_names.csv", index=False)
     coords = ccf_coords(md, R["unit_ids"], out)

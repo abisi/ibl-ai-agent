@@ -37,6 +37,7 @@ For each rastermap variant produced by 000_run_rastermap_variants.py:
 """
 import argparse
 import json
+import os
 import pathlib
 import sys
 
@@ -53,7 +54,7 @@ from rastermap_psth.rastermap_utils import load_cfg
 from rastermap_psth import cluster_postproc_analyses as cpa
 
 OUTPUT_PATH = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
-VARIANTS_ROOT = OUTPUT_PATH / "rastermap_variants"
+VARIANTS_ROOT = pathlib.Path(os.environ.get("RASTERMAP_VARIANTS_ROOT", str(OUTPUT_PATH / "rastermap_variants")))
 CONFIG_PATH = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/unit_spikes_analysis/rastermap_psth/config.yaml")
 KEY = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
 CHOICE_TYPES_INVERT = True  # as unit_spikes_analysis.py: choice directions are inverted
@@ -337,11 +338,13 @@ def roc_columns_figure(Xmat, row_cluster, K, families, col_feats, frac_tab, n_bi
 
 
 def run(method_dir):
-    variant = next(p for p in method_dir.parts if p.startswith("qc_"))
+    variant = method_dir.relative_to(VARIANTS_ROOT).parts[0]
     print(f"\n=== {variant} ===\n{method_dir}", flush=True)
     out = method_dir / "roc_eda"
     out.mkdir(exist_ok=True)
-    cfg = load_cfg(CONFIG_PATH, unit_quality_label=["good"] if "qc_good__" in variant else ["good", "mua"])
+    prov = VARIANTS_ROOT / variant / "variant_provenance.json"
+    qc = (json.load(open(prov)).get("config", {}).get("unit_quality_label") if prov.exists() else None) or         (["good"] if "qc_good__" in variant else ["good", "mua"])
+    cfg = load_cfg(CONFIG_PATH, unit_quality_label=list(qc))
     (rmu.CONDITIONS, rmu.COND_LABELS, rmu.COND_COLORS,
      rmu.COND_LABELS_MATRIX, rmu.COND_ALIGN_COLS) = rmu.get_conditions(cfg)
 

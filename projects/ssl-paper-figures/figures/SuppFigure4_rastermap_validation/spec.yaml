@@ -1,6 +1,6 @@
 # Supplementary Figure 4 (rastermap validation) -- split from SuppFigure3_rastermap_clustering (user 2026-11-19: panel a of S3
 # much bigger, two pages). compute.py / plot.py reuse the SuppFigure3 functions (one source).
-# Main run: combined_results_ks4/rastermap_variants/qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin
+# Main run: combined_results_ks4/rastermap_variants/_archive_v1/qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin
 figure: SuppFigure4_rastermap_validation
 number: S4
 grid:

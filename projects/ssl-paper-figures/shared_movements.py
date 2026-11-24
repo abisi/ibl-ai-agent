@@ -47,10 +47,14 @@ def data_utils():
     return du
 
 
+TONGUE_DISTANCE_CUTOFF = 0.5  # user 2026-11-23: tongue distance on frames with tongue likelihood > 0.5
+
+
 def dlc_signals(session_id):
     """Cleaned DLC signals of one session in physical units: {name: (values, timestamps, unit)}; missing cameras or
     series are absent. jaw_distance (mm), nose (mm), whisker_angle (deg), whisker_speed (|whisker_velocity|, deg/s),
-    pupil_area (mm^2), nose_speed (|nose_velocity|, side view, mm/s)."""
+    pupil_area (mm^2), nose_speed (|nose_velocity|, side view, mm/s), tongue_out (tongue_likelihood > 0.6, 0 / 1),
+    tongue_distance (mm from the image origin, frames with tongue_likelihood > 0.5 only)."""
     dh = dlc_helpers()
     path = NWB_DIR / f"{session_id}.nwb"
     out = {}
@@ -70,6 +74,12 @@ def dlc_signals(session_id):
                     out["nose"] = (dh.clean_series(side, "nose_distance")[0], side.timestamps, "mm")
             if "nose_velocity" in side.data:  # nose speed = |nose_velocity|, side view only (as the GLM; 2026-11-16)
                 out["nose_speed"] = (np.abs(dh.clean_series(side, "nose_velocity")[0]), side.timestamps, "mm/s")
+            if "tongue_likelihood" in side.likelihood:  # tongue out (1) / in (0) per frame (user 2026-11-22)
+                out["tongue_out"] = (dh.tongue_presence(side), side.timestamps, "P")
+                if "tongue_distance" in side.data:  # user 2026-11-23: tongue distance only where the tongue is detected
+                    lik = side.likelihood["tongue_likelihood"].to_numpy().astype(float)  # (likelihood > presence cutoff);
+                    x = np.asarray(side.data["tongue_distance"], float)  # distance from the image origin (converter)
+                    out["tongue_distance"] = (np.where(lik > TONGUE_DISTANCE_CUTOFF, x, np.nan), side.timestamps, "mm")
         if top is not None and "whisker_angle" in top.data:
             out["whisker_angle"] = (dh.clean_series(top, "whisker_angle")[0], top.timestamps, "deg")
             out["whisker_speed"] = (np.abs(dh.clean_series(top, "whisker_velocity")[0]), top.timestamps, "deg/s")

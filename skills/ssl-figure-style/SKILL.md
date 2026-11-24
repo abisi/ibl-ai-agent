@@ -67,7 +67,10 @@ description: Use this skill whenever making publication, abstract (e.g. COSYNE),
    min/max get a small padding. Categorical limits and limits computed with a pad term are already fine.
 10. **Statistics shown**: never pick the best of several variants post hoc for display; state thresholds and
     corrections in the caption. Decoding publication figure sets (hit/miss project `112_publication_sets.py`) show the
-    learning stage only.
+    learning stage only. **One significance style** (user, 2026-11-22): every test on a panel is marked with stars
+    (`*` < 0.05, `**` < 0.01, `***` < 0.001, `n.s.`) and its p-value written right above the stars (`q` for corrected
+    values; vertical when tests sit in a dense row), also on cluster bars. Paper figures: `sig_text` in
+    `projects/ssl-paper-figures/figures/Figure1_behaviour/plot.py`.
 11. **Layout and exports**
     - General figures: two-column width 7.4 in, Arial/Helvetica 5–7.5 pt, panel letters bold capitals (A, B, …) 9 pt aligned on one row
       per figure row (same y, left of each axis), no overlapping text; png at 300 dpi, pdf and svg.
@@ -81,6 +84,15 @@ description: Use this skill whenever making publication, abstract (e.g. COSYNE),
       layers at the savefig dpi (default 100), which looks pixelated once imported in Figma. Also save an all-vector
       `<name>_vector.svg` (no rasterization) for editing. Example:
       `projects/ssl-session-raster-examples/exploratory-analyses/001_paper_style_whisker_trial_raster.py`.
+12. **Alignment and overlaps** (user, 2026-11-23; check every rendered figure for these):
+    - No text overlaps: tick labels, axis labels, titles, legends and annotations never overlap each other or the data
+      they do not label.
+    - Within a figure row, the bottom borders of all axes are aligned (same bottom margin in every cell of the row), and
+      x-axis labels sit on one line; y-axis labels are aligned along a row at least.
+    - The left borders of the axes in the leftmost column are left-aligned, and the right borders of the axes in the
+      rightmost column are right-aligned (flush with the figure's right edge, minus the margin).
+    - Legends inside the panel or axes whenever possible, not outside them.
+    - Titles of panels in the same row on one line, as far as possible.
 
 ## Implementation pointers
 - `projects/ssl-paper-figures/paperstyle.py`: Nature rcParams, colours, `light()`, square-cell grid, `save_figure`

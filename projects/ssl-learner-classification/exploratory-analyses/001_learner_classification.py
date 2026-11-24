@@ -34,6 +34,8 @@ Comparisons: sheet learning_category; the earlier DTW clusters (behaviour_analys
 PyMC curves; combined_results/behavior_clustering/3_both_dtw_interpolated_input); k = 3 DTW on the exact curves.
 Validation: whisker P(lick) on day +1 (not used by any criterion), AUC of every labelling.
 Performance: learners vs non-learners per cohort (Mann-Whitney and Welch, mice).
+Peak within-session d' (user 2026-11-23): max over whisker trials of z(whisker curve) - z(chance curve) (clipped 0.01-0.99);
+labelling peak d' >= 1 for R+ (not in the consensus), threshold sweep 0.25-2.5 (tables/001_peak_dprime_sweep.csv).
 
 Outputs: combined_results_ks4/ssl-learner-classification/{tables,cache}/001_*.
 Run on haas (repo root): PYTHONPATH=~/pylibs/tslearn nice -n 10 ~/code/unit_spikes_analysis/.venv/bin/python \
@@ -84,6 +86,23 @@ CRITERIA_LABELS = {"exact_rule": "Exact-curve rule", "high_state": "High-perform
                    "dtw": "DTW clustering (k = 2)"}
 GMM_FEATURES = ["hit_w", "fa", "dprime", "gap_mean", "gap_last20", "frac_above", "frac_not_above", "half2_gap", "late30_gap"]
 RUN_MIN, LATE_N, N_POINTS, CURVE_BINS = 10, 30, 100, 50
+# peak within-session d' (user 2026-11-23): d'(trial) = z(whisker curve) - z(chance curve), curves clipped to 0.01-0.99
+# (as SuppFigure1_learner_definition k); a separate labelling, NOT one of the nine criteria (the consensus is unchanged)
+PEAK_TH = 1.0
+PEAK_SWEEP = np.round(np.arange(0.25, 2.51, 0.25), 2)
+CLIP = (0.01, 0.99)
+
+
+def dprime_curve(whisker, chance):
+    w, c = (np.clip(np.asarray(x, float), *CLIP) for x in (whisker, chance))
+    return stats.norm.ppf(w) - stats.norm.ppf(c)
+
+
+def peak_features(c):
+    dp = dprime_curve(c["whisker"], c["chance"])
+    n = len(dp)
+    return dict(mouse_id=c["mouse_id"], peak_dprime=float(dp.max()), peak_dprime_pos=float(np.argmax(dp) / max(n - 1, 1)),
+                end_dprime=float(dp[-20:].mean()), mean_dprime_curve=float(dp.mean()))
 
 
 def longest_run(mask):
@@ -228,6 +247,8 @@ def criteria(df, curves_by_mouse):
     d["flexible"] = d.mouse_id.isin(FLEX)
     d["learner"] = d.learner_consensus & ~d.fixed_bad
     d["sheet_learner"] = d.learning_category.map({"good": True, "moderate": True, "bad": False})
+    # peak d' labelling (R+ only: R- learning = whisker licking back to chance, a peak says nothing about it)
+    d["peak_learner"] = np.where(d.cohort == "R+", (d.peak_dprime >= PEAK_TH).astype(float), np.nan)
     return d
 
 
@@ -237,7 +258,8 @@ def agreement(d, old):
     for coh in COHORTS + ["both"]:
         g = d if coh == "both" else d[d.cohort == coh]
         labs = {**{c: g[f"c_{c}"] for c in CRITERIA}, "consensus (before constraint)": g.learner_consensus.astype(float),
-                "final label": g.learner.astype(float), "sheet": g.sheet_learner.astype(float)}
+                "final label": g.learner.astype(float), "sheet": g.sheet_learner.astype(float),
+                "peak_dprime": g.peak_learner}
         for name, v in labs.items():
             for ref in ("final label", "sheet"):
                 ok = v.notna() & labs[ref].notna()
@@ -272,7 +294,8 @@ def validation(d):
         for out, out_lab in VALIDATION.items():
             g = d[(d.cohort == coh) & d[out].notna()]
             labs = {**{c: g[f"c_{c}"] for c in CRITERIA}, "final label": g.learner.astype(float),
-                    "consensus (before constraint)": g.learner_consensus.astype(float), "sheet": g.sheet_learner.astype(float)}
+                    "consensus (before constraint)": g.learner_consensus.astype(float), "sheet": g.sheet_learner.astype(float),
+                    "peak_dprime": g.peak_learner}
             for name, v in labs.items():
                 ok = v.notna()
                 y, s = v[ok].astype(bool), sign * g[out][ok]
@@ -304,7 +327,7 @@ def stability(d):
     return pd.DataFrame(rows)
 
 
-RULE_FEATURES = {"dprime": "d' day 0", "late30_gap": "W − FA, last 30 W trials", "half2_gap": "W − FA, 2nd half",
+RULE_FEATURES = {"peak_dprime": "Peak within-session d'", "dprime": "d' day 0", "late30_gap": "W − FA, last 30 W trials", "half2_gap": "W − FA, 2nd half",
                  "gap_mean": "W − chance curve, mean", "frac_above": "Fraction W trials above chance", "hit_w": "W P(lick) day 0",
                  "fa": "FA P(lick) day 0"}
 
@@ -345,7 +368,7 @@ def simple_rule(d):
 
 COMPARE = {"hit_w": "W P(lick) day 0", "fa": "FA P(lick) day 0", "hit_a": "A P(lick) day 0", "dprime": "d' day 0",
            "gap_mean": "W − chance curve, mean", "late30_gap": "W − FA, last 30 W trials", "rt_w": "W RT day 0 (s)",
-           "rt_a": "A RT day 0 (s)", "n_whisker": "W trials day 0", "first_hit": "W trials before 1st hit",
+           "rt_a": "A RT day 0 (s)", "peak_dprime": "Peak within-session d'", "n_whisker": "W trials day 0", "first_hit": "W trials before 1st hit",
            "hit_w_day1": "W P(lick) day +1", "fa_day1": "FA P(lick) day +1", "dprime_day1": "d' day +1",
            "hit_w_day2": "W P(lick) day +2", "hit_a_daym1": "A P(lick) day −1", "n_pretraining_trials": "Pretraining trials"}
 
@@ -362,6 +385,26 @@ def comparisons(d, label="learner"):
             if len(a) >= 2 and len(b) >= 2:
                 r.update(mannwhitney_p=stats.mannwhitneyu(a, b).pvalue, welch_p=stats.ttest_ind(a, b, equal_var=False).pvalue)
             rows.append(r)
+    return pd.DataFrame(rows)
+
+
+def peak_sweep(d):
+    """Peak d' threshold sweep (R+): learners, agreement with the sheet and the agnostic label (Cohen's kappa), AUC of the
+    label for day +1 whisker P(lick) and d'."""
+    g = d[d.cohort == "R+"]
+    rows = []
+    for th in PEAK_SWEEP:
+        lab = g.peak_dprime >= th
+        r = dict(threshold=th, n=len(g), n_learner=int(lab.sum()))
+        for ref, col in (("sheet", "sheet_learner"), ("agnostic", "learner")):
+            ok = g[col].notna()
+            a, b = lab[ok].astype(bool), g[col][ok].astype(bool)
+            r[f"kappa_{ref}"] = float(cohen_kappa_score(a, b)) if a.nunique() > 1 else np.nan
+            r[f"agree_{ref}"] = float((a == b).mean())
+        for out in ("hit_w_day1", "dprime_day1"):
+            ok = g[out].notna()
+            r[f"auc_{out}"] = roc_auc_score(lab[ok], g[out][ok]) if lab[ok].nunique() == 2 else np.nan
+        rows.append(r)
     return pd.DataFrame(rows)
 
 
@@ -384,6 +427,7 @@ def main():
     df = pd.DataFrame([r for r, _ in res])
     curves_by_mouse = {c["mouse_id"]: c for _, c in res}
     df = df.merge(other_days(t), on="mouse_id", how="left").merge(lt_methods(), on="session_id", how="left")
+    df = df.merge(pd.DataFrame([peak_features(c) for c in curves_by_mouse.values()]), on="mouse_id", how="left")
     d = criteria(df, curves_by_mouse)
     old = pd.read_csv(OLD_DTW)[["mouse_id", "cluster"]].rename(columns={"cluster": "old_cluster"})
     d = d.merge(old, on="mouse_id", how="left")
@@ -395,6 +439,7 @@ def main():
     val.to_csv(OUT / "tables" / "001_validation_day1.csv", index=False)
     stab = stability(d)
     stab.to_csv(OUT / "tables" / "001_stability.csv", index=False)
+    peak_sweep(d).to_csv(OUT / "tables" / "001_peak_dprime_sweep.csv", index=False)
     rule = simple_rule(d)
     rule.to_csv(OUT / "tables" / "001_simple_rule.csv", index=False)
     comp = pd.concat([comparisons(d, "learner"), comparisons(d.assign(sheet_learner=d.sheet_learner.fillna(False).astype(bool)),
@@ -425,6 +470,8 @@ def main():
     print(stab[stab.threshold == 0.5].round(3).to_string(index=False))
     print(stab[(stab.dropped == "none")].round(3).to_string(index=False))
     print(rule.round(3).to_string(index=False))
+    print(peak_sweep(d).round(3).to_string(index=False))
+    print(pd.crosstab([d.cohort, d.learning_category.fillna("missing")], d.peak_learner.fillna(-1)))
     print("fixed bad with consensus >= 0.5:", d[d.fixed_bad & d.learner_consensus].mouse_id.tolist())
     print(d[d.flexible][["mouse_id", "consensus", "learner"]].to_string(index=False))
 

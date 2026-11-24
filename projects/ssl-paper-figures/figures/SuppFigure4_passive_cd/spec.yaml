@@ -1,0 +1,124 @@
+# Supplementary figure to Figure 4 rows 3+ (hit - miss coding direction; user 2026-11-23: one supp, no robustness panels;
+# v2 in the COSYNE style). 2026-11-24 (user): renamed SuppFigure4_passive_cd; "side by side main whisker figures and auditory
+# figures, matching axes everywhere" -> rows 1-4 = every main panel (Fig. 4 I-P) as whisker | auditory pairs on shared axes
+# (plot_wa_*), areas whisker vs auditory within cohort and their difference (user: "next E"), the 146 decoder readout;
+# data / shifted / data - shifted on page 2. Page 2 (SuppFigure4_passive_cd_p2): axis, neurons,
+# behaviour, fine areas, then the subspace / orthogonalisation / neuron-class analyses.
+# Code: shared_passive_cd.py; input ssl-hitmiss-axis-passive 179_cd_clean.py.
+figure: SuppFigure4_passive_cd
+number: S4
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 11.5
+  pad_left_mm: 8
+caption:
+  title: 'Hit − miss coding direction (1/2): whisker and auditory passive responses side by side, areas and
+    decoder readout.'
+  footer: As Fig. 4 H-P; in a-h, whisker (left) and auditory (right) passive responses on the same hit − miss axis, on shared
+    axes. Tracked stable neurons of learner mice, whisker day 0, one session per mouse; responses 5-35 ms,
+    baseline-subtracted and scaled by each neuron's s.d. over the active trials; hit − miss axis from all active whisker
+    trials (at least 3 hits and 3 misses); data − shifted, real value minus the mean of 50 linearly shifted-label axes. Data
+    are mean ± s.e.m. over sessions; R+ versus R−, Mann-Whitney U and Welch's t-tests, pre versus post and versus zero,
+    Wilcoxon signed-rank and (paired) t-tests; the larger P value shown, uncorrected.
+shared:
+  cd_tables:
+    code: shared_passive_cd.clean / whole
+    calls:
+    - ssl-hitmiss-axis-passive/exploratory-analyses/179_cd_clean.py (learning and SSL_STAGE=expert)
+    params:
+      learners: reference sheet learning_category good / moderate
+panels:
+- id: a
+  key: wa_time
+  title: Time course
+  heading: "Whole brain, time course"
+  data: FigS_cd_wa_time.csv
+  caption: As Fig. 4I, passive whisker (left) and passive auditory (right) responses before and after the task, with the
+    active whisker hits and misses as reference; R+ (top, {R+} sessions), R− (bottom, {R-} sessions).
+  cell: {x_mm: 0.0, y_mm: 0.0, w_mm: 90.0, h_mm: 46.0, margins_mm: [10.5, 11.0, 9.0, 0.5]}
+- id: b
+  key: wa_projection_prepost
+  title: Projection
+  heading: "Passive responses on the axis"
+  data: FigS_cd_wa_projection_prepost.csv
+  caption: As Fig. 4J. Whisker, pre versus post, R+ Wilcoxon {W.R+.data.wilcoxon_p:p}, R− {W.R-.data.wilcoxon_p:p}; R+
+    versus R− on the change (data − shifted), Mann-Whitney {W.excess.mannwhitney_p:p}, Welch {W.excess.welch_p:p}.
+    Auditory, R+ {A.R+.data.wilcoxon_p:p}, R− {A.R-.data.wilcoxon_p:p}; R+ versus R− {A.excess.mannwhitney_p:p},
+    {A.excess.welch_p:p}.
+  cell: {x_mm: 96.0, y_mm: 0.0, w_mm: 87.0, h_mm: 46.0, margins_mm: [10.5, 11.0, 17.0, 0.5]}
+- id: c
+  key: wa_angle_prepost
+  title: Angle
+  heading: "Angle of the passive responses to the axis"
+  data: FigS_cd_wa_angle_prepost.csv
+  caption: As Fig. 4K. Whisker, pre versus post, R+ Wilcoxon {W.R+.data.wilcoxon_p:p}, R− {W.R-.data.wilcoxon_p:p}; R+
+    versus R− on the change (data − shifted), Mann-Whitney {W.excess.mannwhitney_p:p}, Welch {W.excess.welch_p:p}.
+    Auditory, R+ {A.R+.data.wilcoxon_p:p}, R− {A.R-.data.wilcoxon_p:p}; R+ versus R− {A.excess.mannwhitney_p:p},
+    {A.excess.welch_p:p}.
+  cell: {x_mm: 0.0, y_mm: 51.0, w_mm: 90.0, h_mm: 46.0, margins_mm: [10.5, 11.0, 17.0, 0.5]}
+- id: d
+  key: wa_gain_rotation
+  title: Gain vs rotation
+  heading: "Change: gain and rotation parts"
+  data: FigS_cd_wa_gain_rotation.csv
+  caption: As Fig. 4M. R+ versus R−, whisker gain Mann-Whitney {W.gain.mannwhitney_p:p}, Welch {W.gain.welch_p:p},
+    rotation {W.rotation.mannwhitney_p:p}, {W.rotation.welch_p:p}; auditory gain {A.gain.mannwhitney_p:p},
+    {A.gain.welch_p:p}, rotation {A.rotation.mannwhitney_p:p}, {A.rotation.welch_p:p}.
+  cell: {x_mm: 96.0, y_mm: 51.0, w_mm: 87.0, h_mm: 46.0, margins_mm: [11.0, 10.0, 17.0, 0.5]}
+- id: e
+  key: wa_areas
+  title: Areas
+  heading: "Areas"
+  data: FigS_cd_wa_areas.csv
+  caption: As Fig. 4N. Two-way ANOVA (cohort + area), cohort, whisker {W.anova_cohort_p:p}, auditory {A.anova_cohort_p:p};
+    stars, R+ versus R− per area (areas with both tests P < 0.05, whisker {W.n_both}, auditory {A.n_both}).
+  cell: {x_mm: 0.0, y_mm: 102.0, w_mm: 92.0, h_mm: 56.0, margins_mm: [19.0, 10.0, 8.0, 3.0]}
+- id: f
+  key: wa_area_types
+  title: Areas, whisker vs auditory within cohort
+  heading: "Areas: whisker vs auditory, within cohort"
+  data: FigS_cd_wa_area_types.csv
+  caption: Per area group, passive whisker (yellow) and auditory (blue) projection change (post − pre; data − shifted) in the
+    same sessions, R+ (left) and R− (right); stars, whisker versus auditory within the cohort (Wilcoxon and paired t, larger
+    P; {n_WA_Rp} areas in R+, {n_WA_Rm} in R− with P < 0.05; {n_areas} areas with at least 3 sessions per cohort).
+  cell: {x_mm: 98.0, y_mm: 102.0, w_mm: 85.0, h_mm: 56.0, margins_mm: [19.0, 10.0, 8.0, 3.0]}
+- id: g
+  key: wa_area_diff
+  title: Areas, whisker minus auditory
+  heading: "Areas: whisker − auditory"
+  data: FigS_cd_wa_area_diff.csv
+  caption: Whisker minus auditory projection change per area group and cohort; stars, R+ versus R− (Mann-Whitney and Welch,
+    larger P; cohort × modality per area; {n_D_cohort} of {n_areas} areas with P < 0.05).
+  cell: {x_mm: 0.0, y_mm: 163.0, w_mm: 62.0, h_mm: 56.0, margins_mm: [19.0, 10.0, 8.0, 3.0]}
+- id: h
+  key: wa_area_link
+  title: Areas, axis change vs response change
+  heading: "Areas: axis change vs response change"
+  data: FigS_cd_wa_area_link.csv
+  caption: As Fig. 4O. Whisker, R+ r = {W.R+.r:.2f} ({W.R+.p:p}), R− r = {W.R-.r:.2f} ({W.R-.p:p}); auditory, R+ r =
+    {A.R+.r:.2f} ({A.R+.p:p}), R− r = {A.R-.r:.2f} ({A.R-.p:p}).
+  cell: {x_mm: 68.0, y_mm: 163.0, w_mm: 115.0, h_mm: 56.0, margins_mm: [12.0, 10.0, 8.0, 0.5]}
+- id: i
+  key: wa_across_days
+  title: Across days
+  heading: "Learning vs expert days"
+  data: FigS_cd_wa_across_days.csv
+  caption: As Fig. 4P. R+ versus R−, expert, whisker Mann-Whitney {W.expert.q.mannwhitney_p:p}, Welch
+    {W.expert.q.welch_p:p}; auditory {A.expert.q.mannwhitney_p:p}, {A.expert.q.welch_p:p}.
+  cell: {x_mm: 0.0, y_mm: 224.0, w_mm: 72.0, h_mm: 46.0, margins_mm: [12.0, 10.0, 17.0, 0.5]}
+- id: j
+  key: wa_decoder
+  title: Decoder readout
+  heading: "Hit / miss decoder (analysis 146, current version)"
+  data: FigS_cd_wa_decoder.csv
+  caption: Readout of an L2-regularised logistic hit / miss decoder trained on active whisker trials (z-scored responses,
+    balanced subsamples, each trial scored by models that did not train on it), applied to passive trials; standardised
+    readout, (score − hit / miss midpoint) / s.d. of the held-out active whisker scores (> 0, hit side). Current results of
+    ssl-hitmiss-axis-passive 146, earlier session selection (R+ {n.R+}, R− {n.R-} sessions; {n_in_179} of them in the
+    hit − miss axis set). Pre versus post, whisker R+ Wilcoxon {W.R+.data.wilcoxon_p:p}, R− {W.R-.data.wilcoxon_p:p};
+    auditory R+ {A.R+.data.wilcoxon_p:p}, R− {A.R-.data.wilcoxon_p:p}. R+ versus R− on the change minus the linear-shift
+    null, whisker Mann-Whitney {W.excess.mannwhitney_p:p}, Welch {W.excess.welch_p:p}; auditory {A.excess.mannwhitney_p:p},
+    {A.excess.welch_p:p}. Decoder balanced accuracy, R+ {bal_acc.mean_Rp:.2f}, R− {bal_acc.mean_Rm:.2f}.
+  cell: {x_mm: 78.0, y_mm: 224.0, w_mm: 105.0, h_mm: 46.0, margins_mm: [11.0, 8.0, 17.0, 0.5]}

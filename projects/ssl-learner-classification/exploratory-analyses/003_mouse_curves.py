@@ -19,6 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from scipy import stats  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[3]
 PF = REPO / "projects" / "ssl-paper-figures"
@@ -92,8 +93,13 @@ def main():
             p = pm.loc[m]
             draw(ax, cur, p.cohort)
             lab = "learner" if str(p.learner) == "True" else "non-learner"
+            # peak within-session d' (user 2026-11-23): dotted line at the trial of the peak
+            dpc = np.clip(cur.p_mean.to_numpy(float), 0.01, 0.99), np.clip(cur.p_chance.to_numpy(float), 0.01, 0.99)
+            dpc = stats.norm.ppf(dpc[0]) - stats.norm.ppf(dpc[1])
+            ax.axvline(cur.whisker_trial.to_numpy()[int(np.argmax(dpc))], color="0.3", lw=0.4, ls=":", zorder=0)
             ax.set_title(f"{m} ({p.cohort.replace('-', '−')}, {p.learning_category}) · {int(round(p.consensus * 9))}/9 → {lab}\n"
-                         f"d′ day 0 {p.dprime:.2f}, day +1 {p.dprime_day1:.2f}", fontsize=5, pad=2, loc="left")
+                         f"d′ day 0 {p.dprime:.2f}, day +1 {p.dprime_day1:.2f}, peak {p.peak_dprime:.2f}", fontsize=5,
+                         pad=2, loc="left")
             if c == 0:
                 ax.set_ylabel("P(lick)", fontsize=5, labelpad=1)
             if r == nr - 1 or k + NCOL >= len(ids):

@@ -218,6 +218,26 @@ def page(cond, title, kind, df_all, maps, ws, D):
     return fig
 
 
+def hires_stats_jl(df, J):
+    """jl: session = unit; per trial type x context: Wilcoxon vs 0; rewarded vs non-rewarded context: paired Wilcoxon
+    + paired t-test. Also for the subset on Jules's ephys_context_expert list. Uncorrected."""
+    cols = [f"{p}_ff_e{i}" for p in ("is", "cv") for i in range(len(EPOCHS))] + ["is_ff_minus_fb"]
+    out = []
+    for subset, dd in (("all", df), ("expert_list", df[df.in_expert_list.astype(bool)])):
+        for cond, g in dd.groupby("condition"):
+            for ctx, h in g.groupby("ctx"):
+                r = dict(subset=subset, condition=cond, context=ctx, n_sessions=len(h), n_mice=h.mouse_id.nunique())
+                for c in cols:
+                    r[f"{c}_mean"], r[f"{c}_wilcoxon_p"] = h[c].mean(), wil(h[c])
+                out.append(r)
+            a, b = g[g.ctx == "rew"].set_index("session"), g[g.ctx == "nonrew"].set_index("session")
+            for c in cols:
+                n, dm, pw, pt = J.paired_p(a[c], b[c])
+                out.append(dict(subset=subset, condition=cond, context=f"rew - nonrew ({c})", n_sessions=n,
+                                **{f"{c}_mean": dm}, paired_wilcoxon_p=pw, paired_t_p=pt))
+    return pd.DataFrame(out)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--kind", default="total")
@@ -225,9 +245,20 @@ def main():
     df, maps, ws, D = load(a.kind)
     out = L.OUT / "replication"
     out.mkdir(parents=True, exist_ok=True)
+    if L.DATASET == "jl":  # Jules Lebert's context dataset: groups = context blocks (jl_pages)
+        import jl_pages as J
+        df = J.remap_hires(df)
+        ses = pd.read_csv(L.OUT / "sessions_v2.csv")[["session_id", "in_expert_list"]].drop_duplicates()
+        df = df.merge(ses.rename(columns={"session_id": "session"}), on="session", how="left")
+        hires_stats_jl(df, J).to_csv(L.OUT / f"stats_hires_{a.kind}.csv", index=False)
+    pages = J.TRIAL_TYPES_JL if L.DATASET == "jl" else TRIAL_TYPES
     with PdfPages(out / f"hires_{a.kind}.pdf") as pdf:
-        for cond, title in TRIAL_TYPES:
-            fig = page(cond, title, a.kind, df, maps, ws, D)
+        for cond, title in pages:
+            if L.DATASET == "jl":
+                fig = J.page_hires(cond, title, a.kind, df, maps, ws, D, EPOCHS,
+                                   f"windows starting {int(round(BASE[0] * 1e3))}..{int(round(BASE[1] * 1e3))} ms")
+            else:
+                fig = page(cond, title, a.kind, df, maps, ws, D)
             pdf.savefig(fig)
             fig.savefig(out / f"hires_{a.kind}_{cond}.png", dpi=300)
             plt.close(fig)

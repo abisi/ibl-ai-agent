@@ -7,6 +7,8 @@ F_mk(R-)) per cluster (reward-inclusive clustering; positive control).
 Outputs -> <method_dir>/<run-dir>/matrix_with_witness/
 """
 import argparse
+import json
+import os
 import pathlib
 import sys
 
@@ -21,7 +23,8 @@ sys.path.insert(0, str(pathlib.Path.home() / "code/unit_spikes_analysis"))
 import rastermap_psth.population_matrix_summary as pms            # noqa: E402
 import rastermap_psth.rastermap_utils as rmu                       # noqa: E402
 
-VARIANTS_ROOT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants")
+VARIANTS_ROOT = pathlib.Path(os.environ.get(
+    "RASTERMAP_VARIANTS_ROOT", "/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/v2"))
 CONFIG = "/mnt/lsens-analysis/Axel_Bisi/unit_spikes_analysis/rastermap_psth/config.yaml"
 
 
@@ -35,7 +38,9 @@ def main():
     md = sorted((VARIANTS_ROOT / a.variant).glob("rastermap_clustering/*/*/clustering/*/rastermap"))[0]
     out = md / a.run_dir / "matrix_with_witness"
     out.mkdir(parents=True, exist_ok=True)
-    qc = ["good", "mua"] if a.variant.startswith("qc_good_mua") else ["good"]
+    prov = VARIANTS_ROOT / a.variant / "variant_provenance.json"       # v2: qc from the variant's own config
+    qc = (json.load(open(prov))["config"]["unit_quality_label"] if prov.exists()
+          else ["good", "mua"] if a.variant.startswith("qc_good_mua") else ["good"])
     cfg = pms.load_cfg(CONFIG, unit_quality_label=qc)
     (rmu.CONDITIONS, rmu.COND_LABELS, rmu.COND_COLORS, rmu.COND_LABELS_MATRIX, rmu.COND_ALIGN_COLS) = \
         rmu.get_conditions(cfg)

@@ -16,3 +16,16 @@
 - 2026-09-30: 023_check_inputs_vs_nwb_ks4.py -- all 100 curve-input sessions (88 ephys from ssl_ephys + 12 behaviour-only from NWB_ks4) match their NWB_ks4 files exactly (counts, outcomes, start times < 1 ms) for whisker, no-stim and auditory trials (artifacts/023_inputs_vs_nwb_ks4.csv). 021: whisker hit ticks in the R+ (rewarded) colour, misses in the R- (non-rewarded) colour; 98 figures regenerated.
 - 2026-09-30: 021 colours now defined as GROUP_COLORS (ephys_utilities plotting_utils: rplus #00B400 rewarded whisker, rminus #C800C8 non-rewarded); whisker hit ticks rplus, miss ticks rminus -- same values as the current figures, no regeneration needed.
 - 2026-09-30: created combined_results_ks4/{AB096,AB135}/whisker_0/learning_curve (user); 100 learning-curve figures regenerated (whisker hits rplus green, misses rminus purple).
+- 2026-11-23: 037_methods_overview.py -- all learning-trial definitions side by side on the same 100 day-0 sessions
+  (exact rule of Figure 1, L0, L3, L5, L6, L6 lenient, L7, L8, cascade, LR 033, CP shuffle 034, CP delta 035, L6x relaxed
+  036): coverage, LT position, pairwise |dLT| and defined/undefined agreement, implied learner label vs sheet
+  (artifacts/037_methods_lt.csv, 037_methods_summary.csv, exploratory-analyses/037_methods_overview.png). R+: methods
+  agree on WHERE (median |dLT| 0-4 trials, except LR) but not WHETHER (coverage 17-91 %); only L5 is FA-free. R-: rule
+  vs change-point methods disagree by 30-85 trials. Context: user dislikes FA-relative metrics (R+ more rewards -> more FA).
+- 2026-11-23: 038_chain_exact_curves.py -- LT chain (003-007, 013) rerun on the CURRENT exact curves (user): inputs from
+  the stored exact h5 (combined_results_ks4/<mouse>/whisker_0/learning_curve/*_exact.h5; 100/100 sessions), curves at
+  fixed sigma 1 in both 002 slots (refit = stored p_mean, max |diff| 0). Workspace artifacts/038_chain_exact/, table
+  artifacts/038_learning_trials_all_methods_exact.csv, comparison artifacts/038_exact_vs_028.csv. Raw-trial methods
+  (L0, L5, L6, L6 lenient) unchanged; curve-based change: R+ L3 39 -> 28 LTs, L8 29 -> 35, L7 27 -> 28 (shared LTs
+  within ~1 trial); R- L7 16 -> 30, L8 15 -> 35, cascade 18 -> 30. 037 --exact -> 037_methods_overview_exact.png,
+  037_methods_*_exact.csv. Must run with the repo venv (.venv; 003 imports ibl_ai_agent).

@@ -1,0 +1,79 @@
+# Supplementary Figure 2 (recordings: probe localization, preprocessing yield), two pages -- user 2026-11-23.
+# PROVENANCE ONLY (build: false): the figure is assembled and edited by hand (Illustrator); this file maps every panel
+# to the file placed in it and to the command that regenerates that file. Do not run build.py on it.
+# regenerate.sh (same folder) reruns all commands. Panel sources as placed are copied to
+# Figures/SuppFigure2_recording_2026-11-23/panel_sources/ (md5 in provenance.csv there).
+figure: SuppFigure2_recording
+number: S2
+build: false
+main_pdfs:   # hand-assembled figure (the reference)
+- Figures/SuppFigure2_recordings_anatomy/SuppFigure2_probe_localization.pdf
+- Figures/SuppFigure2_recordings_anatomy/SuppFigure2_preprocessing_yield.pdf
+pages:
+- page: 1
+  title: Probe localization
+  panels:
+  - id: a
+    kind: drawing
+    note: schematic (user)
+  - id: b
+    title: Entry points on the atlas surface
+    source: /mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/anatomy/tracks/entry_points_surface/4d_entry_points_atlas_surface_plain.svg
+    made: 2026-11-19 16:01 (copy of anatomy/_viz_trials_20261116/4d_entry_points_atlas_surface_plain.svg, same md5)
+    code: projects/ssl-anatomy-tracks/entry_surface_map.py (MODE plain, no split; needs 4b and 4c outputs)
+    run: cd projects/ssl-anatomy-tracks; PYTHONPATH=/mnt/lsens-analysis/Axel_Bisi/Github/ephys_utilities:. ~/code/unit_spikes_analysis/.venv/bin/python
+      insertion_points.py && ... entry_crossref.py && ... entry_surface_map.py
+  - id: c
+    kind: drawing
+    note: schematic (user)
+  - id: d
+    title: wS1 barrel registration, example track (AB164, hemisphere 1, imec2)
+    source: /mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ws1-barrel-registration/D2_final/AB164/report/AB164_h1_imec2_paper_figure.pdf
+    made: 2026-11-18 20:25
+    code: wS1_barrel_registration/scripts/paper_figure.py (GitHub abisi/wS1_barrel_registration; needs a BARRELREG_DEBUG=1 run)
+    run: cd ~/code/wS1_barrel_registration; .venv/bin/python scripts/paper_figure.py
+      -c /mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/ws1-barrel-registration/D2_final/config.toml AB164
+      --tracks /raid0/lmsmith/local_barrel_reg/D2_neuropixels/tracks/tracks_summary.csv --track imec2
+    note: D2_final (2026-11-18), not D2_final_user_picked (2026-11-22); rerunning on the user-picked fits may change it
+  - id: e
+    title: Probe tracks, 3D renders coloured by cohort (day 0), sagittal and top views
+    source:
+    - /mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/anatomy/tracks/3d_renders/reward_group/day0/reward_group_day0_sagittal.pdf
+    - /mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/anatomy/tracks/3d_renders/reward_group/day0/reward_group_day0_top.pdf
+    made: 2026-11-17 13:51
+    code: ephys_utilities/allen_utils/generate_probe_tracks_visualization_colors_single_parallel.py
+      (generate_brain_visualization; color_by reward_group, days [0], camera_view sagittal / top; NAS commit 82f072c)
+    run: cd /mnt/lsens-analysis/Axel_Bisi/Github/ephys_utilities/ephys_utilities/allen_utils;
+      ~/anaconda3/envs/brainrender/bin/python generate_probe_tracks_visualization_colors_single_parallel.py (full sweep, __main__)
+  - id: others
+    kind: drawing
+    note: remaining panels are schematics (user)
+- page: 2
+  title: Preprocessing yield
+  panels:
+  - id: a
+    title: Motion correction example (AB150, imec1)
+    top: schematic (user)
+    source: /mnt/lsens-analysis/Axel_Bisi/manuscripts/Bisi_Hamon/Figures/SuppFigure2_recording_2026-11-18/_explore/SuppFigure2_motion_example_AB150.svg
+      (archived 2026-11-23 to Figures/_archive/SuppFigure2_recording_2026-11-18/_explore/; copy in panel_sources/)
+    made: 2026-11-18
+    code: projects/ssl-paper-figures/figures/SuppFigure2_recording/motion_example.py (style density, preview mode -> _explore)
+    run: cd projects/ssl-paper-figures/figures/SuppFigure2_recording; ~/code/unit_spikes_analysis/.venv/bin/python
+      motion_example.py density /mnt/lsens-analysis/Axel_Bisi/data/AB150/AB150_20241219_144646/Ephys/catgt_AB150_g0/AB150_g0_imec1
+      1442.67 2325 AB150
+    note: preview mode writes to SuppFigure2_recording_<today>/_explore/
+  - id: b
+    title: Types of unit (in)stability
+    source: /mnt/lsens-analysis/Axel_Bisi/manuscripts/Bisi_Hamon/Figures/_explore/supp2_unit_instability_types_2026-11-11.svg
+    made: 2026-11-11 16:06
+    code: projects/ssl-paper-figures/explore_unit_instability.py
+    run: cd projects/ssl-paper-figures; PYTHONPATH=~/code/unit_spikes_analysis ~/code/unit_spikes_analysis/.venv/bin/python
+      explore_unit_instability.py
+    note: output name carries the run date; the example units are re-picked by rule (may differ after drift-table changes)
+  - id: c, d
+    title: Recorded areas, neurons per area and cohort (all mice)
+    source: /mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/data_summary/area_acronym_count_grid/area_acronym_count_grid_default_order_cohort_log_all_mice.svg
+    made: 2026-11-17 16:48
+    code: projects/ssl-data-summary/001_unit_quality_by_area.py -> brain_wide_analysis plot_group_neural_data (area_acronym_count_grid)
+    run: cd projects/ssl-data-summary; python 001_unit_quality_by_area.py all_mice area_acronym_count_grid
+      (brain_wide_analysis env, NAS repos first on PYTHONPATH; replots from the unit-table cache, --reload rebuilds it)

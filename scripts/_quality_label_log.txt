@@ -1,0 +1,140 @@
+119 sessions, 231128 units total, 8 workers
+[1/119] AB082_20230630_101353: 456 units -- elapsed 0.3min, ETA 31.0min
+[2/119] AB094_20231211_112445: 994 units -- elapsed 0.3min, ETA 20.0min
+[3/119] AB086_20231015_141742: 1049 units -- elapsed 0.5min, ETA 17.6min
+[4/119] AB095_20231212_141728: 1132 units -- elapsed 0.6min, ETA 16.6min
+[5/119] AB080_20230622_152205: 939 units -- elapsed 0.6min, ETA 14.5min
+[6/119] AB102_20240309_114107: 1461 units -- elapsed 0.9min, ETA 16.7min
+[7/119] AB117_20240723_125437: 1137 units -- elapsed 1.2min, ETA 18.7min
+[8/119] AB107_20240318_121423: 1474 units -- elapsed 1.2min, ETA 16.7min
+[9/119] AB104_20240313_145433: 1702 units -- elapsed 1.4min, ETA 16.9min
+[10/119] AB119_20240731_102619: 922 units -- elapsed 1.5min, ETA 16.7min
+[11/119] AB085_20231005_152636: 2151 units -- elapsed 2.3min, ETA 22.4min
+[12/119] AB087_20231017_141901: 2103 units -- elapsed 2.4min, ETA 21.5min
+[13/119] AB121_20240813_125401: 1778 units -- elapsed 2.5min, ETA 20.1min
+[14/119] AB093_20231207_111207: 2075 units -- elapsed 2.5min, ETA 18.6min
+[15/119] AB092_20231205_140109: 1532 units -- elapsed 2.7min, ETA 18.6min
+[16/119] AB116_20240724_102941: 2304 units -- elapsed 2.8min, ETA 17.8min
+[17/119] AB120_20240811_143102: 1934 units -- elapsed 3.1min, ETA 18.9min
+[18/119] AB122_20240804_134554: 2087 units -- elapsed 3.6min, ETA 20.1min
+[19/119] AB123_20240806_110231: 2321 units -- elapsed 3.7min, ETA 19.6min
+[20/119] AB124_20240815_111810: 3300 units -- elapsed 5.4min, ETA 26.9min
+[21/119] AB131_20240905_123601: 2373 units -- elapsed 5.5min, ETA 25.7min
+[22/119] AB127_20240821_103757: 2516 units -- elapsed 5.6min, ETA 24.6min
+[23/119] AB126_20240822_114405: 3039 units -- elapsed 5.6min, ETA 23.4min
+[24/119] AB128_20240829_112813: 3017 units -- elapsed 6.1min, ETA 24.1min
+[25/119] AB125_20240817_123403: 3002 units -- elapsed 6.3min, ETA 23.5min
+[26/119] AB134_20241110_132834: 1802 units -- elapsed 6.8min, ETA 24.3min
+[27/119] AB133_20241105_111234: 1656 units -- elapsed 7.3min, ETA 24.9min
+[28/119] AB129_20240828_112850: 2901 units -- elapsed 8.0min, ETA 26.0min
+[29/119] AB132_20241106_145039: 1928 units -- elapsed 8.4min, ETA 25.9min
+[30/119] AB130_20240902_123634: 3787 units -- elapsed 8.5min, ETA 25.3min
+[31/119] AB141_20241127_140308: 1833 units -- elapsed 8.6min, ETA 24.5min
+[32/119] AB144_20241205_111557: 1059 units -- elapsed 9.4min, ETA 25.5min
+[33/119] AB139_20241119_115957: 2517 units -- elapsed 9.6min, ETA 25.1min
+[34/119] AB143_20241126_115737: 2043 units -- elapsed 10.8min, ETA 27.0min
+[35/119] AB138_20241120_131438: 3044 units -- elapsed 11.2min, ETA 26.9min
+[36/119] AB142_20241128_113227: 2821 units -- elapsed 11.5min, ETA 26.4min
+[37/119] AB152_20250127_105124: 776 units -- elapsed 11.9min, ETA 26.4min
+[38/119] AB153_20250207_110145: 686 units -- elapsed 12.3min, ETA 26.3min
+[39/119] AB136_20241117_140311: 3245 units -- elapsed 12.5min, ETA 25.6min
+[40/119] AB155_20250208_175103: 808 units -- elapsed 13.0min, ETA 25.7min
+[41/119] AB147_20241212_151234: 2816 units -- elapsed 13.2min, ETA 25.1min
+[42/119] AB140_20241129_104154: 2945 units -- elapsed 13.3min, ETA 24.4min
+[43/119] AB145_20241206_123534: 3099 units -- elapsed 13.8min, ETA 24.3min
+[44/119] AB156_20250206_121313: 1778 units -- elapsed 14.7min, ETA 25.0min
+[45/119] AB161_20250417_173823: 320 units -- elapsed 14.7min, ETA 24.2min
+[46/119] AB149_20241217_113458: 3183 units -- elapsed 14.9min, ETA 23.7min
+[47/119] AB163_20250419_155630: 1222 units -- elapsed 15.6min, ETA 24.0min
+[48/119] AB150_20241219_144646: 2358 units -- elapsed 16.2min, ETA 23.9min
+[49/119] MH001_20241203_121357: 725 units -- elapsed 16.5min, ETA 23.5min
+[50/119] AB164_20250422_115457: 1073 units -- elapsed 16.5min, ETA 22.8min
+[51/119] MH004_20241205_115227: 345 units -- elapsed 16.5min, ETA 22.0min
+[52/119] MH001_20241204_112235: 597 units -- elapsed 16.6min, ETA 21.3min
+[53/119] AB162_20250421_140550: 1530 units -- elapsed 16.6min, ETA 20.7min
+[54/119] MH008_20250203_110046: 782 units -- elapsed 16.8min, ETA 20.2min
+[55/119] AB151_20250128_123409: 2383 units -- elapsed 16.8min, ETA 19.6min
+[56/119] MH009_20250206_104829: 1004 units -- elapsed 17.2min, ETA 19.3min
+[57/119] MH013_20250218_110530: 322 units -- elapsed 17.3min, ETA 18.8min
+[58/119] MH011_20250213_115724: 889 units -- elapsed 17.3min, ETA 18.1min
+[59/119] MH015_20250221_105527: 31 units -- elapsed 17.3min, ETA 17.6min
+[60/119] MH017_20250227_113307: 127 units -- elapsed 17.3min, ETA 17.0min
+[61/119] MH018_20250228_111358: 205 units -- elapsed 17.3min, ETA 16.5min
+[62/119] MH019_20250306_121844: 198 units -- elapsed 17.3min, ETA 15.9min
+[63/119] MH010_20250207_112153: 1257 units -- elapsed 17.5min, ETA 15.5min
+[64/119] MH007_20250202_165003: 996 units -- elapsed 17.5min, ETA 15.0min
+[65/119] MH020_20250306_161142: 574 units -- elapsed 17.7min, ETA 14.7min
+[66/119] MH020_20250304_161732: 736 units -- elapsed 17.9min, ETA 14.4min
+[67/119] AB157_20250412_154744: 3235 units -- elapsed 18.0min, ETA 14.0min
+[68/119] MH014_20250219_143612: 1252 units -- elapsed 18.2min, ETA 13.7min
+[69/119] MH022_20250311_140628: 770 units -- elapsed 18.3min, ETA 13.3min
+[70/119] AB154_20250205_172319: 2720 units -- elapsed 18.6min, ETA 13.0min
+[71/119] MH021_20250309_122552: 2070 units -- elapsed 18.7min, ETA 12.6min
+[72/119] MH021_20250311_110321: 1536 units -- elapsed 18.9min, ETA 12.3min
+[73/119] MH027_20250422_111013: 874 units -- elapsed 19.2min, ETA 12.1min
+[74/119] MH026_20250422_181339: 903 units -- elapsed 19.5min, ETA 11.8min
+[75/119] MH027_20250424_154724: 848 units -- elapsed 19.9min, ETA 11.7min
+[76/119] MH022_20250309_161625: 1982 units -- elapsed 20.2min, ETA 11.4min
+[77/119] MH023_20250318_104610: 1895 units -- elapsed 20.3min, ETA 11.1min
+[78/119] MH025_20250421_115741: 1488 units -- elapsed 20.6min, ETA 10.8min
+[79/119] MH029_20250504_113751: 1599 units -- elapsed 21.3min, ETA 10.8min
+[80/119] AB159_20250409_135813: 3650 units -- elapsed 21.6min, ETA 10.5min
+[81/119] MH028_20250501_104058: 2243 units -- elapsed 22.0min, ETA 10.3min
+[82/119] MH031_20250510_113259: 583 units -- elapsed 22.2min, ETA 10.0min
+[83/119] MH029_20250502_110353: 3006 units -- elapsed 22.6min, ETA 9.8min
+[84/119] AB158_20250413_145012: 3523 units -- elapsed 22.6min, ETA 9.4min
+[85/119] MH023_20250316_110814: 3773 units -- elapsed 23.6min, ETA 9.5min
+[86/119] MH032_20250510_153334: 1768 units -- elapsed 23.9min, ETA 9.2min
+[87/119] MH031_20250507_104425: 2753 units -- elapsed 24.3min, ETA 8.9min
+[88/119] MH031_20250509_102210: 2401 units -- elapsed 24.4min, ETA 8.6min
+[89/119] MH035_20250515_161921: 1063 units -- elapsed 24.7min, ETA 8.3min
+[90/119] MH034_20250514_104756: 2868 units -- elapsed 25.0min, ETA 8.0min
+[91/119] MH035_20250517_105351: 1623 units -- elapsed 25.5min, ETA 7.8min
+[92/119] MH034_20250516_102648: 2360 units -- elapsed 25.5min, ETA 7.5min
+[93/119] MH030_20250503_154256: 3211 units -- elapsed 25.7min, ETA 7.2min
+[94/119] MH036_20250515_111838: 1766 units -- elapsed 26.2min, ETA 7.0min
+[95/119] MH036_20250516_162405: 2116 units -- elapsed 26.7min, ETA 6.8min
+[96/119] MH036_20250517_140456: 2242 units -- elapsed 27.0min, ETA 6.5min
+[97/119] MH032_20250507_143741: 2948 units -- elapsed 27.1min, ETA 6.2min
+[98/119] MH035_20250514_142713: 2633 units -- elapsed 27.2min, ETA 5.8min
+[99/119] MH030_20250501_151231: 3800 units -- elapsed 27.5min, ETA 5.6min
+[100/119] MH038_20250526_110025: 1186 units -- elapsed 27.7min, ETA 5.3min
+[101/119] MH037_20250527_144338: 2357 units -- elapsed 28.5min, ETA 5.1min
+[102/119] MH037_20250524_143522: 2240 units -- elapsed 28.8min, ETA 4.8min
+[103/119] MH037_20250525_152834: 2648 units -- elapsed 29.0min, ETA 4.5min
+[104/119] MH038_20250527_110051: 2053 units -- elapsed 29.4min, ETA 4.2min
+[105/119] MH039_20250525_112720: 2174 units -- elapsed 29.7min, ETA 4.0min
+[106/119] MH038_20250524_105329: 2562 units -- elapsed 30.9min, ETA 3.8min
+[107/119] MH062_20260109_114135: 1986 units -- elapsed 30.9min, ETA 3.5min
+[108/119] MH064_20260116_133002: 2780 units -- elapsed 32.4min, ETA 3.3min
+[109/119] MH064_20260115_104148: 3091 units -- elapsed 33.1min, ETA 3.0min
+[110/119] MH062_20260110_113351: 2644 units -- elapsed 33.3min, ETA 2.7min
+[111/119] MH062_20260111_112441: 2736 units -- elapsed 33.7min, ETA 2.4min
+[112/119] MH068_20260122_151614: 2182 units -- elapsed 33.8min, ETA 2.1min
+[113/119] MH065_20260114_154021: 2686 units -- elapsed 34.1min, ETA 1.8min
+[114/119] MH069_20260122_111455: 2850 units -- elapsed 35.1min, ETA 1.5min
+[115/119] MH069_20260124_142757: 2885 units -- elapsed 35.4min, ETA 1.2min
+[116/119] MH070_20260123_115543: 2684 units -- elapsed 36.7min, ETA 0.9min
+[117/119] MH070_20260121_140848: 2419 units -- elapsed 36.9min, ETA 0.6min
+[118/119] MH070_20260124_102803: 2315 units -- elapsed 37.1min, ETA 0.3min
+[119/119] MH062_20260113_125836: 3949 units -- elapsed 37.3min, ETA 0.0min
+presence/coverage merged: 231128/231128 units matched
+
+bc_label counts:
+bc_label
+mua         159052
+non-soma     50510
+good         21566
+Name: count, dtype: int64
+
+quality_label counts:
+quality_label
+mua         134861
+non-soma     50510
+good         45757
+Name: count, dtype: int64
+
+recovered (bc_label=mua -> quality_label=good): 28215
+demoted (bc_label=good -> quality_label=mua): 4024
+
+Wrote 231128 rows to reports\ssl_analysis\derived\unit_quality_labels.parquet

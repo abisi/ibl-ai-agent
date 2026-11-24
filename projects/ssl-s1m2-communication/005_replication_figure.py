@@ -206,14 +206,22 @@ def main():
     ap.add_argument("--clean", action="store_true", help="option a: artefact-free windows only")
     a = ap.parse_args()
     df, maps, traces, T, D = F4.load()
-    tr = np.load(L.OUT / "paper_reference" / "traces.npz")
-    ref = pd.read_parquet(L.OUT / "paper_reference" / "per_session.parquet")
+    tr = np.load(L.OUT_SSL / "paper_reference" / "traces.npz")
+    ref = pd.read_parquet(L.OUT_SSL / "paper_reference" / "per_session.parquet")
     out = L.OUT / "replication"
     out.mkdir(parents=True, exist_ok=True)
     tag = f"{a.kind}_clean" if a.clean else a.kind
     with PdfPages(out / f"replication_{tag}.pdf") as pdf:
-        for cond, title, pc in TRIAL_TYPES:
-            fig = page(cond, title, pc, a.kind, df, maps, traces, T, D, tr, ref, clean=a.clean)
+        if L.DATASET == "jl":  # Jules Lebert's context dataset: groups = context blocks (jl_pages)
+            import jl_pages as J
+            pages = [(c, t, None) for c, t in J.TRIAL_TYPES_JL]
+        else:
+            pages = TRIAL_TYPES
+        for cond, title, pc in pages:
+            if L.DATASET == "jl":
+                fig = J.page_v3(cond, title, a.kind, df, maps, traces, T, D, tr, ref, clean=a.clean)
+            else:
+                fig = page(cond, title, pc, a.kind, df, maps, traces, T, D, tr, ref, clean=a.clean)
             pdf.savefig(fig)
             fig.savefig(out / f"replication_{tag}_{cond}.png", dpi=300)
             plt.close(fig)

@@ -246,6 +246,12 @@ def _label_metaclusters(ax, df, min_neurons=1000):
     ax.text(0.99, 0.5, "Numbers:\nmetaclusters", transform=ax.transAxes, fontsize=4.3, ha="right", va="top")
 
 
+def plot_umap_metaclusters(ax, df):
+    ax.scatter(df.u1, df.u2, c=df.color, s=0.15, lw=0, alpha=0.6, rasterized=True)
+    _embed_axes(ax, "UMAP 1", "UMAP 2", df)
+    _label_metaclusters(ax, df)
+
+
 def plot_umap_areas(ax, df):
     other = df.area_group == "Other"
     ax.scatter(df.u1[other], df.u2[other], c=df.color[other], s=0.15, lw=0, alpha=0.4, rasterized=True)
@@ -302,8 +308,11 @@ def plot_pca_flow_clusters(ax, df):
     for _, d in df.groupby("cond_index"):
         d = d.sort_values("t")
         ax.plot(d.pc1, d.pc2, color="0.75", lw=0.4, zorder=1)
+        on = d.iloc[np.argmin(np.abs(d.t.to_numpy()))]   # user 2026-11-23: e introduces the trajectories (d removed)
+        ax.plot(on.pc1, on.pc2, marker="o", ms=2, mfc="white", mec="0.3", mew=0.5, zorder=3)
     sc = ax.scatter(df.pc1, df.pc2, c=df.weighted_cluster, cmap="turbo", vmin=0, vmax=99, s=1.5, lw=0, zorder=2)
     _pc_labels(ax, df)
+    ax.text(0.03, 0.98, "○ stimulus onset", transform=ax.transAxes, fontsize=4.3, ha="left", va="top")
     cax = ax.inset_axes([0.62, 0.92, 0.32, 0.035])
     cb = ax.figure.colorbar(sc, cax=cax, orientation="horizontal", ticks=[0, 99])
     cb.set_ticklabels(["1", "100"])

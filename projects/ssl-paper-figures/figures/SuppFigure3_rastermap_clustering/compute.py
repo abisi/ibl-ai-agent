@@ -34,7 +34,7 @@ SPEC = load_spec(FIG_DIR)
 PANELS = {p.get("key", p["id"]): p for p in SPEC["panels"]}
 RES = Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4")
 VARIANT = "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin"
-MD = sorted((RES / "rastermap_variants" / VARIANT).glob("rastermap_clustering/*/*/clustering/*/rastermap"))[0]
+MD = sorted((RES / "rastermap_variants" / "_archive_v1" / VARIANT).glob("rastermap_clustering/*/*/clustering/*/rastermap"))[0]
 BGMM = MD.parent / "gmm_bayesian_main" / "bgmm_labels.csv"
 ZETA = RES / "ssl-zeta-responses" / "zeta_long.parquet"
 KEYS = ["mouse_id", "session_id", "electrode_group", "cluster_id"]
@@ -112,6 +112,19 @@ def compute_umap_clusters():
                              metacluster=[b["meta"]["families"][k] for k in R["labels"][o]]))
 
 
+def compute_umap_metaclusters():
+    """same UMAP coloured by metacluster (user 2026-11-23); palette = population_matrix_summary.family_palette in
+    rastermap display order (as the matrix-summary strips: neighbouring metaclusters get contrasting colours)"""
+    b, R, emb, o = _umap()
+    fam = b["meta"]["families"]
+    K = int(R["labels"].max()) + 1
+    pal = pms.family_palette(fam.values(), display_order=[fam[k] for k in range(K)])
+    mc = np.array([fam[k] for k in R["labels"][o]])
+    META["umap_metaclusters"] = dict(n_neurons=int(len(emb)), n_metaclusters=int(len(set(fam.values()))))
+    return pd.DataFrame(dict(u1=emb[o, 0], u2=emb[o, 1], metacluster=mc,
+                             color=[matplotlib.colors.to_hex(pal[m]) for m in mc]))
+
+
 def compute_umap_areas():
     """as 045: major area groups with their allen_utils colours, minor groups pooled in Other"""
     b, R, emb, o = _umap()
@@ -163,6 +176,10 @@ def compute_pca_flow():
     META["pca_flow"] = dict(pc1_var=float(var[0]), pc2_var=float(var[1]), n_conditions=int(d.condition.nunique()),
                             edge_trim=FLOW_EDGE_TRIM, n_bins=int(len(d)))
     return d
+
+
+def compute_pca_flow_by_type():   # user 2026-11-23: panel "pca_flow" removed, its CSV now belongs to the per-type panel
+    return compute_pca_flow()
 
 
 def compute_pca_flow_clusters():
@@ -519,7 +536,7 @@ def _variant_labels(v):
     v, _, mode = (v or VARIANT).partition(":")
     v = v or VARIANT
     name = "neuron_cluster_labels.csv" if mode == "all" else "neuron_cluster_labels_cv.csv"   # all trials vs CV (odd) fit
-    f = sorted((RES / "rastermap_variants" / v).glob(f"rastermap_clustering/*/*/clustering/*/rastermap/{name}"))[0]
+    f = sorted((RES / "rastermap_variants" / "_archive_v1" / v).glob(f"rastermap_clustering/*/*/clustering/*/rastermap/{name}"))[0]
     d = pd.read_csv(f, usecols=KEYS + ["cluster_label"])
     d["cluster_id"] = d.cluster_id.astype(str)
     return d

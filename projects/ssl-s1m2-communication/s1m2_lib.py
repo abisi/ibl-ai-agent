@@ -16,6 +16,7 @@ Per-neuron z-scoring (as in the paper) does not change CCA within a window, so i
 
 from __future__ import annotations
 
+import os
 import sys
 import warnings
 from pathlib import Path
@@ -28,8 +29,17 @@ sys.path.insert(0, str(REPO / "scripts"))
 from axel_bisi_paths import axel_bisi_root  # noqa: E402
 
 ROOT = axel_bisi_root()
+# Dataset switch (2026-11-20): S1M2_DATASET=ssl (default, Axel Bisi / Myriam Hamon SSL) or jl (Jules Lebert's context
+# task, expert mice). jl outputs go to OUT/jules_lebert and never touch the SSL outputs.
+DATASET = os.environ.get("S1M2_DATASET", "ssl").lower()
+assert DATASET in ("ssl", "jl"), DATASET
 NWB_DIR = ROOT / "NWB_ks4"
 OUT = ROOT / "combined_results_ks4" / "ssl-s1m2-communication"
+OUT_SSL = OUT
+if DATASET == "jl":
+    NWB_DIR = ROOT.parent / "Jules_Lebert" / "NWB"
+    OUT = OUT / "jules_lebert"
+    JL_UNITS = OUT / "tables" / "jl_units.parquet"
 UNIT_TABLE = ROOT / "combined_results_ks4" / "ssl-roc-learning-stages" / "unit_info_all_days_v2.parquet"
 _SHARE = next((p for p in (Path(r"M:\share_internal"), Path("/mnt/share_internal")) if p.exists()), None)
 REFERENCE_SHEET = _SHARE / "Axel_Bisi_Share" / "dataset_info" / "joint_mouse_reference_weight.xlsx" if _SHARE else None
@@ -99,11 +109,36 @@ PROFILES = {
 }
 
 
+BASE_CONDITIONS = dict(CONFIG["conditions"])
+CONTEXTS = {"rew": "rewarded context", "nonrew": "non-rewarded context"}
+if DATASET == "jl":
+    CONFIG.update({
+        "dataset": "jl (Jules Lebert, whisker/auditory context task, expert mice)",
+        "unit_quality": ["good", "mua"],
+        "unit_stability": "bc_label good/mua, presence_ratio >= 0.5 (60-s bins), coverage_ratio >= 0.9 (jl_001_units); "
+                          "no DREDge drift test exists for this dataset",
+        "trials": "perf != 6, early_lick == 0, warm-up cut, rule-A1 tail trim (no passive trials in these sessions); "
+                  "context = rewarded / non-rewarded block, rewarded = the context value whose whisker trials have "
+                  "reward_available == 1",
+        "conditions": {"All": "all trials, both contexts",
+                       **{f"{k}_{c}": f"{v}, {cl}" for k, v in BASE_CONDITIONS.items() for c, cl in CONTEXTS.items()}},
+        "noise_groups": "trial type x lick x context (PSTH subtracted within each group)",
+    })
+
+
 def set_profile(name):
     """Switch CONFIG in place (all modules share the dict)."""
     CONFIG.update(PROFILES[name])
     CONFIG["profile"] = name
     return CONFIG
+
+
+def split_condition(cond):
+    """jl condition name -> (base trial type, context key or 'both')."""
+    for c in CONTEXTS:
+        if cond.endswith("_" + c):
+            return cond[: -len(c) - 1], c
+    return cond, "both"
 
 # ---------------------------------------------------------------- canoncorr (MATLAB port)
 
@@ -207,7 +242,6 @@ def load_session(session_id, unit_keys, blank=True):
     unit_keys: DataFrame with electrode_group, cluster_id, area_acronym_custom."""
     from ephys_utilities.helpers import data_utils
     sys.path.insert(0, str(REPO / "scripts"))
-    from ssl_bwm_trial_prep import resolve_context
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         res = data_utils.process_single_nwb(str(NWB_DIR / f"{session_id}.nwb"), day_to_analyze="all",
@@ -218,12 +252,18 @@ def load_session(session_id, unit_keys, blank=True):
     on = ["electrode_group", "cluster_id"]
     units = units.drop(columns=[x for x in unit_keys.columns if x in units.columns and x not in on])
     units["cluster_id"] = units["cluster_id"].astype(int)
-    unit_keys = unit_keys.assign(cluster_id=unit_keys["cluster_id"].astype(int))
+    units["electrode_group"] = electrode_group_names(units["electrode_group"])
+    unit_keys = unit_keys.assign(cluster_id=unit_keys["cluster_id"].astype(int),
+                                 electrode_group=unit_keys["electrode_group"].astype(str))
     units = units.merge(unit_keys, on=on, how="inner")
     if len(units) != len(unit_keys):
         raise RuntimeError(f"{session_id}: {len(units)} of {len(unit_keys)} units matched in the NWB")
     t = trials.sort_values("start_time").reset_index(drop=True)
-    t = t[(resolve_context(t) == "active").to_numpy()]
+    if DATASET == "jl":
+        t["ctx"] = context_labels(t)
+    else:
+        from ssl_bwm_trial_prep import resolve_context
+        t = t[(resolve_context(t) == "active").to_numpy()]
     t = t[(t.perf != 6) & (t.early_lick == 0)].reset_index(drop=True)
     # auditory warm-up: keep exactly one trial before the first whisker trial
     w = np.flatnonzero(t.trial_type.to_numpy() == "whisker_trial")
@@ -257,10 +297,38 @@ def load_session(session_id, unit_keys, blank=True):
     return units, t
 
 
+def electrode_group_names(s):
+    """NWB electrode_group column -> plain names (Jules's NWBs give pynwb ElectrodeGroup objects)."""
+    return s.apply(lambda x: getattr(x, "name", x)).astype(str)
+
+
+def context_labels(t):
+    """jl: 'rew' / 'nonrew' per trial. The rewarded context is the context value whose whisker trials have
+    reward_available == 1 (checked per session; raises if the two contexts are not one rewarded, one not)."""
+    ctx = t.context.astype(str)
+    w = t.trial_type == "whisker_trial"
+    ra = t[w].groupby(ctx[w]).reward_available.mean()
+    if len(ra) != 2 or not ((ra > 0.99).sum() == 1 and (ra < 0.01).sum() == 1):
+        raise RuntimeError(f"context / whisker reward_available not one rewarded + one non-rewarded: {ra.to_dict()}")
+    rew = ra.idxmax()
+    return np.where(ctx == rew, "rew", "nonrew")
+
+
 def condition_masks(t):
     wt, lk = t.trial_type.to_numpy(), t.lick_flag.to_numpy().astype(int)
+    if DATASET == "jl":
+        base = _base_masks(wt, lk)
+        out = {"All": base["All"]}
+        for c in CONTEXTS:
+            for k, m in base.items():
+                out[f"{k}_{c}"] = m & (t.ctx.to_numpy() == c)
+        return out
+    return _base_masks(wt, lk)
+
+
+def _base_masks(wt, lk):
     return {
-        "All": np.ones(len(t), bool),
+        "All": np.ones(len(wt), bool),
         "W_all": wt == "whisker_trial",
         "W_hit": (wt == "whisker_trial") & (lk == 1),
         "W_miss": (wt == "whisker_trial") & (lk == 0),

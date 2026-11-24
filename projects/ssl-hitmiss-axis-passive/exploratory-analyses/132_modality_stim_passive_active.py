@@ -93,12 +93,26 @@ def subsample(y, n, rng):
 def session_trials(sid, st, tt, T):
     from ssl_bwm_trial_prep import prep_session  # noqa: F401  (prep_modality_trials uses it)
     t = tt[tt.session_id == sid].sort_values("start_time").reset_index(drop=True)
-    act_idx = np.where(t.context == "active")[0]
+    act_idx = np.where(t.context != "passive")[0]
     if not len(act_idx):
         return None
-    t0, t1 = t.start_time.iloc[act_idx[0]], t.start_time.iloc[act_idx[-1]]
-    pas = t[(t.context == "passive") & t.trial_type.isin(["whisker_trial", "auditory_trial"])]
-    pre, post = pas[pas.start_time < t0], pas[pas.start_time > t1]
+    # 2026-11-23 (bug fix): a few trials logged as "active" after the passive-post block (1-5 trials: AB120, AB136, AB150,
+    # MH015, MH017, MH070, ...) made post empty (post was "after the LAST active trial") and silently dropped the session.
+    # Now: main active block = the longest run of consecutive non-passive trials; pre = see below
+    # post = the run of passive trials right after the main block (later trials ignored: MH009 has
+    # passive 81 / active 2 / passive 41 after the main block -> post = the 81); active trials after the main block dropped.
+    # Expert sessions (fixed the same day): context NaN counts as non-passive (main block of MH062 / MH068 expert is NaN, as in
+    # 23 day-0 NWBs); pre = the LONGEST passive run before the main block (MH037 expert starts with 1 active trial, then
+    # passive 80); on day 0 this is the first passive block, as before.
+    ispas = (t.context == "passive").to_numpy()
+    blk = np.r_[0, np.cumsum(ispas[1:] != ispas[:-1])]
+    runs = pd.Series(blk[~ispas]).value_counts()
+    main_blk = int(runs.idxmax())
+    t1 = t.start_time[blk == main_blk].max()
+    is_wa = t.trial_type.isin(["whisker_trial", "auditory_trial"]).to_numpy()
+    before = pd.Series(blk[ispas & (blk < main_blk)]).value_counts()
+    pre = t[(blk == int(before.idxmax())) & is_wa] if len(before) else t.iloc[:0]
+    post = t[(blk == main_blk + 1) & ispas & is_wa]                 # the passive run right after the main block
     if not len(pre) or not len(post):
         return None
     from ibl_ai_agent.data_locations import resolve_dataset_dir
@@ -106,7 +120,7 @@ def session_trials(sid, st, tt, T):
     if act is None:
         return None
     fw = act.loc[act.trial_type == "whisker_trial", "start_time"].min()
-    act = act[act.start_time >= fw]                         # remove the kept warm-up trial too
+    act = act[(act.start_time >= fw) & (act.start_time <= t1)]   # remove the kept warm-up trial too; nothing after the main block
     dis = T.detect_terminal_disengagement(sid, tt)
     if dis["disengaged"]:
         act = act[act.start_time < dis["t_cut"]]

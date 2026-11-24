@@ -12,6 +12,12 @@ Arial 5-7 pt, paperstyle). Panels:
   E  sheet category against the agnostic label
   F  mean exact learning curves (whisker and chance) of learners and non-learners, per cohort (session progress)
   G  performance of learners vs non-learners (day 0 and day +1)
+  H  peak within-session d' per mouse (max over whisker trials of z(whisker curve) - z(chance curve)), agnostic label x
+     sheet category; lines: d' 1 (labelling in B / C, R+ only, not in the consensus), threshold with the best agreement
+     with the agnostic label, R- 95th percentile (peak reached without any whisker reward)
+  I  R+ threshold sweep: Cohen's kappa with the sheet and the agnostic label, AUC for day +1 d', fraction of learners
+  J  peak d' against day +1 d' (learners filled, non-learners open)
+  A also shows the peak d' per mouse (continuous row, not a criterion).
 Outputs: Figures/SuppFigure_learners_<date>/ (manuscript snapshot) and combined_results_ks4/ssl-learner-classification/figures/.
 Run on haas (repo root): ~/code/unit_spikes_analysis/.venv/bin/python projects/ssl-learner-classification/exploratory-analyses/002_supp_figure.py
 """
@@ -45,6 +51,7 @@ CRIT_LABEL = {"exact_rule": "Exact-curve rule", "high_state": "High-performance 
               "late30": "Last 30 W trials: W > FA", "sustained": "Run ≥ 10 trials", "L6": "Joint change point",
               "cascade": "Lenient cascade", "gmm": "Gaussian mixture", "dtw": "DTW clustering"}
 GREY_NO, GREY_NA = "0.86", "white"
+PEAK_TH = 1.0   # as 001 (labelling shown in b, c; not in the consensus)
 
 
 def stars(p):
@@ -62,9 +69,10 @@ def order(d):
 
 def panel_matrix(ax, d):
     o = order(d)
-    rows = CRITERIA + ["_gap", "consensus", "label", "sheet", "old_dtw", "fixed"]
+    rows = CRITERIA + ["_gap", "consensus", "label", "sheet", "peak", "old_dtw", "fixed"]
     names = [CRIT_LABEL.get(r, "") for r in CRITERIA] + ["", "Consensus (fraction met)", "Agnostic label",
-                                                          "Sheet category", "DTW clusters (old curves)", "Fixed non-learner (user)"]
+                                                          "Sheet category", "Peak within-session d′ (0–3)",
+                                                          "DTW clusters (old curves)", "Fixed non-learner (user)"]
     cols = []
     for k, c in enumerate(COHORTS):
         cols += [(c, r) for _, r in o[c].iterrows()]
@@ -88,6 +96,9 @@ def panel_matrix(ax, d):
                 cat = r.learning_category
                 img[i, j] = (col if cat == "good" else ps.light(C[coh], 0.55) if cat == "moderate"
                              else plt.matplotlib.colors.to_rgb("0.25") if cat == "bad" else (1, 1, 1))
+            elif row == "peak":   # continuous, not a criterion (user 2026-11-23)
+                a = float(np.clip(r.peak_dprime / 3.0, 0, 1))
+                img[i, j] = (1 - a) * np.ones(3) + a * col
             elif row == "old_dtw":
                 v = r.old_cluster
                 img[i, j] = (1, 1, 1) if pd.isna(v) else plt.matplotlib.colors.to_rgb(["0.3", "0.6", "0.85"][int(v)])
@@ -117,13 +128,14 @@ def panel_matrix(ax, d):
 
 
 def panel_kappa(ax, ag):
-    labs = CRITERIA + ["sheet"]
-    names = [CRIT_LABEL[c] for c in CRITERIA] + ["Sheet (good / moderate)"]
+    labs = CRITERIA + ["sheet", "peak_dprime"]
+    names = [CRIT_LABEL[c] for c in CRITERIA] + ["Sheet (good / moderate)", f"Peak d′ ≥ {PEAK_TH:g} (R+ only)"]
     g = ag[ag.reference == "final label"].set_index(["cohort", "labelling"])
     for k, c in enumerate(COHORTS):
         y = np.arange(len(labs)) + (k - 0.5) * 0.38
         v = np.array([g.loc[(c, l), "kappa"] if (c, l) in g.index else np.nan for l in labs])
-        const = np.array([(c, l) in g.index and g.loc[(c, l), "n_learner"] in (0, g.loc[(c, l), "n"]) for l in labs])
+        const = np.array([(c, l) in g.index and g.loc[(c, l), "n"] > 0
+                          and g.loc[(c, l), "n_learner"] in (0, g.loc[(c, l), "n"]) for l in labs])
         v[const] = np.nan  # a criterion met by every mouse has no kappa
         ax.barh(y, np.nan_to_num(v), 0.36, color=C[c], lw=0, label=COH_LABEL[c])
         for yy, cc in zip(y, const):
@@ -138,8 +150,8 @@ def panel_kappa(ax, ag):
 
 
 def panel_validation(ax, val):
-    labs = ["final label", "sheet"] + CRITERIA
-    names = ["Agnostic label", "Sheet"] + [CRIT_LABEL[c] for c in CRITERIA]
+    labs = ["final label", "sheet"] + CRITERIA + ["peak_dprime"]
+    names = ["Agnostic label", "Sheet"] + [CRIT_LABEL[c] for c in CRITERIA] + [f"Peak d′ ≥ {PEAK_TH:g} (R+)"]
     g = val.set_index(["cohort", "outcome", "labelling"])
     for k, (c, out, mk) in enumerate([("R+", "hit_w_day1", "o"), ("R+", "dprime_day1", "s"), ("R-", "hit_w_day1", "o"),
                                       ("R-", "dprime_day1", "s")]):
@@ -272,8 +284,69 @@ def panel_perf(axs, d):
         ax.text(1.325, -0.2, "R−", color=C["R-"], ha="center", fontsize=5, transform=ax.get_xaxis_transform())
 
 
+def peak_reference(d, q=95):
+    """R- peak d' percentile: how high a transient whisker-above-chance peak gets without any whisker reward"""
+    return float(np.percentile(d[d.cohort == "R-"].peak_dprime.dropna(), q))
+
+
+def panel_peak(ax, d, sweep):
+    """peak within-session d' per mouse, agnostic label x sheet category; reference lines"""
+    ref95 = peak_reference(d)
+    best = float(sweep.loc[sweep.kappa_agnostic.idxmax(), "threshold"])
+    for k, c in enumerate(COHORTS):
+        g = d[d.cohort == c]
+        rng = np.random.default_rng(k)
+        for lr, dx in ((True, -0.18), (False, 0.18)):
+            gg = g[g.learner == lr]
+            x = k + dx + rng.uniform(-0.07, 0.07, len(gg))
+            mk = gg.learning_category.map({"good": "o", "moderate": "^", "bad": "x"}).fillna("o")
+            for m in ("o", "^", "x"):
+                s_ = (mk == m).to_numpy()
+                ax.scatter(x[s_], gg.peak_dprime[s_], s=4 if m != "x" else 5, marker=m, lw=0.5 if m == "x" else 0,
+                           color=C[c] if lr else "0.25", zorder=3)
+    for y, ls, col, lab in ((PEAK_TH, ":", "0.4", f"{PEAK_TH:g}"), (best, "--", C["R+"], f"{best:g} (best κ, R+)"),
+                            (ref95, "-.", C["R-"], f"{ref95:.2f} (R− 95th pct)")):
+        ax.axhline(y, color=col, lw=0.5, ls=ls)
+        ax.text(1.52, y, lab, fontsize=4, color=col, va="center", ha="left")
+    ax.set_xticks([-0.18, 0.18, 0.82, 1.18], ["L", "NL", "L", "NL"])
+    ax.set_xlim(-0.5, 1.5)
+    ax.set_ylabel("Peak within-session d′", labelpad=1)
+    ax.set_xlabel("Agnostic label", labelpad=9, fontsize=5)
+    for k, c in enumerate(COHORTS):
+        ax.text(k, -0.2, COH_LABEL[c], color=C[c], ha="center", fontsize=5, transform=ax.get_xaxis_transform())
+
+
+def panel_sweep(ax, d, sweep):
+    ref95 = peak_reference(d)
+    th = sweep.threshold
+    for col, lab, c, ls in (("kappa_sheet", "κ with sheet", "0.2", "-"), ("kappa_agnostic", "κ with agnostic label", C["R+"], "-"),
+                            ("auc_dprime_day1", "AUC, d′ day +1", "0.5", "--")):
+        ax.plot(th, sweep[col], color=c, ls=ls, lw=0.8, marker="o", ms=1.8, label=lab)
+    ax.plot(th, sweep.n_learner / sweep.n, color="0.7", lw=0.8, ls=":", label="fraction learners")
+    ax.axvline(ref95, color=C["R-"], lw=0.5, ls="-.")
+    ax.axvline(PEAK_TH, color="0.4", lw=0.5, ls=":")
+    ax.set(xlabel="Peak d′ threshold (R+)", ylim=(-0.05, 1.05))
+    ax.set_ylabel("Agreement / AUC / fraction", labelpad=1)
+    ax.legend(fontsize=4.2, loc="lower right", handlelength=1.4, borderaxespad=0.2)
+
+
+def panel_peak_day1(ax, d):
+    for c in COHORTS:
+        g = d[d.cohort == c].dropna(subset=["peak_dprime", "dprime_day1"])
+        for lr in (True, False):
+            gg = g[g.learner == lr]
+            ax.scatter(gg.peak_dprime, gg.dprime_day1, s=4, color=C[c] if lr else "white", edgecolor=C[c], lw=0.4, zorder=3)
+        rho, p = stats.spearmanr(g.peak_dprime, g.dprime_day1)
+        ax.text(0.02, 0.97 - 0.09 * COHORTS.index(c), f"{COH_LABEL[c]}: ρ = {rho:.2f}, {ptext(p)}", color=C[c], fontsize=4.5,
+                transform=ax.transAxes, va="top")
+    ax.axhline(0, color="0.6", lw=0.4)
+    ax.set_xlabel("Peak within-session d′ (day 0)", labelpad=1)
+    ax.set_ylabel("d′ day +1", labelpad=1)
+
+
 def main():
     d = pd.read_csv(RES / "tables" / "001_per_mouse.csv")
+    sweep = pd.read_csv(RES / "tables" / "001_peak_dprime_sweep.csv")
     ag = pd.read_csv(RES / "tables" / "001_agreement.csv")
     val = pd.read_csv(RES / "tables" / "001_validation_day1.csv")
     rule = pd.read_csv(RES / "tables" / "001_simple_rule.csv")
@@ -294,6 +367,10 @@ def main():
     box = G.axes_mm(88, 106, 95, 40, "g", margins_mm=(0, 0, 0, 0)); box.axis("off")
     axs = [G.axes_mm(88 + i * 15.8, 106, 15.8, 40, None, margins_mm=(7, 9, 4, 0.5)) for i in range(6)]
     panel_perf(axs, d)
+    # row 4: peak within-session d' (user 2026-11-23)
+    panel_peak(G.axes_mm(0, 152, 52, 40, "h", margins_mm=(11, 9, 14, 1)), d, sweep)
+    panel_sweep(G.axes_mm(62, 152, 58, 40, "i", margins_mm=(10, 8, 3, 1)), d, sweep)
+    panel_peak_day1(G.axes_mm(130, 152, 53, 40, "j", margins_mm=(10, 8, 3, 1)), d)
     for out in (SNAP, RES / "figures"):
         ps.save_figure(G.fig, out, "SuppFigure_learners")
     G.fig.savefig(RES / "figures" / "SuppFigure_learners_tight.png", dpi=300, bbox_inches="tight", pad_inches=0.05)  # report copy

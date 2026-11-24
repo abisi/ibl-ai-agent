@@ -55,7 +55,7 @@ panels:
   status: filled
   params:
     example: AB151
-  caption: 'Whisker day 0 of an example R+ non-learner ({mouse_id}; {n_whisker_trials} whisker trials), as Fig. 1E:
+  caption: 'Whisker day 0 of an example R+ non-learner ({mouse_id}; {n_whisker_trials} whisker trials), as Fig. 1D:
     exact learning curves of whisker (cohort colour; shading, 80% posterior interval), no-stimulus (black) and auditory
     trials (blue); ticks, whisker trials with (top) and without a lick (bottom).'
   cell:
@@ -113,7 +113,7 @@ panels:
   data: FigS1L_days.csv
   status: filled
   caption: 'Left and middle, lick probability on whisker, auditory and no-stimulus trials on auditory days -2 and -1 and
-    whisker days 0 to 3 (shaded, day 0), R+ (left) and R- (middle), learners solid, non-learners dashed. Right, d''
+    whisker days 0 to 2 (shaded, day 0), R+ (left) and R- (middle), learners solid, non-learners dashed. Right, d''
     between whisker and no-stimulus trials on each whisker day (log-linear rate correction). Stars, Mann-Whitney learners
     versus non-learners (R+, P < 0.05). R+ d'' day 0, Mann-Whitney {stats.R+ dprime whisker_trial 0.mannwhitney_p:p},
     Welch {stats.R+ dprime whisker_trial 0.welch_p:p}; day 1 {stats.R+ dprime whisker_trial 1.mannwhitney_p:p}, Welch
@@ -129,7 +129,7 @@ panels:
   title: Learning curves and Delta P(lick) from the first whisker trial
   data: FigS1L_perf_trial.csv
   status: filled
-  caption: 'As Fig. 1H for learners (solid) and non-learners (dashed): whisker, false-alarm (chance) and auditory learning
+  caption: 'As Fig. 1G for learners (solid) and non-learners (dashed): whisker, false-alarm (chance) and auditory learning
     curves of R+ and R- mice against session time from the first whisker trial (0) to the session end (1; last 15% of
     the session cut, curves refitted), and Delta P(lick) (whisker minus chance curve). Bars, learners versus
     non-learners (cluster-based permutation test, Welch t, 1,000 permutations, cluster P < 0.05): R+
@@ -162,7 +162,7 @@ panels:
   title: Learning curves and Delta P(lick) from the first whisker hit
   data: FigS1L_perf_hit.csv
   status: filled
-  caption: 'As g from the first whisker hit (0) to the session end (1), as Fig. 1J. Clusters: R+ {sig_clusters_text.R+};
+  caption: 'As g from the first whisker hit (0) to the session end (1). Clusters: R+ {sig_clusters_text.R+};
     R- {sig_clusters_text.R-}. n = {n.R+.learners} learners and {n.R+.non_learners} non-learners (R+), {n.R-.learners}
     and {n.R-.non_learners} (R-).'
   cell:

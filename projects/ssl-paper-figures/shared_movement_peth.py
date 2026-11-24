@@ -24,11 +24,18 @@ import shared_behaviour
 from common import CACHE_DIR, NWB_DIR, REFERENCE_SHEET, load_cache, nwb_fingerprint
 from shared_movements import data_utils, dlc_helpers, dlc_signals
 
-PARAMS = {"version": 10,  # v10 (user 2026-11-18, Supp. Fig. 1 evoked movements): no-stimulus trials added (false alarms, correct rejections). v9 (user 2026-11-16, Fig. 1d): whisker speed window to 0.5 s. v8 (2026-11-16): nose speed added (Supp. Fig. 1 hit/miss panels); NWBs of MH013/MH017/AB092 corrected. v7 (planner 2026-11-12, Fig. 1d): jaw window to 0.5 s "loader": "ephys_utilities.helpers.dlc_helpers (via shared_movements.dlc_signals; peth)",
+PARAMS = {"version": 13,  # v13 (user 2026-11-23): tongue distance on frames with tongue likelihood > 0.5 (was 0.6). v12 (user 2026-11-23, S1c): nose distance (shared_movements 'nose') and tongue distance (frames with the tongue detected only; lick-aligned, raw, no baseline: undefined with the tongue in). v11 (user 2026-11-22, Supp. Fig. 1 DLC panels): tongue-out probability added (dlc_helpers.tongue_presence, side tongue_likelihood > 0.6); lick-aligned traces on their own window (lick_window_s, before and after the first lick). v10 (user 2026-11-18, Supp. Fig. 1 evoked movements): no-stimulus trials added (false alarms, correct rejections). v9 (user 2026-11-16, Fig. 1d): whisker speed window to 0.5 s. v8 (2026-11-16): nose speed added (Supp. Fig. 1 hit/miss panels); NWBs of MH013/MH017/AB092 corrected. v7 (planner 2026-11-12, Fig. 1d): jaw window to 0.5 s "loader": "ephys_utilities.helpers.dlc_helpers (via shared_movements.dlc_signals; peth)",
           "signals": {"whisker_speed": {"source": "whisker_speed", "window_s": [-0.1, 0.5], "dt_s": 0.005},
                       "jaw_opening": {"source": "jaw_distance", "window_s": [-0.1, 0.5], "dt_s": 0.005},
                       "pupil_area": {"source": "pupil_area", "window_s": [-1.0, 3.0], "dt_s": 0.05},
-                      "nose_speed": {"source": "nose_speed", "window_s": [-0.1, 0.5], "dt_s": 0.005}},
+                      "nose_speed": {"source": "nose_speed", "window_s": [-0.1, 0.5], "dt_s": 0.005},
+                      "tongue_out": {"source": "tongue_out", "window_s": [-0.1, 0.5], "dt_s": 0.005},
+                      "nose_distance": {"source": "nose", "window_s": [-0.1, 0.5], "dt_s": 0.005},
+                      "tongue_distance": {"source": "tongue_distance", "window_s": [-0.1, 0.5], "dt_s": 0.005,
+                                          "raw": True}},
+          "lick_window_s": {"whisker_speed": [-0.3, 0.3], "jaw_opening": [-0.3, 0.3], "nose_speed": [-0.3, 0.3],
+                            "tongue_out": [-0.3, 0.3], "pupil_area": [-2.0, 2.0], "nose_distance": [-0.3, 0.3],
+                            "tongue_distance": [-0.3, 0.3]},
           "trial_types": ["whisker_trial", "auditory_trial", "no_stim_trial"], "alignments": ["stimulus", "lick"],
           "lick_time": "start_time + computed_reaction_time", "baseline": "each trial's pre-stimulus mean (both alignments)",
           "pupil_trial_qc": "dlc_helpers.pupil_trial_ok over each alignment's window (2026-11-12)"}
@@ -63,12 +70,19 @@ def _one_session(args):
                 rt = tr.computed_reaction_time.to_numpy()
                 v = np.isfinite(rt) & (rt > 0)
                 if v.any():
-                    grid_l, m_l = dh.peth(x, ts, (starts + rt)[v], window=win, dt=dt)
+                    lwin = tuple(PARAMS["lick_window_s"][name])  # v11: own window around the lick
+                    grid_l, m_l = dh.peth(x, ts, (starts + rt)[v], window=lwin, dt=dt)
                     if name == "pupil_area":
-                        m_l[~dh.pupil_trial_ok(session_id, (starts + rt)[v], window=win)] = np.nan
+                        m_l[~dh.pupil_trial_ok(session_id, (starts + rt)[v], window=lwin)] = np.nan
                     aligned["lick"] = (grid_l, m_l, base_s[v])  # v5: pre-stimulus baseline, not pre-lick
             for align, (grid, m, base) in aligned.items():
-                ok = (np.isfinite(m).mean(1) > 0.5) & np.isfinite(base)  # most of the window tracked
+                if spec.get("raw"):  # tongue distance: lick-aligned only, frames with the tongue out, no baseline
+                    if align != "lick":
+                        continue
+                    ok = np.isfinite(m).any(1)
+                    base = np.zeros(len(m))
+                else:
+                    ok = (np.isfinite(m).mean(1) > 0.5) & np.isfinite(base)  # most of the window tracked
                 if not ok.any():
                     continue
                 m, base = m[ok], base[ok]

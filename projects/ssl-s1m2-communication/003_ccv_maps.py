@@ -41,7 +41,8 @@ def run_job(sid, cond, rows, seed=0):
     dsteps = np.arange(int(round(c["delays_s"][0] / bs)), int(round(c["delays_s"][1] / bs)) + 1)
     cvsteps = np.arange(int(round(c["cv_delays_s"][0] / bs)), int(round(c["cv_delays_s"][1] / bs)) + 1)
     starts = tr.start_time.to_numpy(float)
-    groups = (tr.trial_type.astype(str) + "_" + tr.lick_flag.astype(int).astype(str)).to_numpy()
+    groups = (tr.trial_type.astype(str) + "_" + tr.lick_flag.astype(int).astype(str)
+              + ("_" + tr.ctx.astype(str) if L.DATASET == "jl" else "")).to_numpy()
     s1 = units[units.area_acronym_custom == c["s1_area"]].reset_index(drop=True)
     X_s1 = L.count_tensor(s1.spike_times.tolist(), starts, edges).astype(np.float32)
     rng_f = np.random.default_rng(seed)
@@ -77,6 +78,12 @@ def run_job(sid, cond, rows, seed=0):
                     hit_rate_A=float(trials[trials.trial_type == "auditory_trial"].lick_flag.mean()),
                     fa_rate=float(trials[trials.trial_type == "no_stim_trial"].lick_flag.mean()),
                     elapsed_s=time.time() - t0)
+        if L.DATASET == "jl":  # per-context lick rates (rewarded / non-rewarded context)
+            for cx in L.CONTEXTS:
+                tc = trials[trials.ctx == cx]
+                for tt, nm in (("whisker_trial", "W"), ("auditory_trial", "A"), ("no_stim_trial", "NS")):
+                    meta[f"plick_{nm}_{cx}"] = float(tc[tc.trial_type == tt].lick_flag.mean())
+                    meta[f"n_{nm}_{cx}"] = int((tc.trial_type == tt).sum())
         maps_dir().mkdir(parents=True, exist_ok=True)
         f = maps_dir() / f"{sid}__{r.pair}__{cond}.npz"
         tmp = f.with_name(f.stem + ".tmp.npz")

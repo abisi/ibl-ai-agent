@@ -134,7 +134,7 @@ def plot_days(ax, df):
                 a.errorbar(m.index + (0 if lr else 0.15), m, e, color=col, ls=LS[lr], marker="o", ms=1.6,
                            mfc=col if lr else "white", mew=0.4, lw=0.6, elinewidth=0.5, capsize=0)
         a.axvspan(-0.4, 0.4, color="0.92", lw=0, zorder=0)
-        a.set_xticks(range(-2, 4))
+        a.set_xticks(range(-2, 3))  # user 2026-11-23: to whisker day 2
         a.set_ylim(0, 1.02)
         a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"] if c == "R+" else [])
         a.set_xlabel("Day", labelpad=1)
@@ -152,13 +152,13 @@ def plot_days(ax, df):
                            mfc=COLORS[c] if lr else "white", mew=0.4, lw=0.6, elinewidth=0.5, capsize=0)
     right.axhline(0, color="0.6", lw=0.4, ls=":")
     top = right.get_ylim()[1]
-    for day in range(4):
+    for day in range(3):
         a_, b_ = _sel(dp[dp.day == day], "R+", True).value, _sel(dp[dp.day == day], "R+", False).value
         if len(a_) >= 3 and len(b_) >= 3:
             pv = stats.mannwhitneyu(a_, b_).pvalue
             right.text(day, top, fig1.stars(pv), ha="center", va="bottom", fontsize=fig1.FS_NOTE, color=COLORS["R+"])
-    right.set_xticks(range(4))
-    right.set_xlim(-0.5, 3.5)
+    right.set_xticks(range(3))
+    right.set_xlim(-0.5, 2.5)
     right.set_xlabel("Whisker day", labelpad=1)
     right.set_ylabel("d′ (W vs FA)", labelpad=1)
     fig1._legend(right, _learner_entries(), loc="center right", bbox_to_anchor=(1, 0.45))

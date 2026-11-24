@@ -11,6 +11,7 @@ code they change. Raw files (session_config.json, results.csv, videos, probe she
 |---|---|---|
 | `SESSION_JSON_OVERRIDES` (session_config.json values) | `make_yaml_config.py` | MH068_20260125, MH069_20260125 (`ephys_session` 1); AB079_20230620, MH067_20260118 (`ephys_session` 0, behaviour-only whisker_0; MH067 also `camera_flag` 0); AB135_20241111, AB137_20241116 (`ephys_session` 0 from 2026-11-11: whisker_0 with sheet `exclude_ephys` = 1 and the processed Ephys folder removed; yaml `ephys_metadata` removed, backups `config_<session>_backup_20261111.yaml`; behaviour + DLC NWBs); AB100_20240304 / 0305 / 0306_100728, AB111_20240421 / 0422 (`camera_flag` 0, videos not on the NAS) |
 | Edited results.csv (Excel re-save) | `utils/server_paths.get_behavior_results_file` | MH028_20250501 (results.csv edited 2026-11-03 to relabel trials 82-104 passive -> active; the re-save is latin-1, `;`-separated, `wh_stim_amp` 3.2 -> '03.févr'; the clause writes a cleaned temporary copy; NWB_ks4 swapped 2026-11-12) |
+| `results_corrected_bis.csv` (raw data folder, preferred over results.csv by `utils/server_paths.get_behavior_results_file`) | `/data/<mouse>/Training/<session>/` | MH062_20260113, MH068_20260125 (2026-11-24: `context_block` NA -> active for the main active block, 377 / 99 trials; raw results.csv untouched, copy in `combined_results_ks4/_temp_nwb_context_check/results_csv_backup/`; NWB_ks4 swapped 2026-11-24, backups `NWB_ks4_backup_20261124/`). Earlier files of the same kind: MH006_20250123, MH026_20250422 / 0425, MH029_20250502, AB155_20250208 |
 | `skip_probes` | `converters/ephys_to_nwb_test.py` | MH064_20260117 imec2 (no probe sheet row; user: ignore). MH069_20260125 imec0: aligned 2026-11-03 (channel_locations.json / prev_alignments.json moved to Myriam_Hamon/.../MH069_g0_imec0/ibl_format), clause removed, reconverted: 25 units (imec3 invalid recording) |
 | `CAMERA_LAST_PULSE_RUN_SESSIONS` | `utils/ephys_converter_misc.py` | AB086_20231015, MH027_20250424, MH030_20250503, MH064_20260115, MH064_20260116, MH067_20260120, MH067_20260121 |
 | `camera_from_log_sessions` (camera timestamps from the behaviour log, mapped to imec through the trial TTLs) | `utils/ephys_converter_misc.py` (`extract_ephys_timestamps`) | MH038_20250524 (NIDQ camera channels only 56,558 pulses; log 711,761 = DLC frames) |
@@ -115,6 +116,14 @@ so they had been converted with setup 1 px/mm); evidence: probe sheet (ephys day
   MH019_20250306, MH037_20250527 (rebuilt); all 132 NWBs with epochs match the function. Epochs are written only for
   ephys sessions (`behavior_to_nwb.py`); behaviour-only NWBs have none. One-page overview of all 132:
   `combined_results_ks4/ssl-nwb-ks4-review/figures/epochs_all_nwb.pdf`.
+- 2026-11-24: `behavior_to_nwb.py` also writes the epochs for behaviour-only AB / MH sessions with both active and
+  passive trials (AB135_20241111, AB137_20241116 reconverted; AB137 on Windows, its side AVI is unreadable on Linux).
+  Behaviour-only sessions without passive (auditory, free licking, whisker days without passive, whisker_on / off,
+  whisker_psy) still have no epochs (user: ignore). AB111_20240421 (excluded) not reconverted.
+- Context review 2026-11-24 (per-session figures `combined_results_ks4/_temp_nwb_context_check/per_session/`), user
+  decisions: passive-labelled trials with task outcomes and perf-6 trials inside the active epoch stay passive, epochs
+  unchanged; active-labelled trials at the passive_pre / passive_post edges are fine (inside the passive epochs).
+  AB116 / AB117 / AB119 passive trials carry task perf codes (0-5) instead of 6: filter passive by context, not perf.
 - MH028_20250501_104058: context labels wrong in the raw results: trials 86-103 (526-1001 s; auditory hits, false
   alarms, licks, irregular ITIs) are labelled passive, so passive_pre runs to ~1007 s (104 trials) although the passive
   block ends at trial 79 (294 s); trials 80-85 (492-519 s, perf 6) unclear. Pending user decision.

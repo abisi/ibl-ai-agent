@@ -403,17 +403,161 @@ def _cohort_null(nulls, rng):
     return np.array([np.mean([rng.choice(n) for n in nulls]) for _ in range(RT_N_NULL_DRAWS)])
 
 
-def compute_rt_learning(ctx):
-    """Reaction time and learning (user 2026-11-09; left part replaced 2026-11-10). Learners, whisker day 0, early licks
-    dropped; reaction time = computed_reaction_time (0-1 s) on licked trials.
-    Left (kind 'bin' / 'mouse'): whisker-hit reaction time change from the mouse's first 5 hits (rt_change_from_start).
-    Right (kind 'rho'): per mouse and licked trial type (whisker hits, auditory hits, false alarms; >= 10 per mouse),
-    Spearman rho between reaction time and the whisker learning curve (at the trial; other trial types at the preceding
-    whisker trial) minus the median rho over linear shifts (|shift| > 10 trials, hits in time order)."""
+
+
+def _cut_session(st):
+    """Whisker day 0 of one session, early licks dropped, cut at session_end_time (as Fig. 1G-J)."""
+    st = st[st.early_lick == 0].sort_values("start_time")
+    return st[st.start_time <= session_end_time(st[st.trial_type == "whisker_trial"].start_time)]
+
+
+def rt_change_aligned(ctx):
+    """User 2026-11-22 ('K aligned with I'): whisker-hit reaction time change on the trial axis of Fig. 1I. Learners,
+    whisker day 0 cut at session_end_time, early licks dropped; each whisker hit with a reaction time (0-1 s) gets its
+    whisker-trial index from the first whisker hit (0 = the first hit) and its change = RT minus the mouse's median over
+    its first RT_START hits; per mouse, the median per bin of Fig. 1I (0 alone, 1-5, ..., 26-30). R+ vs R- per bin
+    (Mann-Whitney + Welch, Benjamini-Hochberg over the bins, >= RT_MIN_MICE mice per cohort); late change = per-mouse
+    mean over whisker trials 21-30 (Wilcoxon vs 0 within cohort; R+ vs R- Mann-Whitney and Welch).
+    Rows: kind 'bin' (mouse x bin), 'bin_test', 'mouse'."""
+    from statsmodels.stats.multitest import multipletests
     rows = []
     for sid, st in day0_table(ctx["table"], learners_only=True).groupby("session_id"):
-        st = st[st.early_lick == 0].sort_values("start_time")
-        curves, _, _ = session_curves(st, ctx)
+        w = _cut_session(st)
+        w = w[w.trial_type == "whisker_trial"]
+        lick = w.lick_flag.to_numpy() == 1
+        if not lick.any():
+            continue
+        idx = np.arange(len(w)) - int(np.argmax(lick))
+        rt = (w.computed_reaction_time.where(w.computed_reaction_time.between(0, 1)) * 1000).to_numpy()
+        ok = lick & np.isfinite(rt) & (idx >= 0)
+        rows.append(pd.DataFrame({"mouse_id": st.mouse_id.iloc[0], "session_id": sid, "cohort": st.cohort.iloc[0],
+                                  "trial_from_first_hit": idx[ok], "hit_number": np.arange(1, ok.sum() + 1),
+                                  "rt_ms": rt[ok]}))
+    h = pd.concat(rows, ignore_index=True)
+    ref = h[h.hit_number <= RT_START].groupby("mouse_id").rt_ms.median()
+    h["rt_change_ms"] = h.rt_ms - h.mouse_id.map(ref)
+    lo_e, hi_e = ALIGN_BIN_EDGES[:-1], ALIGN_BIN_EDGES[1:] - 1
+    b = np.searchsorted(ALIGN_BIN_EDGES, h.trial_from_first_hit, side="right") - 1
+    h = h[(b >= 0) & (b < len(lo_e))].assign(bin=b[(b >= 0) & (b < len(lo_e))])
+    keys = ["mouse_id", "session_id", "cohort"]
+    bins = h.groupby(keys + ["bin"]).rt_change_ms.agg(value="median", n_hits_in_bin="size").reset_index()
+    bins["bin_start"], bins["bin_end"] = lo_e[bins.bin], hi_e[bins.bin]
+    bins["bin_centre"] = (bins.bin_start + bins.bin_end) / 2
+    bins["kind"] = "bin"
+    tests = []
+    for (b0, b1, bc), g in bins.groupby(["bin_start", "bin_end", "bin_centre"]):
+        a_, b_ = g[g.cohort == "R+"].value, g[g.cohort == "R-"].value
+        if min(len(a_), len(b_)) >= RT_MIN_MICE and b0 > 0:
+            tests.append({"bin_start": b0, "bin_end": b1, "bin_centre": bc, "n_rplus": len(a_), "n_rminus": len(b_),
+                          **two_group_tests(a_, b_)})
+    tests = pd.DataFrame(tests)
+    tests["mannwhitney_q_bh"] = multipletests(tests.mannwhitney_p, method="fdr_bh")[1]
+    tests["welch_q_bh"] = multipletests(tests.welch_p.fillna(1), method="fdr_bh")[1]
+    mice = (h[h.trial_from_first_hit.between(*RT_LATE)].groupby(keys).rt_change_ms.mean().rename("late_change_ms")
+            .reset_index().assign(kind="mouse"))
+    late = {**{c: _summary_vs_zero(mice[mice.cohort == c].late_change_ms) for c in COHORTS},
+            "rplus_vs_rminus": two_group_tests(mice[mice.cohort == "R+"].late_change_ms,
+                                               mice[mice.cohort == "R-"].late_change_ms)}
+    sig = tests[tests.mannwhitney_q_bh < 0.05]
+    return pd.concat([bins, tests.assign(kind="bin_test"), mice], ignore_index=True), {
+        "n": n_by_cohort(bins), "late": late, "bin_tests": tests.to_dict(orient="records"),
+        "sig_bins_text": ", ".join(f"{int(r.bin_start)}-{int(r.bin_end)} (q = {r.mannwhitney_q_bh:.2g})"
+                                   for r in sig.itertuples()) or "none",
+        "params": {"reference": f"median of the first {RT_START} hits", "late_trials": list(RT_LATE),
+                   "bin_edges": [int(v) for v in ALIGN_BIN_EDGES], "session_keep": SESSION_KEEP}}
+
+
+def rt_curve_lmm(d):
+    """User 2026-11-22: linear mixed model of whisker-hit reaction time on the whisker curve, one cohort: rt_ms ~ curve,
+    random intercept and curve slope per mouse (optimisers lbfgs, powell, nm in turn; random intercept only if none
+    converges), REML. Returns the fixed effect of the curve (ms per unit of curve) and its p."""
+    import warnings
+    import statsmodels.formula.api as smf
+    from statsmodels.tools.sm_exceptions import ConvergenceWarning
+    fit, re_used = None, None
+    for re_formula, method in [("~curve", m) for m in ("lbfgs", "powell", "nm")] + [("1", "lbfgs")]:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", ConvergenceWarning)
+            try:
+                fit = smf.mixedlm("rt_ms ~ curve", d, groups=d.mouse_id, re_formula=re_formula).fit(reml=True, method=method)
+                re_used = re_formula
+                break
+            except (ConvergenceWarning, np.linalg.LinAlgError):
+                continue
+    return {"slope": float(fit.params["curve"]), "se": float(fit.bse["curve"]), "z": float(fit.tvalues["curve"]),
+            "p": float(fit.pvalues["curve"]), "intercept": float(fit.params["Intercept"]), "n_mice": int(d.mouse_id.nunique()),
+            "n_trials": len(d), "random_effects": "intercept + slope" if re_used == "~curve" else "intercept",
+            "optimiser": method}
+
+
+def rt_curve_lmm_rank(d):
+    """User 2026-11-23 ('show the correlation coefficient; is it possible to have Spearman?'): rank-based linear mixed
+    model, one cohort. Per mouse, reaction time and curve are ranked (ties averaged) and z-scored within the mouse, so the
+    least-squares slope of one mouse is its Spearman rho; z_rt ~ z_curve with a random curve slope per mouse (random
+    intercept only if the fit does not converge), REML. The fixed slope is the mouse-weighted mean Spearman rho
+    (rho_lmm), tested against 0 with the mice as random effects."""
+    import warnings
+    import statsmodels.formula.api as smf
+    from statsmodels.tools.sm_exceptions import ConvergenceWarning
+
+    def z(v):
+        r = stats.rankdata(v)
+        return (r - r.mean()) / r.std()
+    d = d.groupby("mouse_id").filter(lambda g: len(g) >= 5 and g.curve.nunique() > 1 and g.rt_ms.nunique() > 1)
+    d = d.assign(z_rt=d.groupby("mouse_id").rt_ms.transform(z), z_curve=d.groupby("mouse_id").curve.transform(z))
+    fit = None
+    # z-scored within mouse: no intercept variance, so a random slope only ("0 + z_curve"); last resort, the random
+    # slope fit with its convergence warning recorded
+    # lbfgs returns the start value (slope 0) on these data (checked 2026-11-23); powell, nm and bfgs agree with each
+    # other and with the mean per-mouse Spearman rho
+    for method in ("powell", "nm", "bfgs"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ConvergenceWarning)
+            try:
+                fit = smf.mixedlm("z_rt ~ z_curve", d, groups=d.mouse_id, re_formula="~0 + z_curve").fit(reml=True,
+                                                                                                        method=method)
+            except np.linalg.LinAlgError:
+                continue
+        if fit.converged:
+            break
+    per_mouse = d.groupby("mouse_id").apply(lambda g: stats.spearmanr(g.curve, g.rt_ms)[0])
+    return {"rho": float(fit.params["z_curve"]), "se": float(fit.bse["z_curve"]), "p": float(fit.pvalues["z_curve"]),
+            "n_mice": int(d.mouse_id.nunique()), "n_trials": len(d),
+            "random_effects": "slope", "optimiser": method, "converged": bool(fit.converged),
+            "mean_per_mouse_rho": float(per_mouse.mean())}
+
+
+def _shift_p(rho, null):
+    """Two-sided p of rho against its linear-shift null distribution (user 2026-11-22: per-mouse significance)."""
+    null = np.asarray(null, float)
+    if not len(null):
+        return np.nan
+    return float(min(1, 2 * min(np.sum(null >= rho) + 1, np.sum(null <= rho) + 1) / (len(null) + 1)))
+
+
+def compute_rt_trials(ctx):
+    """User 2026-11-23 ('the previous version was better; the first bin should be 0'): whisker-hit RT change from the
+    mouse's first 5 hits on the hit axis (rt_change_from_start), its own panel."""
+    return rt_change_from_start(ctx, "whisker_trial")
+
+
+def compute_rt_curve(ctx):
+    """Reaction time and learning curve (user 2026-11-23: own panel; scatter of both cohorts overlaid with a rank-based
+    LMM rho, then the per-mouse Spearman rho). Was compute_rt_learning (user 2026-11-09, 2026-11-22). Learners,
+    whisker day 0 cut at session_end_time (user 2026-11-22: trimmed as Fig. 1G-J; curves refitted on the cut session),
+    early licks dropped; reaction time = computed_reaction_time (0-1 s) on licked trials.
+    Left (kind 'bin' / 'bin_test' / 'mouse'): whisker-hit reaction time change on the trial axis of Fig. 1I
+    (rt_change_aligned).
+    Scatter (kind 'scatter'): reaction time of every whisker hit against the whisker curve at that trial, all mice;
+    linear mixed model per cohort (rt_curve_lmm; user 2026-11-22).
+    Right (kind 'rho'): per mouse and licked trial type (whisker hits, auditory hits, false alarms; >= 10 per mouse),
+    Spearman rho between reaction time and the whisker learning curve (at the trial; other trial types at the preceding
+    whisker trial), its linear-shift null (shifts of 10-50 % of the licked trials) and per-mouse two-sided shift p;
+    fraction of mice with p < 0.05 per cohort (binomial test against 0.05)."""
+    rows, scatter = [], []
+    for sid, st in day0_table(ctx["table"], learners_only=True).groupby("session_id"):
+        st = _cut_session(st)
+        curves, _, _ = session_curves(st, None)  # refitted on the cut session (not cached: differs from E, F)
         widx = np.cumsum(st.trial_type.to_numpy() == "whisker_trial") - 1
         curve = np.where(widx >= 0, curves.p_mean.to_numpy()[np.clip(widx, 0, len(curves) - 1)], np.nan)
         rt = (st.computed_reaction_time.where(st.computed_reaction_time.between(0, 1)) * 1000).to_numpy()
@@ -425,7 +569,10 @@ def compute_rt_learning(ctx):
             if ok.sum() >= 10 and np.std(c[ok]) > 0:
                 rho, null, null_all = _rank_shift_null(c[ok], r[ok])
                 rows.append({**base, "kind": "rho", "trial_type": tt, "rho": rho, "shift_median": null,
-                             "value": rho - null, "n_licked": int(ok.sum()), "_null": null_all})
+                             "value": rho - null, "n_licked": int(ok.sum()), "shift_p": _shift_p(rho, null_all),
+                             "_null": null_all})
+            if tt == "whisker_trial" and ok.any():
+                scatter.append(pd.DataFrame({**base, "kind": "scatter", "trial_type": tt, "curve": c[ok], "rt_ms": r[ok]}))
     rho = pd.DataFrame(rows)
     # planner 2026-11-11: raw rho, with the cohort-mean distribution under the shift null in grey
     rng, null_rows, null_p = np.random.default_rng(0), [], {}
@@ -443,9 +590,26 @@ def compute_rt_learning(ctx):
                       "rplus_vs_rminus": two_group_tests(real[(real.trial_type == tt) & (real.cohort == "R+")].value,
                                                          real[(real.trial_type == tt) & (real.cohort == "R-")].value)}
                  for tt in TRIAL_TYPES}
-    change, info = rt_change_from_start(ctx, "whisker_trial")
-    return pd.concat([change, rho], ignore_index=True), {"n": n_by_cohort(real), "rt_change": info, "stats_rho": stats_rho,
-                                                         "cohort_mean_vs_shift_null": null_p, "n_null_draws": RT_N_NULL_DRAWS}
+    frac = {}  # user 2026-11-22: fraction of mice whose rho differs from their own shift null
+    for (tt, c), g in real.groupby(["trial_type", "cohort"]):
+        k, n = int((g.shift_p < 0.05).sum()), int(g.shift_p.notna().sum())
+        neg = int(((g.shift_p < 0.05) & (g.rho < g.shift_median)).sum())
+        frac[f"{tt} {c}"] = {"n_sig": k, "n": n, "fraction": k / n if n else np.nan, "n_sig_negative": neg,
+                             "binomial_p": float(stats.binomtest(k, n, 0.05, alternative="greater").pvalue)}
+    sc = pd.concat(scatter, ignore_index=True)
+    lmm = {c: rt_curve_lmm(sc[sc.cohort == c]) for c in COHORTS}
+    lmm_rank = {c: rt_curve_lmm_rank(sc[sc.cohort == c]) for c in COHORTS}
+    sc = sc.assign(lmm_slope=sc.cohort.map({c: v["slope"] for c, v in lmm.items()}),
+                   lmm_intercept=sc.cohort.map({c: v["intercept"] for c, v in lmm.items()}),
+                   lmm_p=sc.cohort.map({c: v["p"] for c, v in lmm.items()}),
+                   rho_lmm=sc.cohort.map({c: v["rho"] for c, v in lmm_rank.items()}),
+                   rho_lmm_p=sc.cohort.map({c: v["p"] for c, v in lmm_rank.items()}))
+    pooled = {c: dict(zip(("rho", "p"), map(float, stats.spearmanr(sc[sc.cohort == c].curve, sc[sc.cohort == c].rt_ms))))
+              for c in COHORTS}  # descriptive only (hits of all mice pooled, not independent)
+    return pd.concat([rho, sc], ignore_index=True), {
+        "n": n_by_cohort(real), "stats_rho": stats_rho, "fraction_sig": frac, "lmm": lmm, "lmm_rank": lmm_rank,
+        "pooled_spearman": pooled,
+        "cohort_mean_vs_shift_null": null_p, "n_null_draws": RT_N_NULL_DRAWS, "session_keep": SESSION_KEEP}
 
 
 def compute_first_lick(ctx):
@@ -757,7 +921,11 @@ def compute_aligned(ctx, align):
     (trial type); significance = Mann-Whitney q < 0.05 (Welch q saved)."""
     from statsmodels.stats.multitest import multipletests
     data = _aligned_lick_trials(ctx)
-    data = data[data.alignment == align]
+    # user 2026-11-23: trial 0 (the alignment trial itself) not shown for false-alarm and auditory trials; kept for
+    # whisker trials (the first hit, P(lick) = 1). The bins after it stay 1-5, 6-10, ... (the former 0-4, 5-9 bins
+    # shifted by one trial)
+    data = data[(data.alignment == align)
+                & ((data.trial_from_alignment != 0) | (data.trial_type == "whisker_trial"))]
     lo_e, hi_e = ALIGN_BIN_EDGES[:-1], ALIGN_BIN_EDGES[1:] - 1  # first and last trial of each bin
     idx = np.searchsorted(ALIGN_BIN_EDGES, data.trial_from_alignment, side="right") - 1
     ok = (idx >= 0) & (idx < len(lo_e))
@@ -792,6 +960,7 @@ def compute_aligned(ctx, align):
         "params": {"window_trials": list(ALIGNED_WINDOW), "bin_edges": [int(v) for v in ALIGN_BIN_EDGES],
                    "min_mice_per_cohort": ALIGNED_MIN_MICE, "session_keep": SESSION_KEEP,
                    "session": "untrimmed whisker day 0 cut at session_end_time, early licks dropped",
+                   "trial_0": "whisker trials only (user 2026-11-23)",
                    "test": "per bin Mann-Whitney U and Welch t, R+ vs R-, Benjamini-Hochberg within each subplot"}}
 
 
@@ -1045,14 +1214,15 @@ LAGS = np.arange(-10, 11)
 N_SHIFTS, SHIFT_EXCLUDE = 500, 10
 
 
-def lagged_corr(x, y, lag):
-    """Pearson r of x and y with y shifted by `lag` trials (positive: x leads y)."""
+def lagged_corr(x, y, lag, method="pearson"):
+    """Pearson r (or Spearman rho) of x and y with y shifted by `lag` trials (positive: x leads y)."""
     if lag > 0:
         x, y = x[:-lag], y[lag:]
     elif lag < 0:
         x, y = x[-lag:], y[:lag]
     ok = np.isfinite(x) & np.isfinite(y)
-    return stats.pearsonr(x[ok], y[ok])[0] if ok.sum() > 4 else np.nan
+    f = stats.spearmanr if method == "spearman" else stats.pearsonr
+    return f(x[ok], y[ok])[0] if ok.sum() > 4 else np.nan
 
 
 def shift_null(x, y, rng):
@@ -1063,23 +1233,36 @@ def shift_null(x, y, rng):
 
 
 def compute_xcorr(ctx):
-    """Learners: cross-correlation of the whisker and chance curves, with a linear-shift null at lag 0."""
+    """Learners: cross-correlation of the whisker and chance curves (refitted on the cut session, user 2026-11-22), with a
+    linear-shift null at lag 0. Also on linearly detrended curves (r_detrended; user 2026-11-22: the asymmetry of the raw
+    cross-correlation comes from slow trends, checks/003)."""
     rng = np.random.default_rng(0)
     rows = []
     for sid, st in day0_table(ctx["table"], learners_only=True).groupby("session_id"):
-        curves, _, _ = session_curves(st, ctx)
+        curves, _, _ = session_curves(st, ctx)  # user 2026-11-23: whole session (the end kept), as the posture panels
         w, fa = curves.p_mean.to_numpy(), curves.p_chance.to_numpy()
         null = shift_null(w, fa, rng)
+        t = np.arange(len(w))
+        wd, fad = w - np.polyval(np.polyfit(t, w, 1), t), fa - np.polyval(np.polyfit(t, fa, 1), t)
         for lag in LAGS:
             rows.append(dict(mouse_id=st.mouse_id.iloc[0], session_id=sid, cohort=st.cohort.iloc[0], lag=int(lag),
-                             r=lagged_corr(w, fa, lag), null_mean_lag0=float(np.nanmean(null)),
-                             null_sd_lag0=float(np.nanstd(null))))
+                             r=lagged_corr(w, fa, lag), r_detrended=lagged_corr(wd, fad, lag),
+                             rho=lagged_corr(w, fa, lag, "spearman"),  # user 2026-11-23: Spearman version
+                             rho_detrended=lagged_corr(wd, fad, lag, "spearman"),
+                             null_mean_lag0=float(np.nanmean(null)), null_sd_lag0=float(np.nanstd(null))))
     df = pd.DataFrame(rows)
     lag0 = df[df.lag == 0].assign(r_minus_null=lambda d: d.r - d.null_mean_lag0)
     vs_null = {c: {"median_r": float(lag0[lag0.cohort == c].r.median()),
                    **vs_zero(lag0[lag0.cohort == c].r_minus_null)} for c in COHORTS}
-    return df, {"n": n_by_cohort(df), "lag0_vs_shift_null": vs_null,
-                "lag0_rplus_vs_rminus": two_group_tests(lag0[lag0.cohort == "R+"].r, lag0[lag0.cohort == "R-"].r)}
+    asym = {}  # mean r at negative lags (FA curve leads) minus positive lags (whisker curve leads), per mouse
+    for col in ("r", "r_detrended", "rho", "rho_detrended"):
+        a = df.groupby(["mouse_id", "cohort"]).apply(
+            lambda g: g[g.lag < 0][col].mean() - g[g.lag > 0][col].mean(), include_groups=False).rename("a").reset_index()
+        asym[col] = {c: _summary_vs_zero(a[a.cohort == c].a) for c in COHORTS}
+    return df, {"n": n_by_cohort(df), "lag0_vs_shift_null": vs_null, "asymmetry": asym,
+                "lag0_rplus_vs_rminus": two_group_tests(lag0[lag0.cohort == "R+"].r, lag0[lag0.cohort == "R-"].r),
+                "lag0_rho": {c: _summary_vs_zero(lag0[lag0.cohort == c].rho) for c in COHORTS},
+                "lag0_rho_rplus_vs_rminus": two_group_tests(lag0[lag0.cohort == "R+"].rho, lag0[lag0.cohort == "R-"].rho)}
 
 
 def _movement_sessions(ctx):
@@ -1170,6 +1353,12 @@ GLM_ORDER = ["cumulative_reward_fraction", "time_since_reward", "whisker_speed_p
              "lick_whisker_trial_n-1"]  # planner panel o, 2026-11-09
 
 
+GLM_GROUPS = {"reward": ["cumulative_reward_fraction", "time_since_reward"],  # glm_v7_groups.py (user 2026-11-23)
+              "movement": ["whisker_speed_pre", "nose_speed_pre", "pupil_area_pre", "jaw_speed_pre"],
+              "history": ["spontaneous_lick_rate", "lick_whisker_trial_n-3", "lick_whisker_trial_n-2",
+                          "lick_whisker_trial_n-1"]}
+
+
 def _glm_feature(name):
     return name.replace("Shuffled ", "").replace("Without ", "").removesuffix("_t0")
 
@@ -1218,7 +1407,14 @@ def compute_glm_schematic(ctx):
     df.insert(0, "cohort", r.cohort)
     df.insert(0, "session_id", r.session_id)
     df.insert(0, "mouse_id", mouse)
-    return df, {"mouse_id": mouse, "session_id": r.session_id, "n_whisker_trials": int(len(y)), "features": list(names)}
+    # user 2026-11-22: the model's held-out prediction under the lick row (same session as the GLM example)
+    ex, _ = compute_glm_example(ctx)
+    if len(ex) == len(y) and (ex.lick.to_numpy() == y).all():
+        df = df.merge(ex[["whisker_trial", "predicted_p_lick"]], on="whisker_trial", how="left")
+    else:
+        print("glm_schematic: example and design-matrix trials differ", len(ex), len(y))
+    return df, {"mouse_id": mouse, "session_id": r.session_id, "n_whisker_trials": int(len(y)), "features": list(names),
+                "same_session_as_example": bool("predicted_p_lick" in df)}
 
 
 def compute_glm_example(ctx):
@@ -1306,11 +1502,19 @@ def compute_glm_weights_auc(ctx):
         rows.append(pd.DataFrame({"mouse_id": r.mouse_id, "session_id": r.session_id, "cohort": r.cohort,
                                   "feature": nm.model.map(_glm_feature), "value": nm.delta_test_ll_per_trial.to_numpy()}))
     drop = pd.concat(rows, ignore_index=True)
+    # user 2026-11-23: groups of predictors removed together (glm_v7_groups.py: reward, movement, history)
+    grp = pd.read_csv(_glm_dir() / "_groups" / "group_drop_all.csv")
+    grp = grp[grp.session_id.isin(set(w.session_id))]
+    grp = grp.rename(columns={"group": "feature", "delta_test_ll_per_trial": "value"})[keep + ["value"]]
+    sch, sch_info = compute_glm_schematic(ctx)  # user 2026-11-23: minimal design-matrix schematic above the weights
     df = pd.concat([w.rename(columns={"coefficient": "value"}).assign(metric="weight"),
                     s[keep + ["delta_test_balanced_accuracy"]].rename(columns={"delta_test_balanced_accuracy": "value"})
                      .assign(metric="delta_bacc", rank_by_mean_abs=rank),
-                    drop.assign(metric="delta_ll_drop", rank_by_mean_abs=rank)], ignore_index=True)
+                    drop.assign(metric="delta_ll_drop", rank_by_mean_abs=rank),
+                    grp.assign(metric="delta_ll_group", group_members=grp.feature.map(lambda g: ";".join(GLM_GROUPS[g]))),
+                    sch.assign(metric="schematic")], ignore_index=True)
     return df, {"n": w_info["n"], "order": w_info["order"], "stats_weight": w_info["stats"],
+                "stats_delta_ll_group": _feature_tests(grp, "value"), "groups": GLM_GROUPS, "schematic": sch_info,
                 "stats_delta_bacc_shuffle": _feature_tests(s, "delta_test_balanced_accuracy"),
                 "stats_delta_ll_drop": _feature_tests(drop, "value")}
 

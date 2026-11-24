@@ -8,9 +8,9 @@ population_matrix_summary.family_names_psth, n neurons, n mice), then left to ri
             hit, auditory hit); whisker traces drawn above auditory ones. Even trials, Hz baseline-subtracted (the
             rastermap input); per mouse the mean over its neurons in the metacluster (mice with >= MIN_NEURONS_MOUSE),
             then mean +- s.e.m. over mice (user 2026-11-12: s.e.m. over mice, not neurons)
-  areas     polar plot of log2(metacluster fraction / dataset fraction) per area group, wedges from the black circle
-            (= the dataset fraction, i.e. the area represented as in the recordings) outwards (enriched) or inwards
-            (depleted); allen_utils custom area-group colours, minor groups pooled in Other; faded = n.s. (Fisher exact,
+  areas     vertical bars of log2(metacluster fraction / dataset fraction) per area group (user 2026-11-23: bars
+            instead of the polar plot), from the black horizontal line (= the dataset fraction, i.e. the area
+            represented as in the recordings) upwards (enriched) or downwards (depleted); allen_utils custom area-group colours, minor groups pooled in Other; faded = n.s. (Fisher exact,
             metacluster vs rest, BH over area groups and metaclusters; values in _table.csv)
 Layout: a third of an A4 page (user 2026-11-12): 12.6 mm square panels, rows 16 mm apart, x labels on the bottom row.
   ROC       fraction of the metacluster's neurons significant per ROC category (day-0 ROC,
@@ -25,10 +25,12 @@ Run (haas): cd ~/code/unit_spikes_analysis; PYTHONPATH=~/code/NWB_reader:. .venv
   ~/code/ibl-ai-agent/projects/ssl-rastermap-psth-variants/exploratory-analyses/045_metacluster_description.py \
   [--variant V] [--order 23 18 14 15 12] [--name supp_metaclusters] [--cols 1 --fs 6 --width-mm 183]
 Supp. Fig. 3 (user 2026-11-19, "much bigger"): --order 17 15 16 9 20 21 --name supp_metaclusters --cols 1 --fs 6
-  --width-mm 183 (one metacluster per row, full width); defaults reproduce the Figure 2 layout.
+  --width-mm 183 --height-mm 175 (one metacluster per row, full width; 2026-11-23: height set so the image fills
+  the 183 mm cell width instead of being height-limited); defaults reproduce the Figure 2 layout.
 """
 import argparse
 import json
+import os
 import pathlib
 
 import matplotlib
@@ -44,7 +46,7 @@ from statsmodels.stats.multitest import multipletests  # noqa: E402
 import rastermap_psth.rastermap_utils as rmu  # noqa: E402
 from rastermap_psth import population_matrix_summary as pms  # noqa: E402
 
-ROOT = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants")
+ROOT = pathlib.Path(os.environ.get("RASTERMAP_VARIANTS_ROOT", "/mnt/lsens-analysis/Axel_Bisi/combined_results_ks4/rastermap_variants/_archive_v1"))
 CONFIG = pathlib.Path("/mnt/lsens-analysis/Axel_Bisi/unit_spikes_analysis/rastermap_psth/config.yaml")
 VARIANT = "qc_good_mua__learncat_good_moderate__loc0p25_grid10_nodes__lickfix_longwin"   # user 2026-11-12
 ORDER = [23, 18, 14, 12]   # user 2026-11-12 (15 removed)                                                              # user 2026-11-12
@@ -91,6 +93,8 @@ def main():
     ap.add_argument("--fs", type=float, default=4.0, help="base font size (pt); text-related spacing scales with it")
     ap.add_argument("--width-mm", type=float, default=None,
                     help="figure width; the square panels grow to fill it (default: native 9.4 mm panels)")
+    ap.add_argument("--height-mm", type=float, default=None,
+                    help="figure height; panel heights fit it (panels no longer square; default: square panels)")
     a = ap.parse_args()
     md = method_dir(a.variant)
     prov = json.load(open(ROOT / a.variant / "variant_provenance.json"))
@@ -148,16 +152,19 @@ def main():
                          "xtick.major.pad": 1, "ytick.major.pad": 1})
     # layout in mm (user 2026-11-12: a third of an A4 page, no white space between rows, square panels)
     # user 2026-11-12: half the height, one row per metacluster: label block on the left of each row, ~7 mm panels
-    HDR, TOP, BOT, LAB = 0.0, 4.4 * u, 9.4 * u, 15.0 * u      # LAB: label block width
-    fixed = LAB + 5.5 * u + 2 * 1.4 + 3.0 * u + 10.0 * u + 3.0 * u   # block width without the 5 square panels
-    S = 9.4 if a.width_mm is None else (a.width_mm - (ncols - 1) * COL_GAP) / ncols - fixed
-    S /= 5 if a.width_mm is not None else 1
-    ROW = S + 1.2 * u
-    x_p = [LAB + 5.5 * u, LAB + 5.5 * u + S + 1.4, LAB + 5.5 * u + 2 * (S + 1.4)]   # PSTHs (shared y)
-    x_pol = x_p[2] + S + 3.0 * u
-    x_roc = x_pol + S + 10.0 * u
-    # user 2026-11-12: half the height -> metaclusters in ncols columns of rows (left column first)
+    # user 2026-11-23: much smaller metacluster descriptions -> narrower label block; area bars 1.6x a PSTH panel wide
+    HDR, TOP, BOT, LAB = 0.0, 4.4 * u, 9.4 * u, 9.0 * u      # LAB: label block width
+    AWF = 1.6                                                  # area panel width / PSTH panel width
+    fixed = LAB + 5.5 * u + 2 * 1.4 + 6.0 * u + 10.0 * u + 3.0 * u   # block width without the panels
+    S = 9.4 if a.width_mm is None else ((a.width_mm - (ncols - 1) * COL_GAP) / ncols - fixed) / (4 + AWF)
     n_rows = int(np.ceil(len(top) / ncols))
+    H = S if a.height_mm is None else (a.height_mm - TOP - BOT) / n_rows - 1.2 * u   # panel height
+    ROW = H + 1.2 * u
+    x_p = [LAB + 5.5 * u, LAB + 5.5 * u + S + 1.4, LAB + 5.5 * u + 2 * (S + 1.4)]   # PSTHs (shared y)
+    x_pol = x_p[2] + S + 6.0 * u
+    AW = AWF * S
+    x_roc = x_pol + AW + 10.0 * u
+    # user 2026-11-12: half the height -> metaclusters in ncols columns of rows (left column first)
     block_w = x_roc + S + 3.0 * u
     width_mm = ncols * block_w + (ncols - 1) * COL_GAP
     height_mm = TOP + ROW * n_rows + BOT
@@ -166,30 +173,32 @@ def main():
     def add_ax(x, y_top, w, h, **kw):   # mm, y from the top
         return fig.add_axes([x / width_mm, 1 - (y_top + h) / height_mm, w / width_mm, h / height_mm], **kw)
 
-    theta = np.linspace(0, 2 * np.pi, len(groups), endpoint=False)
-    w_th = 2 * np.pi / len(groups)
     xlims = {}
     for r, f in enumerate(top):
         m = fam == f
         mice = [mm for mm in np.unique(mouse[m]) if (m & (mouse == mm)).sum() >= MIN_NEURONS_MOUSE]
+        if not mice:      # small metacluster (robustness variants): no mouse reaches the minimum -> every mouse with a neuron
+            mice = list(np.unique(mouse[m]))
         rr, col = divmod(r, ncols)   # row-major
         dx = col * (block_w + COL_GAP)
         y0 = TOP + rr * ROW + HDR
         last = rr == n_rows - 1 or r + ncols >= len(top)   # bottom panel of its column: x labels
-        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 0.2 * u) / height_mm, f"Metacluster {f}", fontsize=fs + 0.2, va="top")
-        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 2.4 * u) / height_mm, names.get(f, ""), fontsize=fs - 0.4, va="top",
-                 color="0.2")
-        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 4.4 * u) / height_mm, f"{int(m.sum()):,} neurons, {len(mice)} mice",
-                 fontsize=fs - 0.9, va="top", color="0.4")
+        # user 2026-11-23: much smaller descriptions
+        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 0.2 * u) / height_mm, f"Metacluster {f}", fontsize=fs - 1.0, va="top")
+        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 1.7 * u) / height_mm, names.get(f, ""), fontsize=fs - 1.5, va="top",
+                 color="0.2", wrap=True)
+        fig.text((dx + 0.5) / width_mm, 1 - (y0 + 3.1 * u) / height_mm, f"{int(m.sum()):,} neurons\n{len(mice)} mice",
+                 fontsize=fs - 1.5, va="top", color="0.4", linespacing=1.1)
         axs, lo, hi = [], np.inf, -np.inf
         for j, (title, conds) in enumerate(PSTH_GROUPS):
-            ax = add_ax(dx + x_p[j], y0, S, S, sharey=axs[0] if axs else None); axs.append(ax)
+            ax = add_ax(dx + x_p[j], y0, S, H, sharey=axs[0] if axs else None); axs.append(ax)
             for cond, color, ls, lab in conds:
                 c = labels_c.index(cond)
                 t = R["t_ctrs"][c]
                 per_mouse = np.vstack([np.nanmean(R["X"][m & (mouse == mm)][:, off[c]:off[c + 1]], 0) for mm in mice])
                 mu = np.nanmean(per_mouse, 0)
                 se = np.nanstd(per_mouse, 0, ddof=1) / np.sqrt(np.isfinite(per_mouse).sum(0))
+                se = np.where(np.isfinite(se), se, 0.0)      # one mouse: no SEM band
                 psth_rows += [dict(metacluster=f, condition=cond, mouse_id=mm, time_s=tt, rate_hz=v)
                               for mm, row in zip(mice, per_mouse) for tt, v in zip(t, row)]
                 ax.fill_between(t, mu - se, mu + se, color=color, alpha=0.2, lw=0, zorder=Z[color] - 0.5)
@@ -216,24 +225,29 @@ def main():
                               "Active, lick-aligned": "Lick"}[title], fontsize=fs, pad=1.2)
         pad = 0.08 * (hi - lo)
         axs[0].set_ylim(lo - pad, hi + pad)
-        # areas: polar log2 ratio to the dataset (circle = dataset fraction); faded = n.s.
+        # areas: vertical bars of the log2 ratio to the dataset (black line = dataset fraction); faded = n.s.
+        # (user 2026-11-23: bar plot instead of the polar plot, same quantification). Faded colours are opaque
+        # (blended with white) for the EPS export.
         d = tab[(tab.metacluster == f) & (tab.block == "area")].set_index("item").reindex(groups)
-        ax = add_ax(dx + x_pol, y0, S, S, projection="polar")
+        ax = add_ax(dx + x_pol, y0, AW, H)
         L = max(0.5, np.ceil(2 * np.nanmax(np.abs(d.log2_ratio))) / 2)   # per-plot scale (user 2026-11-12)
         v = d.log2_ratio.fillna(0).to_numpy()
         sig = (d.q_bh < 0.05).to_numpy()
-        ax.bar(theta, v, bottom=L, width=w_th * 0.9, zorder=2, lw=0,
-               color=[matplotlib.colors.to_rgba(acol[g], 1.0 if sg else 0.35) for g, sg in zip(groups, sig)])
-        ring = np.linspace(0, 2 * np.pi, 200)
-        ax.plot(ring, np.full_like(ring, L), color="k", lw=0.5, zorder=3)
-        ax.set_ylim(0, 2 * L)
-        ax.set_yticks([0, 2 * L], [])
-        ax.text(1.0, 0.0, f"±{L:g}", transform=ax.transAxes, ha="left", va="bottom", fontsize=fs - 1, color="0.35")
-        ax.set_xticks([]); ax.grid(lw=0.25, color="0.85"); ax.spines["polar"].set_linewidth(0.35)
+        fade = lambda c: 1 - 0.35 * (1 - np.array(matplotlib.colors.to_rgb(c)))
+        ax.bar(np.arange(len(groups)), v, width=0.8, lw=0, zorder=2,
+               color=[acol[g] if sg else fade(acol[g]) for g, sg in zip(groups, sig)])
+        ax.axhline(0, color="k", lw=0.5, zorder=3)
+        ax.set_xlim(-0.6, len(groups) - 0.4)
+        ax.set_ylim(-1.05 * L, 1.05 * L)
+        ax.set_yticks([-L, 0, L], [f"{-L:g}", "0", f"{L:g}"])
+        ax.set_xticks([])
+        ax.set_ylabel("log2 enrich.", labelpad=0.3)
+        for s_ in ("top", "right", "bottom"):
+            ax.spines[s_].set_visible(False)
         if rr == 0:
             ax.set_title("Areas", fontsize=fs, pad=1.2)
         # ROC fractions (square)
-        ax = add_ax(dx + x_roc, y0, S, S)
+        ax = add_ax(dx + x_roc, y0, S, H)
         d = tab[(tab.metacluster == f) & (tab.block == "roc")].set_index("item").reindex(ROC_SHOWN)
         y = np.arange(len(ROC_SHOWN))
         ax.barh(y, d.frac, color=[ROC_VIVID[c] for c in ROC_SHOWN], height=0.75, lw=0)
@@ -256,7 +270,7 @@ def main():
         if rr == 0:
             ax.set_title("ROC", fontsize=fs, pad=1.2)
     free = n_rows * ncols > len(top)   # empty slot at the bottom of the last column: the area key goes there
-    keyax = (add_ax((ncols - 1) * (block_w + COL_GAP) + 4, TOP + (n_rows - 1) * ROW + HDR + 5, block_w - 8, S - 2) if free
+    keyax = (add_ax((ncols - 1) * (block_w + COL_GAP) + 4, TOP + (n_rows - 1) * ROW + HDR + 5, block_w - 8, H - 2) if free
              else add_ax(1, height_mm - 2.6 * u, width_mm - 2, 2.4 * u)); keyax.axis("off")
     from matplotlib.lines import Line2D
     trax = add_ax(1, height_mm - 6.2 * u, width_mm - 2, 3.6 * u); trax.axis("off")   # trace key (user: no legends on top)
@@ -265,7 +279,7 @@ def main():
                          Line2D([], [], color=A, lw=0.6, label="A post / hit"), Line2D([], [], color=NS, lw=0.6, label="Spont. lick"),
                          Line2D([], [], color="k", lw=0, marker="|", ms=2.5,
                                 label="ROC: all neurons; * / ** / *** q < 0.05 / 0.01 / 0.001 (Fisher vs other neurons, BH)"),
-                         Patch(color="none", label="Areas: log2(fraction / dataset), circle = dataset, scale per plot, faded = n.s.")],
+                         Patch(color="none", label="Areas: log2(fraction / dataset), black line = dataset, scale per plot, faded = n.s.")],
                 loc="center", ncol=4, fontsize=fs - 0.8, frameon=False, handlelength=1.2, columnspacing=0.6,
                 handletextpad=0.25)
     keyax.legend(handles=[Patch(color=acol[g], label=g) for g in groups], loc="center", ncol=4 if free else 7, fontsize=fs - 0.9,

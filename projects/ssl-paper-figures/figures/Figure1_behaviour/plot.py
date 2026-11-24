@@ -44,17 +44,49 @@ def stars(p):
     return "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "n.s."
 
 
+def p_text(p, label="p"):
+    """'p = 0.012' / 'p < 0.001' (label 'q' for corrected values)."""
+    return f"{label} < 0.001" if p < 0.001 else f"{label} = {p:.2g}" if p < 0.01 else f"{label} = {p:.2f}"
+
+
+def sig_text(ax, x, y, p, color="k", label="p", transform=None, va="bottom", ha="center", rotate_p=False, ns=True,
+             fontsize=None):
+    """User 2026-11-22: one significance style for every test: stars (n.s. when p >= 0.05), the p-value written right
+    above them (below them when va='top'); rotate_p writes the p-value vertically above the stars (rows of tests)."""
+    if p is None or not np.isfinite(p) or (p >= 0.05 and not ns):
+        return
+    fs = fontsize or FS_NOTE
+    kw = dict(fontsize=fs, color=color, clip_on=False, annotation_clip=False,
+              xycoords=transform if transform is not None else "data", textcoords="offset points")
+    s = stars(p)
+    if rotate_p:  # dense rows: one vertical label, stars then p reading upwards (downwards below the data)
+        up = va != "top"
+        ax.annotate(f"{s}  {p_text(p, label)}" if up else f"{p_text(p, label)}  {s}", (x, y), xytext=(0, 0),
+                    ha="center", va="bottom" if up else "top", rotation=90, **kw)
+        return
+    ax.annotate(s, (x, y), xytext=(0, 0), ha=ha, va=va, **kw)
+    if va == "center":  # stars centred on y (rows): p-value above, both centred
+        ax.annotate(p_text(p, label), (x, y), xytext=(0, 2.6), ha=ha, va="bottom", fontsize=fs,
+                    **{k: v for k, v in kw.items() if k != "fontsize"})
+        return
+    up = va != "top"
+    h = (5.4 if s == "n.s." else 4.4) * (1 if up else -1)  # just clear of the stars
+    ax.annotate(p_text(p, label), (x, y), xytext=(0, h), ha=ha if not rotate_p else "center",
+                va="bottom" if up else "top", rotation=90 if rotate_p else 0, fontsize=fs,
+                **{k: v for k, v in kw.items() if k != "fontsize"})
+
+
 def _mw_p(a, b):
     a, b = np.asarray(a, float), np.asarray(b, float)
     a, b = a[np.isfinite(a)], b[np.isfinite(b)]
     return stats.mannwhitneyu(a, b).pvalue if len(a) > 1 and len(b) > 1 else np.nan
 
 
-def _bracket(ax, x0, x1, y, p):
+def _bracket(ax, x0, x1, y, p, color="0.2"):
     if not np.isfinite(p):
         return
-    ax.plot([x0, x1], [y, y], color="0.2", lw=0.4)
-    ax.text((x0 + x1) / 2, y, stars(p), ha="center", va="bottom", fontsize=FS_NOTE)
+    ax.plot([x0, x1], [y, y], color=color, lw=0.4)
+    sig_text(ax, (x0 + x1) / 2, y, p, color=color if color != "0.2" else "k")
 
 
 def _bars(ax, x, v, color, width=0.6, individuals=False, seed=0, highlight=None):
@@ -149,9 +181,8 @@ def _runs(xs, step):
 
 def _p_label(ax, x, y, p, color="k"):
     """p-value of a significance bar, above its centre (planner 2026-11-12: bars annotated with their p-value)."""
-    if np.isfinite(p):
-        ax.text(x, y, f"p = {p:.2g}" if p >= 0.001 else "p < 0.001", transform=ax.get_xaxis_transform(), ha="center",
-                va="bottom", fontsize=FS_NOTE, color=color, clip_on=False)
+    if np.isfinite(p):  # user 2026-11-22: stars with the p-value above (sig_text)
+        sig_text(ax, x, y, p, color=color, transform=ax.get_xaxis_transform())
 
 
 def p_shade(p):
@@ -172,16 +203,19 @@ def _shaded_bars(ax, d, x, y, step, pcol="cluster_p", label="", lw=1.2):
         color = p_shade(p) if np.isfinite(p) else "k"
         ax.plot([a - step / 2, b + step / 2], [y, y], transform=ax.get_xaxis_transform(), color=color, lw=lw,
                 solid_capstyle="butt", clip_on=False)
-        if pcol in d and np.isfinite(p):
-            text = label + (f"p = {p:.2g}" if p >= 0.001 else "p < 0.001")
+        if pcol in d and np.isfinite(p):  # user 2026-11-22: stars on the bar, (label) p-value above them
+            text = label + p_text(p)
             c = (a + b) / 2
-            half = 0.5 * len(text) * 0.75 / ax_mm * (x1 - x0)  # ~0.75 mm per character at 3.8 pt
+            half = 0.5 * len(text) * 0.9 / ax_mm * (x1 - x0)  # ~0.9 mm per character at 5 pt
             level = 0
             while any(lv == level and abs(c - pc) < half + ph for pc, ph, lv in placed):
                 level += 1
             placed.append((c, half, level))
-            ax.text(c, y + 0.01 + 0.075 * level, text, transform=ax.get_xaxis_transform(), ha="center", va="bottom",
-                    fontsize=FS_NOTE, color=color, clip_on=False)
+            yy = y + 0.005 + 0.16 * level
+            ax.annotate(stars(p), (c, yy), xycoords=ax.get_xaxis_transform(), ha="center", va="bottom",
+                        fontsize=FS_NOTE, color=color, annotation_clip=False)
+            ax.annotate(text, (c, yy), xycoords=ax.get_xaxis_transform(), xytext=(0, 4.4), textcoords="offset points",
+                        ha="center", va="bottom", fontsize=FS_NOTE, color=color, annotation_clip=False)
 
 
 def _sig_bar(ax, df, x, y=0.97):
@@ -267,16 +301,18 @@ def plot_days(ax, df):
             v[tt, c] = d0[(d0.trial_type == tt) & (d0.cohort == c)].set_index("mouse_id").lick_probability.dropna()
             _bars(right, i * 1.1 + (k - 0.5) * 0.42, v[tt, c], group_color(tt, c), width=0.38)
     paired = lambda c: stats.wilcoxon(*v["whisker_trial", c].align(v["no_stim_trial", c], join="inner")).pvalue
-    for (x0, x1, y, p, color) in ((-0.21, 2.2 - 0.21, 1.02, paired("R+"), COLORS["R+"]),
-                                  (0.21, 2.2 + 0.21, 1.12, paired("R-"), COLORS["R-"]),
-                                  (-0.21, 0.21, 0.86, _mw_p(v["whisker_trial", "R+"], v["whisker_trial", "R-"]), "k"),
-                                  (2.2 - 0.21, 2.2 + 0.21, 0.5,  # user 2026-11-12: FA rate R+ vs R-
+    for (x0, x1, y, p, color) in ((-0.21, 2.2 - 0.21, 1.24, paired("R+"), COLORS["R+"]),
+                                  (0.21, 2.2 + 0.21, 1.5, paired("R-"), COLORS["R-"]),
+                                  (-0.21, 0.21, 0.66, _mw_p(v["whisker_trial", "R+"], v["whisker_trial", "R-"]), "k"),
+                                  (1.1 - 0.21, 1.1 + 0.21, 1.0,  # user 2026-11-23: auditory R+ vs R-
+                                   _mw_p(v["auditory_trial", "R+"], v["auditory_trial", "R-"]), "k"),
+                                  (2.2 - 0.21, 2.2 + 0.21, 0.4,  # user 2026-11-12: FA rate R+ vs R-
                                    _mw_p(v["no_stim_trial", "R+"], v["no_stim_trial", "R-"]), "k")):
         right.plot([x0, x0, x1, x1], [y - 0.02, y, y, y - 0.02], color=color, lw=0.4)
-        right.text((x0 + x1) / 2, y, stars(p), ha="center", va="bottom", fontsize=FS_NOTE, color=color)
+        sig_text(right, (x0 + x1) / 2, y, p, color=color)
     right.set_xticks([0, 1.1, 2.2], ["W", "A", "FA"])
     right.set_xlim(-0.5, 2.7)
-    right.set_ylim(0, 1.25)
+    right.set_ylim(0, 1.78)  # brackets with stars and p (user 2026-11-22, auditory added 2026-11-23)
     right.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
     right.set_ylabel("P(lick)", labelpad=1)
     right.set_title("Day 0", fontsize=FS_TITLE, pad=2)  # user 2026-11-16
@@ -299,10 +335,11 @@ def plot_rt(ax, df):
     p = stats.wilcoxon(pair.whisker_trial, pair.auditory_trial).pvalue if len(pair) > 5 else np.nan
     y = top * 1.25  # user 2026-11-16: bracket from the W pair to the A pair, stars centred above, no overlap
     ax.plot([0, 0, 1.1, 1.1], [y - 0.015, y, y, y - 0.015], color="k", lw=0.4)
-    ax.text(0.55, y, stars(p), ha="center", va="bottom", fontsize=FS_NOTE)
-    ax.text(0.55, y * 1.13, "W vs A", ha="center", va="bottom", fontsize=FS_NOTE)  # above the stars
+    sig_text(ax, 0.55, y, p)
+    ax.annotate("W vs A", (0.55, y), xytext=(0, 10), textcoords="offset points", ha="center", va="bottom",
+                fontsize=FS_NOTE)  # above the stars and p
     ax.set_xticks([0, 1.1, 2.2], ["W", "A", "FA"])
-    ax.set_xlim(-0.5, 2.7)
+    ax.set_xlim(-1.1, 2.7)  # room for the W bracket label (no overlap with the y axis)
     ax.set_ylim(0, y * 1.3)  # headroom for the pooled bracket and its label
     ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(4))
     ax.set_ylabel("Mean of median RT (s)", labelpad=1)
@@ -322,8 +359,9 @@ def _example(ax, df, title, first=False):
         ax.plot(x, df.p_auditory, color=TRIAL_TYPE_COLORS["auditory_trial"], lw=0.6, zorder=2)
     lick = df.lick.to_numpy() == 1
     # user 2026-11-16: hits in the cohort colour, misses grey
-    ax.scatter(x[lick], np.full(lick.sum(), 1.06), s=2, marker="|", lw=0.4, color=color, zorder=4)
-    ax.scatter(x[~lick], np.full((~lick).sum(), -0.06), s=2, marker="|", lw=0.4, color="0.6", zorder=4)
+    # user 2026-11-23: raster ticks thicker and longer (0.7 pt wide < 1 pt trial spacing: no overlap)
+    ax.scatter(x[lick], np.full(lick.sum(), 1.06), s=6, marker="|", lw=0.7, color=color, zorder=4)
+    ax.scatter(x[~lick], np.full((~lick).sum(), -0.06), s=6, marker="|", lw=0.7, color="0.6", zorder=4)
     ax.set_ylim(-0.1, 1.1)
     ax.set_yticks([0, 0.5, 1])
     ax.set_xlim(0, x.max() + 1)
@@ -404,13 +442,12 @@ def plot_rt_change(ax, df, xlabel, fit=None, display_bin=5, mice=None):
         for c, (x, y, e) in last.items():  # above the upper cohort's error bar, below the lower one's
             p = stats.wilcoxon(v[c]).pvalue
             up = c == hi_c
-            ax.text(x, y + e if up else y - e, stars(p) if p < 0.05 else "n.s.", ha="center",
-                    va="bottom" if up else "top", fontsize=FS_NOTE, color=group_color(tt, c))
+            sig_text(ax, x, y + e if up else y - e, p, color=group_color(tt, c), va="bottom" if up else "top")
         y0, y1 = sorted(y for _, y, _ in last.values())
         xb = max(x for x, _, _ in last.values()) + 2.5
         ax.plot([xb - 0.8, xb, xb, xb - 0.8], [y0, y0, y1, y1], color="k", lw=0.5)
         p = stats.mannwhitneyu(v["R+"], v["R-"]).pvalue
-        ax.text(xb + 0.5, (y0 + y1) / 2, stars(p) if p < 0.05 else "n.s.", ha="left", va="center", fontsize=FS_NOTE)
+        sig_text(ax, xb + 0.5, (y0 + y1) / 2, p, ha="left", va="center")
         ax.set_xlim(0, xb + 3)
     ax.set_xticks([1, 10, 20, 30])
     ax.set_xlabel(xlabel, labelpad=1)
@@ -427,19 +464,81 @@ def plot_rt_slopes(ax, mice, tt="whisker_trial"):
     lo = ax.get_ylim()[0]
     for i, c in enumerate(COHORTS):
         v = mice[mice.cohort == c].slope_ms_per_10_hits.dropna()
-        ax.text(i, lo, stars(stats.wilcoxon(v).pvalue), ha="center", va="bottom", fontsize=FS_NOTE,
-                color=group_color(tt, c))
+        sig_text(ax, i, lo, stats.wilcoxon(v).pvalue, color=group_color(tt, c))
     ax.set_xticks([0, 1], [c.replace("-", "−") for c in COHORTS])
 
 
-def plot_rt_learning(ax, df):
-    """Left: whisker-hit reaction time change from the mouse's first 5 hits (plot_rt_change, shown in bins of 5 hits).
-    Stars: last versus first bin (planner 2026-11-11; the slope sub-axis was dropped). Right: Spearman rho (reaction
-    time vs whisker curve) per licked trial type, mean +- s.e.m. over mice; grey dot +- s.d., the cohort mean under the
-    linear-shift null (planner / user 2026-11-11); stars, Wilcoxon of rho minus each mouse's shift-null median vs 0."""
-    left, right = _split(ax, 2, gap=0.38)  # user 2026-11-18: slightly closer
-    plot_rt_change(left, df[df.kind == "bin"], "Whisker hit", None, mice=df[df.kind == "mouse"])  # no trend lines (user 2026-11-16)
-    rho, null = df[df.kind == "rho"], df[df.kind == "rho_null"]
+def _plot_rt_aligned(a, df):
+    """User 2026-11-22 ('K aligned with I'): whisker-hit RT change from the mouse's first 5 hits on the trial axis of
+    Fig. 1I (kind 'bin': per-mouse median per bin 0, 1-5, ..., 26-30), mean +- s.e.m. over mice; stars above a bin, R+ vs
+    R- (Mann-Whitney, Benjamini-Hochberg; kind 'bin_test'); right, late change (whisker trials 21-30, kind 'mouse'):
+    coloured stars vs 0 (Wilcoxon), bracket R+ vs R- (Mann-Whitney)."""
+    bins, tests, mice = df[df.kind == "bin"], df[df.kind == "bin_test"], df[df.kind == "mouse"]
+    last = {}
+    for k, c in enumerate(COHORTS):
+        g = bins[bins.cohort == c].groupby("bin_centre").value
+        m, e = g.mean(), g.sem()
+        a.errorbar(m.index + (k - 0.5) * 0.6, m, e, color=COLORS[c], marker="o", ms=1.6, lw=0.6, elinewidth=0.5,
+                   capsize=0, zorder=3)
+        last[c] = (m.index.max() + (k - 0.5) * 0.6, m.iloc[-1], e.iloc[-1])
+    a.axhline(0, color="0.6", lw=0.4, ls=":")
+    lo, hi = a.get_ylim()
+    a.set_ylim(lo - 0.1 * (hi - lo), hi + 0.35 * (hi - lo))  # room for the per-bin stars and p-values
+    _bin_test_stars(a, tests, y=0.86)
+    v = {c: mice[mice.cohort == c].late_change_ms.dropna() for c in COHORTS}
+    hi_c = max(last, key=lambda c: last[c][1])
+    for c, (x, y, e) in last.items():  # late change vs 0, above / below the last bin
+        up = c == hi_c
+        sig_text(a, x, y + e if up else y - e, stats.wilcoxon(v[c]).pvalue, color=COLORS[c],
+                 va="bottom" if up else "top")
+    y0, y1 = sorted(y for _, y, _ in last.values())
+    xb = max(x for x, _, _ in last.values()) + 2.5
+    a.plot([xb - 0.8, xb, xb, xb - 0.8], [y0, y0, y1, y1], color="k", lw=0.5)
+    sig_text(a, xb + 0.6, (y0 + y1) / 2, stats.mannwhitneyu(v["R+"], v["R-"]).pvalue, ha="left", va="center")
+    a.set_xlim(-1.5, xb + 3)
+    a.set_xticks([0, 10, 20, 30])
+    a.set_xlabel("Trials from 1st W hit", labelpad=1)
+    a.set_ylabel("Δ RT from first 5 hits (ms)", labelpad=1)
+    _legend(a, _cohort_entries(), loc="upper left", marker="o", bbox_to_anchor=(0, 0.8))
+
+
+def _density_contours(a, x, y, color, levels=(0.25, 0.5, 0.75)):
+    """Contours of a Gaussian kernel density enclosing the given fractions of the points (user 2026-11-23: density where
+    the dots overlap)."""
+    k = stats.gaussian_kde(np.vstack([x, y]))
+    xx, yy = np.meshgrid(np.linspace(*a.get_xlim(), 80), np.linspace(*a.get_ylim(), 80))
+    zz = k(np.vstack([xx.ravel(), yy.ravel()])).reshape(xx.shape)
+    dens = np.sort(k(np.vstack([x, y])))[::-1]  # density at the points: the level enclosing a fraction f of them
+    lv = sorted(dens[min(len(dens) - 1, int(f * len(dens)))] for f in levels)
+    a.contour(xx, yy, zz, levels=lv, colors=[color], linewidths=[0.4, 0.55, 0.7][:len(lv)], zorder=4)
+
+
+def _plot_rt_scatter(a, d, ylim):
+    """User 2026-11-23: reaction time of every whisker hit against the whisker curve at that trial, both cohorts overlaid
+    (dots, hits of all mice; contours, kernel density enclosing 25, 50, 75 % of the hits); line, fixed effect of the
+    linear mixed model (mouse random intercept and slope); text, rank-based LMM rho (mean within-mouse Spearman) and p."""
+    a.set_xlim(0, 1.02)
+    a.set_ylim(*ylim)
+    for k, c in enumerate(COHORTS):
+        g = d[d.cohort == c]
+        a.scatter(g.curve, g.rt_ms, s=0.5, color=light(COLORS[c], 0.55), lw=0, rasterized=True, zorder=1 + k)
+    for k, c in enumerate(COHORTS):
+        g = d[d.cohort == c]
+        _density_contours(a, g.curve.to_numpy(), g.rt_ms.to_numpy(), COLORS[c])
+        x = np.array([g.curve.min(), g.curve.max()])
+        a.plot(x, g.lmm_intercept.iloc[0] + g.lmm_slope.iloc[0] * x, color=COLORS[c], lw=1.4, zorder=5)
+        a.text(0.03, 0.89 - 0.08 * k, f"{c.replace('-', '−')}: ρ = {g.rho_lmm.iloc[0]:.2f}, {p_text(g.rho_lmm_p.iloc[0])}",
+               transform=a.transAxes, ha="left", va="top", fontsize=FS_NOTE, color=COLORS[c],
+               bbox=dict(fc="white", ec="none", pad=0.2))  # opaque (EPS), readable over the dots
+    a.text(0.03, 0.97, "LMM, mouse random effects", transform=a.transAxes, ha="left", va="top", fontsize=FS_NOTE)
+    a.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
+    a.set_xlabel("Whisker curve at the hit (P(lick))", labelpad=1)
+    a.set_ylabel("Whisker-hit RT (ms)", labelpad=1)
+
+
+def _plot_rho(right, rho, null):
+    """Spearman rho (RT vs whisker curve) per licked trial type, mean +- s.e.m. over mice; grey hollow dot +- s.d., the
+    cohort mean under the linear-shift null; stars, Wilcoxon of rho minus each mouse's shift-null median vs 0."""
     for i, tt in enumerate(TRIAL_TYPES):
         for k, cohort in enumerate(COHORTS):
             g = rho[(rho.trial_type == tt) & (rho.cohort == cohort)]
@@ -452,19 +551,55 @@ def plot_rt_learning(ax, df):
                            capsize=0, zorder=3)
             d = g.value.dropna()  # rho minus the mouse's shift-null median
             p = stats.wilcoxon(d).pvalue if len(d) > 5 else np.nan
-            if p < 0.05:  # stars in the cohort x trial-type colour (user 2026-11-16)
-                top = max(v.mean() + v.sem(), nd.mean() + nd.std() if len(nd) else -np.inf)
-                right.text(x, top + 0.02, stars(p), ha="center", va="bottom", fontsize=FS_NOTE,
-                           color=group_color(tt, cohort))
+            top = max(v.mean() + v.sem(), nd.mean() + nd.std() if len(nd) else -np.inf)
+            sig_text(right, x, top + 0.02, p, color=group_color(tt, cohort), rotate_p=True)
     right.axhline(0, color="0.6", lw=0.4, ls=":")
     right.set_xticks(range(3), ["W", "A", "FA"])
     right.set_xlim(-0.6, 2.6)
     lo, hi = right.get_ylim()
-    right.set_ylim(lo, hi + 0.15 * (hi - lo))  # room for the legend
+    right.set_ylim(lo, hi + 0.45 * (hi - lo))  # room for the stars, p-values and legend
     right.set_ylabel("ρ(RT, W curve)", labelpad=1)
     right.set_xlabel("Licked trial type", labelpad=1)
     _legend(right, [("Shift null", "0.55", dict(marker="o", ms=2, lw=0, mfc="white", mew=0.5))],
-            loc="upper right")  # user 2026-11-16: open grey circles explained top right
+            loc="lower right")  # user 2026-11-23
+
+
+F_MM_PER_TRIAL = 23.0 / 41.0  # mm per trial on the x axis of F (square subpanels of 23 mm, -10.5 to 30.5 trials)
+
+
+def plot_rt_trials(ax, df):
+    """User 2026-11-23: the previous version (whisker hits 1-30 from the start of day 0; first bin of 5 hits = 0 by
+    definition), with one hit on the x axis as long as one trial on the x axis of F."""
+    ax.axis("off")
+    pos, fig = ax.get_position(), ax.figure
+    W = pos.width * fig.get_figwidth() * 25.4
+    span = 40.0  # hits 0-40: hits 1-30, the last-versus-first bracket and its label
+    a = ax.inset_axes([0, 0, min(1.0, span * F_MM_PER_TRIAL / W), 1])
+    plot_rt_change(a, df[df.kind == "bin"], "Whisker hit", None, mice=df[df.kind == "mouse"])
+    a.set_xlim(0, span)
+    lo, hi = a.get_ylim()
+    a.set_ylim(lo - 0.12 * (hi - lo), hi)  # room for the stars under the lower cohort
+
+
+def plot_rt_curve(ax, df):
+    """User 2026-11-23: (1) whisker-hit RT against the whisker curve, cohorts overlaid, density contours, LMM lines and
+    rank-LMM rho; (2) per-mouse Spearman rho per licked trial type with the shift null."""
+    # user 2026-11-23: the scatter (left) removed from the figure; saved in the snapshot's _removed/ (save_removed_scatter)
+    _plot_rho(ax, df[df.kind == "rho"], df[df.kind == "rho_null"])
+
+
+def save_removed_scatter(df, out_dir):
+    """User 2026-11-23: the RT-vs-curve scatter of the former left part of J, as its own file in <snapshot>/_removed/."""
+    import matplotlib.pyplot as plt
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sc = df[df.kind == "scatter"]
+    fig = plt.figure(figsize=(60 / 25.4, 48 / 25.4))
+    a = fig.add_axes([0.2, 0.2, 0.75, 0.75])
+    _plot_rt_scatter(a, sc, (0, float(np.nanpercentile(sc.rt_ms, 99.5)) * 1.3))  # room for the text inside
+    for ext in ("pdf", "png"):
+        fig.savefig(out_dir / f"Fig1J_rt_curve_scatter.{ext}", dpi=600)
+    sc.to_csv(out_dir / "Fig1J_rt_curve_scatter.csv", index=False)
+    plt.close(fig)
 
 
 def plot_first_lick(ax, df):
@@ -567,12 +702,15 @@ def _row_axes(ax, n, gap_mm=7.0, square=True):
     return [ax.inset_axes([x0[k] / W, 0, w / W, 1]) for k in range(n)]
 
 
-def _bin_test_stars(a, t, y=1.0):
+def _bin_test_stars(a, t, y=1.0, data_y=False):
     """User 2026-11-17: one test per bin (R+ vs R-, Mann-Whitney; Benjamini-Hochberg within the subplot): stars above
     every bin with q < 0.05, nothing elsewhere."""
     for r in t[t.mannwhitney_q_bh < 0.05].itertuples():
-        a.text(r.bin_centre, y, stars(r.mannwhitney_q_bh), transform=a.get_xaxis_transform(), ha="center",
-               va="bottom", fontsize=FS_NOTE, clip_on=False)
+        sig_text(a, r.bin_centre, y, r.mannwhitney_q_bh, label="q", rotate_p=True,
+                 transform=None if data_y else a.get_xaxis_transform())
+
+
+PLICK_YLIM = (-0.04, 1.04)  # P(lick) axes of the aligned and session panels (user 2026-11-23: aligned)
 
 
 def _plot_aligned(ax, df, alabel):
@@ -588,12 +726,14 @@ def _plot_aligned(ax, df, alabel):
             m, e = g.mean(), g.sem()
             a.errorbar(m.index + (k - 0.5) * 0.5, m, e, color=group_color(tt, cohort), marker="o", ms=1.6, lw=0.6,
                        elinewidth=0.5, capsize=0, zorder=3)
-        a.axvline(-0.5, color="0.6", lw=0.4, ls=":")
-        _bin_test_stars(a, tests[tests.trial_type == tt])
+        a.axvline(0, color="0.6", lw=0.4, ls=":")
         a.set_xlim(-10.5, 30.5)
         a.set_xticks([-10, 0, 10, 20, 30])
-        a.set_ylim(-0.03, 1.03)
+        a.set_ylim(*PLICK_YLIM)  # user 2026-11-23: same y axis as the next panel; discreet stars above the axes
         a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
+        for r in tests[(tests.trial_type == tt) & (tests.mannwhitney_q_bh < 0.05)].itertuples():
+            a.annotate(stars(r.mannwhitney_q_bh), (r.bin_centre, 1.0), xycoords=a.get_xaxis_transform(), ha="center",
+                       va="bottom", fontsize=FS_NOTE, color="0.3", annotation_clip=False)
         a.set_xlabel(f"Trials from {alabel}", labelpad=1, fontsize=FS_LABEL)
         a.set_ylabel("P(lick)", labelpad=1, fontsize=FS_LABEL)
         a.set_title(title, fontsize=FS_TITLE, pad=7)
@@ -636,7 +776,7 @@ def _plot_perf_three(ax, df, alabel):
             _mean_band(a, d.dropna(subset=[col]), "session_time_norm", col, group_color(tt, cohort), lw=0.7)
         a.set_xlim(0, 1)
         a.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
-        a.set_ylim(0, 1)
+        a.set_ylim(*PLICK_YLIM)
         a.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
         if cohort == "R+":  # R- shares the y axis
             a.set_ylabel("P(lick), learning curve", labelpad=1, fontsize=FS_LABEL)
@@ -699,45 +839,52 @@ def plot_movement_hitmiss(ax, df):
 
 def plot_movement_course(ax, df):
     """Hit trials: whisker speed and jaw opening minus each trial's pre-stimulus mean; whisker and auditory trials, both
-    cohorts (group_color), mean +- s.e.m. over mice. User 2026-11-17: one column per body part, top the full window
-    (0-0.5 s, first 100 ms shaded), bottom the zoom on the first 100 ms; y axes from 0. Bars, R+ vs R- clusters
-    (whisker trials top, auditory below), grey to black by p."""
+    cohorts (group_color), mean +- s.e.m. over mice. One column per body part, top -0.1 to 0.5 s, bottom zoom -0.02 to
+    0.1 s (user 2026-11-23: pre-stimulus baseline 100 and 20 ms). User 2026-11-23: square axes, right-aligned in the
+    panel, legend inside the jaw zoom axes. Bars, R+ vs R- clusters (whisker trials top, auditory below), grey to black."""
     ax.axis("off")
-    gap, w = 0.3, 0.35
-    rows = {"full": (0.5, 0.34), "zoom": (0.0, 0.34)}  # (bottom, height) in panel fraction; legend row above
-    windows = {"full": (0.0, 0.5), "zoom": (0.0, 0.1)}
+    pos, fig = ax.get_position(), ax.figure
+    W, H = pos.width * fig.get_figwidth() * 25.4, pos.height * fig.get_figheight() * 25.4
+    vgap, hgap = 6.0, 10.0  # mm: x tick labels of the top row; y tick labels of the right column
+    side = (H - vgap) / 2  # user 2026-11-23: larger, not square: height from the box, width fills it
+    wide = (W - 9.0 - hgap) / 2  # 9 mm for the left y labels
+    xs = [W - 2 * wide - hgap, W - wide]  # flush right
+    rows = {"full": side + vgap, "zoom": 0.0}  # bottom in mm
+    windows = {"full": (-0.1, 0.5), "zoom": (-0.02, 0.1)}
     for k, (sig, label, unit) in enumerate(SIGNALS[:2]):
         ds = df[df.signal == sig]
-        for row, (y0, h) in rows.items():
-            a = ax.inset_axes([k * (w + gap), y0, w, h])
+        for row, y0 in rows.items():
+            a = ax.inset_axes([xs[k] / W, y0 / H, wide / W, side / H])
             lo_t, hi_t = windows[row]
-            d = ds[ds.time_s.between(lo_t, hi_t)]
+            d = ds[ds.time_s.between(lo_t - 1e-9, hi_t + 1e-9)]
             for tt in ("whisker_trial", "auditory_trial"):
                 for c in COHORTS:
                     dd = d[(d.trial_type == tt) & (d.cohort == c)]
                     if len(dd):
                         _mean_band(a, dd, "time_s", "value", group_color(tt, c), lw=0.6, fill=0.75)
+            a.axvline(0, color="0.6", lw=0.4, ls=":")
+            a.axhline(0, color="0.8", lw=0.3)
             a.set_xlim(lo_t, hi_t)
-            a.set_ylim(bottom=0)
-            hi = a.get_ylim()[1]
-            ticks = mpl.ticker.MaxNLocator(3).tick_values(0, hi)
-            a.set_yticks(ticks[(ticks >= 0) & (ticks <= hi)])
-            a.set_ylim(0, hi * 1.15)  # room for the bars
+            lo, hi = a.get_ylim()
+            ticks = mpl.ticker.MaxNLocator(3).tick_values(min(lo, 0), hi)
+            a.set_yticks(ticks[(ticks >= lo) & (ticks <= hi)])
+            a.set_ylim(lo, hi + 0.15 * (hi - lo))  # room for the bars
             step = np.min(np.diff(np.sort(d.time_s.unique()))) if d.time_s.nunique() > 1 else 0
             for tt, y in (("whisker_trial", 0.98), ("auditory_trial", 0.91)):
                 on = d[(d.trial_type == tt) & d.cluster_sig.astype(bool)]
                 if len(on):
                     _shaded_bars(a, on, "time_s", y, step, label=f"{TT_SHORT[tt]} ", lw=1)
-            a.set_xticks([lo_t, hi_t], [f"{lo_t:g}", f"{hi_t:g}"])
+            a.set_xticks([lo_t, 0, hi_t], ["", "0", f"{hi_t:g}"])  # baseline start unlabelled: no room (caption)
             a.tick_params(labelsize=FS_TICK, pad=1)
             if row == "zoom":
                 a.set_xlabel("Time (s)", labelpad=0)
             else:
-                a.set_ylabel(f"{label} ({unit})", labelpad=0.5, fontsize=FS_LABEL)
-                a.yaxis.set_label_coords(-0.5, (0.5 - y0) / h)  # one label centred on the column
-    entries = [(f"{TT_SHORT[tt]} {c}", color) for tt in ("whisker_trial", "auditory_trial") for c, color in _cohort_entries(tt)]
-    _legend(ax, entries, loc="lower center", bbox_to_anchor=(0.5, 0.9), ncol=4, columnspacing=0.8, borderaxespad=0)
-    ax.set_title("Evoked movement, hits", fontsize=FS_TITLE, pad=6)  # same height as the other panel titles
+                a.set_title(label, fontsize=FS_TITLE, pad=12)
+            a.set_ylabel(unit, labelpad=0.5, fontsize=FS_LABEL)
+            if k == 1 and row == "zoom":
+                entries = [(f"{TT_SHORT[t]} {c}", color) for t in ("whisker_trial", "auditory_trial")
+                           for c, color in _cohort_entries(t)]
+                _legend(a, entries, loc="upper left", borderaxespad=0.1)
 
 
 def plot_cumulative_fa(ax, df):
@@ -751,7 +898,9 @@ def plot_cumulative_fa(ax, df):
     ax.set_xlabel("Trials after anchor", labelpad=1)
     ax.set_ylabel("Cumulative FA", labelpad=1)
     ax.legend(handles=[mpl.lines.Line2D([], [], color="0.2", lw=0.8, label="Day 0"),
-                       mpl.lines.Line2D([], [], color="0.2", lw=0.8, ls="--", label="Day -1")],
+                       mpl.lines.Line2D([], [], color="0.2", lw=0.8, ls="--", label="Day −1"),
+                       *[mpl.lines.Line2D([], [], color=group_color("no_stim_trial", c), lw=0.8,
+                                          label=c.replace("-", "−")) for c in COHORTS]],  # user 2026-11-23: cohorts too
               loc="upper left", fontsize=FS_NOTE, frameon=False, handlelength=1.4, borderaxespad=0)
 
 
@@ -768,8 +917,12 @@ def plot_xcorr(ax, df):
     ax.axvline(0, color="0.6", lw=0.4, ls=":")
     ax.set_xlim(df.lag.min(), df.lag.max())
     ax.set_xticks([-10, -5, 0, 5, 10])
-    ax.set_xlabel("Lag (W trials)", labelpad=1)
+    ax.set_xlabel("Lag (W trials)\n← FA leads | W leads →", labelpad=1)
     ax.set_ylabel("r (W, FA curves)", labelpad=1)
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(lo, hi + 0.25 * (hi - lo))
+    _legend(ax, [(c.replace("-", "−"), COLORS[c]) for c in COHORTS]
+            + [("Shift null (lag 0)", "0.5", dict(ls="--", lw=0.5))], loc="upper left", ncol=1)  # user 2026-11-22
 
 
 # ---------------------------------------------------------------- learners and states
@@ -961,7 +1114,8 @@ def plot_glm_schematic(ax, df):
     order = [f for _, g in GLM_GROUPS for f in feats if base[f] in g] + [f for f in feats if not any(base[f] in g for _, g in GLM_GROUPS)]
     z = df.pivot(index="feature", columns="whisker_trial", values="z").loc[order].to_numpy()
     y = df.drop_duplicates("whisker_trial").sort_values("whisker_trial").lick.to_numpy()
-    m = ax.inset_axes([0.38, 0.30, 0.44, 0.58])
+    pred = "predicted_p_lick" in df  # user 2026-11-22: model prediction under the lick row
+    m = ax.inset_axes([0.38, 0.42, 0.44, 0.46] if pred else [0.38, 0.30, 0.44, 0.58])
     im = m.imshow(z, aspect="auto", cmap="RdBu_r", vmin=-2.5, vmax=2.5, interpolation="nearest")
     m.set_yticks(range(len(order)), [GLM_LABELS.get(base[f], f) for f in order], fontsize=FS_NOTE)
     m.set_xticks([])
@@ -984,7 +1138,7 @@ def plot_glm_schematic(ax, df):
     ax.figure.colorbar(im, cax=cb, ticks=[-2, 0, 2])
     cb.tick_params(labelsize=FS_TICK, length=1, pad=0.5, width=0.3)
     cb.set_title("z", fontsize=FS_TITLE, pad=1)
-    o = ax.inset_axes([0.38, 0.20, 0.44, 0.06])
+    o = ax.inset_axes([0.38, 0.33, 0.44, 0.05] if pred else [0.38, 0.20, 0.44, 0.06])
     o.imshow(y[None, :], aspect="auto", cmap=mpl.colors.ListedColormap(["0.8", COLORS[cohort]]), vmin=0, vmax=1,
              interpolation="nearest")
     o.set_xticks([0, len(y) - 1], ["1", str(len(y))], fontsize=FS_NOTE)
@@ -992,8 +1146,28 @@ def plot_glm_schematic(ax, df):
     o.tick_params(length=0, pad=1)
     for side in o.spines.values():
         side.set_linewidth(0.4)
-    o.set_xlabel("Whisker trial", fontsize=FS_LABEL, labelpad=0)
-    ax.text(0.63, 0.0, "P(lick) = σ(w · x + b)", transform=ax.transAxes, ha="center", va="bottom", fontsize=FS_NOTE)
+    if not pred:
+        o.set_xlabel("Whisker trial", fontsize=FS_LABEL, labelpad=0)
+        ax.text(0.63, 0.0, "P(lick) = σ(w · x + b)", transform=ax.transAxes, ha="center", va="bottom", fontsize=FS_NOTE)
+        return
+    o.set_xticks([])
+    q = ax.inset_axes([0.38, 0.25, 0.44, 0.05])  # held-out GLM prediction of the same session (user 2026-11-23:
+    yp = df.drop_duplicates("whisker_trial").sort_values("whisker_trial").predicted_p_lick.to_numpy()  # colour strip)
+    cmap = mpl.colors.LinearSegmentedColormap.from_list("pred", ["0.9", "k"])  # user 2026-11-23: black
+    q.imshow(yp[None, :], aspect="auto", cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+    q.set_yticks([0], ["P(lick) = σ(w · x + b)"], fontsize=FS_NOTE)
+    q.set_xticks([0, len(yp) - 1], ["1", str(len(yp))], fontsize=FS_NOTE)
+    q.tick_params(length=0, pad=1)
+    for side in q.spines.values():
+        side.set_linewidth(0.4)
+    cq = ax.inset_axes([0.88, 0.25, 0.07, 0.05])  # its colour scale, clear of the trial numbers
+    cq.imshow(np.linspace(0, 1, 50)[None, :], aspect="auto", cmap=cmap, vmin=0, vmax=1)
+    cq.set_yticks([])
+    cq.set_xticks([0, 49], ["0", "1"], fontsize=FS_TICK)
+    cq.tick_params(length=0, pad=1)
+    for side in cq.spines.values():
+        side.set_linewidth(0.4)
+    q.set_xlabel("Whisker trial", fontsize=FS_LABEL, labelpad=0)
 
 
 def plot_glm_example(ax, df):
@@ -1036,9 +1210,9 @@ def _feature_rows(ax, df, value, order, xlabel):
                         ms=1.8, mfc=COLORS[cohort] if nonzero else "white", mew=0.5, capsize=0, elinewidth=0.6, lw=0)
         p = _mw_p(vals["R+"], vals["R-"])
         if p < 0.05:  # inside the axes, in a margin added on the right
-            ax.text(0.995, i, stars(p), transform=ax.get_yaxis_transform(), ha="right", va="center", fontsize=FS_NOTE)
+            sig_text(ax, 0.995, i, p, transform=ax.get_yaxis_transform(), ha="right", va="center")
     lo, hi = ax.get_xlim()
-    ax.set_xlim(lo, hi + 0.15 * (hi - lo))
+    ax.set_xlim(lo, hi + 0.45 * (hi - lo))  # user 2026-11-22: room for the stars and p-values
     ax.axvline(0, color="0.6", lw=0.4, ls=":")
     ax.set_yticks(range(len(order)), [GLM_LABELS.get(f, f) for f in order], fontsize=FS_NOTE)
     ax.set_ylim(len(order) - 0.4, -0.6)
@@ -1051,24 +1225,129 @@ def plot_glm_weights(ax, df):
     _feature_rows(ax, df, "coefficient", order, "GLM weight")
 
 
+def _glm_schematic_min(ax, rect, df):
+    """User 2026-11-23: minimal design-matrix schematic (one strip): predictors grouped (names of the groups only), the
+    lick outcome and the held-out prediction of the example session, and the model."""
+    cohort = df.cohort.iloc[0]
+    feats = list(df.feature.drop_duplicates())
+    base = {f: re.sub(r"_t\d+$", "", f) for f in feats}
+    groups = [GLM_GROUPS[i] for i in (1, 2, 0)]  # reward, movement, history: the order of the rows below
+    order = [f for _, g in groups for f in feats if base[f] in g]
+    z = df.pivot(index="feature", columns="whisker_trial", values="z").loc[order].to_numpy()
+    tr = df.drop_duplicates("whisker_trial").sort_values("whisker_trial")
+    x0, y0, w, h = rect
+    m = ax.inset_axes([x0, y0 + 0.42 * h, w, 0.58 * h])
+    m.imshow(z, aspect="auto", cmap="RdBu_r", vmin=-2.5, vmax=2.5, interpolation="nearest")
+    m.set_xticks([])
+    m.set_yticks([])
+    k = 0
+    for name, g in groups:
+        n = sum(base[f] in g for f in order)
+        if k:
+            m.axhline(k - 0.5, color="white", lw=0.8)
+        m.text(-0.01, 1 - (k + n / 2) / len(order), name, transform=m.transAxes, ha="right", va="center",
+               fontsize=FS_NOTE, color="0.25")
+        k += n
+    o = ax.inset_axes([x0, y0 + 0.30 * h, w, 0.09 * h])
+    o.imshow(tr.lick.to_numpy()[None, :], aspect="auto", interpolation="nearest", vmin=0, vmax=1,
+             cmap=mpl.colors.ListedColormap(["0.8", COLORS[cohort]]))
+    o.set_xticks([])
+    o.set_yticks([])
+    o.text(-0.01, 0.5, "Lick", transform=o.transAxes, ha="right", va="center", fontsize=FS_NOTE, color="0.25")
+    q = ax.inset_axes([x0, y0, w, 0.26 * h])
+    q.plot(np.arange(len(tr)), tr.predicted_p_lick.to_numpy(), color="k", lw=0.5)
+    q.set_xlim(-0.5, len(tr) - 0.5)
+    q.set_ylim(0, 1)
+    q.axis("off")
+    q.text(-0.01, 0.5, "GLM", transform=q.transAxes, ha="right", va="center", fontsize=FS_NOTE, color="0.25")
+    for a_ in (m, o):
+        for side in a_.spines.values():
+            side.set_linewidth(0.3)
+    ax.text(x0 + w + 0.015, y0 + 0.5 * h, "P(lick) = σ(w · x + b)", transform=ax.transAxes, ha="left", va="center",
+            fontsize=FS_NOTE)
+    ax.text(x0 + w / 2, y0 - 0.015, "Whisker trials of one session", transform=ax.transAxes, ha="center", va="top",
+            fontsize=FS_NOTE, color="0.25")
+
+
+GROUP_LABELS = {"reward": "Reward\nhistory", "movement": "Movement", "history": "Lick\nhistory"}  # two lines, rotated
+
+
+def _group_overlay(a, d, order, groups, own_axes=False):
+    """User 2026-11-23: drop of held-out log-likelihood when a group of predictors is removed and the model refitted,
+    overlaid on the single-predictor axes (same x): dark grey, at the mean y of the group's predictors (R+ circle above,
+    R- square below; filled = differs from 0, Wilcoxon); right y axis = the groups; dark-grey stars right of the points,
+    R+ vs R- (Mann-Whitney; p in the caption)."""
+    yc = {}
+    for g, members in groups.items():
+        ys = [order.index(f) for f in members if f in order]
+        yc[g] = float(np.mean(ys))
+        vals, right = {}, -np.inf
+        for k, c in enumerate(COHORTS):  # user 2026-11-23: diamonds in the cohort colours
+            v = d[(d.feature == g) & (d.cohort == c)].value.dropna()
+            vals[c] = v
+            nonzero = len(v) > 5 and stats.wilcoxon(v).pvalue < 0.05
+            a.errorbar(v.mean(), yc[g] + (-0.15 if k == 0 else 0.15), xerr=v.sem(), color=COLORS[c], marker="D", ms=2.4,
+                       mfc=COLORS[c] if nonzero else "white", mew=0.6, capsize=0, elinewidth=0.8, lw=0, zorder=4)
+            right = max(right, v.mean() + v.sem())
+        p = _mw_p(vals["R+"], vals["R-"])
+        if p < 0.05:
+            a.annotate(stars(p), (right, yc[g]), xytext=(1.5, 0), textcoords="offset points", ha="left", va="center",
+                       fontsize=FS_NOTE, color="0.25")
+    # right y axis drawn on the same axes (a twinx of an inset axes is mispositioned). User 2026-11-23: no full spine;
+    # one segment per group spanning its predictors, the group name at its centre
+    a.spines["right"].set_visible(False)
+    if own_axes:  # user 2026-11-23: groups in their own column right of the single predictors
+        a.spines["left"].set_visible(False)
+        a.set_yticks([])
+    tr = a.get_yaxis_transform()
+    for g, members in groups.items():
+        ys = [order.index(f) for f in members if f in order]
+        a.plot([1.0, 1.0], [min(ys) - 0.35, max(ys) + 0.35], transform=tr, color="0.25", lw=0.6, clip_on=False,
+               solid_capstyle="butt")
+        a.plot([1.0, 1.04], [yc[g], yc[g]], transform=tr, color="0.25", lw=0.5, clip_on=False)
+        a.text(1.07, yc[g], GROUP_LABELS.get(g, g), transform=tr, ha="left", va="center", fontsize=FS_NOTE, rotation=90, linespacing=0.9,
+               color="0.25")
+
+
 def plot_glm_weights_auc(ax, df):
-    """Weights (predictor names), then the drop in held-out log-likelihood per trial when the predictor is removed and
-    the model refitted, same predictor order (user 2026-11-12: shuffled balanced accuracy dropped; kept in the CSV)."""
-    axes = _split(ax, 2, gap=0.08)
-    ax.set_title("GLM weights and model comparison", fontsize=FS_TITLE, pad=6)  # planner 2026-11-12
-    left = axes[0]
-    order = df[df.metric == "weight"].drop_duplicates("feature").sort_values("rank_by_mean_abs").feature.tolist()
-    _feature_rows(left, df[df.metric == "weight"], "value", order, "Weight")
-    _feature_rows(axes[1], df[df.metric == "delta_ll_drop"], "value", order,
-                  "Δ log-lik./trial (nats)\nfull − predictor removed")
-    for a in axes[1:]:  # same predictor order: names once (ssl-figure-style rule 6)
-        a.set_yticklabels([])
-    _legend(axes[0], [("R+", COLORS["R+"], dict(marker="o", ms=2, lw=0)), ("R−", COLORS["R-"], dict(marker="o", ms=2, lw=0)),
-                      ("≠ 0", "0.3", dict(marker="o", ms=2, lw=0)),
+    """User 2026-11-23: weights (predictor names), then the drop in held-out log-likelihood per trial when a predictor is
+    removed and the model refitted (same order), with the groups of predictors removed together (reward history,
+    movement, lick history; dark grey, right y axis) overlaid on the same x axis. No schematic (in Supp. Fig. 1)."""
+    pos, fig = ax.get_position(), ax.figure
+    Wmm = pos.width * fig.get_figwidth() * 25.4
+    ax.axis("off")
+    widths, gap = (1.0, 1.0, 0.7), 3.0  # user 2026-11-23: weights | single predictor removed | group removed
+    unit = (Wmm - 2 * gap) / sum(widths)
+    x0 = np.r_[0, np.cumsum([w * unit + gap for w in widths])]
+    axes = [ax.inset_axes([x0[k] / Wmm, 0, widths[k] * unit / Wmm, 1]) for k in range(3)]
+    W = df[df.metric == "weight"]
+    order = W.drop_duplicates("feature").sort_values("rank_by_mean_abs").feature.tolist()
+    _feature_rows(axes[0], W, "value", order, "Weight")
+    single, grp = df[df.metric == "delta_ll_drop"], df[df.metric == "delta_ll_group"]
+    _feature_rows(axes[1], single, "value", order, "Δ log-lik./trial (nats)")
+    lo = min(axes[1].get_xlim()[0], (grp.groupby(["feature", "cohort"]).value.mean()
+                                     - grp.groupby(["feature", "cohort"]).value.sem()).min())
+    hi = max(axes[1].get_xlim()[1], (grp.groupby(["feature", "cohort"]).value.mean()
+                                     + grp.groupby(["feature", "cohort"]).value.sem()).max() * 1.6)  # room for stars
+    for a in axes[1:]:  # same x range: single and group removal comparable
+        a.set_xlim(lo, hi)
+    groups = {g: m.split(";") for g, m in grp.drop_duplicates("feature")[["feature", "group_members"]].to_numpy()}
+    axes[2].set_ylim(axes[1].get_ylim())
+    axes[2].axvline(0, color="0.6", lw=0.4, ls=":")
+    _group_overlay(axes[2], grp, order, groups, own_axes=True)
+    axes[2].set_xlabel("Δ LL/trial\n(group)", labelpad=1)
+    axes[1].set_xlabel("Δ LL/trial (nats)\n(predictor)", labelpad=1)
+    axes[1].set_yticklabels([])  # same predictor order: names once (ssl-figure-style rule 6)
+    for a in axes:  # user 2026-11-23: y range of the predictors only; legend above the axes
+        a.set_ylim(len(order) - 0.4, -0.6)
+    axes[2].tick_params(axis="y", length=0)
+    _legend(axes[0], [("≠ 0", "0.3", dict(marker="o", ms=2, lw=0)),
                       ("n.s.", "0.3", dict(marker="o", ms=2, lw=0, mfc="white", mew=0.5))],
-            loc="lower left")
-    for a in axes:  # narrow axes: few ticks
-        a.xaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=2, symmetric=a is left))
+            loc="lower left", bbox_to_anchor=(0, 1.0), ncol=2, columnspacing=0.6, borderaxespad=0.1)
+
+    axes[0].xaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=3, symmetric=True))
+    for a in axes[1:]:  # narrow axes: two ticks
+        a.set_xticks([0, 0.03], ["0", "0.03"])
 
 
 def plot_glm_shuffle(ax, df):
