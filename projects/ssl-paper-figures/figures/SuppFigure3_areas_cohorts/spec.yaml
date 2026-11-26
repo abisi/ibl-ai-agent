@@ -1,0 +1,135 @@
+# Supplementary Figure (areas, mice and cohorts of the rastermap clusters) -- user 2026-11-26 ("S-D"): area decomposition
+# and area enrichment per cohort, area distribution and localisation, fractional yield of mice per cluster, area-group
+# specialization (fine clusters and metaclusters), fine areas. Message: sampling differences between the cohorts do not
+# drive the response-type structure. Data: rastermap v2 main, metaclusters at cut 0.40 (as Figure 3).
+figure: SuppFigure3_areas_cohorts
+number: S3
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 10
+  pad_left_mm: 8
+caption:
+  title: 'Both cohorts sample the same areas and contribute to every response type; their differences in cluster occupancy are not explained by area sampling.'
+  footer: Neurons, stable good and multi-unit clusters of learner mice (reference-sheet learning category good or moderate),
+    whisker learning day (day 0), one session per mouse ({_shared.n_mice} mice, {_shared.n_mice_rplus} R+ and
+    {_shared.n_mice_rminus} R-, {_shared.n_neurons} neurons; rastermap v2 main). Clusters, the 100 rastermap clusters in
+    rastermap order; metaclusters, contiguous groups of clusters cut at 1 - r = 0.40 (colours as Figure 3). Cohort per
+    mouse from the reference sheet. Mouse is the unit of every cohort comparison; R+ vs R-, Mann-Whitney U and Welch t,
+    both reported. R+, green; R-, magenta.
+shared:
+  rastermap_run:
+    code: rastermap_psth.population_matrix_summary (load_rastermap, metaclustering cut 0.40, family_palette)
+    params:
+      run: combined_results_ks4/rastermap_variants/v2/main (050_rastermap_variants_v2.py, variant main)
+      clusters: 100 (rastermap order); metaclusters contiguous, cut 1 - r = 0.40
+  cohort_analyses:
+    code: unit_spikes_analysis rastermap_psth.rastermap_utils (f_{m,k} matrix, per-cluster cohort tests, PERMANOVA,
+      compute_dispersion_metrics); SuppFigure3_rastermap_clustering compute_area_specialization (KL vs label shuffle)
+    params:
+      cohort: reference sheet per mouse; tests Mann-Whitney U + Welch t (both); permutations 2000 (area tests 200)
+sections:
+- {title: "Both cohorts sample the same brain areas", y_mm: 0.0}
+- {title: "Every cluster draws on many mice of both cohorts", y_mm: 51.0}
+- {title: "Cohort differences in cluster occupancy are not explained by area sampling", y_mm: 116.0}
+- {title: "Areas specialise in response types", y_mm: 208.0}
+panels:
+- id: a
+  key: area_sampling
+  title: Area sampling
+  heading: "Fraction of each mouse's neurons per area group"
+  data: FigS3a_area_sampling.csv
+  status: filled
+  caption: Fraction of each mouse's neurons in each area group (dots, mice; bars, cohort mean). Per area group R+ vs R-
+    Mann-Whitney U and Welch t (uncorrected); {n_groups_p05_any} of {n_groups} groups have P < 0.05 in either test.
+    Distance between the cohort-mean compositions vs cohort labels permuted across mice ({n_perm} permutations), {p_perm:p}.
+  cell: {x_mm: 0.0, y_mm: 4.7, w_mm: 112.0, h_mm: 44.0, margins_mm: [9.0, 14.0, 4.0, 1.0]}
+- id: b
+  key: ccf
+  title: Localisation
+  heading: "Neuron positions (CCF), top and side views"
+  data: FigS3b_ccf.csv
+  status: filled
+  caption: Positions of the recorded neurons in the Allen common coordinate framework ({n_with_ccf} of {n_total}
+    neurons with a position), top (medio-lateral x antero-posterior) and side (antero-posterior x dorso-ventral) views,
+    per cohort, coloured by area group.
+  cell: {x_mm: 117.0, y_mm: 4.7, w_mm: 66.0, h_mm: 44.0, margins_mm: [0.0, 0.0, 4.0, 0.0]}
+- id: c
+  key: mouse_yield
+  title: Mouse yield
+  heading: "Fraction of each mouse's neurons in each cluster (f_mk)"
+  data: FigS3c_mouse_yield.csv
+  status: filled
+  caption: Top, f_mk, the fraction of mouse m's neurons in cluster k (rows, mice grouped by cohort; columns, clusters in
+    rastermap order; strip, metaclusters). Bottom, mice contributing at least {yield_min} neurons to each cluster (R+ and
+    R- stacked; median {median_mice_ge3:.0f} of {n_mice}; minimum {min_mice_ge3}) and the R+ share of each cluster's
+    neurons (line) against the R+ share of all neurons (dashed). {n_clusters_both_cohorts_ge5} of 100 clusters have at
+    least 5 contributing mice in each cohort; the largest single-mouse share of a cluster has median
+    {max_mouse_share_median:.2f}.
+  cell: {x_mm: 0.0, y_mm: 55.7, w_mm: 128.0, h_mm: 57.0, margins_mm: [10.0, 7.0, 4.0, 1.0]}
+- id: d
+  key: dispersion
+  title: Repertoire per mouse
+  heading: "How spread each mouse's\nneurons are over clusters"
+  data: FigS3d_dispersion.csv
+  status: filled
+  caption: 'Per mouse, concentration of its neurons over the 100 clusters (normalised Shannon entropy; largest single-cluster
+    fraction), R+ vs R-: entropy Mann-Whitney {shannon_entropy_norm.mannwhitney_p:p}, Welch {shannon_entropy_norm.welch_p:p};
+    largest fraction Mann-Whitney {max_frac.mannwhitney_p:p}, Welch {max_frac.welch_p:p}.'
+  cell: {x_mm: 135.0, y_mm: 55.7, w_mm: 48.0, h_mm: 57.0, margins_mm: [9.0, 7.0, 6.0, 1.0]}
+- id: e
+  key: occupancy
+  title: Cohort occupancy
+  heading: "R+ minus R- mean f_mk per cluster: observed and expected from area sampling"
+  data: FigS3e_occupancy.csv
+  status: filled
+  caption: Per cluster, R+ minus R- mean f_mk (bars; dots, both Mann-Whitney and Welch q < 0.05 after Benjamini-Hochberg
+    across clusters) and the difference expected from each mouse's area sampling alone (line; expected f_mk = sum over the
+    mouse's fine areas of its fraction of neurons in the area times the area's distribution over clusters in all other
+    mice). PERMANOVA on f_mk, F = {observed.permanova_F:.2f}, {observed.permanova_p:p}; on the expected matrix
+    {expected.permanova_p:p}; on the residual (observed minus expected) F = {residual.permanova_F:.2f},
+    {residual.permanova_p:p}. Clusters with a cohort difference, {observed.n_sig_both} observed, {residual.n_sig_both}
+    in the residual.
+  cell: {x_mm: 0.0, y_mm: 120.7, w_mm: 128.0, h_mm: 40.0, margins_mm: [10.0, 7.0, 4.0, 1.0]}
+- id: f
+  key: occupancy_scatter
+  title: Observed vs expected
+  heading: "Cohort difference:\nobserved vs sampling"
+  data: FigS3f_occupancy_scatter.csv
+  status: filled
+  caption: As e, one dot per cluster (metacluster colour); observed vs expected cohort difference, Pearson
+    r = {r_obs_vs_expected_diff:.2f} ({p_obs_vs_expected_diff:p}).
+  cell: {x_mm: 135.0, y_mm: 120.7, w_mm: 48.0, h_mm: 40.0, margins_mm: [9.0, 7.0, 6.0, 1.0]}
+- id: g
+  key: area_enrichment
+  title: Area enrichment per cohort
+  heading: "Distribution of each area group's neurons over the metaclusters, R+ and R- (log2 enrichment over the dataset)"
+  data: FigS3g_area_enrichment.csv
+  status: filled
+  caption: Per area group (at least {min_mice_cohort} mice of each cohort with at least {min_neurons_mouse} neurons;
+    {n_groups} groups), log2 enrichment of its neurons over the metaclusters relative to the whole dataset, R+ (left) and
+    R- (right). Right, Jensen-Shannon divergence between the R+ and R- distributions (bars) and the 95th percentile of
+    cohort labels permuted across the area's mice (tick; {n_perm} permutations); {n_p05} of {n_groups} groups P < 0.05
+    ({n_q05} after Benjamini-Hochberg); median r between the R+ and R- enrichment profiles {r_profiles_median:.2f}.
+  cell: {x_mm: 0.0, y_mm: 165.0, w_mm: 183.0, h_mm: 40.0, margins_mm: [30.0, 6.0, 4.0, 2.0]}
+- id: h
+  key: specialization
+  title: Area-group specialization
+  heading: "Area groups specialise in response types"
+  data: FigS3h_specialization.csv
+  status: filled
+  caption: Specialization of each area group (at least {min_neurons} neurons), KL divergence (bits) of its distribution
+    over the fine clusters (dark) and the metaclusters (light) from the dataset distribution; ticks, 95th percentile of
+    area labels permuted across neurons (200 permutations).
+  cell: {x_mm: 0.0, y_mm: 212.7, w_mm: 88.0, h_mm: 42.0, margins_mm: [9.0, 14.0, 4.0, 1.0]}
+- id: i
+  key: fine_areas
+  title: Fine areas
+  heading: "Best-sampled fine areas: specialization and most enriched metacluster"
+  data: FigS3i_fine_areas.csv
+  status: filled
+  caption: Fine areas with at least {min_neurons} neurons and at least {min_mice} mice contributing {min_neurons_mouse}
+    or more neurons ({n_areas} of {n_areas_total} areas). Bars, specialization over the metaclusters (KL, bits; colour,
+    area group); ticks, permutation 95th percentile; square, the metacluster most enriched in the area.
+  cell: {x_mm: 95.0, y_mm: 212.7, w_mm: 88.0, h_mm: 42.0, margins_mm: [9.0, 14.0, 4.0, 1.0]}

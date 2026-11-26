@@ -1,0 +1,99 @@
+# Supplementary Figure (robustness of the rastermap embedding) -- "S-C", design agreed with the user 2026-11-26:
+# parameter grid (matrices themselves), embedding similarity across the v2 variants, GMM clustering of the same matrix
+# at K = 100 and K = number of metaclusters with Hungarian-matched cluster similarity.
+# Data: rastermap v2 (combined_results_ks4/rastermap_variants/v2); main = stable good + MUA units, learners, whisker day 0
+# (63 sessions), locality 0.25, time_lag_window 20; metaclusters contiguous at cut 0.40 (as Figure 3).
+# Number of the supplementary figure to be set when the supplementary order is fixed.
+figure: SuppFigure3_robustness
+number: S3
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 10
+  pad_left_mm: 8
+caption:
+  title: >-
+    The rastermap response types are robust to the embedding parameters, to the data selection and to the clustering
+    method.
+  footer: >-
+    Neurons: stable good and multi-unit clusters of learner mice (reference-sheet learning category good or moderate),
+    whisker learning day (day 0), one session per mouse, unless stated otherwise. Rastermap fitted on the concatenated
+    baseline-subtracted PSTHs of odd trials; cluster-mean PSTHs shown and compared on even trials (held out). Clusters
+    are matched one-to-one with the Hungarian algorithm on the Pearson r of their mean PSTHs (population mean kept).
+shared:
+  rastermap_v2:
+    code: ssl-rastermap-psth-variants/exploratory-analyses/050_rastermap_variants_v2.py (variants), 054 (parameter
+      grid fits), 057 (cluster matching), 058 (order RSA)
+    params:
+      root: combined_results_ks4/rastermap_variants/v2
+      grid: locality {0, 0.25, 0.5, 0.75, 0.9} x time_lag_window {0, 10, 20, 50}, good units (v2 units_good)
+  gmm:
+    code: ssl-rastermap-psth-variants/exploratory-analyses/046_bgmm_main_variant.py (spectral embedding of X_odd) +
+      047_bgmm_fixed_k.py (--mode em, maximum-likelihood GMM with K components), run on v2 main by run_gmm_v2.py
+    params:
+      matrix: v2 main X_odd (the Figure 3 matrix, user default; 63 sessions)
+      K: 100 (rastermap clusters) and 14 (metaclusters at cut 0.40)
+sections:
+- {title: "The same clusters, in a similar order, across rastermap parameters", y_mm: 0.0}
+- {title: "Response types are recovered when the data selection changes", y_mm: 99.0}
+- {title: "An independent method (Gaussian mixture) recovers the rastermap clusters", y_mm: 147.0}
+panels:
+- id: a
+  key: param_grid
+  title: Parameter grid
+  heading: "Cluster-mean PSTHs in each fit's order (locality x time-lag window)"
+  caption: >-
+    [to write] Mean PSTH (even trials) of the 100 rastermap clusters of the good-unit data, drawn in the order of each
+    fit of the locality x time-lag-window grid (fits drawn in the reference direction); box = setting used in the paper.
+  cell: {x_mm: 0.0, y_mm: 4.5, w_mm: 128.0, h_mm: 92.0, margins_mm: [6.0, 4.0, 5.0, 1.0]}
+  data: FigS3a_param_grid.csv
+  calls: "compute.py param_grid (054 fits, X_even of v2 units_good)"
+  status: filled
+- id: b
+  key: grid_summary
+  title: Grid summary
+  heading: "Order similarity across the grid"
+  caption: >-
+    [to write] Top, Spearman RSA between each fit's cluster order and the reference fit's order; bottom, RSA between
+    each fit's order and the clusters' PSTH dissimilarity (1 - r). The 100 clusters are identical in every fit
+    (Hungarian-matched r = 1).
+  cell: {x_mm: 138.0, y_mm: 4.5, w_mm: 45.0, h_mm: 92.0, margins_mm: [9.0, 5.0, 5.0, 4.0]}
+  data: FigS3b_grid_summary.csv
+  calls: "compute.py grid_summary (057 cluster_matching.csv, 058 order_rsa.csv / order_rsa_between_fits.csv)"
+  status: filled
+- id: c
+  key: variants
+  title: Data variants
+  heading: "Matched cluster r (left) and cluster-order RSA (right), each variant vs main"
+  caption: >-
+    [to write] Per data variant: Pearson r of each main cluster with its Hungarian-matched variant cluster (mean PSTHs
+    of the variant's partition computed on the main even-trial PSTHs of the shared neurons), and the Spearman RSA
+    between the variant's and the main cluster order.
+  cell: {x_mm: 0.0, y_mm: 103.5, w_mm: 183.0, h_mm: 40.0, margins_mm: [10.0, 9.0, 7.0, 2.0]}
+  data: FigS3c_variants.csv
+  calls: "compute.py variants (050 variants: mice_all, units_all, units_good, noFR, noWhiskerReward, loc0p00, loc0p75)"
+  status: filled
+- id: d
+  key: gmm_matrices
+  title: GMM vs rastermap
+  heading: "Cluster-mean PSTHs: rastermap vs Gaussian mixture (matched order)"
+  caption: >-
+    [to write] Mean PSTHs (even trials) of the rastermap clusters (K = 100) and metaclusters (14), and of the Gaussian
+    mixture components fitted on the same odd-trial matrix with K = 100 and K = 14, each component drawn at the position
+    of its Hungarian-matched rastermap cluster.
+  cell: {x_mm: 0.0, y_mm: 151.5, w_mm: 128.0, h_mm: 70.0, margins_mm: [6.0, 4.0, 5.0, 1.0]}
+  data: FigS3d_gmm_matrices.csv
+  calls: "compute.py gmm_matrices (run_gmm_v2.py: 046 + 047 --mode em on v2 main)"
+  status: filled
+- id: e
+  key: gmm_match
+  title: GMM match
+  heading: "Matched similarity vs cluster size"
+  caption: >-
+    [to write] Pearson r of each rastermap cluster (K = 100) and metacluster (K = 14) with its Hungarian-matched GMM
+    component, against the number of neurons in the rastermap cluster.
+  cell: {x_mm: 138.0, y_mm: 151.5, w_mm: 45.0, h_mm: 70.0, margins_mm: [9.0, 9.0, 5.0, 2.0]}
+  data: FigS3e_gmm_match.csv
+  calls: "compute.py gmm_match"
+  status: filled

@@ -1,0 +1,127 @@
+# Supplementary figure to Figure 4 A-H: controls for the passive-response change (user 2026-11-26: "we do the control plan";
+# rebuilt on the 179 pipeline from the earlier Figma SuppFigure4_passive_controls: baseline rate change across area groups;
+# effect not explained by the number of whisker stimuli, the baseline rate change, whisking trial by trial (evoked and
+# pre-stimulus); robustness to unit quality and to random subsets of units per mouse; plus jaw opening, still trials and the
+# licked passive trials). Code: shared_passive_controls.py; inputs ssl-hitmiss-axis-passive 179_cd_clean.py (unit table) and
+# 208_passive_controls.py (trial-level population responses for three unit sets, per-trial DLC, session counts).
+figure: SuppFigure4_passive_controls
+number: S4c
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 11.5
+  pad_left_mm: 8
+caption:
+  title: 'Controls for the passive-response change after the task.'
+  footer: As Fig. 4 A-H. Stable good and multi-unit clusters of learner mice, whisker day 0, one session per mouse, unless
+    stated; trials and units selected with ephys_utilities (as Fig. 4). Evoked response, spike rate 5-35 ms after the
+    stimulus minus the trial's own baseline (-1 s to -15 ms), spikes/s, mean over neurons per session. Interaction, the
+    cohort × stimulus effect of Fig. 4G, R+ minus R− of the whisker − auditory change (post − pre) of the session
+    responses; error bars, 95 % bootstrap CI over sessions. R+ versus R−, Mann-Whitney U and Welch's t-tests, the larger P
+    shown, uncorrected.
+shared:
+  units_179:
+    code: shared_passive_controls._sessions_179 / shared_passive_cd._ag_units
+    calls:
+    - ssl-hitmiss-axis-passive/exploratory-analyses/179_cd_clean.py (unit table, learning stage)
+    params:
+      units: 137 stable good + MUA
+      window: 5-35 ms minus the trial's own baseline (-1 s to -15 ms)
+  trials_208:
+    code: shared_passive_controls._trials_208
+    calls:
+    - ssl-hitmiss-axis-passive/exploratory-analyses/208_passive_controls.py
+    params:
+      unit_sets: good (stable good), stable (stable good + MUA), all (137 table, no selection)
+      dlc: ephys_utilities dlc_helpers via shared_movements.dlc_signals
+      sessions: restricted to the 179 unit-table sessions
+panels:
+- id: a
+  key: ctl_nobase
+  title: No baseline correction
+  heading: "No baseline correction"
+  data: FigS4c_nobase.csv
+  caption: As Fig. 4G with the raw rate 5-35 ms (no baseline subtraction), change post − pre; permutation of cohort labels
+    {perm.p:p}.
+  cell: {x_mm: 0.0, y_mm: 0.0, w_mm: 40.0, h_mm: 45.0, margins_mm: [13.0, 8.0, 9.0, 1.0]}
+- id: b
+  key: ctl_baseline_map
+  title: Baseline rate change, maps
+  heading: "Baseline rate change, per area"
+  data: FigS4c_baseline_map.csv
+  caption: Change of the baseline rate (post − pre; -1 s to -15 ms; mean over whisker and auditory trials; mean over the area's
+    neurons per session, then over sessions) per fine area ({n_areas} areas with at least 3 mice per cohort, each with at least
+    5 neurons in the area), R+ (top) and R− (bottom), on coronal sections of the Allen atlas (one hemisphere; each region takes
+    the fine area holding most of the recorded neurons located in it; cortical layers merged, barrel columns as SSp-bfd; light
+    grey, no data).
+  cell: {x_mm: 40.0, y_mm: 0.0, w_mm: 88.0, h_mm: 45.0, margins_mm: [6.0, 3.0, 7.0, 1.0]}
+- id: c
+  key: ctl_n_stim
+  title: Number of whisker stimuli
+  heading: "Effect vs number of whisker stimuli"
+  data: FigS4c_n_stim.csv
+  caption: Whisker response change (post − pre) against the number of whisker stimuli in the session (active and passive),
+    per session; lines, least-squares fit per cohort. The number of stimuli differs between cohorts (R+ {n_stim.mean_Rp:.0f},
+    R− {n_stim.mean_Rm:.0f}; Mann-Whitney {n_stim.mannwhitney_p:p}); interaction adjusted for it (least squares, W − A
+    change ~ cohort + number of stimuli), {adjusted.beta:.2f} spikes/s, {adjusted.p:p} (unadjusted {unadjusted.effect:.2f},
+    {unadjusted.p:p}).
+  cell: {x_mm: 128.0, y_mm: 0.0, w_mm: 55.0, h_mm: 45.0, margins_mm: [13.0, 8.0, 7.0, 1.0]}
+- id: d
+  key: ctl_baseline
+  title: Baseline rate change
+  heading: "Effect vs baseline rate change"
+  data: FigS4c_baseline.csv
+  caption: Whisker response change against the baseline rate change (post − pre), per session; interaction adjusted for the
+    baseline change, {adjusted.beta:.2f} spikes/s, {adjusted.p:p}.
+  cell: {x_mm: 0.0, y_mm: 46.0, w_mm: 46.0, h_mm: 45.0, margins_mm: [13.0, 8.0, 7.0, 1.0]}
+- id: e
+  key: ctl_movement
+  title: Movement
+  heading: "Movement, trial by trial"
+  data: FigS4c_movement.csv
+  caption: Interaction with the per-session change estimated from all trials; adjusted trial by trial for the whisker speed
+    before (-0.2 to 0 s) and after (5-35 ms) the stimulus (least squares within session, epoch coefficient); adjusted also for
+    the evoked jaw opening; from still trials only (movement score, the sum of the pre-stimulus and evoked whisker speed and
+    the evoked jaw opening in s.d. units of the session, at or below the session median; {still_frac:.0%} of the trials); and,
+    as reference for the still trials, random halves of the trials in the same sessions (per session the mean over 100
+    draws). Sessions with DLC; DLC via ephys_utilities dlc_helpers. grey bars, 2.5-97.5 % of the cohort-permutation null of the interaction (cohort labels permuted across sessions,
+    5000 permutations); dots, observed; P, permutation.
+  cell: {x_mm: 46.0, y_mm: 46.0, w_mm: 48.0, h_mm: 45.0, margins_mm: [13.0, 14.0, 7.0, 1.0]}
+- id: f
+  key: ctl_units
+  title: Unit quality
+  heading: "Unit quality"
+  data: FigS4c_units.csv
+  caption: Interaction for good units only (stable, Bombcell good), the main set (stable good and multi-unit) and all units
+    (no quality or stability selection). grey bars, 2.5-97.5 % of the cohort-permutation null of the interaction (cohort labels permuted across sessions,
+    5000 permutations); dots, observed; P, permutation.
+  cell: {x_mm: 94.0, y_mm: 46.0, w_mm: 40.0, h_mm: 45.0, margins_mm: [13.0, 14.0, 7.0, 1.0]}
+- id: g
+  key: ctl_subsets
+  title: Random subsets
+  heading: "Random subsets of units"
+  data: FigS4c_subsets.csv
+  caption: Interaction for random subsets of k stable units per mouse (sessions with at least k units; {n_draws} draws per k);
+    dots, median over draws; band, 2.5-97.5 % of draws; top, fraction of draws with P < 0.05; red, all units of the same sessions.
+  cell: {x_mm: 134.0, y_mm: 46.0, w_mm: 49.0, h_mm: 45.0, margins_mm: [13.0, 8.0, 9.0, 1.0]}
+- id: h
+  key: ctl_whisk_evoked
+  title: Evoked whisking
+  heading: "Effect vs evoked whisking change"
+  data: FigS4c_whisk_evoked.csv
+  caption: Whisker response change (post − pre) against the change of the evoked whisker speed (5-35 ms minus -0.2 to 0 s,
+    whisker trials; DLC via ephys_utilities dlc_helpers), per session; lines, least-squares fit per cohort. Interaction
+    adjusted for it (least squares, W − A change ~ cohort + evoked whisking change), {adjusted.beta:.2f} spikes/s,
+    {adjusted.p:p}.
+  cell: {x_mm: 0.0, y_mm: 92.0, w_mm: 56.0, h_mm: 42.0, margins_mm: [13.0, 9.0, 5.0, 4.0]}
+- id: i
+  key: ctl_whisk_pre
+  title: Whisking before the stimulus
+  heading: "Effect vs pre-stimulus whisking change"
+  data: FigS4c_whisk_pre.csv
+  caption: Interaction for random subsets of k stable units per mouse (one session per mouse; sessions with at least k
+    units; {n_draws} draws per k, units drawn without replacement). Black, median over the draws; grey band, 2.5-97.5 % of the
+    draws; red, the interaction with all units of the same sessions (the reference for that k, since sessions with fewer than k units
+    drop out at large k, which alone lowers it at k = 500); top, percentage of draws with P < 0.05 (Mann-Whitney / Welch).
+  cell: {x_mm: 56.0, y_mm: 92.0, w_mm: 56.0, h_mm: 42.0, margins_mm: [13.0, 9.0, 5.0, 4.0]}

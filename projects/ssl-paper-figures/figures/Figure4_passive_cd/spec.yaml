@@ -13,17 +13,19 @@ grid:
   pad_left_mm: 8
 caption:
   title: 'After the task, passive whisker responses of R− mice rotate away from the hit − miss coding direction.'
-  footer: Neurons, tracked stable units (stable across the session by presence, coverage and drift tests, and firing at
-    least 0.5 Hz in passive pre, passive post and both halves of the active block); learner mice (reference-sheet learning
-    category good or moderate), whisker day 0, one session per mouse, unless stated. Responses, spike rate 5-35 ms after
-    stimulus onset minus the epoch's mean baseline (-55 to -20 ms), divided by each neuron's s.d. over the active trials;
-    active trials with a lick before 35 ms excluded. Hit − miss axis, unit vector of the mean whisker hit minus mean whisker
-    miss response over all active whisker trials (at least 3 of each); passive trials never contribute to it. Projections
-    per neuron (divided by the square root of the number of neurons). Linear shifts (open markers; data − shifted), 50
-    axes built from hit / miss labels linearly shifted by 10-50 % of the whisker trials (non-wrapping), averaged. R+,
-    green; R−, magenta; whisker, yellow; auditory, blue. Data are mean ± s.e.m. over sessions. R+ versus R−, two-sided
-    Mann-Whitney U and Welch's t-tests; pre versus post, Wilcoxon signed-rank and paired t-tests; both computed, the
-    larger P value shown (* P < 0.05, ** P < 0.01, *** P < 0.001, n.s.), uncorrected.
+  footer: Neurons, stable good and multi-unit clusters (stable across the session by presence, coverage and drift tests);
+    learner mice (reference-sheet learning category good or moderate), whisker day 0, one session per mouse, unless stated.
+    Trials selected with ephys_utilities (active trials with the particle detector off removed; passive epochs = the passive
+    blocks before and after the active block, licked passive trials removed, at least 5 passive trials per modality).
+    Responses, spike rate 5-35 ms after stimulus onset minus the trial's own baseline (-1 s to -15 ms), divided by each
+    neuron's s.d. over the active trials + 6 spikes/s (noise normalisation). Hit − miss axis, unit vector of the mean whisker
+    hit minus mean whisker miss response over the active whisker trials (at least 3 of each; last 10 % of the active block
+    removed); passive trials never contribute to it. Projections per neuron (divided by the square root of the number of
+    neurons). Linear shifts (open markers; data − shifted), 50 axes built from hit / miss labels linearly shifted by 10-50 %
+    of the whisker trials (non-wrapping), averaged. R+, green; R−, magenta; whisker, yellow; auditory, blue. Data are mean ±
+    s.e.m. over sessions (mice where stated). R+ versus R−, two-sided Mann-Whitney U and Welch's t-tests; pre versus post,
+    Wilcoxon signed-rank and paired t-tests; both computed, the larger P value shown (* P < 0.05, ** P < 0.01, *** P <
+    0.001, n.s.), uncorrected.
 shared:
   cd_tables:
     code: shared_passive_cd.clean / whole
@@ -36,17 +38,114 @@ shared:
       min_hits_misses: 3
       shifts: 50, 10-50 %, non-wrapping
       learners: reference sheet learning_category good / moderate
+# v3 (user 2026-11-25, panel by panel): three sections with full-width grey titles (build.py figure_sections): whole brain
+# (schematic from Figma, zoomed time course, state space in the passive-pre plane, projection whisker | auditory with the
+# cohort x modality test, geometric decomposition a = rho cos theta with strength and angle, whisker | auditory), areas on the
+# whole-brain axis (202: share, per-neuron, enrichment), learning curves (R+ / R- examples, trial types x curves, areas).
+# Moved to supp: angle pre / post (now the decomposition's angle), per-area axes (old N), area link (old O), across days
+# (old P), orthogonalisation (old Q). Data - shifted throughout unless stated.
+sections:
+- title: "Passive sensory responses before and after the task (rebuilt on the H–S pipeline)"
+  y_mm: 0.0
+- title: "Relative to the hit − miss coding direction: R− passive whisker responses rotate away after the task"
+  y_mm: 75.0
+- title: "Learning: active trials on the hit − miss axis track the whisker learning curve"
+  y_mm: 169.0
+- title: "Expert days: the passive change on the learning day versus expert days"
+  y_mm: 215.0
 panels:
+- id: a
+  key: ag_raster
+  title: Passive responses, neurons
+  heading: "Passive responses, single neurons"
+  data: Fig4_ag_raster.csv
+  caption: Baseline-subtracted passive responses of the {n} sensory-responsive neurons (of {n_all}; {n_sessions} sessions,
+    R+ and R− pooled; ROC whisker or auditory response in active trials, 5-35 ms, P < 0.05; firing rate > 0.5 spikes/s;
+    display only) to whisker and
+    auditory stimuli before (pre) and after (post) the task; 1-ms bins, causal 5-ms boxcar (stride 1 ms), z-scored per
+    neuron across the four conditions (s.d. over all time bins of the four conditions, zero at the neuron's pre-stimulus
+    mean); neurons ordered by the pre-task whisker response (5-35 ms, the evoked-response window of F), displayed in blocks
+    of 20 neurons.
+  cell: {x_mm: 0.0, y_mm: 4.0, w_mm: 45.0, h_mm: 70.0, margins_mm: [3.5, 8.0, 10.0, 10.5]}
+- id: b
+  key: ag_psth_col
+  title: Population PSTHs
+  heading: "Population\nresponses"
+  data: Fig4_ag_psth_col.csv
+  caption: Evoked rate (spikes/s; each trial minus its own baseline -1 s to -15 ms; mean over neurons per session, then mean
+    ± s.e.m. over sessions; 10-ms windows, artefact-corrected spikes), passive whisker (top two) and auditory (bottom two)
+    stimuli, R+ and R− (n, sessions), before (grey) and after (colour) the task. Grey band and bar, analysis window 5-35 ms.
+  cell: {x_mm: 45.0, y_mm: 4.0, w_mm: 22.0, h_mm: 70.0, margins_mm: [7.0, 8.0, 10.0, 3.0]}
+- id: c
+  key: ag_baseline_bars
+  title: Baseline change
+  heading: "Baseline\nrate change"
+  data: Fig4_ag_baseline_bars.csv
+  caption: Change of the baseline rate (post − pre; -1 s to -15 ms before the stimulus; mean over neurons and over whisker
+    and auditory trials; bars, mean ± s.e.m. over sessions). R+ versus R−, Mann-Whitney {mannwhitney_p:p}, Welch
+    {welch_p:p}.
+  cell: {x_mm: 67.0, y_mm: 4.0, w_mm: 36.0, h_mm: 35.0, margins_mm: [16.0, 8.0, 5.0, 8.0]}
+- id: d
+  key: pupil_post
+  title: Pupil, passive post
+  heading: "Pupil area, passive post"
+  data: Fig4_pupil_post.csv
+  caption: Pupil area (DLC via ephys_utilities dlc_helpers, blink / squint trials removed; each trial minus its mean over
+    the 1 s before the stimulus; mm²), passive whisker trials after the task, R+ and R− (mean ± s.e.m. over sessions; not
+    z-scored, user 2026-11-26). Inset, eye of an example session (AB157) with the four-point contour defining pupil area;
+    scale bar 0.5 mm.
+  cell: {x_mm: 103.0, y_mm: 4.0, w_mm: 46.0, h_mm: 35.0, margins_mm: [16.0, 8.0, 5.0, 8.0]}
+- id: e
+  key: ag_state
+  title: Evoked movement change
+  heading: "Evoked whisking change"
+  data: Fig4_ag_state.csv
+  caption: Change (post − pre) of the evoked whisker speed (top view, °/s) in the 5-35 ms window of the neural responses,
+    whisker and auditory passive trials pooled (DLC via ephys_utilities dlc_helpers; each trial minus its -0.2 to 0 s mean;
+    bars, mean ± s.e.m. over sessions). R+ versus R− (Mann-Whitney / Welch) {whisker_speed.mannwhitney_p:p} /
+    {whisker_speed.welch_p:p}.
+  cell: {x_mm: 149.0, y_mm: 4.0, w_mm: 34.0, h_mm: 35.0, margins_mm: [16.0, 8.0, 5.0, 9.0]}
+- id: f
+  key: ag_evoked
+  title: Evoked responses
+  heading: "Evoked responses, pre vs post"
+  data: Fig4_ag_evoked.csv
+  caption: Evoked response (5-35 ms; spikes/s; each trial minus its own baseline; mean over neurons per session) to passive whisker
+    (left) and auditory (right) stimuli before (open) and after (filled) the task, R+ and R− (mean ± s.e.m. over sessions; grey lines, sessions; y axis cut at the 10th and 90th percentiles of the sessions, marked by a break); P, post versus pre within cohort (larger P of Wilcoxon and paired t).
+  cell: {x_mm: 67.0, y_mm: 39.0, w_mm: 54.0, h_mm: 35.0, margins_mm: [11.0, 8.0, 5.0, 1.0]}
+- id: g
+  key: ag_interaction
+  title: Cohort x modality
+  heading: "Cohort × stimulus"
+  data: Fig4_ag_interaction.csv
+  caption: Change of the evoked response (post − pre; 5-35 ms; spikes/s; mean over neurons per session), whisker and auditory, R+
+    and R− (mean ± s.e.m. over sessions; stars and P, change different from 0, larger P of Wilcoxon and one-sample t). Cohort × modality, permutation of cohort labels across sessions
+    {perm.p:p} (inset, permutation null in grey and observed value in red); Mann-Whitney on whisker − auditory {WA.mannwhitney_p:p}, Welch {WA.welch_p:p}. Whisker R+ versus R−,
+    {W.mannwhitney_p:p} / {W.welch_p:p}; auditory {A.mannwhitney_p:p} / {A.welch_p:p}.
+  cell: {x_mm: 121.0, y_mm: 39.0, w_mm: 30.0, h_mm: 35.0, margins_mm: [11.0, 8.0, 5.0, 0.0]}
 - id: h
+  key: ag_choice_corr
+  title: Effect vs choice coding
+  heading: "Effect vs choice coding, per area"
+  data: Fig4_ag_choice_corr.csv
+  caption: Per area group (at least 3 mice per cohort, each with at least 10 neurons in the area), the cohort difference
+    (R+ − R−) of the whisker − auditory change of the evoked response (post − pre; 5-35 ms; spikes/s; mean over the area's
+    neurons per session, then over sessions) against the mean absolute whisker choice selectivity of the area's neurons
+    (ROC whisker hit versus whisker miss, active trials, 5-35 ms; |2 AUC − 1|, all neurons, no significance threshold; both
+    cohorts pooled; {n_units} neurons). Line, least-squares fit; Pearson r = {r:.2f}, {p:p} (n = {n} area groups);
+    Spearman rho = {rho:.2f}, {p_rho:p}.
+  cell: {x_mm: 151.0, y_mm: 39.0, w_mm: 32.0, h_mm: 35.0, margins_mm: [12.0, 8.0, 5.0, 0.0]}
+- id: i
   key: schematic
   title: Schematic
   kind: drawing
-  heading: "Post-stimulus decision\nWhisker hit / miss axis (5-35 ms)"
+  source: FromFigma/CDhitmiss_schematic.pdf
+  image: _cache/CDhitmiss_schematic_1200dpi.png
   caption: The hit − miss coding direction is the difference between the mean population responses to whisker hits and
     whisker misses (5-35 ms after the stimulus) in the active task; passive responses before (pre) and after (post) the
     task are projected on it.
-  cell: {x_mm: 0.0, y_mm: 0.0, w_mm: 32.0, h_mm: 50.0, margins_mm: [1.0, 1.0, 8.0, 1.0]}
-- id: i
+  cell: {x_mm: 0.0, y_mm: 79.0, w_mm: 31.0, h_mm: 45.0, margins_mm: [0.5, 0.5, 4.0, 0.5]}
+- id: j
   key: time
   title: Time course
   heading: "Whole brain"
@@ -54,70 +153,93 @@ panels:
   caption: Projection on the hit − miss axis over time (10-ms windows, 5-ms steps; grey, 5-35 ms) of active whisker hits
     and misses (each trial projected on the axis built without it) and passive whisker responses before and after the
     task, R+ (top, {R+} sessions) and R− (bottom, {R-} sessions).
-  cell: {x_mm: 34.0, y_mm: 0.0, w_mm: 42.0, h_mm: 50.0, margins_mm: [9.5, 11.0, 6.0, 0.5]}
-- id: j
-  key: projection_prepost
-  title: Passive whisker projection
-  heading: "Passive whisker on the axis"
-  data: Fig4_projection_prepost.csv
-  caption: Passive whisker projection before and after the task (filled, data; open, linear shifts). Pre versus post, R+
-    Wilcoxon {R+.data.wilcoxon_p:p}, paired t {R+.data.paired_t_p:p}; R− {R-.data.wilcoxon_p:p}, {R-.data.paired_t_p:p};
-    R+ versus R− on the change (data − shifted), Mann-Whitney {excess.mannwhitney_p:p}, Welch {excess.welch_p:p}.
-  cell: {x_mm: 78.0, y_mm: 0.0, w_mm: 35.0, h_mm: 50.0, margins_mm: [10.5, 11.0, 13.0, 0.5]}
+  cell: {x_mm: 33.0, y_mm: 79.0, w_mm: 40.0, h_mm: 45.0, margins_mm: [10.0, 10.0, 13.0, 8.0]}
 - id: k
-  key: angle_prepost
-  title: Angle to the axis
-  heading: "Angle of the passive whisker\nresponse to the axis"
-  data: Fig4_angle_prepost.csv
-  caption: Angle between the mean passive whisker response (cross-validated norm) and the hit − miss axis, before and
-    after the task (filled, data; open, linear shifts). Pre versus post, R+ {R+.data.wilcoxon_p:p} (Wilcoxon),
-    {R+.data.paired_t_p:p} (paired t); R− {R-.data.wilcoxon_p:p}, {R-.data.paired_t_p:p}; R+ versus R− on the change
-    (data − shifted), Mann-Whitney {excess.mannwhitney_p:p}, Welch {excess.welch_p:p}.
-  cell: {x_mm: 115.0, y_mm: 0.0, w_mm: 35.0, h_mm: 50.0, margins_mm: [10.5, 11.0, 13.0, 0.5]}
+  key: state_space
+  title: State space, passive pre to post
+  heading: "Passive whisker, pre → post"
+  data: Fig4_state_space.csv
+  caption: Mean passive whisker response before (open) and after (filled) the task in the plane of the hit − miss axis (x) and
+    the passive-pre whisker direction orthogonal to it (y; cross-validated, direction from one half of the passive-pre trials,
+    each condition projected on both halves and the passive-pre response on the held-out half); triangles, active whisker hits
+    (filled) and misses (open) of the same cohort. Learning day, {learning.R+.n} R+ / {learning.R-.n} R− sessions (expert days
+    in Supplementary Fig. 4). Data axis. R+ versus R− on the change along the hit − miss axis, Mann-Whitney
+    {learning.dx.mannwhitney_p:p}, Welch {learning.dx.welch_p:p}; along the passive-pre direction
+    {learning.dy.mannwhitney_p:p}, {learning.dy.welch_p:p}.
+  cell: {x_mm: 75.0, y_mm: 79.0, w_mm: 42.0, h_mm: 45.0, margins_mm: [12.0, 10.0, 13.0, 2.5]}
 - id: l
-  key: delta
-  title: Whisker vs auditory
-  heading: "Passive change, cohort × modality"
-  data: Fig4_delta.csv
-  caption: Change of the passive projection (post − pre; data − shifted), whisker and auditory. R+ versus R−, whisker
-    Mann-Whitney {W.mannwhitney_p:p}, Welch {W.welch_p:p}; auditory {A.mannwhitney_p:p}, {A.welch_p:p}; cohort ×
-    modality interaction, permutation of cohort labels across sessions {interaction.p:p}.
-  cell: {x_mm: 152.0, y_mm: 0.0, w_mm: 31.0, h_mm: 50.0, margins_mm: [10.5, 11.0, 13.0, 0.5]}
+  key: angle_excess
+  title: Angle to the axis, data − shifted
+  heading: "Angle to the hit − miss axis"
+  data: Fig4_angle_excess.csv
+  caption: Angle between the mean passive response (cross-validated norm) and the hit − miss axis minus the same angle on the
+    linearly shifted-label axes (data − shifted), before and after the task, whisker (left) and auditory (right), R+ and R−
+    (mean ± s.e.m. over sessions); brackets, post versus pre per cohort (Wilcoxon / paired t) and R+ versus R− on the change
+    (Mann-Whitney / Welch).
+  cell: {x_mm: 119.0, y_mm: 79.0, w_mm: 64.0, h_mm: 45.0, margins_mm: [12.0, 10.0, 13.0, 1.0]}
 - id: m
-  key: gain_rotation
-  title: Gain vs rotation
-  heading: "Whisker change: gain\nand rotation parts"
-  data: Fig4_gain_rotation.csv
-  caption: The whisker projection a = ρ cos θ (ρ, cross-validated response norm; θ, angle to the axis); its change
-    (data − shifted) split exactly into a gain part, Δρ (cos θ_pre − cos θ_pre,shifted), and a rotation part,
-    ρ_post (Δcos θ − Δcos θ_shifted). R+ versus R−, gain Mann-Whitney {gain.mannwhitney_p:p}, Welch {gain.welch_p:p};
-    rotation {rotation.mannwhitney_p:p}, {rotation.welch_p:p}.
-  cell: {x_mm: 0.0, y_mm: 55.0, w_mm: 36.0, h_mm: 55.0, margins_mm: [11.0, 10.0, 13.0, 0.5]}
+  key: changes
+  title: Angle and strength changes
+  heading: "Rotation or weaker response?"
+  data: Fig4_changes.csv
+  caption: Change of the passive response from before to after the task (mean ± s.e.m. over sessions), whisker and
+    auditory. Angle θ to the axis, data − shifted (50 linear-shift axes); response strength ρ (cross-validated norm),
+    independent of the axis. R+ versus R−, angle whisker Mann-Whitney {angle_W.mannwhitney_p:p}, Welch
+    {angle_W.welch_p:p}, auditory {angle_A.mannwhitney_p:p}, {angle_A.welch_p:p}; strength whisker
+    {strength_W.mannwhitney_p:p}, {strength_W.welch_p:p}, auditory {strength_A.mannwhitney_p:p}, {strength_A.welch_p:p}.
+    Under each pair, cohort × modality (whisker − auditory change), angle {angle_WA.mannwhitney_p:p} /
+    {angle_WA.welch_p:p}, strength {strength_WA.mannwhitney_p:p} / {strength_WA.welch_p:p}. Sessions beyond the axis range
+    are drawn at its border. The projection a = ρ cos θ, Supplementary Fig. 4.
+  cell: {x_mm: 0.0, y_mm: 128.0, w_mm: 86.0, h_mm: 40.0, margins_mm: [10.0, 10.0, 7.0, 1.0]}
 - id: n
-  key: areas
-  title: Areas
-  heading: "Areas"
-  data: Fig4_areas.csv
-  caption: Whisker projection change (post − pre; data − shifted) per area group with at least 10 neurons in at least 3
-    sessions per cohort ({n_areas} groups; axis built from the group's neurons). Two-way ANOVA (cohort + area), cohort
-    {anova_cohort_p:p}; stars, R+ versus R− per area ({n_both} areas with both tests P < 0.05).
-  cell: {x_mm: 38.0, y_mm: 55.0, w_mm: 48.0, h_mm: 55.0, margins_mm: [19.0, 10.0, 6.0, 2.5]}
+  key: area_share
+  title: Area shares of the whole-brain change
+  heading: "Which areas carry the whole-brain whisker change"
+  data: Fig4_area_share.csv
+  caption: The whole-brain change (data − shifted) splits exactly over neurons, c_i = (w_i − w0_i) Δm_i / s_i (w, weight on
+    the hit − miss axis; w0, mean weight on the shifted axes; Δm, passive whisker change post − pre; s, scaling); per area
+    group, the R− minus R+ difference of the summed contributions (sessions without the area count 0); stars, R+ versus R−
+    (Mann-Whitney / Welch). Areas with at least 3 sessions per cohort.
+  cell: {x_mm: 92.0, y_mm: 128.0, w_mm: 91.0, h_mm: 40.0, margins_mm: [24.0, 10.0, 5.0, 4.0]}
 - id: o
-  key: area_link
-  title: Areas, axis change vs response change
-  heading: "Areas: axis change vs\nwhisker response change"
-  data: Fig4_area_link.csv
-  caption: Per area group and cohort, whisker projection change (data − shifted) against the change of the mean
-    whisker-evoked rate (post − pre, spikes per second; the passive response change of panels A-G). Lines, least-squares
-    fits with 95 % confidence bands; R+ r = {R+.r:.2f} ({R+.p:p}), R− r = {R-.r:.2f} ({R-.p:p}); Spearman ρ, R+
-    {R+.rho:.2f}, R− {R-.rho:.2f}.
-  cell: {x_mm: 88.0, y_mm: 55.0, w_mm: 52.0, h_mm: 55.0, margins_mm: [12.0, 10.0, 6.0, 0.5]}
+  key: lc_examples
+  title: Example sessions
+  heading: "Example sessions"
+  data: Fig4_lc_examples.csv
+  caption: Example R+ ({R+.session_id}) and R− ({R-.session_id}) sessions side by side. Every active trial projected on the
+    hit − miss axis (data − shifted; dots, trials; lines, running mean of 10 trials of the type), whisker hits, whisker
+    misses and auditory hits; black, exact whisker learning curve P(lick | whisker) (right axis).
+  cell: {x_mm: 0.0, y_mm: 173.0, w_mm: 82.0, h_mm: 41.0, margins_mm: [10.0, 10.0, 9.0, 8.0]}
 - id: p
-  key: across_days
-  title: Across days
-  heading: "Learning vs expert days"
-  data: Fig4_across_days.csv
-  caption: Whisker projection change (data − shifted) on the learning day (open; learners) and on expert days (filled;
-    every recorded expert session, R+ {expert.q.n_R+} sessions of {expert.n_mice_rp} mice, R− {expert.q.n_R-} of
-    {expert.n_mice_rm}). R+ versus R−, expert Mann-Whitney {expert.q.mannwhitney_p:p}, Welch {expert.q.welch_p:p}.
-  cell: {x_mm: 142.0, y_mm: 55.0, w_mm: 41.0, h_mm: 55.0, margins_mm: [12.0, 10.0, 13.0, 0.5]}
+  key: lc_types
+  title: Trial types and curves
+  heading: "Whole brain, all sessions"
+  data: Fig4_lc_types.csv
+  caption: Spearman correlation (data − shifted) between the projection of active trials and the whisker learning curve
+    P(lick | whisker) (left) or the whisker − false-alarm curve (right), for whisker hits, whisker misses and
+    auditory hits (auditory trials never build the axis). Stars above points, versus 0 (larger P of Wilcoxon and t); above
+    each type, R+ versus R− (larger P of Mann-Whitney and Welch). Whisker hits, R+ versus R−, Mann-Whitney
+    {hit_p.mannwhitney_p:p}, Welch {hit_p.welch_p:p}.
+  cell: {x_mm: 83.0, y_mm: 173.0, w_mm: 58.0, h_mm: 41.0, margins_mm: [11.0, 10.0, 9.0, 0.5]}
+- id: q
+  key: lc_areas
+  title: Areas
+  heading: "Area groups"
+  data: Fig4_lc_areas.csv
+  caption: Whisker hits versus P(lick | whisker) per area group (axis built from the area's neurons; data − shifted;
+    mean ± s.e.m. over sessions, area groups with at least 3 sessions per cohort). Filled, different from 0 (larger P of
+    Wilcoxon and t); stars, R+ versus R− (larger P of Mann-Whitney and Welch); uncorrected. Every fine area, whisker misses,
+    auditory hits and the whisker − false-alarm curve, Supplementary Fig. 4.
+  cell: {x_mm: 143.0, y_mm: 173.0, w_mm: 40.0, h_mm: 41.0, margins_mm: [17.0, 10.0, 9.0, 1.0]}
+- id: r
+  key: stages
+  title: Learning day vs expert days
+  heading: "Passive change (post − pre), learning day vs expert days"
+  data: Fig4_stages.csv
+  caption: Change of the passive response from before to after the task on the learning day and on expert days, whisker and
+    auditory; evoked rate (mean over neurons, spikes/s; as panel F), projection on the hit − miss axis and angle to it (data −
+    shifted). Mouse = unit (expert sessions averaged per mouse); mean ± s.e.m.; above each stage, R+ versus R− (larger P of
+    Mann-Whitney and Welch). Whisker angle, day 0 Mann-Whitney {angle_W_day0.mannwhitney_p:p}, expert
+    {angle_W_expert.mannwhitney_p:p}; whisker rate, day 0 {rate_W_day0.mannwhitney_p:p}, expert
+    {rate_W_expert.mannwhitney_p:p}.
+  cell: {x_mm: 0.0, y_mm: 219.0, w_mm: 183.0, h_mm: 38.0, margins_mm: [10.0, 10.0, 8.0, 0.5]}

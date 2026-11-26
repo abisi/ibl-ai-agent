@@ -1,0 +1,103 @@
+# Figure 3 (dataset clustering) -- design agreed with the user 2026-11-25, panels not yet filled.
+# Three parts (user): A population matrix (area group only, wider; no reward group, waveform, anatomy columns), B example
+# metaclusters as in the metacluster summary, C condensed decoding summary (last). The schematic goes to the first
+# supplementary rastermap figure; every other decoding view goes to SuppFigure_rastermap_decoding.
+# Data: rastermap v2 main (stable good + MUA units, learners, whisker day 0; locality 0.25, time_lag_window 20 -- kept by
+# the user 2026-11-25 over 0.25 / 10), metaclusters contiguous at cut 0.40 for this figure (user 2026-11-25, "r = 0.4"; v2 default 0.30).
+#   combined_results_ks4/rastermap_variants/v2/main/
+# Decoding: ssl-decoding-rerun-202611 (stable units, current NWB, per-neuron weights, N = 200) -- complete except the
+# jaw-aligned movement decoder (running on Jed, 2026-11-25).
+# Decided 2026-11-25: A keeps all ROC columns; B = the 5 largest metaclusters; C: alternatives reviewed in
+# _explore/ first, then the user decides.
+figure: Figure3_dataset_clustering
+number: "3"
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 10
+  pad_left_mm: 8
+caption:
+  title: >-
+    Brain-wide response types and the task information they carry.
+  footer: >-
+    Neurons: stable good and multi-unit clusters of learner mice (reference-sheet learning category good or moderate),
+    whisker learning day (day 0), one session per mouse. Rastermap (locality 0.25, time-lag window 20, 10x grid
+    upsampling) fitted on the concatenated baseline-subtracted PSTHs of odd trials and shown on even trials; 100 clusters
+    (rastermap k-means nodes) in rastermap order; metaclusters are contiguous groups of clusters (average linkage on
+    1 - Pearson r between cluster-mean PSTHs, merges only between neighbouring clusters, cut at 1 - r = 0.40).
+shared:
+  rastermap_run:
+    code: rastermap_psth.population_matrix_summary (load_rastermap, metaclustering, family_names_psth)
+    params:
+      run: combined_results_ks4/rastermap_variants/v2/main (050_rastermap_variants_v2.py, variant main)
+      clusters: 100, fit on odd trials, PSTHs shown on even trials
+      metaclustering: contiguous, average linkage, 1 - r, cut 0.40
+  decoder_weights:
+    code: projects/ssl-decoding-rerun-202611 (005 / 006 prototypes -> to be factored into compute_c)
+    params:
+      decoders: whisker detection, auditory detection, whisker vs auditory (N = 200 area-group pseudo-populations),
+        hit vs miss (per session), movement (jaw onset, N = 200)
+      null: metacluster labels permuted within session (200x)
+sections:   # skill ssl-paper-figures (2026-11-25): one short finding-style title per row block (wording to review)
+- {title: "Brain-wide neurons fall into a continuum of response types", y_mm: 0.0}
+- {title: "The six largest response types: sensory and lick-related", y_mm: 96.5}
+- {title: "Stimulus information appears within tens of ms in sensory types; choice and movement later in lick-related types", y_mm: 155.2}
+panels:
+- id: a
+  key: population_matrix
+  title: Population matrix
+  caption: >-
+    [to write] Cluster-mean PSTHs (even trials) of the 100 rastermap clusters in rastermap order, metacluster strip,
+    area-group composition per cluster.
+  cell: {x_mm: 0.0, y_mm: 4.7, w_mm: 183.0, h_mm: 90.0, margins_mm: [0.0, 0.0, 0.0, 0.0]}
+  compute:
+    repo: unit_spikes_analysis
+    function: rastermap_psth.population_matrix_summary.fig5_population_matrix_publication
+    params: {row_mode: cluster_mean_uniform, columns: [area_group], width_area_group: wider, enrichment: null}
+  source: _cache/fig3a_population_matrix.pdf
+  image: _cache/fig3a_population_matrix_1200dpi.png
+  calls: "compute.py a (fig5_population_matrix_publication, anatomy [area_group], function PUB_FUNCTION, enrichment none,
+    col_widths area_group 2.2, base_fs 6.5, no title, no legends (colour bars only), full panel size)"
+  status: filled
+  notes: "user 2026-11-25: remove reward group, waveform and anatomy columns; keep area group, wider; keep all ROC columns."
+- id: b
+  key: example_metaclusters
+  title: Example metaclusters
+  caption: >-
+    [to write] As the metacluster summary: one row per metacluster, mean ± s.e.m. PSTH per condition, name, n neurons,
+    n mice.
+  cell: {x_mm: 0.0, y_mm: 101.2, w_mm: 183.0, h_mm: 52.0, margins_mm: [0.0, 0.0, 0.0, 0.0]}
+  compute:
+    repo: ibl-ai-agent
+    function: ssl-rastermap-psth-variants/exploratory-analyses/045_metacluster_description.py (v2 main)
+    params: {metaclusters: "the 6 largest (user 2026-11-25), rastermap order"}
+  source: _cache/fig3b_example_metaclusters_cols2.pdf
+  image: _cache/fig3b_example_metaclusters_cols2_1200dpi.png
+  calls: "compute.py b:2 (045_metacluster_description.py --variant main --order <6 largest> --cols 2 --fs 4.5
+    --merge-passive --width-mm 183; square panels)"
+  status: filled
+  notes: "user 2026-11-25: the metacluster-summary layout (PSTHs, areas, ROC), 6 largest metaclusters, square panels,
+    passive pre/post merged. Alternative b:1 (one per row) is 174 mm tall."
+- id: c
+  key: area_decoding
+  title: Decoding per area group
+  caption: >-
+    [to write] Time-resolved decoding per area group (accuracy minus the linear-shift null; the 10 most sampled area
+    groups; N = 200 area-group pseudo-populations, hit vs miss per-session area-group decoders). Left, curves; right, the
+    same as heatmaps with the area groups sorted by onset (tick = first time the area reaches half its maximum). Whisker /
+    auditory detection and whisker vs auditory on the fine grid (20-ms bins, 2-ms steps), first 50 ms.
+  cell: {x_mm: 0.0, y_mm: 159.9, w_mm: 72.0, h_mm: 95.1, margins_mm: [0.0, 0.0, 0.0, 0.0]}
+  data: Fig3c_area_decoding.csv
+  calls: "compute.py c"
+  status: filled
+- id: d   # was e; the weight example (old d) moved to the supplementary figure (user 2026-11-26)
+  key: cluster_weights
+  title: Decoder weight per response cluster
+  caption: >-
+    [to write] Decoder weight per fine cluster on the rastermap axis (metacluster strip as in a), one column per
+    decoder; dot as in d (filled z >= 3, open z < 3). Movement = first movement run until the lick-initiation decoder.
+  cell: {x_mm: 78.0, y_mm: 159.9, w_mm: 105.0, h_mm: 95.1, margins_mm: [0.0, 0.0, 0.0, 0.0]}
+  data: Fig3e_cluster_weights.csv
+  calls: "compute.py e"
+  status: filled

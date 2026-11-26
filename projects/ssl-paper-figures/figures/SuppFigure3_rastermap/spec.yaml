@@ -1,0 +1,106 @@
+# Supplementary figure to Figure 3 (user 2026-11-26): ONE compact A4 page merging the embedding, continuum, annotated
+# matrix and areas / cohorts figures built the same day (folders SuppFigure3_embedding, SuppFigure3_continuum,
+# SuppFigure3_annotated_matrix, SuppFigure3_areas_cohorts stay as sources; their CSVs are copied by compute.py copy).
+# Data: rastermap v2 main (stable good + MUA units, learner mice, whisker day 0; 63 mice), metaclusters cut 0.40, cohort
+# labels from the reference sheet. Robustness is a separate figure. Section titles to be reviewed with the user.
+figure: SuppFigure3_rastermap
+number: "S?"
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 10
+  pad_left_mm: 8
+caption:
+  title: >-
+    Rastermap response clusters: construction, reproducibility, continuity, unit properties and sampling across mice
+    and cohorts.
+  footer: >-
+    Neurons, clusters and metaclusters as in Figure 3 (rastermap v2 main: stable good and multi-unit clusters of learner
+    mice, whisker day 0; 100 clusters in rastermap order; contiguous metaclusters cut at 1 - r = 0.40). Cohort of each
+    mouse from the reference sheet.
+sections:
+- {title: "Clusters are reproducible and ordered along a continuum", y_mm: 0.0}
+- {title: "Anatomy, function and firing statistics of the clusters", y_mm: 84.5}
+- {title: "Both cohorts sample areas alike; cohort differences in occupancy are not explained by area sampling", y_mm: 178.5}
+panels:
+- id: a
+  key: schematic
+  title: Pipeline
+  data: FigS_emb_schematic.csv
+  cell: {x_mm: 0.0, y_mm: 4.7, w_mm: 62.0, h_mm: 40.0, margins_mm: [1.0, 1.0, 3.0, 1.0]}
+  caption: "[to write] From condition PSTHs to rastermap clusters and metaclusters (SuppFigure3_embedding a)."
+- id: b
+  key: cv_cluster
+  title: Held-out trials
+  data: FigS_emb_cv_cluster.csv
+  cell: {x_mm: 66.0, y_mm: 4.7, w_mm: 44.0, h_mm: 40.0, margins_mm: [8.0, 9.0, 3.0, 1.0]}
+  caption: "[to write] r between each cluster's odd- and even-trial mean PSTH vs its best r with another cluster."
+- id: c
+  key: meta_matrix
+  title: Cluster similarity
+  data: FigS_emb_meta_matrix.csv
+  cell: {x_mm: 114.0, y_mm: 4.7, w_mm: 69.0, h_mm: 40.0, margins_mm: [9.0, 6.0, 9.0, 7.0]}
+  caption: "[to write] Pearson r between cluster means (rastermap order), dendrogram and metacluster boxes (cut 0.40)."
+- id: d
+  key: meta_cut
+  title: Metacluster cut
+  data: FigS_emb_meta_cut.csv
+  cell: {x_mm: 0.0, y_mm: 50.7, w_mm: 52.0, h_mm: 30.0, margins_mm: [8.0, 8.0, 2.0, 8.0]}
+  caption: "[to write] Number of metaclusters and within / between r vs the dendrogram cut."
+- id: e
+  key: decay
+  title: Continuum
+  data: FigS_cont_decay.csv
+  cell: {x_mm: 60.0, y_mm: 50.7, w_mm: 62.0, h_mm: 30.0, margins_mm: [8.0, 8.0, 2.0, 1.0]}
+  caption: "[to write] r between cluster means vs distance along the order, rastermap vs random orders; neighbour test."
+- id: f
+  key: margin
+  title: Neuron assignment
+  data: FigS_cont_assignment.csv
+  cell: {x_mm: 128.0, y_mm: 50.7, w_mm: 55.0, h_mm: 30.0, margins_mm: [8.0, 8.0, 2.0, 1.0]}
+  caption: "[to write] Held-out (even-trial) neuron PSTH: r with its own cluster centroid minus the best other."
+- id: g
+  key: matrix
+  title: Annotated matrix
+  cell: {x_mm: 0.0, y_mm: 89.2, w_mm: 140.0, h_mm: 86.0, margins_mm: [0.0, 0.0, 0.0, 0.0]}
+  source: _cache/suppfig3_rastermap_matrix.pdf
+  image: _cache/suppfig3_rastermap_matrix_1200dpi.png
+  calls: "compute.py units matrix (fig5_population_matrix_publication; area group, Gao hierarchy, ROC, unit columns
+    with one shared key, R+ share with reference-sheet cohorts; aligned keys)"
+  caption: >-
+    [to write] Figure 3 A with area group, Gao hierarchy, ROC function columns, unit columns (fraction good units;
+    medians of firing rate, ISI CV, burstiness, memory; each column scaled to its own range, shown in its title) and
+    R+ share (filled: cohort difference, Mann-Whitney BH-FDR < 0.05).
+- id: h
+  key: isi_stats
+  title: Firing statistics
+  data: FigS_isi_stats.csv
+  cell: {x_mm: 145.0, y_mm: 89.2, w_mm: 38.0, h_mm: 86.0, margins_mm: [8.0, 8.0, 4.0, 1.0]}
+  caption: >-
+    [to write] Per neuron: burstiness B = (sigma - mu)/(sigma + mu) of the ISIs is a deterministic function of the ISI
+    CV, B = (CV - 1)/(CV + 1); memory M (r of consecutive ISIs) is not (Goh & Barabasi 2008; Le Merre et al. 2026).
+- id: i
+  key: area_sampling
+  title: Area sampling
+  data: FigS3a_area_sampling.csv
+  cell: {x_mm: 0.0, y_mm: 183.2, w_mm: 96.0, h_mm: 32.0, margins_mm: [9.0, 12.0, 2.0, 1.0]}
+  caption: "[to write] Fraction of each mouse's neurons per area group, R+ vs R- (MW and Welch per group)."
+- id: j
+  key: mouse_yield
+  title: Mouse yield
+  data: FigS3c_mouse_yield.csv
+  cell: {x_mm: 102.0, y_mm: 183.2, w_mm: 81.0, h_mm: 32.0, margins_mm: [8.0, 5.0, 3.0, 1.0]}
+  caption: "[to write] Fraction of each mouse's neurons per cluster; R+ share per cluster; mice contributing >= 3 neurons."
+- id: k
+  key: occupancy
+  title: Cluster occupancy
+  data: FigS3e_occupancy.csv
+  cell: {x_mm: 0.0, y_mm: 221.7, w_mm: 108.0, h_mm: 30.0, margins_mm: [9.0, 7.0, 2.0, 1.0]}
+  caption: "[to write] R+ minus R- mean occupancy per cluster, observed vs expected from each mouse's area sampling."
+- id: l
+  key: specialization
+  title: Area specialisation
+  data: FigS3h_specialization.csv
+  cell: {x_mm: 114.0, y_mm: 221.7, w_mm: 69.0, h_mm: 30.0, margins_mm: [8.0, 11.0, 2.0, 1.0]}
+  caption: "[to write] Specialisation of each area group over fine clusters and metaclusters vs label permutations."

@@ -59,13 +59,14 @@ panels:
     {A.excess.welch_p:p}.
   cell: {x_mm: 0.0, y_mm: 51.0, w_mm: 90.0, h_mm: 46.0, margins_mm: [10.5, 11.0, 17.0, 0.5]}
 - id: d
-  key: wa_gain_rotation
-  title: Gain vs rotation
-  heading: "Change: gain and rotation parts"
-  data: FigS_cd_wa_gain_rotation.csv
-  caption: As Fig. 4M. R+ versus R−, whisker gain Mann-Whitney {W.gain.mannwhitney_p:p}, Welch {W.gain.welch_p:p},
-    rotation {W.rotation.mannwhitney_p:p}, {W.rotation.welch_p:p}; auditory gain {A.gain.mannwhitney_p:p},
-    {A.gain.welch_p:p}, rotation {A.rotation.mannwhitney_p:p}, {A.rotation.welch_p:p}.
+  key: wa_strength_alignment
+  title: Strength and alignment
+  heading: "Change: response strength and alignment"
+  data: FigS_cd_wa_strength_alignment.csv
+  caption: As Fig. 4M, whisker (left pair) and auditory (right pair). Strength, R+ versus R−, whisker Mann-Whitney
+    {W.strength.mannwhitney_p:p}, Welch {W.strength.welch_p:p}; auditory {A.strength.mannwhitney_p:p},
+    {A.strength.welch_p:p}. Alignment, whisker {W.alignment.mannwhitney_p:p}, {W.alignment.welch_p:p}; auditory
+    {A.alignment.mannwhitney_p:p}, {A.alignment.welch_p:p}.
   cell: {x_mm: 96.0, y_mm: 51.0, w_mm: 87.0, h_mm: 46.0, margins_mm: [11.0, 10.0, 17.0, 0.5]}
 - id: e
   key: wa_areas
@@ -97,7 +98,7 @@ panels:
   title: Areas, axis change vs response change
   heading: "Areas: axis change vs response change"
   data: FigS_cd_wa_area_link.csv
-  caption: As Fig. 4O. Whisker, R+ r = {W.R+.r:.2f} ({W.R+.p:p}), R− r = {W.R-.r:.2f} ({W.R-.p:p}); auditory, R+ r =
+  caption: As Fig. 4O (angle change vs evoked-rate change). Whisker, R+ r = {W.R+.r:.2f} ({W.R+.p:p}), R− r = {W.R-.r:.2f} ({W.R-.p:p}); auditory, R+ r =
     {A.R+.r:.2f} ({A.R+.p:p}), R− r = {A.R-.r:.2f} ({A.R-.p:p}).
   cell: {x_mm: 68.0, y_mm: 163.0, w_mm: 115.0, h_mm: 56.0, margins_mm: [12.0, 10.0, 8.0, 0.5]}
 - id: i

@@ -1,0 +1,57 @@
+# Supplementary figure "S-B" (user 2026-11-26): the Figure 3 A population matrix with the columns removed from the main
+# figure (waveform type, anatomy scores, reward-group enrichment) and per-cluster unit properties (fraction good vs MUA,
+# firing rate and other unit features after the IBL ephys atlas). Rastermap v2 main, metaclusters at cut 0.40, same
+# order / strip / colours as Figure 3 A. Section titles to be reviewed with the user.
+figure: SuppFigure3_annotated_matrix
+number: "S3"
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 10
+  pad_left_mm: 8
+caption:
+  title: >-
+    Response clusters: anatomy, waveform, reward-group enrichment and unit properties.
+  footer: >-
+    Neurons, clusters and metaclusters as in Figure 3 (rastermap v2 main: stable good and multi-unit clusters of learner
+    mice, whisker day 0; 100 clusters in rastermap order; contiguous metaclusters cut at 1 - r = 0.40). Unit features
+    from the day-0 unit table the rastermap was built from (bombcell metrics; waveform slopes from the mean waveform on
+    the peak channel; ISI statistics from all spikes of the session).
+shared:
+  rastermap_run:
+    code: rastermap_psth.population_matrix_summary (load_rastermap, metaclustering, fig5_population_matrix_publication)
+    params:
+      run: combined_results_ks4/rastermap_variants/v2/main (050_rastermap_variants_v2.py, variant main)
+      metaclustering: contiguous, average linkage, 1 - r, cut 0.40 (as Figure 3)
+  unit_features:
+    code: SuppFigure3_annotated_matrix/compute.py compute_units
+    params:
+      source: rastermap_variants/v2/_tables/tables_day0.pkl unit_table (bombcell metrics, mean waveform, spike times)
+sections:
+- {title: "Response types with their anatomy, waveform, unit quality and reward-group enrichment", y_mm: 0.0}
+- {title: "Unit quality and waveform features per response type", y_mm: 152.0}
+panels:
+- id: a
+  key: annotated_matrix
+  title: Annotated population matrix
+  caption: >-
+    [to write] Figure 3 A with the anatomy columns (area group, waveform type, wS1/2 projection score, Harris and Gao
+    hierarchy scores), function columns (ROC), unit columns (fraction good vs MUA; per-cluster medians of firing rate,
+    amplitude, peak-trough duration, ISI CV, SNR) and R+ share of the reward-group enrichment.
+  cell: {x_mm: 0.0, y_mm: 4.7, w_mm: 183.0, h_mm: 145.0, margins_mm: [0.0, 0.0, 0.0, 0.0]}
+  source: _cache/suppfig3b_annotated_matrix.pdf
+  image: _cache/suppfig3b_annotated_matrix_1200dpi.png
+  calls: "compute.py units a (fig5_population_matrix_publication, columns area group / waveform / anatomy / ROC /
+    reward_dot, unit_cols)"
+  status: filled
+- id: b
+  key: metacluster_unit_properties
+  title: Unit properties per metacluster
+  caption: >-
+    [to write] Median of each unit feature per metacluster (rastermap order), z-scored across metaclusters; fraction of
+    good units and number of neurons on the right. Features after the IBL ephys atlas (see methods for the mapping).
+  cell: {x_mm: 0.0, y_mm: 157.5, w_mm: 183.0, h_mm: 70.0, margins_mm: [0.0, 0.0, 0.0, 0.0]}
+  data: SuppFig3b_metacluster_unit_properties.csv
+  calls: "compute.py b"
+  status: filled

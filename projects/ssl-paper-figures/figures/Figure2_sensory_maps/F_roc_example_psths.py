@@ -161,7 +161,7 @@ def plot(P):
         ax.set_xlim(tt[0], tt[-1])
         ax.set_xlabel("Time from lick (s)" if row == "lick" else
                       f"Time from {row} stim. (ms)", fontsize=5.5, labelpad=1)
-        ax.set_ylabel("Δ rate (Hz)", fontsize=5.5, labelpad=1)
+        ax.set_ylabel("Δ rate (spks/s)", fontsize=5.5, labelpad=1)
         ax.set_title(LABEL[g], fontsize=6, pad=2, color=k)
         ax.tick_params(labelsize=5, length=1.5, width=0.4, pad=1)
         for sp_ in ("left", "bottom"):

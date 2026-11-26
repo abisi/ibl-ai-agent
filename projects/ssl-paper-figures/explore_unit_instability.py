@@ -136,7 +136,7 @@ def quadrant(fig, x0_mm, y0_mm, name, row, series):
     ax_m.plot(tmin, mo, color=MOTION_COLOR, lw=0.6)
     ax_m.spines["right"].set_visible(True)
     ax_t.set_xlabel("Time (min)", labelpad=1)
-    ax_t.set_ylabel("Firing rate (Hz)", color=FR_COLOR, labelpad=1)
+    ax_t.set_ylabel("Firing rate (spks/s)", color=FR_COLOR, labelpad=1)
     ax_m.set_ylabel("Motion (µm)", color=MOTION_COLOR, labelpad=1)
     ax_t.tick_params(axis="y", colors=FR_COLOR)
     ax_m.tick_params(axis="y", colors=MOTION_COLOR)
@@ -147,7 +147,7 @@ def quadrant(fig, x0_mm, y0_mm, name, row, series):
     xr = np.array([mo.min(), mo.max()])
     ax_s.plot(xr, sl * xr + ic, color="k", lw=0.6, ls="--")
     ax_s.set_xlabel("Motion (µm)", labelpad=1)
-    ax_s.set_ylabel("Firing rate (Hz)", labelpad=1)
+    ax_s.set_ylabel("Firing rate (spks/s)", labelpad=1)
 
     sc = scores[np.isfinite(scores)]
     ax_h.hist(sc, bins=30, color="0.75", lw=0, edgecolor="none")

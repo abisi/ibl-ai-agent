@@ -94,3 +94,34 @@ panels:
     sessions per cohort ({n_areas} areas), grouped and coloured by area group; stars, R+ versus R− ({n_both} areas with both
     tests P < 0.05, uncorrected).
   cell: {x_mm: 0.0, y_mm: 108.0, w_mm: 183.0, h_mm: 50.0, margins_mm: [12.0, 10.0, 10.0, 0.5]}
+- id: q
+  key: strength_control
+  title: Response strength control
+  heading: "Pre-task response strength vs change"
+  data: FigS_cd_strength_control.csv
+  caption: Per session (whole brain, whisker), pre-task passive response strength ρ (cross-validated norm) against the change
+    of the projection (left) and of the angle to the axis (right), post − pre, data − shifted. Lines, least-squares fits with
+    95 % bands (solid if P < 0.05). Projection, Spearman R+ {dq_R+.rho:.2f} ({dq_R+.p:p}), R− {dq_R-.rho:.2f} ({dq_R-.p:p});
+    angle, R+ {dth_R+.rho:.2f} ({dth_R+.p:p}), R− {dth_R-.rho:.2f} ({dth_R-.p:p}). Pre-task strength, R+ versus R−,
+    Mann-Whitney {rho_pre.mannwhitney_p:p}, Welch {rho_pre.welch_p:p}. The projection scales with response strength
+    (partly by construction, a = ρ cos θ); the angle change does not.
+  cell: {x_mm: 0.0, y_mm: 163.0, w_mm: 92.0, h_mm: 50.0, margins_mm: [12.0, 10.0, 6.0, 0.5]}
+- id: r
+  key: orthogonalisation
+  title: Orthogonalisation across learning
+  heading: "Pre-task response vs axis,\nacross learning"
+  data: FigS_cd_orthogonalisation.csv
+  caption: Angle between the passive-pre whisker response and the hit − miss axis on the learning day and on expert days
+    (filled, data; open, linear shifts; mouse = unit, expert sessions averaged per mouse). Day 0 versus expert, R+
+    Mann-Whitney {R+.mannwhitney_p:p}, Welch {R+.welch_p:p}; R− {R-.mannwhitney_p:p}, {R-.welch_p:p}; cohort × stage (OLS)
+    {interaction_p:p}; R+ versus R−, expert, Mann-Whitney {expert.mannwhitney_p:p}, Welch {expert.welch_p:p}.
+  cell: {x_mm: 98.0, y_mm: 163.0, w_mm: 40.0, h_mm: 50.0, margins_mm: [13.0, 9.0, 13.0, 0.5]}
+- id: s
+  key: state_space_expert
+  title: State space, learning day and expert days
+  heading: "Passive whisker, pre → post, across learning"
+  data: FigS_cd_state_space_expert.csv
+  caption: As Fig. 4K, learning day (sessions) and expert days (mice; sessions averaged per mouse), same axes. R+ versus R−
+    on the change along the hit − miss axis, expert Mann-Whitney {expert.dx.mannwhitney_p:p}, Welch {expert.dx.welch_p:p};
+    along the passive-pre direction {expert.dy.mannwhitney_p:p}, {expert.dy.welch_p:p}.
+  cell: {x_mm: 0.0, y_mm: 218.0, w_mm: 110.0, h_mm: 50.0, margins_mm: [12.0, 10.0, 7.0, 0.5]}

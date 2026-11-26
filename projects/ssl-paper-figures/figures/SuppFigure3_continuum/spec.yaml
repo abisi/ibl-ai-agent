@@ -1,0 +1,85 @@
+# Supplementary figure: are the Figure 3 response types a continuum? (user 2026-11-26: show the evidence for the
+# "continuum" claim of Figure 3's first section title in a separate figure). Number provisional. Data: rastermap v2
+# main, metacluster cut 0.40 (as Figure 3); compute imports SuppFigure3_embedding base().
+figure: SuppFigure3_continuum
+number: S?
+grid:
+  width_mm: 183
+  n_cols: 4
+  col_gap_mm: 7
+  row_gap_mm: 10
+  pad_left_mm: 8
+caption:
+  title: >-
+    Response types change gradually along the rastermap order.
+  footer: >-
+    Same neurons, clusters and metaclusters as Fig. 3 (rastermap v2, variant main; 100 clusters in rastermap order;
+    metaclusters at 1 - r = 0.40). Cluster similarity: Pearson r between full-trial cluster-mean PSTHs. Nulls: random
+    orders of the 100 clusters (1000 permutations; no relation between position and similarity). Single neurons:
+    even-trial PSTHs (held out from the fit) against odd-trial cluster centroids.
+shared:
+  rastermap_run:
+    code: rastermap_psth.population_matrix_summary (load_rastermap, metaclustering, _cluster_means); ../SuppFigure3_embedding/compute.base
+    params:
+      run: combined_results_ks4/rastermap_variants/v2/main
+      metaclustering: contiguous, 1 - r, cut 0.40
+sections:
+- {title: "Neighbouring clusters are similar, and similarity falls off gradually with distance along the order", y_mm: 0.0}
+- {title: "Neurons lie between neighbouring clusters rather than in separated groups", y_mm: 52.0}
+panels:
+- id: a
+  key: decay
+  title: Similarity vs distance
+  heading: "Similarity vs distance along the order"
+  data: FigS_cont_decay.csv
+  status: filled
+  caption: >-
+    Pearson r between the mean PSTHs of clusters k and k + d along the rastermap order (median, IQR over k) against
+    random cluster orders (grey band, 2.5-97.5 % of the mean r over {n_perm} permutations). r between neighbours
+    (d = 1): median {r_d1_median:.2f}; random-order mean {r_null_mean:.2f}; the mean stays above the null up to
+    d = {d_last_above_null}.
+  cell: {x_mm: 0.0, y_mm: 4.7, w_mm: 60.0, h_mm: 44.0, margins_mm: [9.0, 8.5, 5.0, 1.5]}
+- id: b
+  key: adjacent
+  title: Neighbours vs random
+  heading: "Neighbour similarity vs random orders"
+  data: FigS_cont_adjacent.csv
+  status: filled
+  caption: >-
+    Mean r of the 99 neighbouring cluster pairs (red, {r_adjacent_mean:.2f}) against its distribution over
+    {n_perm} random cluster orders (mean {null_mean:.2f}; permutation p = {p:.3g}).
+  cell: {x_mm: 62.0, y_mm: 4.7, w_mm: 58.0, h_mm: 44.0, margins_mm: [9.0, 8.5, 5.0, 1.5]}
+- id: c
+  key: nearest
+  title: Nearest cluster
+  heading: "Nearest cluster in PSTH space"
+  data: FigS_cont_nearest.csv
+  status: filled
+  caption: >-
+    Per cluster: r with its more similar rastermap neighbour (x) vs r with its most similar cluster overall (y; dots on
+    the diagonal: the most similar cluster is a rastermap neighbour, {frac_nearest_is_neighbour:.0%} of clusters, random
+    order {null_neighbour:.0%}; within 3 positions {frac_within_3:.0%}). Colours, metaclusters as Fig. 3a.
+  cell: {x_mm: 122.0, y_mm: 4.7, w_mm: 61.0, h_mm: 44.0, margins_mm: [9.0, 8.5, 5.0, 14.0]}
+- id: d
+  key: assignment
+  title: Single-neuron assignment
+  heading: "Best other cluster of each neuron (held-out trials)"
+  data: FigS_cont_assignment.csv
+  status: filled
+  caption: >-
+    Each neuron's even-trial PSTH correlated with the odd-trial centroid of every cluster: {frac_own_best:.0%} of
+    neurons correlate best with their own cluster; the best cluster other than their own is a direct rastermap neighbour for
+    {frac_second_adjacent:.0%} (random {null_second_adjacent:.0%}) and within 3 positions for {frac_second_within_3:.0%}.
+    Distance along the order to the best cluster other than its own (black) vs a random other cluster (grey).
+  cell: {x_mm: 0.0, y_mm: 56.7, w_mm: 118.0, h_mm: 44.0, margins_mm: [9.0, 8.5, 5.0, 1.5]}
+- id: e
+  key: margin
+  title: Assignment margin
+  heading: "Own vs best other cluster"
+  data: FigS_cont_assignment.csv
+  status: filled
+  caption: >-
+    Per neuron (held-out trials): r with its own cluster's centroid minus r with the best other centroid (median
+    {margin_median:.2f}); {frac_margin_lt_005:.0%} of neurons have a margin below 0.05 -- single neurons are not sharply
+    assigned; the clusters are averages along a continuum.
+  cell: {x_mm: 122.0, y_mm: 56.7, w_mm: 61.0, h_mm: 44.0, margins_mm: [9.0, 8.5, 5.0, 1.5]}

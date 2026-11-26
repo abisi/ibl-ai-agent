@@ -110,7 +110,9 @@ CAPTION_FIELD = re.compile(r"\{([^{}:]+)(?::([^{}]+))?\}")
 
 
 def format_p(p):
-    """Exact P value, two significant digits (Nature asks for exact values)."""
+    """Exact P value, two significant digits (Nature asks for exact values). NaN (test not computable) -> 'n.a.'."""
+    if p is None or not np.isfinite(p):
+        return "*P* = n.a."
     if p >= 0.001:
         return f"*P* = {p:#.2g}"
     mantissa, exponent = f"{p:.1e}".split("e")

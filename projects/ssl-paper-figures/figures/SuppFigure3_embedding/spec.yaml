@@ -1,0 +1,89 @@
+# Supplementary figure: building the Figure 3 embedding (user 2026-11-26: "1. pipeline schematic yes, make it smallish;
+# consistency of mean PSTH: distribution of r between odd vs even trial cluster mean PSTHs (as per my figures); pearson
+# correlation matrix (pairwise similarity) to build the metacluster, and elbow plot with r threshold").
+# Number provisional (supplementary order not fixed yet). Data: rastermap v2 main, metacluster cut 0.40 (as Figure 3).
+figure: SuppFigure3_embedding
+number: S?
+grid:
+  width_mm: 183
+  n_cols: 5
+  col_gap_mm: 7
+  row_gap_mm: 10
+  pad_left_mm: 8
+caption:
+  title: >-
+    Building the response-type embedding: pipeline, reproducibility across trial halves, and metaclustering.
+  footer: >-
+    Neurons: stable good and multi-unit clusters of learner mice (reference-sheet learning category good or moderate),
+    whisker learning day (day 0), one session per mouse (rastermap v2, variant main). Rastermap (locality 0.25, time-lag
+    window 20, 100 k-means nodes) fitted on the concatenated baseline-subtracted PSTHs of odd trials and shown on even
+    trials; 100 clusters in rastermap order; metaclusters are contiguous groups of clusters (average linkage on 1 - r
+    between full-trial cluster-mean PSTHs, merges only between neighbouring clusters, cut at 1 - r = 0.40).
+shared:
+  rastermap_run:
+    code: rastermap_psth.population_matrix_summary (load_rastermap, metaclustering, _cluster_means, contiguous_metaclustering)
+    params:
+      run: combined_results_ks4/rastermap_variants/v2/main (050_rastermap_variants_v2.py)
+      clusters: 100, fit on odd trials, PSTHs shown on even trials
+      metaclustering: contiguous, average linkage, 1 - r, cut 0.40
+sections:
+- {title: "From condition PSTHs to 100 reproducible response clusters", y_mm: 0.0}
+- {title: "Metaclusters: contiguous groups of similar clusters", y_mm: 54.0}
+panels:
+- id: a
+  key: schematic
+  title: Pipeline
+  heading: "Pipeline"
+  data: FigS_emb_schematic.csv
+  status: filled
+  caption: >-
+    Pipeline. Each neuron's trial-averaged PSTHs in {n_conditions} conditions (passive whisker / auditory before and after
+    the task; active whisker hit, whisker miss, auditory hit at the stimulus; spontaneous, whisker-hit and auditory-hit
+    licks at the first lick) are baseline-subtracted and concatenated; rastermap orders the {n_neurons} neurons and
+    groups them into {n_clusters} clusters (fitted on odd trials); neighbouring similar clusters are merged into
+    {n_metaclusters} metaclusters. Thumbnail: cluster-mean PSTHs (rastermap order).
+  cell: {x_mm: 0.0, y_mm: 4.7, w_mm: 62.0, h_mm: 46.0, margins_mm: [1.0, 1.0, 4.0, 1.0]}
+- id: b
+  key: cv_cluster
+  title: Cluster reproducibility
+  heading: "Cluster means, odd vs even trials"
+  data: FigS_emb_cv_cluster.csv
+  status: filled
+  caption: >-
+    Reproducibility of the cluster-mean PSTHs: Pearson r between each cluster's mean PSTH on odd (fit) and even
+    (held-out) trials of the same neurons (median {r_self_median:.2f}), against its highest r with any other cluster's
+    held-out mean (median {r_best_other_median:.2f}); {frac_self_beats_others:.0%} of clusters are closer to their own
+    replicate.
+  cell: {x_mm: 66.0, y_mm: 4.7, w_mm: 58.0, h_mm: 46.0, margins_mm: [9.0, 8.5, 5.0, 1.5]}
+- id: c
+  key: cv_neuron
+  title: Neuron reproducibility
+  heading: "Single neurons, odd vs even trials"
+  data: FigS_emb_cv_neuron.csv
+  status: filled
+  caption: >-
+    Reproducibility of single-neuron PSTHs: Pearson r between each neuron's odd- and even-trial PSTH vector (median
+    {r_median:.2f}); neurons below r = 0.1 were excluded before the fit (rastermap reliability filter,
+    min_odd_even_r 0.1), hence the lower edge.
+  cell: {x_mm: 128.0, y_mm: 4.7, w_mm: 55.0, h_mm: 46.0, margins_mm: [9.0, 8.5, 5.0, 1.5]}
+- id: d
+  key: meta_matrix
+  title: Cluster similarity
+  heading: "Pairwise similarity of cluster means"
+  data: FigS_emb_meta_matrix.csv
+  status: filled
+  caption: >-
+    Pearson r between the full-trial mean PSTHs of the {n_clusters} clusters (rastermap order) with the contiguous
+    metaclustering dendrogram (top) and the {n_metaclusters} metaclusters (boxes and strip, colours as Fig. 3a; cut
+    1 - r = {cut}). Median r within metaclusters {r_within_median:.2f}, between {r_between_median:.2f}.
+  cell: {x_mm: 0.0, y_mm: 58.7, w_mm: 92.0, h_mm: 86.0, margins_mm: [10.0, 9.0, 17.0, 9.0]}
+- id: e
+  key: meta_cut
+  title: Cut
+  heading: "Choice of the cut"
+  data: FigS_emb_meta_cut.csv
+  status: filled
+  caption: >-
+    Number of metaclusters (black, left axis) and median r within (solid) and between (dashed) metaclusters (right axis)
+    as a function of the dendrogram cut (1 - r); dashed red, the cut used ({cut}, {n_at_cut} metaclusters).
+  cell: {x_mm: 100.0, y_mm: 58.7, w_mm: 62.0, h_mm: 50.0, margins_mm: [9.0, 9.0, 5.0, 9.0]}
