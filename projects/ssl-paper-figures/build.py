@@ -83,9 +83,28 @@ def assemble(spec, out, plot):
             continue
         getattr(plot, fn)(ax, pd.read_csv(csv))
         panel_heading(grid, panel)
+    figure_sections(grid, spec)
     figure_legend(grid, spec)
     figure_key(grid, spec)
     return grid
+
+
+def figure_sections(grid, spec):
+    """spec 'sections': [{title, y_mm[, h_mm]}] -- one short title per section (row block) of the figure, centred in a light
+    grey box spanning the full figure width (user 2026-11-25). y_mm in the planner coordinates of the panel cells; leave
+    the box height free above the section's first row of panels."""
+    import matplotlib.patches as mpatches
+    pw, ph = grid.page
+    x = grid.x0 - grid.pad_left
+    w = spec["grid"]["width_mm"]
+    for s in spec.get("sections", []):
+        h = s.get("h_mm", 3.0)                     # user 2026-11-26: thinner bar (was 4.5, then 3.2)
+        y = grid.y0 - grid.row_gap + s["y_mm"]
+        xs = x + s.get("x_mm", 0.0)                # a section may span part of a row (user 2026-11-25)
+        ws = s.get("w_mm", w - s.get("x_mm", 0.0))
+        grid.fig.add_artist(mpatches.Rectangle((xs / pw, 1 - (y + h) / ph), ws / pw, h / ph, transform=grid.fig.transFigure,
+                                               facecolor="0.92", edgecolor="none", lw=0, zorder=0))
+        grid.fig.text((xs + ws / 2) / pw, 1 - (y + h / 2) / ph, s["title"], fontsize=6.5, ha="center", va="center")
 
 
 def panel_heading(grid, panel):
@@ -94,7 +113,10 @@ def panel_heading(grid, panel):
     if not panel.get("heading") or "x_mm" not in panel["cell"]:
         return
     pw, ph = grid.page
-    x = grid.x0 - grid.pad_left + panel["cell"]["x_mm"] + 3.2
+    # user 2026-11-25: the heading starts at the left edge of the panel's axes (cell x + left margin), not right after the
+    # letter; cells without margins (drawings) keep the old offset after the letter
+    m = panel["cell"].get("margins_mm")
+    x = grid.x0 - grid.pad_left + panel["cell"]["x_mm"] + (max(float(m[0]), 3.2) if m else 3.2)
     y = grid.y0 - grid.row_gap + panel["cell"]["y_mm"] + 0.15
     grid.fig.text(x / pw, 1 - y / ph, panel["heading"], fontsize=6, va="top", ha="left", linespacing=1.05)  # not bold (user 2026-11-20)
 

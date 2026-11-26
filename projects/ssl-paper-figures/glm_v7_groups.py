@@ -30,7 +30,7 @@ import shared_behaviour  # noqa: E402
 from common import CACHE_DIR  # noqa: E402
 from glm_cv_compare import block_splits  # noqa: E402
 
-SRC = CACHE_DIR / "glm_v7"
+SRC = CACHE_DIR / ("glm_v7" + shared_behaviour.CUT_TAG)  # SSL_DAY0_KEEP (user 2026-11-25)
 OUT = SRC / "_groups"
 GROUPS = {"reward": ["cumulative_reward_fraction", "time_since_reward"],
           "movement": ["jaw_speed_pre", "nose_speed_pre", "whisker_speed_pre", "pupil_area_pre"],

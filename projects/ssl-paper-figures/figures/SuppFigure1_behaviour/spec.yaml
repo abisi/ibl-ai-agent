@@ -19,7 +19,7 @@ caption:
   title: 'Behavioural characterisation: pretraining, performance across days, d'' across the session, curve correlations,
     trial history and the behavioural GLM.'
   footer: Trials with perf = 6 and passive trials are excluded; on whisker day 0 the auditory warm-up block is removed except
-    its last trial; early-lick trials are excluded. R+, green; R-, magenta; auditory, blue; no stimulus, black (R+) and grey
+    its last trial; the last 10% of each whisker day-0 session (time from the first to the last whisker trial), when mice disengage, is cut for all panels; early-lick trials are excluded. R+, green; R-, magenta; auditory, blue; no stimulus, black (R+) and grey
     (R-). Unless stated otherwise, data are mean ± s.e.m. over mice and R+ versus R- comparisons are two-sided Mann-Whitney
     U tests and Welch's t-tests, both reported, without correction for multiple comparisons. Significance (user 2026-11-22),
     * P < 0.05, ** P < 0.01, *** P < 0.001, n.s. otherwise, with the P value written above the stars.
@@ -33,6 +33,12 @@ shared:
       nwb_dir: NWB_ks4
       auditory_days: all
       trials: perf != 6, not passive, day-0 warm-up cut, no whisker trials on auditory days
+sections:   # skill ssl-paper-figures (user 2026-11-25/26): one title per row block, 3.2-mm bar, 2 mm below the previous block; rows 1-2 start 2-4 mm lower than 1.5 mm to clear the stats above the axes (wording to review)
+- {title: "Equal pretraining; R+ and R− diverge on whisker trials from whisker day 0 on", y_mm: 0.0}
+- {title: "d' stays higher in R+ throughout whisker day 0, on every time axis", y_mm: 42.7}
+- {title: "False alarms, coupling of the whisker and false-alarm curves, and trial history", y_mm: 85.4}
+- {title: "Pre-stimulus posture and movement against the whisker learning curve", y_mm: 138.1}
+- {title: "Auditory reaction times and the behavioural GLM", y_mm: 186.8}
 panels:
 - id: a
   key: pretraining
@@ -44,7 +50,7 @@ panels:
     learner mice.
   cell:
     x_mm: 0.0
-    y_mm: 0.0
+    y_mm: 6.7
     w_mm: 20.0
     h_mm: 34.0
 - id: b
@@ -60,7 +66,7 @@ panels:
     {stats.welch_p:p}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.
   cell:
     x_mm: 23.0
-    y_mm: 0.0
+    y_mm: 6.7
     w_mm: 19.0
     h_mm: 34.0
 - id: c
@@ -75,7 +81,7 @@ panels:
     n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.
   cell:
     x_mm: 45.0
-    y_mm: 0.0
+    y_mm: 6.7
     w_mm: 40.0
     h_mm: 34.0
 - id: d
@@ -90,7 +96,7 @@ panels:
     Welch {stats.auditory_trial.rplus_vs_rminus.welch_p:p}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.
   cell:
     x_mm: 88.0
-    y_mm: 0.0
+    y_mm: 6.7
     w_mm: 28.0
     h_mm: 34.0
 - id: e
@@ -110,7 +116,7 @@ panels:
     {dprime_by_day.day2.mannwhitney_p:p}, Welch {dprime_by_day.day2.welch_p:p}. Numbers of mice per day in the source data.'
   cell:
     x_mm: 119.0
-    y_mm: 0.0
+    y_mm: 6.7
     w_mm: 64.0
     h_mm: 34.0
 - id: f
@@ -130,7 +136,7 @@ panels:
     n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 0.0
-    y_mm: 45.0
+    y_mm: 51.4
     w_mm: 59.0
     h_mm: 32.0
 - id: g
@@ -139,12 +145,12 @@ panels:
   data: FigS1_dprime_norm.csv
   status: filled
   caption: 'As E against session time normalised from the first whisker trial (left) or the first whisker hit (right; 0)
-    to the session end (1; last 15% of the session cut, as Fig. 1F, G), as the Delta P(lick) plots of Fig. 1G.
+    to the session end (1; last 10% of the session cut, as in Fig. 1), as the Delta P(lick) plots of Fig. 1G.
     Clusters: from the first whisker trial {sig_clusters_text.norm_first_whisker_trial}; from the first whisker hit
     {sig_clusters_text.norm_first_whisker_hit}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 62.0
-    y_mm: 45.0
+    y_mm: 51.4
     w_mm: 59.0
     h_mm: 32.0
 - id: h
@@ -157,7 +163,7 @@ panels:
     from the first whisker hit {sig_clusters_text.abs_min_first_whisker_hit}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 124.0
-    y_mm: 45.0
+    y_mm: 51.4
     w_mm: 59.0
     h_mm: 32.0
 - id: i
@@ -179,7 +185,7 @@ panels:
     ({day0_vs_daym1.R-.n} mice). n = {n.day0.R+.mice} R+ and {n.day0.R-.mice} R- learner mice on day 0.'
   cell:
     x_mm: 0.0
-    y_mm: 88.0
+    y_mm: 90.1
     w_mm: 32.0
     h_mm: 46.0
     margins_mm: [9.0, 16.0, 6.0, 0.5]
@@ -202,7 +208,7 @@ panels:
     not from a trial-by-trial lead of one curve. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 32.0
-    y_mm: 88.0
+    y_mm: 90.1
     w_mm: 46.0
     h_mm: 46.0
     margins_mm: [9.0, 16.0, 6.0, 0.5]
@@ -224,7 +230,7 @@ panels:
     note); shown when P < 0.05. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 80.0
-    y_mm: 88.0
+    y_mm: 90.1
     w_mm: 103.0
     h_mm: 46.0
     margins_mm: [9.0, 16.0, 12.0, 0.5]
@@ -243,7 +249,7 @@ panels:
     when the curve leads), so the whisker set point follows the learning curve rather than preceding it.
   cell:
     x_mm: 0.0
-    y_mm: 140.0
+    y_mm: 142.8
     w_mm: 91.0
     h_mm: 42.0
     margins_mm: [3.0, 11.0, 3.0, 0.5]
@@ -256,7 +262,7 @@ panels:
     [-2, 0) s) of the jaw, nose, whisker and pupil.
   cell:
     x_mm: 92.0
-    y_mm: 140.0
+    y_mm: 142.8
     w_mm: 91.0
     h_mm: 42.0
     margins_mm: [3.0, 11.0, 3.0, 0.5]
@@ -282,7 +288,7 @@ panels:
     R+ versus R- Mann-Whitney {tests.whisker_trial.rplus_vs_rminus.mannwhitney_p:p}.'
   cell:
     x_mm: 0.0
-    y_mm: 190.0
+    y_mm: 191.5
     w_mm: 22.0
     h_mm: 48.0
     margins_mm: [9.0, 12.0, 6.0, 0.5]
@@ -299,7 +305,7 @@ panels:
     grey, no lick) and, below, the held-out lick probability of the model.'
   cell:
     x_mm: 22.0
-    y_mm: 190.0
+    y_mm: 191.5
     w_mm: 50.0
     h_mm: 48.0
     margins_mm: [7.5, 12.0, 6.0, 0.5]
@@ -315,7 +321,7 @@ panels:
     repeats), and the whisker learning curve (cohort colour).'
   cell:
     x_mm: 72.0
-    y_mm: 190.0
+    y_mm: 191.5
     w_mm: 36.0
     h_mm: 48.0
     margins_mm: [7.5, 12.0, 6.0, 0.5]
@@ -338,7 +344,7 @@ panels:
     {vs_baseline.R-.delta_auc_vs_baseline.mean:+.3f} (R-, {vs_baseline.R-.delta_auc_vs_baseline.wilcoxon_p:p}).'
   cell:
     x_mm: 108.0
-    y_mm: 190.0
+    y_mm: 191.5
     w_mm: 19.0
     h_mm: 48.0
     margins_mm: [7.5, 12.0, 6.0, 0.5]
@@ -363,7 +369,7 @@ panels:
     {stats_group.history.rplus_vs_rminus.welch_p:p}). n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 127.0
-    y_mm: 190.0
+    y_mm: 191.5
     w_mm: 56.0
     h_mm: 48.0
     margins_mm: [15.0, 12.0, 6.0, 13.0]

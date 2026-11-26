@@ -18,7 +18,7 @@ caption:
     Supplementary Fig. 1.'
   footer: Learners, mice whose reference-sheet learning category (column learning_category_new, 2026-11-19) is good or
     moderate; non-learners, category bad (both cohorts). Every mouse with a whisker day-0 session is included. Trials with perf = 6 and passive trials are excluded;
-    on whisker day 0 the auditory warm-up block is removed except its last trial; early-lick trials are excluded.
+    on whisker day 0 the auditory warm-up block is removed except its last trial; the last 10% of each whisker day-0 session (time from the first to the last whisker trial), when mice disengage, is cut for all panels; early-lick trials are excluded.
     Learners solid lines and filled markers, non-learners dashed lines and open markers; R+, green; R-, magenta;
     auditory, blue; no stimulus, black (R+) and grey (R-). Data are mean ± s.e.m. over mice. Learners versus
     non-learners are compared within each cohort (two-sided Mann-Whitney U tests and Welch's t-tests, both reported,
@@ -130,7 +130,7 @@ panels:
   data: FigS1L_perf_trial.csv
   status: filled
   caption: 'As Fig. 1G for learners (solid) and non-learners (dashed): whisker, false-alarm (chance) and auditory learning
-    curves of R+ and R- mice against session time from the first whisker trial (0) to the session end (1; last 15% of
+    curves of R+ and R- mice against session time from the first whisker trial (0) to the session end (1; last 10% of
     the session cut, curves refitted), and Delta P(lick) (whisker minus chance curve). Bars, learners versus
     non-learners (cluster-based permutation test, Welch t, 1,000 permutations, cluster P < 0.05): R+
     {sig_clusters_text.R+}; R- {sig_clusters_text.R-}. n = {n.R+.learners} learners and {n.R+.non_learners}

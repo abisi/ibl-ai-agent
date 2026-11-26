@@ -39,7 +39,7 @@ PARAMS = {"version": 13,  # v13 (user 2026-11-23): tongue distance on frames wit
           "trial_types": ["whisker_trial", "auditory_trial", "no_stim_trial"], "alignments": ["stimulus", "lick"],
           "lick_time": "start_time + computed_reaction_time", "baseline": "each trial's pre-stimulus mean (both alignments)",
           "pupil_trial_qc": "dlc_helpers.pupil_trial_ok over each alignment's window (2026-11-12)"}
-CACHE_FILE = CACHE_DIR / f"movement_peth_day0_v{PARAMS['version']}.parquet"
+CACHE_FILE = CACHE_DIR / f"movement_peth_day0_v{PARAMS['version']}{shared_behaviour.CUT_TAG}.parquet"  # tag: SSL_DAY0_KEEP
 
 
 def _one_session(args):

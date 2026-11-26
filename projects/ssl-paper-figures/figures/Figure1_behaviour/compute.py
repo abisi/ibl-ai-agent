@@ -464,7 +464,7 @@ def rt_change_aligned(ctx):
         "sig_bins_text": ", ".join(f"{int(r.bin_start)}-{int(r.bin_end)} (q = {r.mannwhitney_q_bh:.2g})"
                                    for r in sig.itertuples()) or "none",
         "params": {"reference": f"median of the first {RT_START} hits", "late_trials": list(RT_LATE),
-                   "bin_edges": [int(v) for v in ALIGN_BIN_EDGES], "session_keep": SESSION_KEEP}}
+                   "bin_edges": [int(v) for v in ALIGN_BIN_EDGES], "session_keep": KEEP_REPORTED}}
 
 
 def rt_curve_lmm(d):
@@ -609,7 +609,7 @@ def compute_rt_curve(ctx):
     return pd.concat([rho, sc], ignore_index=True), {
         "n": n_by_cohort(real), "stats_rho": stats_rho, "fraction_sig": frac, "lmm": lmm, "lmm_rank": lmm_rank,
         "pooled_spearman": pooled,
-        "cohort_mean_vs_shift_null": null_p, "n_null_draws": RT_N_NULL_DRAWS, "session_keep": SESSION_KEEP}
+        "cohort_mean_vs_shift_null": null_p, "n_null_draws": RT_N_NULL_DRAWS, "session_keep": KEEP_REPORTED}
 
 
 def compute_first_lick(ctx):
@@ -742,10 +742,15 @@ def compute_learners(ctx):
 
 SESSION_KEEP = 0.85  # user 2026-11-17: the last 15% of each session (time from first to last whisker trial) is cut;
 # the last kept trial is the session end (normalised session time 1)
+# SSL_DAY0_KEEP set (user 2026-11-25, _alt): shared_behaviour already cut every day-0 session for all panels -> no second cut
+KEEP_REPORTED = shared_behaviour.DAY0_KEEP or SESSION_KEEP
+KEEP_SCOPE = "all day-0 panels (shared_behaviour SSL_DAY0_KEEP)" if shared_behaviour.DAY0_KEEP else "G-J and listed panels"
 
 
 def session_end_time(whisker_times):
     """End of the kept session: first whisker trial + SESSION_KEEP x (last - first whisker trial)."""
+    if shared_behaviour.DAY0_KEEP:
+        return np.inf
     tw = np.sort(np.asarray(whisker_times, float))
     return tw[0] + SESSION_KEEP * (tw[-1] - tw[0])
 
@@ -788,7 +793,7 @@ def compute_perf_session(ctx):
         df.loc[d.index, "cluster_sig"] = mark_clusters(d, "session_time_norm", clusters[key])
         df.loc[d.index, "cluster_p"] = cluster_p(d, "session_time_norm", clusters[key])
         n[key] = n_by_cohort(d)
-    return df, {"n": n, "clusters": clusters, "session_keep": SESSION_KEEP}
+    return df, {"n": n, "clusters": clusters, "session_keep": KEEP_REPORTED}
 
 
 def _perf(ctx, align):
@@ -798,7 +803,7 @@ def _perf(ctx, align):
     key = f"learner {align}"
     d = df[(df.group == "learner") & (df.alignment == align)]
     sig = [c for c in info["clusters"][key] if c["p"] < 0.05]
-    return d, {"n": info["n"][key], "clusters": info["clusters"][key], "session_keep": SESSION_KEEP,
+    return d, {"n": info["n"][key], "clusters": info["clusters"][key], "session_keep": KEEP_REPORTED,
                "sig_clusters_text": "; ".join(f"{c['start']:.2f}-{c['end']:.2f}, P = {c['p']:.3g}" for c in sig) or "none"}
 
 
@@ -958,7 +963,7 @@ def compute_aligned(ctx, align):
         "n": n_by_cohort(bins), "n_by_trial_type": n, "sig_bins_text": text,
         "bin_tests": tests.to_dict(orient="records"),
         "params": {"window_trials": list(ALIGNED_WINDOW), "bin_edges": [int(v) for v in ALIGN_BIN_EDGES],
-                   "min_mice_per_cohort": ALIGNED_MIN_MICE, "session_keep": SESSION_KEEP,
+                   "min_mice_per_cohort": ALIGNED_MIN_MICE, "session_keep": KEEP_REPORTED,
                    "session": "untrimmed whisker day 0 cut at session_end_time, early licks dropped",
                    "trial_0": "whisker trials only (user 2026-11-23)",
                    "test": "per bin Mann-Whitney U and Welch t, R+ vs R-, Benjamini-Hochberg within each subplot"}}
@@ -1345,7 +1350,7 @@ def _glm_dir():
     # user 2026-11-09: glm_v5 (5 outer blocks, drop-and-refit delta LL) with one penalty per session chosen on the other
     # sessions (leave-one-session-out) and a recent-licking baseline model (glm_v6_run.py)
     # user 2026-11-17: glm_v7 lick head (= glm_v6 refitted on the reconverted NWBs, pupil QC; glm_v7_run.py)
-    return CACHE_DIR / "glm_v7"
+    return CACHE_DIR / ("glm_v7" + shared_behaviour.CUT_TAG)  # SSL_DAY0_KEEP (user 2026-11-25, _alt)
 
 
 GLM_ORDER = ["cumulative_reward_fraction", "time_since_reward", "whisker_speed_pre", "nose_speed_pre", "pupil_area_pre",
@@ -1399,7 +1404,10 @@ def compute_glm_schematic(ctx):
     from common import NWB_DIR
     mouse = _glm_example_mouse(ctx)
     r = next(r for r, _ in _glm_files(ctx, "results.pkl") if r.mouse_id == mouse)
-    X, y, _, names = v5.load_session(v5.glm_module(v5.glm_source_dir()), str(NWB_DIR / f"{r.session_id}.nwb"))
+    X, y, t, names = v5.load_session(v5.glm_module(v5.glm_source_dir()), str(NWB_DIR / f"{r.session_id}.nwb"))
+    if shared_behaviour.DAY0_KEEP:  # same cut as glm_v7_run stage A (SSL_DAY0_KEEP, user 2026-11-25)
+        k = t <= t.min() + shared_behaviour.DAY0_KEEP * (t.max() - t.min())
+        X, y = X[k], y[k]
     with np.errstate(all="ignore"):
         z = np.nan_to_num((X - X.mean(0)) / X.std(0))
     df = (pd.DataFrame(z, columns=names).assign(whisker_trial=np.arange(1, len(y) + 1), lick=y)

@@ -397,7 +397,7 @@ def _dprime_session(ctx):
     text = {k: "; ".join(f"{c['start']:g}-{c['end']:g}, P = {c['p']:.3g}" for c in v if c["p"] < 0.05) or "none"
             for k, v in clusters.items()}
     ctx["dprime_session"] = (df, {"n_by_key": n, "clusters": clusters, "sig_clusters_text": text,
-                                  "clip": list(DPRIME_CLIP), "session_keep": fig1.SESSION_KEEP})
+                                  "clip": list(DPRIME_CLIP), "session_keep": fig1.KEEP_REPORTED})
     return ctx["dprime_session"]
 
 

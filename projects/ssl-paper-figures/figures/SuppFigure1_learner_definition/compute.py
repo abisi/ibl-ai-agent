@@ -195,7 +195,7 @@ def _perf(ctx, align):
     d = df[df.alignment == align].reset_index(drop=True)
     cl = {k: v for k, v in clusters.items() if k.endswith(align)}
     text = clusters_text(cl)
-    return d, {"n": n_groups(d), "clusters": cl, "session_keep": fig1.SESSION_KEEP,
+    return d, {"n": n_groups(d), "clusters": cl, "session_keep": fig1.KEEP_REPORTED,
                "sig_clusters_text": {c: text.get(f"{c}_{align}", "not tested") for c in COHORTS}}
 
 
@@ -215,7 +215,7 @@ def _dprime(ctx, axis):
     text = {f"{c}_{al}": text.get(f"{c}_{al}", "not tested") for c in COHORTS
             for al in ("first_whisker_trial", "first_whisker_hit")}
     return df, {"n": n_groups(df), "clusters": clusters, "sig_clusters_text": text, "clip": list(s1.DPRIME_CLIP),
-                "session_keep": fig1.SESSION_KEEP}
+                "session_keep": fig1.KEEP_REPORTED}
 
 
 def compute_dprime_norm(ctx):

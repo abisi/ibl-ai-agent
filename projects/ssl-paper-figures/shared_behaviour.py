@@ -9,6 +9,7 @@ Early-lick trials are kept with their `early_lick` flag; analyses drop them wher
 """
 
 import json
+import os
 from multiprocessing import Pool
 
 import pandas as pd
@@ -84,7 +85,35 @@ def _finish(table, ref):
     return table.reset_index(drop=True)
 
 
+# User 2026-11-26 (adopted after the 2026-11-25 _alt check): every whisker day-0 session is cut at first whisker trial +
+# 0.90 x (last - first whisker trial), i.e. the last 10% dropped, for ALL panels at once (table, untrimmed day 0, movement
+# tables, GLM). SSL_DAY0_KEEP overrides the fraction; SSL_DAY0_KEEP=none restores the old per-panel cut (last 15% of
+# Figure 1 G-J only, Figure1 compute SESSION_KEEP).
+_KEEP_ENV = os.environ.get("SSL_DAY0_KEEP", "0.90").strip().lower()
+DAY0_KEEP = None if _KEEP_ENV in ("", "none", "0", "1", "1.0") else float(_KEEP_ENV)
+CUT_TAG = f"_keep{round(DAY0_KEEP * 100)}" if DAY0_KEEP else ""
+
+
+def day0_end_times(table, keep=None):
+    """session_id -> end of the kept whisker day 0 (first whisker trial + keep x (last - first whisker trial))."""
+    keep = keep or DAY0_KEEP
+    w = table[(table.behavior == "whisker") & (table.day == 0) & (table.trial_type == "whisker_trial")]         if "behavior" in table else table[table.trial_type == "whisker_trial"]
+    g = w.groupby("session_id").start_time
+    return (g.min() + keep * (g.max() - g.min())).to_dict()
+
+
+def cut_day0(df, ends):
+    """Drop rows of whisker day-0 sessions after their end time (other days / sessions unchanged)."""
+    end = df.session_id.map(ends)
+    return df[end.isna() | (df.start_time <= end)].reset_index(drop=True)
+
+
 def load(rebuild=False):
+    table = _load(rebuild)
+    return cut_day0(table, day0_end_times(table)) if DAY0_KEEP else table
+
+
+def _load(rebuild=False):
     if CACHE_FILE.exists() and not rebuild:
         return load_cache(CACHE_FILE, "behaviour table " + CACHE_FILE.name)
     nwbs = nwb_fingerprint()  # before reading the files: a file changed during the build shows as stale later
@@ -104,4 +133,5 @@ def load_untrimmed_day0():
     """Whisker day 0 without the warm-up cut (the trial set of the stored ks4 learning curves)."""
     if not UNTRIMMED_DAY0_FILE.exists():
         load(rebuild=True)
-    return pd.read_parquet(UNTRIMMED_DAY0_FILE)
+    d0 = pd.read_parquet(UNTRIMMED_DAY0_FILE)
+    return cut_day0(d0, day0_end_times(d0)) if DAY0_KEEP else d0

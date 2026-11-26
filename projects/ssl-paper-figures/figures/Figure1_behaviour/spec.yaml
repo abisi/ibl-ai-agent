@@ -1,4 +1,4 @@
-# Figure 1 -- behaviour. Layout from the figure planner (2026-11-11 read, updated 13:12: task spans rows 1-2, e/f/g in row 2 with g = trials before the 1st whisker lick and the fraction of learners moved to SuppFigure1_behaviour c, xcorr moved to SuppFigure1_behaviour j, d = DLC movements instead of piezo licks): 11 panels in 4 rows inside 183 x 179 mm (user 2026-11-23)
+# Figure 1 -- behaviour. Layout from the figure planner (2026-11-11 read, updated 13:12: task spans rows 1-2, e/f/g in row 2 with g = trials before the 1st whisker lick and the fraction of learners moved to SuppFigure1_behaviour c, xcorr moved to SuppFigure1_behaviour j, d = DLC movements instead of piezo licks): 11 panels in 4 rows inside 183 x 179 mm (user 2026-11-23); 3 section bars added 2026-11-26 (block now 183 x 187 mm)
 # (Nature double column, full-page depth; fills the A4 page, user 2026-11-05); each box (mm, x from the left edge, y from the top) is a whole panel.
 # `key` is the panel's stable name (compute_<key>, plot_<key>, data Fig1_<key>.csv); `id` is its letter in this layout.
 # Learning-curve-dependent panels use the exact re-fit (learning_curve_exact, sigma 1, 80% CI; user 2026-11-02).
@@ -18,7 +18,7 @@ caption:
   title: 'Auditory-to-whisker transfer learning: task, within-session learning dynamics, correlates of learning and a behavioural
     model.'
   footer: Trials with perf = 6 and passive trials are excluded; on whisker day 0 the auditory warm-up block is removed except
-    its last trial; early-lick trials are excluded. Reaction time is the first-lick time from the start of the response
+    its last trial; the last 10% of each whisker day-0 session (time from the first to the last whisker trial), when mice disengage, is cut for all panels; early-lick trials are excluded. Reaction time is the first-lick time from the start of the response
     window. Cohort (R+, whisker hits rewarded; R-, whisker hits not rewarded) is assigned per mouse from the reference sheet.
     R+, green; R-, magenta; auditory, blue; no stimulus, black. Unless stated otherwise, data are mean ± s.e.m. over mice
     and R+ versus R- comparisons are two-sided Mann-Whitney U tests and Welch's t-tests, both reported, without correction
@@ -108,6 +108,10 @@ shared:
       signals: whisker speed (-0.05..0.1 s), jaw_distance (-0.1..0.3 s), pupil_area (-1..3 s), physical units
       split: trial type x lick / no lick; aligned at the stimulus and at the lick (start_time + computed_reaction_time)
       normalisation: minus each trial's pre-stimulus mean (both alignments)
+sections:   # skill ssl-paper-figures (user 2026-11-25/26): one title per row block, 3.2-mm bar, panels 1.5 mm below, 2 mm above the next bar (wording to review)
+- {title: "Auditory-to-whisker transfer: whisker licking on day 0 depends on reward", y_mm: 0.0}
+- {title: "Within whisker day 0: learning around the first whisker hit and across the session", y_mm: 94.7}
+- {title: "Correlates of learning: reaction times and a behavioural model of licking", y_mm: 137.9}
 panels:
 - id: a
   key: task
@@ -118,7 +122,7 @@ panels:
   status: filled
   cell:
     x_mm: 0.0
-    y_mm: 0.0
+    y_mm: 4.7
     w_mm: 58.0
     h_mm: 88.0
     margins_mm: [0.5, 0.0, 3.5, 0.0]  # drawing: no axes margins (user 2026-11-18: larger A)
@@ -144,7 +148,7 @@ panels:
     and {n.R-.0} R- learner mice on day 0 ({n.R+.>0} and {n.R-.>0} after day 0). Right (planner 2026-11-12): day-0 lick probability per trial type, bars mean ± s.e.m. over mice; brackets, whisker versus false alarm within R+ and within R- (paired Wilcoxon, cohort colour) and R+ versus R- whisker, auditory and false alarm (Mann-Whitney, black).'
   cell:
     x_mm: 59.0
-    y_mm: 0.0
+    y_mm: 4.7
     w_mm: 62.0
     h_mm: 44.0
 - id: c
@@ -165,10 +169,10 @@ panels:
     n = {n.R+.mice} R+ and {n.R-.mice} R- mice.'
   cell:
     x_mm: 123.0
-    y_mm: 0.0
+    y_mm: 4.7
     w_mm: 60.0
     h_mm: 44.0
-    margins_mm: [3.0, 6.0, 3.0, 0.5]
+    margins_mm: [3.0, 6.0, 6.0, 0.5]  # top 3 -> 6 (2026-11-26): subplot titles clear the section bar
 - id: d
   key: ex_rplus_learner
   title: Example R+ learner
@@ -182,7 +186,7 @@ panels:
     interpolated in time onto whisker trials. Ticks, whisker trials with (top) or without (bottom) a lick.'
   cell:
     x_mm: 59.0
-    y_mm: 49.0
+    y_mm: 53.7
     w_mm: 62.0
     h_mm: 39.0
 - id: e
@@ -195,7 +199,7 @@ panels:
   caption: As in D for an R- learner ({mouse_id}; {n_whisker_trials} whisker trials).
   cell:
     x_mm: 123.0
-    y_mm: 49.0
+    y_mm: 53.7
     w_mm: 60.0
     h_mm: 39.0
 - id: f
@@ -208,7 +212,7 @@ panels:
   params:
     alignment: first whisker hit  # user 2026-11-17, one panel letter per alignment
     rest: user 2026-11-22, the first-whisker-trial alignment and the hit-aligned session panel were removed
-  caption: 'Learner mice, whisker day 0 (last 15% of each session cut, see G), aligned to the first whisker hit: lick
+  caption: 'Learner mice, whisker day 0 (last 10% of each session cut), aligned to the first whisker hit: lick
     probability on whisker (cohort colours), no-stimulus (false alarms; black for R+, grey for R-) and auditory trials
     (blue, lighter for R-), each trial type on its own trials (trial 0, the first trial of the type at or after the first
     whisker hit; negative, the trials of the type before it): per-mouse lick fraction in bins of 5 trials (-10 to -6, -5 to -1,
@@ -220,7 +224,7 @@ panels:
     learner mice.'
   cell:
     x_mm: 0.0
-    y_mm: 93.0
+    y_mm: 99.4
     w_mm: 90.5
     h_mm: 36.5
     margins_mm: [9.0, 7.5, 6.0, 0.5]
@@ -230,19 +234,19 @@ panels:
   data: Fig1_perf_trial.csv
   status: filled
   calls:
-  - compute.compute_perf_session (session cut at 85% of the time from the first to the last whisker trial; exact curves refitted on the cut session)
+  - compute.compute_perf_session (session cut at 90% of the time from the first to the last whisker trial, shared_behaviour DAY0_KEEP; exact curves refitted on the cut session)
   params:
-    session_end: 'user 2026-11-17: the last 15% of each session (time from the first to the last whisker trial) is cut; the last kept trial is the session end (normalised time 1)'
+    session_end: 'user 2026-11-26 (was 15% on G-J only, 2026-11-17): the last 10% of each session (time from the first to the last whisker trial) is cut; the last kept trial is the session end (normalised time 1)'
     x: session time normalised from the first whisker trial (0) to the session end (1)
   caption: 'Learner mice, whisker day 0, session time normalised from the first whisker trial (0) to the session end (1;
-    the last 15% of each session, from the first to the last whisker trial, is cut, when mice disengage). Left and
+    the last 10% of each session, from the first to the last whisker trial, is cut, when mice disengage). Left and
     middle, learning curves (as in D, E, refitted on the cut session) of whisker (cohort colour), no-stimulus (chance;
     black, grey) and auditory trials (blue) on whisker trials, R+ (left) and R- (middle); right, performance (whisker
     minus chance), both cohorts. Mean ± s.e.m. over mice. Bar, time bins where the cohorts differ (cluster-based permutation test of cohort labels on Welch t, 1,000
     permutations, cluster P < 0.05): {sig_clusters_text}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 93.0
-    y_mm: 93.0
+    y_mm: 99.4
     w_mm: 90.0
     h_mm: 36.5
     margins_mm: [9.0, 7.5, 6.0, 0.5]
@@ -268,7 +272,7 @@ panels:
     2026-11-12).'
   cell:
     x_mm: 0.0
-    y_mm: 135.0
+    y_mm: 142.6
     w_mm: 22.0
     h_mm: 44.0
     margins_mm: [9.0, 6.0, 3.0, 0.5]
@@ -308,7 +312,7 @@ panels:
     n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 24.0
-    y_mm: 135.0
+    y_mm: 142.6
     w_mm: 32.0
     h_mm: 44.0
     margins_mm: [9.0, 6.0, 3.0, 0.5]
@@ -341,7 +345,7 @@ panels:
     Welch {stats_rho.whisker_trial.rplus_vs_rminus.welch_p:p}. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 58.0
-    y_mm: 135.0
+    y_mm: 142.6
     w_mm: 34.0
     h_mm: 44.0
     margins_mm: [9.0, 6.0, 3.0, 0.5]
@@ -374,7 +378,7 @@ panels:
     accuracy of the model are in Supplementary Fig. 1. n = {n.R+.mice} R+ and {n.R-.mice} R- learner mice.'
   cell:
     x_mm: 94.0
-    y_mm: 135.0
+    y_mm: 142.6
     w_mm: 89.0
     h_mm: 44.0
     margins_mm: [15.0, 6.0, 5.0, 5.0]

@@ -45,7 +45,8 @@ from glm_v5_compare import run_mean_feature  # noqa: E402
 import os  # noqa: E402
 
 # pilot runs: GLM_V7_OUT=glm_v7_pilot (read at import, so the parent and the workers agree)
-OUT = CACHE_DIR / os.environ.get("GLM_V7_OUT", "glm_v7")
+# SSL_DAY0_KEEP (user 2026-11-25, _alt): whisker trials after first + keep x (last - first) dropped, out glm_v7_keepNN
+OUT = CACHE_DIR / (os.environ.get("GLM_V7_OUT", "glm_v7") + shared_behaviour.CUT_TAG)
 DESIGN = OUT / "_design"
 ALPHA_GRID = np.logspace(-1, 5, 13)
 RT_MIN_HITS = 20
@@ -121,6 +122,9 @@ def stage_a(mouse, cohort, nwb, src, rt_table):
     if loaded is None:  # not whisker day 0
         return None, None
     X, y, t, names = loaded
+    if shared_behaviour.DAY0_KEEP:  # predictors are causal, so cutting the tail leaves the kept rows unchanged
+        k = t <= t.min() + shared_behaviour.DAY0_KEEP * (t.max() - t.min())
+        X, y, t = X[k], y[k], t[k]
     DESIGN.mkdir(parents=True, exist_ok=True)
     np.savez(DESIGN / f"{Path(nwb).stem}.npz", X=X, y=y, t=t, names=np.array(names, dtype=object))
     _patch()

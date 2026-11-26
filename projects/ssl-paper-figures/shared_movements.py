@@ -117,7 +117,7 @@ def _one_session(args):
 
 
 def build(n_workers=16):
-    table = shared_behaviour.load()
+    table = shared_behaviour._load()  # uncut: load() applies SSL_DAY0_KEEP
     ref = pd.read_excel(REFERENCE_SHEET)
     dual = set(ref[ref.with_dual_view == 1].mouse_id)
     d0 = table[(table.behavior == "whisker") & (table.day == 0) & (table.trial_type == "whisker_trial")
@@ -130,6 +130,13 @@ def build(n_workers=16):
 
 
 def load(rebuild=False):
+    df = _load(rebuild)
+    if shared_behaviour.DAY0_KEEP:  # SSL_DAY0_KEEP (user 2026-11-25): per-trial table, cut on load
+        df = shared_behaviour.cut_day0(df, shared_behaviour.day0_end_times(shared_behaviour._load()))
+    return df
+
+
+def _load(rebuild=False):
     if CACHE_FILE.exists() and not rebuild:
         return load_cache(CACHE_FILE, "movements table " + CACHE_FILE.name)
     nwbs = nwb_fingerprint()  # before reading the files

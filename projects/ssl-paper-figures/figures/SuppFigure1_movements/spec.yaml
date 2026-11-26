@@ -16,7 +16,7 @@ grid:
 caption:
   title: 'Evoked movements on every trial type and outcome of whisker day 0, aligned to the stimulus and to the first lick.'
   footer: Learner mice with dual-view video (DeepLabCut, ephys_utilities dlc_helpers). Trials with perf = 6 and passive trials
-    are excluded; on whisker day 0 the auditory warm-up block is removed except its last trial; early-lick trials are
+    are excluded; on whisker day 0 the auditory warm-up block is removed except its last trial; the last 10% of each whisker day-0 session (time from the first to the last whisker trial), when mice disengage, is cut for all panels; early-lick trials are
     excluded. Each trial minus its pre-stimulus mean (also for lick-aligned traces), mean over trials per
     session and over sessions per mouse; mean ± s.e.m. over mice. Columns, stimulus-aligned whisker, auditory and no-stimulus trials with a
     lick (solid; hits, false alarms) or without (dashed; misses, correct rejections), then licked trials aligned to the
