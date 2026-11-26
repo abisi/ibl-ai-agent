@@ -94,6 +94,20 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
   helpers: `projects/ssl-paper-figures/paperstyle.py` (canonical); paths, external-repo imports, provenance and the
   R+ vs R- test pair: `projects/ssl-paper-figures/common.py`. Worked example (dummy figure, 14 behaviour panels):
   `projects/ssl-paper-figures/figures/Example_behaviour/`.
+- **Section titles** (user rule, 2026-11-25): a figure made of several row blocks (e.g. whole brain / areas / learning)
+  gets one short title per block, centred, spanning the full figure width, in a light grey box (`0.92` fill, no
+  edge, 6.5 pt). Declared in the spec as `sections: [{title, y_mm[, h_mm]}]` (planner coordinates, box 3.2 mm tall by
+  default -- user 2026-11-26: thin bar, was 4.5) and drawn by `build.py figure_sections()`; the block's first row of
+  panels starts 1.5 mm below the bar, and the previous block ends 2 mm above the next bar (user 2026-11-26: tight
+  white space between sections).
+  The title states the block's finding or question in a few words, not a method.
+- **Panel headings aligned with the panel** (user rule, 2026-11-25): a panel's `heading` starts at the left edge of
+  its axes (cell `x_mm` + left margin), not right after the letter, which stays at the cell's top-left corner.
+  `build.py panel_heading()` does this from the cell's `margins_mm` (order: left, bottom, top, right).
+- **Firing rates in spks/s, never Hz** (user rule, 2026-11-26): every axis label, colour-bar label, legend and panel
+  text that shows a firing rate (or a change of one) writes the unit as "spks/s", e.g. "Evoked rate (spks/s)",
+  "Baseline change (spks/s)"; captions write "spikes/s". "Hz" stays only for true frequencies (camera, stimulus,
+  oscillations).
 
 ## Generation note (`<FigureN_topic>.md`, in the snapshot)
 Header: figure message, build date, machine, ibl-ai-agent commit, commit (+ dirty flag) of every imported repo, key

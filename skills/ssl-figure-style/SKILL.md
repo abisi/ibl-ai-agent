@@ -57,6 +57,10 @@ description: Use this skill whenever making publication, abstract (e.g. COSYNE),
    - Maps and heatmaps: CCF maps have a white background and grey Allen contours (not a grey reference image),
      single-hue colormaps for levels (white → cohort colour) and a diverging colormap for differences. Decoding
      accuracy heatmaps use `magma` (dark = low).
+   - **Every colour map shows its units** (user 2026-11-26): each colour bar (or colour legend) is labelled with the
+     quantity and its units, e.g. "Δ rate (spks/s)", "Accuracy (fraction correct)". A normalised quantity states what it
+     is divided by, e.g. "Δ rate (fraction of peak)", "z-score (s.d. of baseline)"; never a bare "Normalised rate" or
+     "a.u." without the normaliser. Firing rates are written in spks/s, never Hz (ssl-paper-figures).
 8. **Area names** (user, 2026-10-13 / 10-15): somatosensory area groups are written `Ss-orofacial`, `Ss-whisker`,
    `Ss-body` (from `Somatosensory-orofacial` / `-whisker` / `-body`), never "S1 orofacial", "S1 whisker", "S1-whisker",
    "SS-whisker" or "wS1" for the group. They are area groups, not single Allen areas, so "S1" is wrong. Fine areas keep
