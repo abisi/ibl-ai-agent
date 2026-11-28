@@ -62,7 +62,7 @@ def import_external_repos():
 
 
 def load_spec(figure_dir):
-    return yaml.safe_load(open(Path(figure_dir) / "spec.yaml"))
+    return yaml.safe_load(open(Path(figure_dir) / "spec.yaml", encoding="utf-8"))
 
 
 def snapshot_dir(spec, date=None):
@@ -119,9 +119,10 @@ def format_p(p):
     return f"*P* = {mantissa} × 10{str(int(exponent)).translate(SUPERSCRIPT)}"
 
 
-def fill_caption(template, meta):
+def fill_caption(template, meta, keep_layout=False):
     """Replace {dotted.path[:fmt]} fields with values from a panel's run meta. fmt is a format spec ('d', '.2f') or 'p'
-    for a P value. Missing fields stay visible as [?path] so they are caught at review."""
+    for a P value. Missing fields stay visible as [?path] so they are caught at review. keep_layout: keep the line
+    breaks (methods markdown) instead of joining the template into one line."""
     def field(match):
         value = meta
         for key in match.group(1).strip().split("."):
@@ -132,7 +133,7 @@ def fill_caption(template, meta):
         if fmt == "p":
             return format_p(value)
         return format(value, fmt) if fmt else str(value)
-    return CAPTION_FIELD.sub(field, " ".join(template.split()))
+    return CAPTION_FIELD.sub(field, template if keep_layout else " ".join(template.split()))
 
 
 def write_caption(spec, meta, path):
@@ -147,3 +148,19 @@ def write_caption(spec, meta, path):
         parts.append(fill_caption(caption["footer"], shared))
     text = f"# {spec['figure']} -- caption (draft, generated)\n\n" + " ".join(parts) + "\n"
     path.write_text(text, encoding="utf-8")
+
+
+def write_methods(fig_dir, meta, path, reproduction):
+    """Methods section for independent reproduction (skill ssl-figure-methods, user 2026-11-27): the figure's methods.md
+    template with {panel.path[:fmt]} fields filled from the run meta (top-level keys = panel letters), then the
+    Reproduction block (markdown lines). Returns the unfilled fields; no template -> nothing written, None."""
+    template = Path(fig_dir) / "methods.md"
+    if not template.exists():
+        return None
+    text = fill_caption(template.read_text(encoding="utf-8"), meta, keep_layout=True).rstrip()
+    extra = "\n\n## Reproduction\n\n" + "\n".join(reproduction) if reproduction else ""
+    path.write_text(text + extra + "\n", encoding="utf-8")
+    missing = sorted(set(re.findall(r"\[\?[^\]]+\]", text)))
+    if missing:
+        print("methods: unfilled fields", missing)
+    return missing

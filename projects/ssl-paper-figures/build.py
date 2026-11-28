@@ -17,7 +17,9 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from common import EXTERNAL_REPOS, FIGURES_ROOT, REPO, environment, load_spec, repo_state, snapshot_dir, write_caption  # noqa: E402
+from common import (EXTERNAL_REPOS, FIGURES_ROOT, REPO, environment, load_spec, repo_state, snapshot_dir,  # noqa: E402
+                    write_caption, write_methods)
+import latex_docs  # noqa: E402
 from paperstyle import PaperGrid, save_figure, set_nature_rc, write_source_data  # noqa: E402
 
 BEHAVIOUR_FILES = ["behavior_analysis_utils.py", "learning_utils.py"]
@@ -181,7 +183,13 @@ def generation_note(spec, out, grid, files, fig_dir):
         if csv.exists():
             lines.append(f"- columns: {', '.join(pd.read_csv(csv, nrows=0).columns)}")
         lines.append("")
-    (out / f"{spec['figure']}.md").write_text("\n".join(lines))
+    (out / f"{spec['figure']}.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def write_figure_methods(spec, path, fig_dir, meta_file):
+    """Filled methods markdown (LaTeX source of <Figure>_methods) from figures/<Figure>/methods.md (skill
+    ssl-figure-methods). No code-provenance block (user 2026-11-27): commits and environment stay in the generation note."""
+    return write_methods(fig_dir, json.load(open(meta_file)) if meta_file.exists() else {}, path, None)
 
 
 def build(fig_dir, date=None):
@@ -194,7 +202,22 @@ def build(fig_dir, date=None):
         write_source_data(out / "data", out / f"{spec['figure']}_source_data.xlsx")
     generation_note(spec, out, grid, files, fig_dir)
     meta_file = out / "_build" / "panel_meta.json"
-    write_caption(spec, json.load(open(meta_file)) if meta_file.exists() else {}, out / f"{spec['figure']}_caption.md")
+    meta = json.load(open(meta_file)) if meta_file.exists() else {}
+    layout = latex_docs.figure_layout(grid, spec)
+    (out / "_build").mkdir(exist_ok=True)
+    json.dump(layout, open(out / "_build" / "figure_layout.json", "w"), indent=1)
+    methods_src = out / "_build" / f"{spec['figure']}_methods_src.md"
+    write_figure_methods(spec, methods_src, fig_dir, meta_file)
+    # user 2026-11-28: caption and methods .md / .pdf generated from LaTeX, plus <F>_full.pdf (figure + caption + methods,
+    # hyperref / cleveref cross-references)
+    if latex_docs.available():
+        figure_pdf = next(f for f in files if f.suffix == ".pdf")  # a timestamped copy when the PDF is open in a viewer
+        latex_docs.build_docs(spec, out, meta, layout,
+                              methods_src.read_text(encoding="utf-8") if methods_src.exists() else None, figure_pdf)
+    else:
+        write_caption(spec, meta, out / "_build" / f"{spec['figure']}_caption_src.md")
+        print("warning: no Pandoc / LaTeX here (haas): caption and methods not built; run locally:\n"
+              f"    python latex_docs.py {fig_dir} {out}")
     print(out, f"height {grid.figure_height_mm():.0f} mm")
 
 

@@ -64,6 +64,7 @@ class PaperGrid:
         self.page = page_mm
         self.fig = plt.figure(figsize=(page_mm[0] * MM, page_mm[1] * MM))
         self.bottom_mm = self.y0
+        self.letters = {}  # panel letter -> (x_mm, y_mm) of its top-left corner on the page (LaTeX panel anchors)
 
     def axes(self, row, col, nrows=1, ncols=1, letter=None):
         # positions and spans may be fractional (figure planner, quarter cells): a box starts and ends inside cells,
@@ -82,6 +83,7 @@ class PaperGrid:
         pw, ph = self.page
         ax = self.fig.add_axes([x / pw, 1 - (y + h) / ph, w / pw, h / ph])
         if letter:
+            self.letters[str(letter).lower()] = (x - self.col_gap + 1, y - 7)
             # same row -> same y; letter sits in the left padding, above the axes top
             self.fig.text((x - self.col_gap + 1) / pw, 1 - (y - 4) / ph, str(letter).upper(),
                           fontsize=8, fontweight="bold", va="bottom", ha="left")
@@ -100,6 +102,7 @@ class PaperGrid:
         ax_w, ax_h = w_mm - left - right, h_mm - top - bottom
         ax = self.fig.add_axes([(x + left) / pw, 1 - (y + top + ax_h) / ph, ax_w / pw, ax_h / ph])
         if letter:
+            self.letters[str(letter).lower()] = (x - 0.5, y)
             self.fig.text((x - 0.5) / pw, 1 - y / ph, str(letter).upper(), fontsize=8, fontweight="bold", va="top",
                           ha="left")
         return ax
