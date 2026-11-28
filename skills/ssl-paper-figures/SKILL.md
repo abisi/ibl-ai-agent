@@ -18,7 +18,7 @@ description: Use this skill to design and build the main and supplementary figur
 | Figure code: `spec.yaml`, `compute.py`, `plot.py` per figure; shared `build.py` (assembly, exports, note, caption), `paperstyle.py`, `common.py` | `projects/ssl-paper-figures/` in ibl-ai-agent (public fork; same copy on haas) | now |
 | Outputs, one dated snapshot per build | `M:\analysis\Axel_Bisi\manuscripts\Bisi_Hamon\Figures\<FigureN_topic>_<YYYY-MM-DD>\` (`/mnt/lsens-analysis/Axel_Bisi/manuscripts/Bisi_Hamon/Figures/` on haas; resolve with `scripts/axel_bisi_paths.py`) | now |
 | Shared caches (e.g. behaviour table over all NWBs) | `.../Bisi_Hamon/Figures/_cache/` | now |
-| Clean standalone repo: NWB -> intermediate data -> analyses -> figures | new repo | at submission only |
+| Clean standalone repo: NWB -> intermediate data -> analyses -> figures | new repo | later, once figures are approved; plan in `references/clean_code_repo_plan.md` |
 
 Figures are named `Figure<N>_<topic>` and `SuppFigure<N>_<topic>` (e.g. `Figure1_behaviour`). A rebuild on the same
 day overwrites that day's snapshot; older snapshots are never edited (hand edits from Figma go elsewhere, e.g.
@@ -27,7 +27,10 @@ day overwrites that day's snapshot; older snapshots are never edited (hand edits
 Figure1_behaviour_2026-10-30/
   Figure1_behaviour.pdf .svg .ai .eps .png .jpg  # A4 page, figure block at final Nature size, editable text
   Figure1_behaviour.md                       # generation note (see below)
-  Figure1_behaviour_caption.md               # figure legend draft, n and statistics filled in (see below)
+  Figure1_behaviour_caption.md / .pdf         # figure legend draft, n and statistics filled in; LaTeX-generated (see below)
+  Figure1_behaviour_methods.md / .pdf         # methods for independent reproduction (skill ssl-figure-methods); LaTeX-generated
+  Figure1_behaviour_full.pdf                  # figure + caption + methods in one PDF, hyperref / cleveref cross-references
+  _build/latex/*.tex                          # the LaTeX sources of the three PDFs (the .md are converted from them)
   Figure1_source_data.xlsx                   # Nature source data, one sheet per panel
   data/Fig1a_<name>.csv ...                  # one tidy CSV per panel = exactly what is plotted
 ```
@@ -48,7 +51,9 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
    re-render, and show the user before moving on. Set the panel's `status` to `filled`, then `approved` once the user
    accepts it. Commit and push the figure code at each filled panel.
    Write the panel's `caption` in the spec at the same time as its plot.
-3. **Snapshot.** Run the quality gates, write the generation note and the caption draft, export all formats and the
+   Write or update the panel's paragraph in `figures/<FigureN_topic>/methods.md` at the same time (skill
+   `ssl-figure-methods`).
+3. **Snapshot.** Run the quality gates, write the generation note, the caption draft and the methods, export all formats and the
    source-data workbook into the dated snapshot folder.
 
 ## Panel-to-analysis mapping (three layers)
@@ -96,11 +101,15 @@ generation note stay in the snapshot on the NAS. `.gitignore` tracks `projects/s
   `projects/ssl-paper-figures/figures/Example_behaviour/`.
 - **Section titles** (user rule, 2026-11-25): a figure made of several row blocks (e.g. whole brain / areas / learning)
   gets one short title per block, centred, spanning the full figure width, in a light grey box (`0.92` fill, no
-  edge, 6.5 pt). Declared in the spec as `sections: [{title, y_mm[, h_mm]}]` (planner coordinates, box 3.2 mm tall by
+  edge, 6.5 pt). Declared in the spec as `sections: [{title, y_mm[, h_mm]}]` (planner coordinates, box 3.0 mm tall by
   default -- user 2026-11-26: thin bar, was 4.5) and drawn by `build.py figure_sections()`; the block's first row of
-  panels starts 1.5 mm below the bar, and the previous block ends 2 mm above the next bar (user 2026-11-26: tight
-  white space between sections).
+  panels starts 1 mm below the bar, and the previous block ends 1 mm above the next bar (user 2026-11-26: tighter, was
+  1.5 / 2 mm). The panels' own bottom margins (axis labels) already separate the blocks; no extra white band.
   The title states the block's finding or question in a few words, not a method.
+- **Panel headings explicit but short** (user rule, 2026-11-26): a panel's `heading` names what is measured and, when
+  relevant, the comparison, in about 3-6 words, e.g. "Baseline rate change", "Evoked responses, pre vs post",
+  "Cohort × stimulus interaction", "Effect vs choice coding, per area" -- not a bare noun ("Baseline", "Pupil",
+  "Interaction") and not a sentence, a result or a method.
 - **Panel headings aligned with the panel** (user rule, 2026-11-25): a panel's `heading` starts at the left edge of
   its axes (cell `x_mm` + left margin), not right after the letter, which stays at the cell's top-left corner.
   `build.py panel_heading()` does this from the cell's `margins_mm` (order: left, bottom, top, right).
@@ -117,12 +126,30 @@ function and repo; parameters; data scope (cohorts, population scope, stage, tri
 parametric unpaired test for R+ vs R-, correction, exact p); CSV name and columns.
 
 ## Caption (`<FigureN_topic>_caption.md`, in the snapshot)
-A Nature-style legend draft, deliberately exhaustive so the user can cut it down: `**Fig. N | Title.**` then
-`**A**, ...` for every panel, then a footer with the shared methods (trial exclusions, cohort definition, colours,
-error bars, tests, multiple-comparison handling). Written by `common.write_caption` from the spec:
+**LaTeX-generated** (user rule 2026-11-28): the caption and methods `.md` and `.pdf` both come from LaTeX, and the
+snapshot also holds `<Figure>_full.pdf` = figure + caption + methods. `build.py` calls `latex_docs.build_docs`:
+spec captions and the filled methods template -> LaTeX fragments (Pandoc) -> three XeLaTeX documents (latexmk; Arial,
+A4): `_full` (figure cropped to its rows, one invisible anchor per panel letter, legend, Methods), `_caption` and
+`_methods` (each alone; labels of the other parts through xr-hyper, links open `_full.pdf`). The `.md` files are
+Pandoc conversions of the same LaTeX, every reference resolved from the full document's `.aux`.
+- Cross-references use `hyperref` + `cleveref` (`\cref`): "panel B", "panels B, D-J", "Panel F:" and "As f," are
+  linked to the panel in the figure automatically; the caption's panel letters link to the panel's methods paragraph
+  (a methods line starting `**B**`); "details in Methods" links to the Methods. Equations: `\begin{equation} ...
+  \label{eq:name} \end{equation}` in the template, cited `\cref{eq:name}`; tables: Pandoc pipe table with caption
+  `Table: text \label{tab:name}`, cited `\cref{tab:name}`; the figure: `\cref{fig:main}`. Raw LaTeX passes through
+  the markdown templates. Check the build output: undefined references and glyphs missing from Arial are printed.
+- Toolchain: Pandoc (Quarto's bundled one) + TinyTeX (`quarto install tinytex`), present on the PC, not on haas. On
+  haas `build.py` skips this step with a warning; then run locally
+  `python projects/ssl-paper-figures/latex_docs.py figures/<Figure> <snapshot_dir>`.
+- A figure taller than A4 needs `grid: page_mm: [210, H]` in the spec, otherwise its lower rows fall off the page.
+A concise Nature-style legend (user rule 2026-11-27: "way too long", match what papers show): `**Fig. N | Title.**`
+then `**A**, ...` per panel, then a short footer (learner definition, cohort colours, error bars, test pair, star code,
+"details in Methods"). Written by `common.write_caption` from the spec:
 - `caption.title` and `caption.footer` at figure level, `caption` per panel (YAML folded block `>-`).
-- Each panel caption says what is plotted (axes, measure, unit of analysis, what dots/lines/shading are), the
-  analysis and its parameters in words, n per group, and the test with its statistic and exact P.
+- Each panel caption: one or two sentences on what is plotted (measure, alignment, what lines / shading / bars mark),
+  the main test(s) with exact P (R+ versus R-: Mann-Whitney and Welch both), and n per group. Typically 30-80 words.
+  No algorithms, windows, bin edges, permutation counts, secondary tests or history: those go in the methods
+  (`ssl-figure-methods`). Long lists of significant bins / clusters are replaced by the marks on the plot.
 - Numbers are never typed: `{path[:fmt]}` fields are filled from the panel's run meta (`_build/panel_meta.json`;
   `_shared` fields available everywhere), e.g. `{n.R+.mice}`, `{stats.welch_t:.2f}`, `{stats.mannwhitney_p:p}`
   (`:p` writes `*P* = 0.025` or `*P* = 9.9 × 10⁻⁴`). An unknown field prints `[?path]`; a panel without caption
